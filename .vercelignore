@@ -5,6 +5,7 @@ test-results
 playwright-report
 fade-treasury
 .env*
+!.env.example
 scripts/capture-preview.mjs
 
 deferred
