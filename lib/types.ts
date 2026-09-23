@@ -56,7 +56,7 @@ export const quoteStatuses = [
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export interface Quote extends Omit<Project, "status" | "contractPrice"> {
   status: QuoteStatus;
-  /** Linked sales lead; required for new quotes in the UI. */
+  /** Optional linked sales lead. */
   leadId?: string;
   /** When status first became Declined or Expired. */
   outcomeAt?: string;

@@ -264,11 +264,8 @@ export function EntityForm({
                   <select
                     name="leadId"
                     defaultValue={(project as Quote | undefined)?.leadId || ""}
-                    required={!entity}
                   >
-                    <option value="">
-                      {entity ? "No linked lead" : "Choose a lead"}
-                    </option>
+                    <option value="">No linked lead</option>
                     {workspace.leads
                       .slice()
                       .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
