@@ -11,9 +11,21 @@ import {
   Phone,
   UserRound,
 } from "lucide-react";
-import type { Contact, Lead } from "@/lib/types";
+import {
+  leadApprovalStates,
+  leadDispositions,
+  leadStages,
+  type Contact,
+  type Lead,
+  type LeadApprovalState,
+  type LeadDisposition,
+  type LeadStage,
+} from "@/lib/types";
+import { leadDisposition } from "@/lib/leads";
 import { workToday } from "@/lib/work";
 import { Modal } from "./ui";
+
+type LeadFilter = "Active" | "All" | LeadDisposition;
 
 export default function LeadsPanel({
   leads,
@@ -32,23 +44,70 @@ export default function LeadsPanel({
   const [scheduling, setScheduling] = useState<Lead | null>(null);
   const [saving, setSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [filter, setFilter] = useState<LeadFilter>("Active");
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+
   const visible = useMemo(
     () =>
       leads
         .filter((lead) => {
+          const disposition = leadDisposition(lead);
+          if (filter === "Active") {
+            if (disposition !== "Active") return false;
+          } else if (filter !== "All" && disposition !== filter) return false;
           const contact = contacts.find((item) => item.id === lead.contactId);
-          return `${lead.name} ${lead.project} ${lead.projectDescription} ${contact?.email || ""} ${contact?.phone || ""} ${contact?.address || ""}`
+          return `${lead.name} ${lead.project} ${lead.projectDescription} ${lead.status} ${disposition} ${contact?.email || ""} ${contact?.phone || ""} ${contact?.address || ""}`
             .toLowerCase()
             .includes(search.trim().toLowerCase());
         })
         .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
-    [contacts, leads, search],
+    [contacts, filter, leads, search],
   );
   const selected =
     visible.find((lead) => lead.id === selectedId) || visible[0] || null;
   const contact = selected
     ? contacts.find((item) => item.id === selected.contactId) || null
     : null;
+  const activeCount = leads.filter(
+    (lead) => leadDisposition(lead) === "Active",
+  ).length;
+
+  async function patchLead(lead: Lead, patch: Record<string, unknown>) {
+    setSaving(true);
+    setActionError("");
+    try {
+      await onSaveLead(
+        {
+          ...lead,
+          disposition: leadDisposition(lead),
+          notes: lead.notes || "",
+          nextAction: lead.nextAction || "",
+          nextActionDue: lead.nextActionDue || "",
+          draftReply: lead.draftReply || "",
+          approvalState: lead.approvalState || "none",
+          ...patch,
+        },
+        lead,
+      );
+      setSelectedId(lead.id);
+      if (typeof patch.disposition === "string") {
+        const next = patch.disposition as LeadDisposition;
+        if (
+          filter === "Active"
+            ? next !== "Active"
+            : filter !== "All" && filter !== next
+        )
+          setFilter("All");
+      }
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Could not update this lead.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <>
@@ -58,25 +117,59 @@ export default function LeadsPanel({
           <h1>
             Leads<span className="heading-dot">.</span>
           </h1>
-          <p>Website inquiries and the contact details needed to follow up.</p>
+          <p>
+            Website inquiries through quote-sent. Disposition exits the funnel;
+            stages track close rate.
+          </p>
         </div>
-        <div className="leads-total" aria-label={`${leads.length} leads`}>
+        <div className="leads-total" aria-label={`${activeCount} active leads`}>
           <Inbox size={18} aria-hidden="true" />
-          <span>New leads</span>
-          <strong>{leads.length.toString().padStart(2, "0")}</strong>
+          <span>Active leads</span>
+          <strong>{activeCount.toString().padStart(2, "0")}</strong>
         </div>
       </div>
       {demo && <span className="sample-data-label">SAMPLE DATA</span>}
+      <div className="filter-tabs lead-filters" aria-label="Filter leads">
+        {(
+          [
+            "Active",
+            "All",
+            "Archive",
+            "Junk",
+            "Spam",
+            "Test",
+          ] as LeadFilter[]
+        ).map((item) => (
+          <button
+            key={item}
+            className={item === filter ? "active" : ""}
+            aria-pressed={item === filter}
+            onClick={() => setFilter(item)}
+          >
+            {item}
+            <span>
+              {item === "All"
+                ? leads.length
+                : item === "Active"
+                  ? activeCount
+                  : leads.filter((lead) => leadDisposition(lead) === item)
+                      .length}
+            </span>
+          </button>
+        ))}
+      </div>
       {!visible.length ? (
         <div className="empty leads-empty">
           <span className="empty-icon">
             <Inbox size={25} />
           </span>
-          <h3>{search ? "No matching leads" : "No website leads yet"}</h3>
+          <h3>{search ? "No matching leads" : "No leads in this view"}</h3>
           <p>
             {search
               ? "Try another name, project, email, phone number, or address."
-              : "New consultation requests from premiumremodel.com will appear here automatically."}
+              : filter === "Active"
+                ? "Active funnel leads appear here. Use All or Junk/Test to find disposed items."
+                : "No leads match this disposition filter."}
           </p>
         </div>
       ) : (
@@ -90,6 +183,7 @@ export default function LeadsPanel({
               const leadContact = contacts.find(
                 (item) => item.id === lead.contactId,
               );
+              const disposition = leadDisposition(lead);
               return (
                 <button
                   key={lead.id}
@@ -106,6 +200,7 @@ export default function LeadsPanel({
                     </span>
                     <span>{lead.project}</span>
                     <small>
+                      {disposition !== "Active" ? `${disposition} · ` : ""}
                       {new Date(lead.submittedAt).toLocaleString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -148,6 +243,200 @@ export default function LeadsPanel({
                   </button>
                 </div>
               </header>
+              <section className="lead-ops-card" aria-label="Lead lifecycle">
+                <div className="form-row three">
+                  <label>
+                    Stage
+                    <select
+                      value={selected.status}
+                      disabled={saving}
+                      onChange={(event) =>
+                        void patchLead(selected, {
+                          status: event.target.value as LeadStage,
+                        })
+                      }
+                    >
+                      {leadStages.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {stage}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Disposition
+                    <select
+                      value={leadDisposition(selected)}
+                      disabled={saving}
+                      onChange={(event) =>
+                        void patchLead(selected, {
+                          disposition: event.target
+                            .value as LeadDisposition,
+                        })
+                      }
+                    >
+                      {leadDispositions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Approval
+                    <select
+                      value={selected.approvalState || "none"}
+                      disabled={saving}
+                      onChange={(event) =>
+                        void patchLead(selected, {
+                          approvalState: event.target
+                            .value as LeadApprovalState,
+                        })
+                      }
+                    >
+                      {leadApprovalStates.map((state) => (
+                        <option key={state} value={state}>
+                          {state === "awaiting_matthew"
+                            ? "Awaiting Matthew"
+                            : state === "none"
+                              ? "None"
+                              : state[0].toUpperCase() + state.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="form-row two">
+                  <label>
+                    Next action
+                    <input
+                      disabled={saving}
+                      maxLength={250}
+                      placeholder="Call homeowner, send follow-up…"
+                      defaultValue={selected.nextAction || ""}
+                      key={`${selected.id}-next-action-${selected.updatedAt}`}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        if (value === (selected.nextAction || "")) return;
+                        void patchLead(selected, { nextAction: value });
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Due
+                    <input
+                      type="date"
+                      disabled={saving}
+                      defaultValue={selected.nextActionDue || ""}
+                      key={`${selected.id}-next-due-${selected.updatedAt}`}
+                      onBlur={(event) => {
+                        const value = event.target.value;
+                        if (value === (selected.nextActionDue || "")) return;
+                        void patchLead(selected, { nextActionDue: value });
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="lead-disposition-actions">
+                  {(["Archive", "Junk", "Spam", "Test"] as const).map(
+                    (item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="button secondary small-button"
+                        disabled={saving || leadDisposition(selected) === item}
+                        onClick={() =>
+                          void patchLead(selected, { disposition: item })
+                        }
+                      >
+                        Mark {item}
+                      </button>
+                    ),
+                  )}
+                  {leadDisposition(selected) !== "Active" && (
+                    <button
+                      type="button"
+                      className="button primary small-button"
+                      disabled={saving}
+                      onClick={() =>
+                        void patchLead(selected, { disposition: "Active" })
+                      }
+                    >
+                      Restore Active
+                    </button>
+                  )}
+                </div>
+                <label>
+                  Notes
+                  <textarea
+                    rows={3}
+                    maxLength={15000}
+                    disabled={saving}
+                    value={
+                      notesDraft[selected.id] ?? selected.notes ?? ""
+                    }
+                    onChange={(event) =>
+                      setNotesDraft((current) => ({
+                        ...current,
+                        [selected.id]: event.target.value,
+                      }))
+                    }
+                    onBlur={() => {
+                      const value = (
+                        notesDraft[selected.id] ??
+                        selected.notes ??
+                        ""
+                      ).trim();
+                      if (value === (selected.notes || "")) return;
+                      void patchLead(selected, { notes: value });
+                    }}
+                    placeholder="Operator notes, disposition context, follow-up detail."
+                  />
+                </label>
+                <label>
+                  Draft reply
+                  <textarea
+                    rows={3}
+                    maxLength={15000}
+                    disabled={saving}
+                    defaultValue={selected.draftReply || ""}
+                    key={`${selected.id}-draft-${selected.updatedAt}`}
+                    onBlur={(event) => {
+                      const value = event.target.value.trim();
+                      if (value === (selected.draftReply || "")) return;
+                      void patchLead(selected, { draftReply: value });
+                    }}
+                    placeholder="Optional draft for Matthew approval."
+                  />
+                </label>
+                {actionError && (
+                  <div className="alert" role="alert">
+                    {actionError}
+                  </div>
+                )}
+                {!!selected.dispositionHistory?.length && (
+                  <p className="lead-consultation-note">
+                    Last disposition:{" "}
+                    {
+                      selected.dispositionHistory[
+                        selected.dispositionHistory.length - 1
+                      ].from
+                    }{" "}
+                    →{" "}
+                    {
+                      selected.dispositionHistory[
+                        selected.dispositionHistory.length - 1
+                      ].to
+                    }{" "}
+                    by{" "}
+                    {
+                      selected.dispositionHistory[
+                        selected.dispositionHistory.length - 1
+                      ].byName
+                    }
+                  </p>
+                )}
+              </section>
               <section className="lead-project-brief">
                 <span>PROJECT REQUEST</span>
                 <p>{selected.projectDescription}</p>
@@ -258,6 +547,7 @@ export default function LeadsPanel({
                 await onSaveLead(
                   {
                     ...scheduling,
+                    disposition: leadDisposition(scheduling),
                     quoteDate,
                     quoteStartTime,
                     quoteEndTime,

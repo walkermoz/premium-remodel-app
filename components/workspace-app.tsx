@@ -67,6 +67,11 @@ import {
   preserveScopeCosts,
 } from "@/lib/project-finances";
 import { acceptedQuote, preserveProjectHistory } from "@/lib/quotes";
+import {
+  leadDisposition,
+  leadPatchFromQuote,
+  withDispositionChange,
+} from "@/lib/leads";
 import QuotesPanel, { QuoteDetail } from "./quotes-panel";
 import { schemas } from "@/lib/schemas";
 import { Avatar, Badge, Empty, Loading, Modal } from "./ui";
@@ -417,12 +422,42 @@ export default function WorkspaceApp({
             data,
             existing as Project | Quote | undefined,
           );
+          if (kind === "quote") {
+            const prior = existing as Quote | undefined;
+            if (
+              data.status === "Sent" &&
+              prior?.status !== "Sent"
+            )
+              data.quoteSentAt = now;
+            if (
+              (data.status === "Declined" || data.status === "Expired") &&
+              prior?.status !== data.status
+            )
+              data.outcomeAt = now;
+          }
+        }
+        if (kind === "lead") {
+          const currentLead = (existing as Lead | undefined) || {
+            disposition: "Active",
+            dispositionHistory: [],
+          };
+          const nextDisposition =
+            (data.disposition as Lead["disposition"]) ||
+            leadDisposition(currentLead as Lead);
           if (
-            kind === "quote" &&
-            data.status === "Sent" &&
-            (existing as Quote | undefined)?.status !== "Sent"
-          )
-            data.quoteSentAt = now;
+            existing &&
+            nextDisposition !== leadDisposition(existing as Lead)
+          ) {
+            Object.assign(
+              data,
+              withDispositionChange(existing as Lead, nextDisposition, {
+                id: user.id,
+                name: user.name,
+              }),
+            );
+          } else {
+            data.disposition = nextDisposition;
+          }
         }
         if (kind === "activity") {
           const actor = demoActivityMembers(user).find(
@@ -492,9 +527,23 @@ export default function WorkspaceApp({
       }
       const collection = kindKey[kind];
       const current = workspaceRef.current;
+      let leads = current.leads;
+      if (demo && kind === "quote") {
+        const quote = entity as Quote;
+        if (quote.leadId) {
+          leads = current.leads.map((lead) => {
+            if (lead.id !== quote.leadId) return lead;
+            const patch = leadPatchFromQuote(lead, quote);
+            return patch
+              ? { ...lead, ...patch, updatedAt: new Date().toISOString() }
+              : lead;
+          });
+        }
+      }
       commit(
         {
           ...current,
+          leads,
           [collection]: existing
             ? (current[collection] as Entity[]).map((item) =>
                 item.id === existing.id ? entity : item,
@@ -579,6 +628,17 @@ export default function WorkspaceApp({
             project,
             ...current.projects.filter((item) => item.id !== project.id),
           ],
+          leads: quote.leadId
+            ? current.leads.map((lead) =>
+                lead.id === quote.leadId
+                  ? {
+                      ...lead,
+                      status: "Won" as const,
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : lead,
+              )
+            : current.leads,
         },
         true,
       );
@@ -646,6 +706,8 @@ export default function WorkspaceApp({
             project: data.project,
             projectDescription: data.projectDescription,
             status: "New",
+            disposition: "Active",
+            approvalState: "none",
             source: "Door knocking",
             submittedAt: now,
             canvasserId: user.id,

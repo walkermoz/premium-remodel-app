@@ -27,6 +27,13 @@ import { preserveScopeCosts } from "@/lib/project-finances";
 import { FILE_VALIDATION_VERSION } from "@/lib/file-policy";
 import type { Attachment } from "@/lib/types";
 import { preserveProjectHistory } from "@/lib/quotes";
+import {
+  leadDisposition,
+  leadPatchFromQuote,
+  withDispositionChange,
+} from "@/lib/leads";
+import { syncLeadStageFromQuote } from "@/lib/lead-records";
+import type { Lead } from "@/lib/types";
 import { preserveWorkSchedule } from "@/lib/work";
 import { projectDates } from "@/lib/project-timing";
 import { randomUUID } from "node:crypto";
@@ -153,8 +160,33 @@ async function save(request: Request, editing: boolean) {
     if (!parsed.success)
       throw new HttpError(400, parsed.error.issues[0].message);
     let data = parsed.data as Record<string, unknown>;
-    if (kind === "lead" && current && "discordNotification" in current)
-      data.discordNotification = current.discordNotification;
+    if (kind === "lead" && current) {
+      const currentLead = current as Lead;
+      for (const key of [
+        "discordNotification",
+        "leadWebhook",
+        "dispositionHistory",
+      ] as const) {
+        if (key in currentLead && !(key in data))
+          (data as Record<string, unknown>)[key] =
+            currentLead[key as keyof Lead];
+      }
+      const nextDisposition =
+        (data.disposition as Lead["disposition"]) ||
+        leadDisposition(currentLead);
+      const priorDisposition = leadDisposition(currentLead);
+      if (nextDisposition !== priorDisposition) {
+        Object.assign(
+          data,
+          withDispositionChange(currentLead, nextDisposition, {
+            id: user.id,
+            name: user.name,
+          }),
+        );
+      } else {
+        data.disposition = nextDisposition;
+      }
+    }
     if (kind === "project" && data.coverAttachmentId) {
       const cover = (await findRecord(
         user,
@@ -206,12 +238,24 @@ async function save(request: Request, editing: boolean) {
     }
     if (kind === "project" || kind === "quote") {
       data = preserveProjectHistory(data, current as Project | Quote | null);
-      if (
-        kind === "quote" &&
-        data.status === "Sent" &&
-        (current as Quote | null)?.status !== "Sent"
-      )
-        data.quoteSentAt = new Date().toISOString();
+      if (kind === "quote") {
+        const prior = current as Quote | null;
+        const leadId = String(data.leadId || prior?.leadId || "").trim();
+        if (leadId) {
+          data.leadId = leadId;
+          if (!(await findRecord(user, leadId, "lead")))
+            throw new HttpError(400, "Choose an existing lead for this quote.");
+        } else {
+          delete data.leadId;
+        }
+        if (data.status === "Sent" && prior?.status !== "Sent")
+          data.quoteSentAt = new Date().toISOString();
+        if (
+          (data.status === "Declined" || data.status === "Expired") &&
+          prior?.status !== data.status
+        )
+          data.outcomeAt = new Date().toISOString();
+      }
     }
     if (kind === "activity") {
       if (editing)
@@ -321,6 +365,23 @@ async function save(request: Request, editing: boolean) {
       entity: Record<string, unknown> | import("@/lib/types").Entity,
       status: number,
     ) => {
+      if (kind === "quote") {
+        const quote = entity as Quote;
+        if (quote.leadId) {
+          const linked = (await findRecord(
+            user,
+            quote.leadId,
+            "lead",
+          )) as Lead | null;
+          if (linked) {
+            await syncLeadStageFromQuote(
+              user,
+              quote.leadId,
+              leadPatchFromQuote(linked, quote),
+            );
+          }
+        }
+      }
       if (["project", "task", "lead", "contact"].includes(kind)) {
         const origin = appOrigin(request);
         after(() =>

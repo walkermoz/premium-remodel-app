@@ -5,6 +5,9 @@ import {
   quoteStatuses,
   alertAudiences,
   doorVisitOutcomes,
+  leadStages,
+  leadDispositions,
+  leadApprovalStates,
 } from "./types";
 import { isPayment, paymentMethods } from "./activity";
 import { workToday } from "./work";
@@ -63,7 +66,25 @@ export const schemas = {
       name: short.min(1),
       project: short.min(1),
       projectDescription: z.string().trim().min(10).max(1000),
-      status: z.literal("New"),
+      status: z.enum(leadStages),
+      disposition: z.enum(leadDispositions).optional(),
+      notes: text.optional(),
+      nextAction: short.optional(),
+      nextActionDue: date.optional(),
+      draftReply: text.optional(),
+      approvalState: z.enum(leadApprovalStates).optional(),
+      dispositionHistory: z
+        .array(
+          z.object({
+            at: z.iso.datetime(),
+            byId: short.min(1),
+            byName: short.min(1),
+            from: z.enum(leadDispositions),
+            to: z.enum(leadDispositions),
+          }),
+        )
+        .max(100)
+        .optional(),
       source: short.min(1),
       submittedAt: z.iso.datetime(),
       quoteDate: date.optional(),
@@ -95,12 +116,6 @@ export const schemas = {
           code: "custom",
           path: ["quoteEndTime"],
           message: "End time must be later than start time.",
-        });
-      if (lead.quoteDate && lead.quoteDate < workToday())
-        ctx.addIssue({
-          code: "custom",
-          path: ["quoteDate"],
-          message: "Consultations cannot be scheduled in the past.",
         });
     }),
   door_visit: z.object({
@@ -135,6 +150,8 @@ export const schemas = {
     .object({
       ...projectFields,
       status: z.enum(quoteStatuses),
+      leadId: z.union([z.uuid(), z.literal("")]).optional(),
+      outcomeAt: z.iso.datetime().optional(),
     })
     .refine((p) => !p.startDate || !p.endDate || p.endDate >= p.startDate, {
       message: "End date must be on or after start date",

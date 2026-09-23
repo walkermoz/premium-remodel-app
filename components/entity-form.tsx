@@ -258,6 +258,28 @@ export function EntityForm({
                 The price comes from the scope of work. Add priced scope items
                 after saving.
               </p>
+              {kind === "quote" && (
+                <label>
+                  Linked lead
+                  <select
+                    name="leadId"
+                    defaultValue={(project as Quote | undefined)?.leadId || ""}
+                    required={!entity}
+                  >
+                    <option value="">
+                      {entity ? "No linked lead" : "Choose a lead"}
+                    </option>
+                    {workspace.leads
+                      .slice()
+                      .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+                      .map((lead) => (
+                        <option key={lead.id} value={lead.id}>
+                          {lead.name} · {lead.project} · {lead.status}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
               <label>
                 Status
                 <select
