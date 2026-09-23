@@ -165,7 +165,7 @@ The administrator map uses Leaflet with OpenStreetMap standard tiles and visible
 Run `npm run db:migrate` before deploying location support. Location tests use isolated test accounts and mocked phone coordinates; production employees are never tracked during verification.
 
 
-## Admin API keys, lead webhook, and CI/CD
+## Admin API keys, Dispatch polling, and CI/CD
 
 ### Admin API keys
 Administrators mint and revoke admin-scoped keys in **Settings → Admin API keys**. Secrets are shown once and stored only as SHA-256 hashes.
@@ -184,12 +184,10 @@ Endpoints:
 Lead funnel stages: `New` → `Follow-up` → `Quote drafted` → `Quote sent` → `Won` | `Lost` | `Stale`.  
 Dispositions `Archive` / `Junk` / `Spam` / `Test` exit the funnel and are excluded from close rate.
 
-### New-lead webhook
-Admin Settings no longer exposes a New-lead webhook UI. Dispatch relies on short-cadence polling for new leads instead of an in-app webhook URL.
+### Dispatch new-lead wake (polling)
+Dispatch uses **API polling** (`GET /api/v1/leads` with Admin API keys). The New-lead webhook Admin Settings block, `/api/admin/lead-webhook`, and lead-create webhook dispatch are **removed** — not shipping. Discord `#leads` alerting (env webhook) remains separate.
 
-Server-side `lead.created` webhook helpers and org columns from migration `202609230001_api_keys_lead_webhook.sql` may still exist for internal/service use; they are not configured from the product UI.
-
-Apply that migration before relying on admin API keys:
+Org columns from migration `202609230001_api_keys_lead_webhook.sql` are unused leftovers (migration name is historical); apply that migration for Admin API keys:
 
 ```sh
 npm run db:migrate

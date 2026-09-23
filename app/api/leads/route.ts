@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { apiError, limitAttempts } from "@/lib/auth";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
-import { dispatchLeadCreatedWebhook } from "@/lib/lead-webhook";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -110,23 +109,6 @@ export async function POST(request: Request) {
 
     const notification = await sendDiscordLeadNotification(data);
     const leadId = String(created[0].lead_id);
-    const contactId = String(created[0].contact_id);
-    const webhook = await dispatchLeadCreatedWebhook(organizationId, {
-      event: "lead.created",
-      leadId,
-      contactId,
-      name: `${data.first_name} ${data.last_name}`.trim(),
-      project: data.project,
-      projectDescription: data.project_description,
-      status: "New",
-      disposition: "Active",
-      source: "Premium Remodel website",
-      submittedAt: new Date().toISOString(),
-      email: data.email.trim().toLowerCase(),
-      phone: data.phone,
-      address: data.address,
-      zip: data.zip,
-    });
     const { data: storedLead, error: readError } = await admin
       .from("remodel_records")
       .select("data")
@@ -146,7 +128,6 @@ export async function POST(request: Request) {
           data: {
             ...leadData,
             discordNotification: notification,
-            leadWebhook: webhook,
             disposition: "Active",
             updatedAt,
           },
