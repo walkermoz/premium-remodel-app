@@ -1,0 +1,177 @@
+export type ProjectStatus =
+  "Planning" | "In progress" | "On hold" | "Completed";
+export type TaskStatus = "To do" | "In progress" | "Done";
+export const workTypes = [
+  "Task",
+  "Inspection",
+  "Delivery",
+  "Contractor visit",
+] as const;
+export type WorkType = (typeof workTypes)[number];
+export type EntityKind =
+  | "project"
+  | "quote"
+  | "task"
+  | "contractor"
+  | "scope"
+  | "comment"
+  | "attachment"
+  | "activity";
+export interface Base {
+  id: string;
+  updatedAt: string;
+  createdAt: string;
+}
+export interface Project extends Base {
+  name: string;
+  address: string;
+  client: string;
+  // Historical agreed amount, retained only to flag differences from the scope.
+  contractPrice?: number;
+  clientEmail?: string;
+  clientPhone?: string;
+  quoteSentAt?: string;
+  quoteAcceptedAt?: string;
+  quoteAcceptedBy?: string;
+  startDate: string;
+  endDate: string;
+  // Actual completion, separate from the target end date. Older jobs may omit it.
+  completedDate?: string;
+  status: ProjectStatus;
+  description: string;
+  category: string;
+  cover: string;
+}
+export const quoteStatuses = ["Draft", "Sent", "Declined"] as const;
+export type QuoteStatus = (typeof quoteStatuses)[number];
+export interface Quote extends Omit<Project, "status" | "contractPrice"> {
+  status: QuoteStatus;
+}
+export interface Task extends Base {
+  completion?: { id: string; at: string; byId: string; byName: string };
+  projectId: string;
+  title: string;
+  description: string;
+  contractorId: string;
+  dueDate: string;
+  // Optional for tasks saved before scheduled work was introduced.
+  workType?: WorkType;
+  startTime?: string;
+  endTime?: string;
+  priority: "Low" | "Medium" | "High";
+  status: TaskStatus;
+}
+export interface Contractor extends Base {
+  name: string;
+  company: string;
+  trade: string;
+  email: string;
+  phone: string;
+  notes: string;
+}
+export interface ScopeItem extends Base {
+  projectId: string;
+  title: string;
+  quantity: number;
+  unit: string;
+  estimate: number;
+  subCost: number;
+  // Older scope items have no separately recorded material cost.
+  materialCost?: number;
+  contractorId: string;
+  status: TaskStatus;
+}
+export interface Comment extends Base {
+  projectId: string;
+  body: string;
+  authorId: string;
+  authorName: string;
+  attachmentIds?: string[];
+}
+export interface Attachment extends Base {
+  projectId: string;
+  name: string;
+  mime: string;
+  size: number;
+  storage: "local" | "supabase";
+  path: string;
+  authorName: string;
+  validationVersion?: number;
+  antivirus?: {
+    status: "clean" | "blocked";
+    provider: "cloudmersive";
+    version: number;
+    scannedAt: string;
+    sha256: string;
+    sourceSha256?: string;
+  };
+}
+export const activityTypes = [
+  "Payment received",
+  "Materials delivered",
+  "Subcontractor paid",
+  "General update",
+] as const;
+export type ActivityType = (typeof activityTypes)[number] | "Work completed";
+export interface Activity extends Base {
+  projectId: string;
+  activityType: ActivityType;
+  actorId: string;
+  actorName: string;
+  authorId: string;
+  authorName: string;
+  occurredAt: string;
+  summary: string;
+  notes: string;
+  amount: number | null;
+  party: string;
+  paymentMethod: string;
+  contractorId: string;
+  attachmentIds: string[];
+  sourceTaskId?: string;
+}
+export type Entity =
+  | Project
+  | Quote
+  | Task
+  | Contractor
+  | ScopeItem
+  | Comment
+  | Attachment
+  | Activity;
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "member";
+}
+export interface Workspace {
+  quotes?: Quote[];
+  activities?: Activity[];
+  projects: Project[];
+  tasks: Task[];
+  contractors: Contractor[];
+  scope: ScopeItem[];
+  comments: Comment[];
+  attachments: Attachment[];
+}
+export const emptyWorkspace: Workspace = {
+  quotes: [],
+  activities: [],
+  projects: [],
+  tasks: [],
+  contractors: [],
+  scope: [],
+  comments: [],
+  attachments: [],
+};
+export const kindKey: Record<EntityKind, keyof Workspace> = {
+  quote: "quotes",
+  activity: "activities",
+  project: "projects",
+  task: "tasks",
+  contractor: "contractors",
+  scope: "scope",
+  comment: "comments",
+  attachment: "attachments",
+};

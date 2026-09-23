@@ -1,0 +1,82 @@
+"use client";
+import { useEffect, useState } from "react";
+import { ShieldCheck } from "lucide-react";
+
+export default function FileSecuritySettings({ demo }: { demo: boolean }) {
+  const [status, setStatus] = useState<{
+    configured: boolean;
+    scanned: number;
+    pending: number;
+    blocked: number;
+  } | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (demo) return;
+    const abort = new AbortController();
+    fetch("/api/file-security", { signal: abort.signal })
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error("Could not load file security status.");
+        setStatus(await response.json());
+      })
+      .catch((error) => {
+        if (!abort.signal.aborted) setError(error.message);
+      });
+    return () => abort.abort();
+  }, [demo]);
+  return (
+    <section className="settings-section" aria-label="File security">
+      <div className="settings-title">
+        <ShieldCheck size={22} />
+        <div>
+          <h2>File security</h2>
+          <p>
+            {demo
+              ? "Demo attachments stay in this browser and are not antivirus scanned."
+              : "Project attachments must pass antivirus scanning before they can be shared."}
+          </p>
+        </div>
+      </div>
+      {!demo && (
+        <div className="settings-form">
+          {error ? (
+            <p className="alert" role="alert">
+              {error}
+            </p>
+          ) : !status ? (
+            <p role="status">Loading scanner status…</p>
+          ) : (
+            <>
+              <p role="status">
+                <strong>
+                  {status.configured
+                    ? "Cloudmersive configured"
+                    : "Antivirus setup required"}
+                </strong>
+                <br />
+                {status.configured
+                  ? "Uploads are blocked if the scanner is unavailable or rejects a file."
+                  : "Uploads are blocked until the antivirus service is configured."}
+              </p>
+              <p>
+                {status.scanned} scanned · {status.pending} awaiting scan ·{" "}
+                {status.blocked} blocked
+              </p>
+              {status.pending > 0 && (
+                <p className="muted">
+                  Existing files awaiting a scan cannot be opened. Your
+                  administrator can complete the existing-file scan during
+                  setup.
+                </p>
+              )}
+            </>
+          )}
+          <small className="muted">
+            Allowed: JPG, PNG, WebP, static PDF and TXT. Antivirus adds
+            protection but cannot guarantee every file is safe.
+          </small>
+        </div>
+      )}
+    </section>
+  );
+}

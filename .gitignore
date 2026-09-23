@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.env*
+!.env.example
+!mobile/.env.example
+.local/
+.vercel/
+test-results/
+playwright-report/
+*.tsbuildinfo
+artifacts/
+fade-treasury/

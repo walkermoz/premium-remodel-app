@@ -1,0 +1,117 @@
+import { config } from "dotenv";
+import { randomUUID } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
+import { prepareSecureFile } from "../lib/secure-file";
+import {
+  scanWithCloudmersive,
+  AntivirusError,
+  fileHash,
+  ANTIVIRUS_VERSION,
+} from "../lib/antivirus-client";
+import { hasCleanScan } from "../lib/file-security";
+import { MAX_FILE_SIZE } from "../lib/file-policy";
+import type { Attachment } from "../lib/types";
+config({ path: ".env.local", quiet: true });
+const org = process.env.SUPABASE_ORGANIZATION_ID;
+if (!org) throw new Error("SUPABASE_ORGANIZATION_ID is required.");
+const apply = process.argv.includes("--apply");
+if (apply && !process.env.CLOUDMERSIVE_API_KEY)
+  throw new Error("Configure antivirus and run verify-antivirus first.");
+const client = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } },
+);
+const storage = client.storage.from("remodel-files");
+const counts = { pending: 0, scanned: 0, blocked: 0 };
+const scan = (bytes: Uint8Array, mime: string, extension: string) =>
+  scanWithCloudmersive(bytes, mime, extension, {
+    apiKey: process.env.CLOUDMERSIVE_API_KEY,
+  });
+for (let offset = 0; ; offset += 100) {
+  const { data, error } = await client
+    .from("remodel_records")
+    .select("id,data,updated_at")
+    .eq("organization_id", org)
+    .eq("kind", "attachment")
+    .order("id")
+    .range(offset, offset + 99);
+  if (error) throw error;
+  for (const row of data) {
+    const file = row.data as Attachment;
+    if (hasCleanScan(file) || file.antivirus?.status === "blocked") continue;
+    counts.pending++;
+    if (!apply) continue;
+    if (!file.path.startsWith(`${org}/`))
+      throw new Error(`Invalid file scope: ${row.id}`);
+    const downloaded = await storage.download(file.path);
+    if (downloaded.error || !downloaded.data)
+      throw new Error(`Could not read attachment ${row.id}`);
+    const original = Buffer.from(await downloaded.data.arrayBuffer());
+    let next: Attachment;
+    let newPath: string | undefined;
+    try {
+      if (original.length > MAX_FILE_SIZE) throw new Error("Unsupported size");
+      const prepared = await prepareSecureFile(
+        new File([original], file.name, { type: file.mime }),
+        scan,
+      );
+      newPath = `${org}/${file.projectId}/${randomUUID()}/file.${prepared.extension}`;
+      const uploaded = await storage.upload(newPath, prepared.bytes, {
+        contentType: prepared.mime,
+        upsert: false,
+      });
+      if (uploaded.error) throw new AntivirusError("unavailable");
+      next = {
+        ...file,
+        name: prepared.name,
+        mime: prepared.mime,
+        size: prepared.bytes.length,
+        path: newPath,
+        validationVersion: prepared.validationVersion,
+        antivirus: prepared.antivirus,
+      };
+    } catch (error) {
+      // Outages/quota/auth failures stop the rollout, never mark a file clean or infected.
+      if (error instanceof AntivirusError && error.reason === "unavailable")
+        throw error;
+      next = {
+        ...file,
+        antivirus: {
+          status: "blocked",
+          provider: "cloudmersive",
+          version: ANTIVIRUS_VERSION,
+          sha256: fileHash(original),
+          scannedAt: new Date().toISOString(),
+        },
+      };
+    }
+    const now = new Date(
+      Math.max(Date.now(), Date.parse(row.updated_at) + 1),
+    ).toISOString();
+    const updated = await client
+      .from("remodel_records")
+      .update({ data: { ...next, updatedAt: now }, updated_at: now })
+      .eq("organization_id", org)
+      .eq("id", row.id)
+      .eq("updated_at", row.updated_at)
+      .select("id");
+    if (updated.error || updated.data.length !== 1) {
+      if (newPath) await storage.remove([newPath]);
+      throw new Error(
+        `Attachment changed during scan: ${row.id}. Retry the scan.`,
+      );
+    }
+    if (newPath) {
+      const removed = await storage.remove([file.path]);
+      if (removed.error)
+        throw new Error(
+          `Clean copy saved; old private copy needs cleanup: ${row.id}`,
+        );
+    }
+    counts[next.antivirus!.status === "clean" ? "scanned" : "blocked"]++;
+    console.log(`Attachment ${row.id}: ${next.antivirus!.status}`);
+  }
+  if (data.length < 100) break;
+}
+console.log(JSON.stringify({ mode: apply ? "applied" : "dry-run", ...counts }));

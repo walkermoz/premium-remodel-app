@@ -1,0 +1,32 @@
+// Integration-test stub only. Excluded from Vercel; this is NOT an antivirus engine.
+// Intercept server-side fetch in the test process without a production bypass flag.
+const actualFetch = globalThis.fetch;
+globalThis.fetch = async (url, init) => {
+  if (String(url) !== "https://api.cloudmersive.com/virus/scan/file/advanced")
+    return actualFetch(url, init);
+  if (new Headers(init?.headers).get("Apikey") !== "integration-test-key")
+    throw new Error("Test scanner requires a dummy key.");
+  const file = init.body.get("inputFile");
+  const text = await file.text();
+  if (text.includes("scanner-test-outage"))
+    return new Response("Unavailable", { status: 503 });
+  if (text.includes("scanner-test-invalid"))
+    return Response.json({ CleanResult: true });
+  const infected = text.includes("EICAR-STANDARD-ANTIVIRUS-TEST-FILE");
+  return Response.json({
+    CleanResult: !infected,
+    FoundViruses: infected ? [{ VirusName: "EICAR test stub" }] : null,
+    ContainsExecutable: false,
+    ContainsInvalidFile: false,
+    ContainsScript: false,
+    ContainsPasswordProtectedFile: false,
+    ContainsRestrictedFileFormat: false,
+    ContainsMacros: false,
+    ContainsXmlExternalEntities: false,
+    ContainsInsecureDeserialization: false,
+    ContainsHtml: false,
+    ContainsUnsafeArchive: false,
+    ContainsOleEmbeddedObject: false,
+    ContainsUnwantedAction: false,
+  });
+};

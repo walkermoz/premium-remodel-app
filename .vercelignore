@@ -1,0 +1,16 @@
+.local
+artifacts
+tests
+test-results
+playwright-report
+fade-treasury
+.env*
+scripts/capture-preview.mjs
+
+deferred
+mobile/node_modules
+mobile/.expo
+mobile/dist
+mobile/dist-test
+mobile/ios
+mobile/android

@@ -1,0 +1,39 @@
+import { apiError, requireUser, HttpError } from "@/lib/auth";
+import { antivirusConfigured } from "@/lib/antivirus";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { hasCleanScan } from "@/lib/file-security";
+import type { Attachment } from "@/lib/types";
+
+export async function GET() {
+  try {
+    const user = await requireUser();
+    if (user.role !== "admin")
+      throw new HttpError(403, "Administrator access required.");
+    const counts = { scanned: 0, pending: 0, blocked: 0 };
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabaseAdmin()
+        .from("remodel_records")
+        .select("data")
+        .eq("organization_id", user.organizationId)
+        .eq("kind", "attachment")
+        .order("id")
+        .range(offset, offset + 499);
+      if (error) throw error;
+      for (const row of data) {
+        const file = row.data as Attachment;
+        if (file.antivirus?.status === "blocked") counts.blocked++;
+        else if (hasCleanScan(file)) counts.scanned++;
+        else counts.pending++;
+      }
+      if (data.length < 500) break;
+    }
+    return Response.json(
+      { configured: antivirusConfigured(), ...counts },
+      {
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
+  } catch (error) {
+    return apiError(error);
+  }
+}

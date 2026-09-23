@@ -1,0 +1,323 @@
+import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import pg from "pg";
+import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
+import { PDFDocument } from "pdf-lib";
+import { test, expect, password } from "./supabase-fixture";
+const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
+const headers = { Origin: "http://localhost:3100" };
+
+cloudTest(
+  "company upload validation cannot be bypassed and note files stay scoped and deduplicated",
+  async ({ company, page, request }) => {
+    const api = page.request;
+    expect(
+      (
+        await api.post("/api/auth", {
+          headers,
+          data: { action: "login", email: company.email, password },
+        })
+      ).status(),
+    ).toBe(200);
+    const create = async (
+      kind: string,
+      data: Record<string, unknown>,
+      requestId?: string,
+    ) =>
+      api.post("/api/workspace", { headers, data: { kind, data, requestId } });
+    const projectData = {
+      name: "Attachment test job",
+      address: "",
+      client: "Test client",
+      startDate: "",
+      endDate: "",
+      description: "",
+      category: "Kitchen",
+      cover: "",
+      status: "Planning",
+    };
+    const projectResponse = await create("project", projectData);
+    expect(projectResponse.status(), await projectResponse.text()).toBe(201);
+    const project = await projectResponse.json();
+    const otherResponse = await create("project", {
+      ...projectData,
+      name: "Other job",
+    });
+    expect(otherResponse.status(), await otherResponse.text()).toBe(201);
+    const other = await otherResponse.json();
+    const upload = (name: string, mimeType: string, buffer: Buffer) =>
+      api.post("/api/files", {
+        headers,
+        multipart: { projectId: project.id, file: { name, mimeType, buffer } },
+      });
+    const photo = await sharp({
+      create: { width: 80, height: 50, channels: 3, background: "#5b819b" },
+    })
+      .jpeg()
+      .toBuffer();
+    const uploaded = await upload(
+      "photo.jpg",
+      "image/jpeg",
+      Buffer.concat([photo, Buffer.from("appended-test-marker")]),
+    );
+    expect(uploaded.status()).toBe(201);
+    const file = await uploaded.json();
+    expect(file.validationVersion).toBe(1);
+    expect(file.antivirus).toMatchObject({
+      status: "clean",
+      provider: "cloudmersive",
+      version: 1,
+    });
+    // Exercise the new storage policy inside a rolled-back transaction only.
+    // No production policy change becomes visible to other connections.
+    const publicClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      { auth: { persistSession: false } },
+    );
+    const auth = await publicClient.auth.signInWithPassword({
+      email: company.email,
+      password,
+    });
+    expect(auth.error).toBeNull();
+    const token = auth.data.session!.access_token;
+    const claims = Buffer.from(token.split(".")[1], "base64url").toString(
+      "utf8",
+    );
+    const db = new pg.Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+    });
+    try {
+      await db.connect();
+      await db.query("begin");
+      await db.query(
+        "set local lock_timeout = '3s'; set local statement_timeout = '10s'",
+      );
+      const migration = await readFile(
+        "supabase/migrations/202609130001_antivirus_storage.sql",
+        "utf8",
+      );
+      await db.query(migration.replace(/^\s*(begin|commit);\s*$/gm, ""));
+      await db.query("set local role authenticated");
+      await db.query("select set_config('request.jwt.claims', $1, true)", [
+        claims,
+      ]);
+      expect(
+        (await db.query("select * from public.remodel_current_member()"))
+          .rowCount,
+      ).toBe(1);
+      expect(
+        (
+          await db.query(
+            "select name from storage.objects where bucket_id = 'remodel-files' and name = $1",
+            [file.path],
+          )
+        ).rowCount,
+      ).toBe(0);
+      await expect(
+        db.query(
+          "insert into storage.objects(bucket_id,name) values ('remodel-files',$1)",
+          [`${company.organizationId}/blocked-upload.txt`],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+    } finally {
+      await db.query("rollback").catch(() => {});
+      await db.end();
+    }
+    const download = await api.get(`/api/files?id=${file.id}`);
+    expect(download.status()).toBe(200);
+    expect(
+      (await download.body()).includes(Buffer.from("appended-test-marker")),
+    ).toBe(false);
+    expect(download.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(download.headers()["content-security-policy"]).toContain("sandbox");
+    expect((await request.get(`/api/files?id=${file.id}`)).status()).toBe(401);
+    const beforeRejected = await (await api.get("/api/workspace")).json();
+    for (const [payload, status] of [
+      ["EICAR-STANDARD-ANTIVIRUS-TEST-FILE", 422],
+      ["scanner-test-outage", 503],
+      ["scanner-test-invalid", 503],
+    ] as const) {
+      expect(
+        (
+          await upload("scan-test.txt", "text/plain", Buffer.from(payload))
+        ).status(),
+      ).toBe(status);
+    }
+    expect(
+      (await (await api.get("/api/workspace")).json()).attachments,
+    ).toHaveLength(beforeRejected.attachments.length);
+
+    // A server/storage mutation cannot reuse an old verdict for different bytes.
+    const stored = await company.admin.storage
+      .from("remodel-files")
+      .download(file.path);
+    expect(stored.error).toBeNull();
+    const overwritten = await company.admin.storage
+      .from("remodel-files")
+      .update(file.path, Buffer.from("changed"), { contentType: file.mime });
+    expect(overwritten.error).toBeNull();
+    expect((await api.get(`/api/files?id=${file.id}`)).status()).toBe(423);
+    expect(
+      (
+        await company.admin.storage
+          .from("remodel-files")
+          .update(file.path, stored.data!, { contentType: file.mime })
+      ).error,
+    ).toBeNull();
+
+    const { antivirus: ignoredScan, ...legacy } = file;
+    void ignoredScan;
+    expect(
+      (
+        await company.admin
+          .from("remodel_records")
+          .update({ data: legacy })
+          .eq("id", file.id)
+      ).error,
+    ).toBeNull();
+    expect((await api.get(`/api/files?id=${file.id}`)).status()).toBe(423);
+    await page.goto(
+      `/?view=Projects&project=${project.id}&tab=Photos%20%26%20files`,
+    );
+    await expect(page.getByText("Awaiting antivirus scan")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Download", exact: true }),
+    ).toHaveCount(0);
+    expect(
+      (
+        await company.admin
+          .from("remodel_records")
+          .update({ data: file })
+          .eq("id", file.id)
+      ).error,
+    ).toBeNull();
+    for (const [name, mimeType, bytes] of [
+      ["script.svg", "image/svg+xml", "<svg />"],
+      ["run.exe.jpg", "image/jpeg", "fake"],
+      ["fake.jpg", "image/jpeg", "fake"],
+      ["fake.pdf", "application/pdf", "%PDF-1.7\ninvalid\n%%EOF"],
+      ["fake.txt", "text/plain", "MZ\x00binary"],
+      [
+        "office.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "PK",
+      ],
+    ])
+      expect((await upload(name, mimeType, Buffer.from(bytes))).status()).toBe(
+        400,
+      );
+    const activePdf = await PDFDocument.create();
+    activePdf.addPage();
+    activePdf.addJavaScript("test", "app.alert('Test')");
+    expect(
+      (
+        await upload(
+          "active.pdf",
+          "application/pdf",
+          Buffer.from(await activePdf.save()),
+        )
+      ).status(),
+    ).toBe(400);
+    const normalPdf = await PDFDocument.create();
+    normalPdf.addPage().drawText("Project measurements");
+    const pdfResponse = await upload(
+      "measurements.pdf",
+      "application/pdf",
+      Buffer.from(await normalPdf.save()),
+    );
+    expect(pdfResponse.status()).toBe(201);
+    const pdf = await pdfResponse.json();
+    const pdfDownload = await api.get(`/api/files?id=${pdf.id}`);
+    expect(pdfDownload.headers()["content-disposition"]).toMatch(/^attachment/);
+    const noteData = {
+      projectId: project.id,
+      body: "Photo and measurements",
+      attachmentIds: [file.id, pdf.id],
+      authorName: "Forged",
+    };
+    expect(
+      (
+        await create(
+          "comment",
+          { ...noteData, projectId: other.id },
+          randomUUID(),
+        )
+      ).status(),
+    ).toBe(400);
+    expect(
+      (
+        await create(
+          "comment",
+          { ...noteData, attachmentIds: [randomUUID()] },
+          randomUUID(),
+        )
+      ).status(),
+    ).toBe(400);
+    const id = randomUUID();
+    const attempts = await Promise.all([
+      create("comment", noteData, id),
+      create("comment", noteData, id),
+    ]);
+    for (const attempt of attempts) expect(attempt.status()).toBe(201);
+    const workspace = await (await api.get("/api/workspace")).json();
+    const security = await api.get("/api/file-security");
+    expect(await security.json()).toMatchObject({
+      configured: true,
+      scanned: 2,
+      pending: 0,
+      blocked: 0,
+    });
+    expect((await request.get("/api/file-security")).status()).toBe(401);
+    await page.goto("/?view=Settings");
+    const securityPanel = page.getByRole("region", {
+      name: "File security",
+      exact: true,
+    });
+    await expect(securityPanel).toContainText("Cloudmersive configured");
+    await expect(securityPanel).toContainText(
+      "2 scanned · 0 awaiting scan · 0 blocked",
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(
+      () => (document.documentElement.dataset.theme = "dark"),
+    );
+    await securityPanel.scrollIntoViewIfNeeded();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({ path: "artifacts/antivirus-settings-dark.png" });
+    await page.setViewportSize({ width: 1440, height: 950 });
+    expect(workspace.comments).toHaveLength(1);
+    expect(workspace.attachments).toHaveLength(2);
+    expect(workspace.comments[0]).toMatchObject({
+      id,
+      authorName: "Workspace Owner",
+      attachmentIds: [file.id, pdf.id],
+    });
+    await page.goto(`/?view=Projects&project=${project.id}&tab=Notes`);
+    const notes = page.getByRole("region", { name: "Job notes" });
+    await expect(
+      notes.getByRole("img", { name: "photo.jpg", exact: true }),
+    ).toBeVisible();
+    await expect(
+      notes.getByRole("link", { name: "measurements.pdf" }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: /Photos & files/ }).click();
+    await expect(page.locator(".file-item")).toHaveCount(2);
+    expect(
+      (
+        await api.delete("/api/workspace", {
+          headers,
+          data: { kind: "comment", id },
+        })
+      ).status(),
+    ).toBe(200);
+    expect((await api.get(`/api/files?id=${file.id}`)).status()).toBe(200);
+  },
+);

@@ -1,0 +1,190 @@
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1720;
+  --surface: #15222e;
+  --ink: #e7edf4;
+  --muted: #a2b3c3;
+  --line: #2b3e4f;
+  --blue: #88bff7;
+  --navy: #b8d8f0;
+  --blue-soft: #223e55;
+  --red: #ffac9e;
+  --green: #92d8b8;
+  --shadow: 0 12px 36px #0003;
+
+  /* Shared roles also cover the older screens' original light color fallbacks. */
+  --theme-text-strong: #e7edf4;
+  --theme-heading: #e7edf4;
+  --theme-text: #d7e1ea;
+  --theme-text-secondary: #c4d1dd;
+  --theme-text-muted: #a2b3c3;
+  --theme-link: #a3ccef;
+  --theme-danger: #ffac9e;
+  --theme-warning: #edc27b;
+  --theme-success: #92d8b8;
+  --theme-border: #354a5c;
+  --theme-surface-soft: #1d2e3d;
+  --theme-surface-translucent: #15222eef;
+}
+
+.theme-toggle {
+  width: 38px;
+  min-height: 38px;
+}
+.login-panel {
+  position: relative;
+}
+.login-theme-toggle {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+}
+
+[data-theme="dark"] .brand img,
+[data-theme="dark"] .login-brand img {
+  filter: brightness(0) invert(1);
+}
+[data-theme="dark"] .button.primary {
+  background: #80b9ef;
+  border-color: #80b9ef;
+  color: #0c2335;
+}
+[data-theme="dark"] .button.primary:hover {
+  background: #a0cefa;
+  border-color: #a0cefa;
+}
+[data-theme="dark"] .button.danger {
+  background: #a53640;
+  color: #fff;
+}
+[data-theme="dark"] .button.danger:hover {
+  background: #bd4550;
+}
+[data-theme="dark"] .delete-action:hover {
+  background: #442a30;
+  color: var(--red);
+}
+[data-theme="dark"] .nav-item.active {
+  color: #c1e1ff;
+}
+[data-theme="dark"] .badge-category {
+  background: #203447;
+  color: #c0d5e6;
+}
+[data-theme="dark"] .badge-in-progress {
+  background: #44391e;
+  border-color: #796330;
+  color: #f6d77d;
+}
+[data-theme="dark"] .badge-planning,
+[data-theme="dark"] .badge-to-do {
+  background: #44292e;
+  border-color: #815055;
+  color: #ffb9ae;
+}
+[data-theme="dark"] .badge-on-hold {
+  background: #2c3b48;
+  border-color: #526476;
+  color: #c9d4df;
+}
+[data-theme="dark"] .badge-completed,
+[data-theme="dark"] .badge-done {
+  background: #203f33;
+  border-color: #3b7157;
+  color: #a4e3bf;
+}
+[data-theme="dark"] .avatar {
+  background: #38374f;
+  color: #dfdafa;
+  border-color: var(--surface);
+}
+[data-theme="dark"] .avatar.tone-1 {
+  background: #293e59;
+  color: #c1dcff;
+}
+[data-theme="dark"] .avatar.tone-2 {
+  background: #493c30;
+  color: #f0d4b1;
+}
+[data-theme="dark"] .avatar.tone-3 {
+  background: #234439;
+  color: #b8e8d3;
+}
+[data-theme="dark"] .task-check.checked {
+  background: #3c7059;
+  border-color: #72b792;
+  color: #fff;
+}
+[data-theme="dark"] .notice {
+  background: #352e20;
+  border-color: #6b5a32;
+  color: #efd299;
+}
+[data-theme="dark"] .alert {
+  background: #3b262d;
+  border-color: #70414a;
+  color: #ffb8ad;
+}
+[data-theme="dark"] .success-note {
+  background: #203a2f;
+  border-color: #3d6850;
+  color: #a7ddbb;
+}
+[data-theme="dark"] .lead-quote-appointment {
+  background: #29233b;
+  color: #c7aef2;
+}
+[data-theme="dark"] .door-lead-pill {
+  background: #183d2d;
+  color: #9be0bd;
+}
+[data-theme="dark"] .door-map-canvas .maplibregl-ctrl-group,
+[data-theme="dark"] .door-map-canvas .maplibregl-ctrl-attrib {
+  background: #15222ee8;
+  color: #b7c6d3;
+}
+[data-theme="dark"] .door-map-canvas .maplibregl-ctrl-group button + button {
+  border-top-color: #354a5c;
+}
+[data-theme="dark"]
+  .door-map-canvas
+  .maplibregl-ctrl-group
+  button
+  .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+[data-theme="dark"] .door-map-canvas .maplibregl-ctrl-attrib a {
+  color: #d0dbe4;
+}
+[data-theme="dark"] .toast.toast-error {
+  border-color: #815055;
+  color: var(--red);
+}
+[data-theme="dark"] .modal-backdrop,
+[data-theme="dark"] .sidebar-backdrop {
+  background: #030911ad;
+}
+[data-theme="dark"] .calendar-day-number.calendar-today {
+  background: #80b9ef;
+  color: #0c2335;
+}
+[data-theme="dark"] .calendar-grid td.calendar-selected {
+  background: #223e55;
+  box-shadow: inset 0 0 0 1px #75a9d3;
+}
+[data-theme="dark"] .generation-divider svg {
+  color: #173c52;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #8e9fad;
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  accent-color: #88bff7;
+}

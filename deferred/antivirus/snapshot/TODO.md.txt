@@ -1,0 +1,8 @@
+# Premium Remodel to-do list
+
+- [ ] **Antivirus scanning — deferred by request (September 13, 2026).** The integration is prepared locally but is not deployed or active. The live app continues to use strict file validation. No scanner subscription or key is needed while this is deferred.
+  - When resumed, connect the scanner and verify clean-file acceptance and EICAR rejection against the real service.
+  - Scan existing attachments, deploy the integration, and apply its storage restriction.
+  - Verify uploads, downloads, and direct-storage access before marking this complete.
+
+Deployment note: the prepared antivirus code currently requires a scanner key and clean scan receipts. Do not include it or `202609130001_antivirus_storage.sql` in an unrelated deployment while this item is deferred; first separate the pending integration so existing uploads and downloads keep working. Activation instructions are in [README.md](README.md#antivirus-activation-and-existing-attachments).

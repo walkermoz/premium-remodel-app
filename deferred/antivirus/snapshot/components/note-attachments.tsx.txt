@@ -1,0 +1,76 @@
+"use client";
+import { useState } from "react";
+import { Download, FileText } from "lucide-react";
+import type { Attachment } from "@/lib/types";
+import { Modal } from "./ui";
+import { hasCleanScan, fileSecurityLabel } from "@/lib/file-security";
+
+export default function NoteAttachments({
+  ids,
+  files,
+  demo,
+}: {
+  ids: string[];
+  files: Attachment[];
+  demo: boolean;
+}) {
+  const [preview, setPreview] = useState<Attachment | null>(null);
+  const url = (file: Attachment) =>
+    demo ? file.path : `/api/files?id=${encodeURIComponent(file.id)}`;
+  return (
+    <>
+      <div className="note-attachments">
+        {ids.map((id) => {
+          const file = files.find((item) => item.id === id);
+          if (!file)
+            return (
+              <span key={id} className="muted">
+                Attachment removed
+              </span>
+            );
+          const image = ["image/jpeg", "image/png", "image/webp"].includes(
+            file.mime,
+          );
+          if (!demo && !hasCleanScan(file))
+            return (
+              <div className="note-attachment" key={id}>
+                <span>{file.name}</span>
+                <small className="muted">{fileSecurityLabel(file)}</small>
+              </div>
+            );
+          return (
+            <div className="note-attachment" key={id}>
+              {image && (
+                <button
+                  type="button"
+                  className="note-photo"
+                  aria-label={`View ${file.name}`}
+                  onClick={() => setPreview(file)}
+                >
+                  <img src={url(file)} alt={file.name} loading="lazy" />
+                </button>
+              )}
+              <a
+                href={demo ? url(file) : `${url(file)}&download=1`}
+                download={file.name}
+                title={file.name}
+              >
+                {image ? <Download size={14} /> : <FileText size={18} />}
+                <span>{file.name}</span>
+              </a>
+            </div>
+          );
+        })}
+      </div>
+      {preview && (
+        <Modal title={preview.name} onClose={() => setPreview(null)}>
+          <img
+            className="lightbox-image"
+            src={url(preview)}
+            alt={preview.name}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}

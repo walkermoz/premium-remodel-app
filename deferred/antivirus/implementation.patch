@@ -1,0 +1,1139 @@
+--- /dev/null
++++ b/lib/antivirus-client.ts
+@@ -0,0 +1,126 @@
++import { createHash } from "node:crypto";
++import { z } from "zod";
++import { FILE_ACCEPT, MAX_FILE_SIZE } from "./file-policy";
++
++export const ANTIVIRUS_VERSION = 1;
++export const ANTIVIRUS_ENDPOINT =
++  "https://api.cloudmersive.com/virus/scan/file/advanced";
++export class AntivirusError extends Error {
++  constructor(public readonly reason: "unavailable" | "blocked") {
++    super(
++      reason === "blocked"
++        ? "This file was blocked by the antivirus scanner. Choose a different file."
++        : "Antivirus scanning is unavailable. The file has not been accepted. Please try again later or contact an administrator.",
++    );
++  }
++}
++const flags = [
++  "ContainsExecutable",
++  "ContainsInvalidFile",
++  "ContainsScript",
++  "ContainsPasswordProtectedFile",
++  "ContainsRestrictedFileFormat",
++  "ContainsMacros",
++  "ContainsXmlExternalEntities",
++  "ContainsInsecureDeserialization",
++  "ContainsHtml",
++  "ContainsUnsafeArchive",
++  "ContainsOleEmbeddedObject",
++  "ContainsUnwantedAction",
++] as const;
++const verdictSchema = z.object({
++  CleanResult: z.boolean(),
++  FoundViruses: z.array(z.object({ VirusName: z.string() })).nullable(),
++  ...(Object.fromEntries(flags.map((flag) => [flag, z.boolean()])) as Record<
++    (typeof flags)[number],
++    z.ZodBoolean
++  >),
++});
++export function fileHash(bytes: Uint8Array) {
++  return createHash("sha256").update(bytes).digest("hex");
++}
++export async function scanWithCloudmersive(
++  bytes: Uint8Array,
++  mime: string,
++  extension: string,
++  options: { apiKey: string | undefined; fetch?: typeof fetch },
++) {
++  if (!options.apiKey?.trim() || !bytes.length || bytes.length > MAX_FILE_SIZE)
++    throw new AntivirusError("unavailable");
++  const body = new FormData();
++  // Never send client names, project IDs, storage URLs or credentials to the scanner.
++  body.set(
++    "inputFile",
++    new Blob([new Uint8Array(bytes)], { type: mime }),
++    `attachment.${extension}`,
++  );
++  const headers: Record<string, string> = {
++    Apikey: options.apiKey.trim(),
++    Accept: "application/json",
++    restrictFileTypes: FILE_ACCEPT,
++  };
++  for (const flag of [
++    "allowExecutables",
++    "allowInvalidFiles",
++    "allowScripts",
++    "allowPasswordProtectedFiles",
++    "allowMacros",
++    "allowXmlExternalEntities",
++    "allowInsecureDeserialization",
++    "allowHtml",
++    "allowUnsafeArchives",
++    "allowOleEmbeddedObject",
++    "allowUnwantedAction",
++  ])
++    headers[flag] = "false";
++  try {
++    const response = await (options.fetch ?? fetch)(ANTIVIRUS_ENDPOINT, {
++      method: "POST",
++      headers,
++      body,
++      signal: AbortSignal.timeout(15000),
++      redirect: "error",
++      cache: "no-store",
++    });
++    if (
++      !response.ok ||
++      !response.headers.get("content-type")?.includes("application/json")
++    )
++      throw new AntivirusError("unavailable");
++    const reader = response.body?.getReader();
++    if (!reader) throw new AntivirusError("unavailable");
++    let size = 0;
++    const chunks: Uint8Array[] = [];
++    try {
++      for (;;) {
++        const { done, value } = await reader.read();
++        if (done) break;
++        size += value.length;
++        if (size > 65536) throw new AntivirusError("unavailable");
++        chunks.push(value);
++      }
++    } finally {
++      await reader.cancel();
++    }
++    const verdict = verdictSchema.parse(
++      JSON.parse(Buffer.concat(chunks).toString("utf8")),
++    );
++    if (
++      !verdict.CleanResult ||
++      verdict.FoundViruses?.length ||
++      flags.some((flag) => verdict[flag] === true)
++    )
++      throw new AntivirusError("blocked");
++    return {
++      status: "clean" as const,
++      provider: "cloudmersive" as const,
++      version: ANTIVIRUS_VERSION,
++      scannedAt: new Date().toISOString(),
++      sha256: fileHash(bytes),
++    };
++  } catch (error) {
++    // Never expose provider responses, credentials or file contents in logs/errors.
++    if (error instanceof AntivirusError) throw error;
++    throw new AntivirusError("unavailable");
++  }
++}
+--- /dev/null
++++ b/lib/antivirus.ts
+@@ -0,0 +1,15 @@
++import "server-only";
++import { scanWithCloudmersive } from "./antivirus-client";
++
++export function antivirusConfigured() {
++  return Boolean(process.env.CLOUDMERSIVE_API_KEY?.trim());
++}
++export function scanForMalware(
++  bytes: Uint8Array,
++  mime: string,
++  extension: string,
++) {
++  return scanWithCloudmersive(bytes, mime, extension, {
++    apiKey: process.env.CLOUDMERSIVE_API_KEY,
++  });
++}
+--- /dev/null
++++ b/lib/secure-file.ts
+@@ -0,0 +1,26 @@
++import { checkFileSelection, checkFileContents } from "./file-policy";
++import { validateStoredFile } from "./validate-file";
++import { fileHash, type scanWithCloudmersive } from "./antivirus-client";
++
++type Scanner = (
++  bytes: Uint8Array,
++  mime: string,
++  extension: string,
++) => ReturnType<typeof scanWithCloudmersive>;
++export async function prepareSecureFile(file: File, scan: Scanner) {
++  const info = checkFileSelection(file);
++  const original = new Uint8Array(await file.arrayBuffer());
++  checkFileContents(original, info.mime);
++  // Scan the original before feeding untrusted bytes into image/PDF parsers.
++  const sourceScan = await scan(original, info.mime, info.extension);
++  const validated = await validateStoredFile(file);
++  // Rewrites are scanned again; the verdict always binds to the bytes we store.
++  const antivirus =
++    fileHash(validated.bytes) === sourceScan.sha256
++      ? sourceScan
++      : await scan(validated.bytes, info.mime, info.extension);
++  return {
++    ...validated,
++    antivirus: { ...antivirus, sourceSha256: sourceScan.sha256 },
++  };
++}
+--- /dev/null
++++ b/lib/file-security.ts
+@@ -0,0 +1,17 @@
++import type { Attachment } from "./types";
++
++export function hasCleanScan(file: Attachment) {
++  const scan = file.antivirus;
++  return (
++    scan?.status === "clean" &&
++    scan.provider === "cloudmersive" &&
++    scan.version === 1 &&
++    /^[a-f0-9]{64}$/.test(scan.sha256 ?? "") &&
++    Number.isFinite(Date.parse(scan.scannedAt))
++  );
++}
++export function fileSecurityLabel(file: Attachment) {
++  return file.antivirus?.status === "blocked"
++    ? "Blocked by file security checks"
++    : "Awaiting antivirus scan";
++}
+--- /dev/null
++++ b/app/api/file-security/route.ts
+@@ -0,0 +1,39 @@
++import { apiError, requireUser, HttpError } from "@/lib/auth";
++import { antivirusConfigured } from "@/lib/antivirus";
++import { supabaseAdmin } from "@/lib/supabase/server";
++import { hasCleanScan } from "@/lib/file-security";
++import type { Attachment } from "@/lib/types";
++
++export async function GET() {
++  try {
++    const user = await requireUser();
++    if (user.role !== "admin")
++      throw new HttpError(403, "Administrator access required.");
++    const counts = { scanned: 0, pending: 0, blocked: 0 };
++    for (let offset = 0; ; offset += 500) {
++      const { data, error } = await supabaseAdmin()
++        .from("remodel_records")
++        .select("data")
++        .eq("organization_id", user.organizationId)
++        .eq("kind", "attachment")
++        .order("id")
++        .range(offset, offset + 499);
++      if (error) throw error;
++      for (const row of data) {
++        const file = row.data as Attachment;
++        if (file.antivirus?.status === "blocked") counts.blocked++;
++        else if (hasCleanScan(file)) counts.scanned++;
++        else counts.pending++;
++      }
++      if (data.length < 500) break;
++    }
++    return Response.json(
++      { configured: antivirusConfigured(), ...counts },
++      {
++        headers: { "Cache-Control": "private, no-store" },
++      },
++    );
++  } catch (error) {
++    return apiError(error);
++  }
++}
+--- /dev/null
++++ b/components/file-security-settings.tsx
+@@ -0,0 +1,82 @@
++"use client";
++import { useEffect, useState } from "react";
++import { ShieldCheck } from "lucide-react";
++
++export default function FileSecuritySettings({ demo }: { demo: boolean }) {
++  const [status, setStatus] = useState<{
++    configured: boolean;
++    scanned: number;
++    pending: number;
++    blocked: number;
++  } | null>(null);
++  const [error, setError] = useState("");
++  useEffect(() => {
++    if (demo) return;
++    const abort = new AbortController();
++    fetch("/api/file-security", { signal: abort.signal })
++      .then(async (response) => {
++        if (!response.ok)
++          throw new Error("Could not load file security status.");
++        setStatus(await response.json());
++      })
++      .catch((error) => {
++        if (!abort.signal.aborted) setError(error.message);
++      });
++    return () => abort.abort();
++  }, [demo]);
++  return (
++    <section className="settings-section" aria-label="File security">
++      <div className="settings-title">
++        <ShieldCheck size={22} />
++        <div>
++          <h2>File security</h2>
++          <p>
++            {demo
++              ? "Demo attachments stay in this browser and are not antivirus scanned."
++              : "Project attachments must pass antivirus scanning before they can be shared."}
++          </p>
++        </div>
++      </div>
++      {!demo && (
++        <div className="settings-form">
++          {error ? (
++            <p className="alert" role="alert">
++              {error}
++            </p>
++          ) : !status ? (
++            <p role="status">Loading scanner status…</p>
++          ) : (
++            <>
++              <p role="status">
++                <strong>
++                  {status.configured
++                    ? "Cloudmersive configured"
++                    : "Antivirus setup required"}
++                </strong>
++                <br />
++                {status.configured
++                  ? "Uploads are blocked if the scanner is unavailable or rejects a file."
++                  : "Uploads are blocked until the antivirus service is configured."}
++              </p>
++              <p>
++                {status.scanned} scanned · {status.pending} awaiting scan ·{" "}
++                {status.blocked} blocked
++              </p>
++              {status.pending > 0 && (
++                <p className="muted">
++                  Existing files awaiting a scan cannot be opened. Your
++                  administrator can complete the existing-file scan during
++                  setup.
++                </p>
++              )}
++            </>
++          )}
++          <small className="muted">
++            Allowed: JPG, PNG, WebP, static PDF and TXT. Antivirus adds
++            protection but cannot guarantee every file is safe.
++          </small>
++        </div>
++      )}
++    </section>
++  );
++}
+--- /dev/null
++++ b/scripts/verify-antivirus.ts
+@@ -0,0 +1,32 @@
++import { config } from "dotenv";
++import { scanWithCloudmersive, AntivirusError } from "../lib/antivirus-client";
++config({ path: ".env.local", quiet: true });
++
++// The harmless industry-standard antivirus test string, never executable malware.
++const eicar = [
++  "X5O!P%@AP[4\\PZX54(P^)7CC)7}$",
++  "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*",
++].join("");
++const options = { apiKey: process.env.CLOUDMERSIVE_API_KEY };
++await scanWithCloudmersive(
++  Buffer.from("Premium Remodel scanner connection test."),
++  "text/plain",
++  "txt",
++  options,
++);
++await new Promise((resolve) => setTimeout(resolve, 1100));
++let detected = false;
++try {
++  await scanWithCloudmersive(Buffer.from(eicar), "text/plain", "txt", options);
++} catch (error) {
++  if (error instanceof AntivirusError && error.reason === "blocked")
++    detected = true;
++  else throw error;
++}
++if (!detected)
++  throw new Error(
++    "Antivirus verification FAILED: test threat was not blocked. Do not activate uploads.",
++  );
++console.log(
++  "Live antivirus verified: clean file accepted and EICAR test blocked.",
++);
+--- /dev/null
++++ b/scripts/scan-existing-files.ts
+@@ -0,0 +1,117 @@
++import { config } from "dotenv";
++import { randomUUID } from "node:crypto";
++import { createClient } from "@supabase/supabase-js";
++import { prepareSecureFile } from "../lib/secure-file";
++import {
++  scanWithCloudmersive,
++  AntivirusError,
++  fileHash,
++  ANTIVIRUS_VERSION,
++} from "../lib/antivirus-client";
++import { hasCleanScan } from "../lib/file-security";
++import { MAX_FILE_SIZE } from "../lib/file-policy";
++import type { Attachment } from "../lib/types";
++config({ path: ".env.local", quiet: true });
++const org = process.env.SUPABASE_ORGANIZATION_ID;
++if (!org) throw new Error("SUPABASE_ORGANIZATION_ID is required.");
++const apply = process.argv.includes("--apply");
++if (apply && !process.env.CLOUDMERSIVE_API_KEY)
++  throw new Error("Configure antivirus and run verify-antivirus first.");
++const client = createClient(
++  process.env.NEXT_PUBLIC_SUPABASE_URL!,
++  process.env.SUPABASE_SERVICE_ROLE_KEY!,
++  { auth: { persistSession: false } },
++);
++const storage = client.storage.from("remodel-files");
++const counts = { pending: 0, scanned: 0, blocked: 0 };
++const scan = (bytes: Uint8Array, mime: string, extension: string) =>
++  scanWithCloudmersive(bytes, mime, extension, {
++    apiKey: process.env.CLOUDMERSIVE_API_KEY,
++  });
++for (let offset = 0; ; offset += 100) {
++  const { data, error } = await client
++    .from("remodel_records")
++    .select("id,data,updated_at")
++    .eq("organization_id", org)
++    .eq("kind", "attachment")
++    .order("id")
++    .range(offset, offset + 99);
++  if (error) throw error;
++  for (const row of data) {
++    const file = row.data as Attachment;
++    if (hasCleanScan(file) || file.antivirus?.status === "blocked") continue;
++    counts.pending++;
++    if (!apply) continue;
++    if (!file.path.startsWith(`${org}/`))
++      throw new Error(`Invalid file scope: ${row.id}`);
++    const downloaded = await storage.download(file.path);
++    if (downloaded.error || !downloaded.data)
++      throw new Error(`Could not read attachment ${row.id}`);
++    const original = Buffer.from(await downloaded.data.arrayBuffer());
++    let next: Attachment;
++    let newPath: string | undefined;
++    try {
++      if (original.length > MAX_FILE_SIZE) throw new Error("Unsupported size");
++      const prepared = await prepareSecureFile(
++        new File([original], file.name, { type: file.mime }),
++        scan,
++      );
++      newPath = `${org}/${file.projectId}/${randomUUID()}/file.${prepared.extension}`;
++      const uploaded = await storage.upload(newPath, prepared.bytes, {
++        contentType: prepared.mime,
++        upsert: false,
++      });
++      if (uploaded.error) throw new AntivirusError("unavailable");
++      next = {
++        ...file,
++        name: prepared.name,
++        mime: prepared.mime,
++        size: prepared.bytes.length,
++        path: newPath,
++        validationVersion: prepared.validationVersion,
++        antivirus: prepared.antivirus,
++      };
++    } catch (error) {
++      // Outages/quota/auth failures stop the rollout, never mark a file clean or infected.
++      if (error instanceof AntivirusError && error.reason === "unavailable")
++        throw error;
++      next = {
++        ...file,
++        antivirus: {
++          status: "blocked",
++          provider: "cloudmersive",
++          version: ANTIVIRUS_VERSION,
++          sha256: fileHash(original),
++          scannedAt: new Date().toISOString(),
++        },
++      };
++    }
++    const now = new Date(
++      Math.max(Date.now(), Date.parse(row.updated_at) + 1),
++    ).toISOString();
++    const updated = await client
++      .from("remodel_records")
++      .update({ data: { ...next, updatedAt: now }, updated_at: now })
++      .eq("organization_id", org)
++      .eq("id", row.id)
++      .eq("updated_at", row.updated_at)
++      .select("id");
++    if (updated.error || updated.data.length !== 1) {
++      if (newPath) await storage.remove([newPath]);
++      throw new Error(
++        `Attachment changed during scan: ${row.id}. Retry the scan.`,
++      );
++    }
++    if (newPath) {
++      const removed = await storage.remove([file.path]);
++      if (removed.error)
++        throw new Error(
++          `Clean copy saved; old private copy needs cleanup: ${row.id}`,
++        );
++    }
++    counts[next.antivirus!.status === "clean" ? "scanned" : "blocked"]++;
++    console.log(`Attachment ${row.id}: ${next.antivirus!.status}`);
++  }
++  if (data.length < 100) break;
++}
++console.log(JSON.stringify({ mode: apply ? "applied" : "dry-run", ...counts }));
+--- /dev/null
++++ b/tests/antivirus.spec.ts
+@@ -0,0 +1,135 @@
++import { test, expect } from "@playwright/test";
++import sharp from "sharp";
++import {
++  scanWithCloudmersive,
++  AntivirusError,
++  ANTIVIRUS_ENDPOINT,
++  fileHash,
++} from "../lib/antivirus-client";
++import { prepareSecureFile } from "../lib/secure-file";
++import { hasCleanScan } from "../lib/file-security";
++import type { Attachment } from "../lib/types";
++
++const clean = {
++  CleanResult: true,
++  FoundViruses: null,
++  ContainsExecutable: false,
++  ContainsInvalidFile: false,
++  ContainsScript: false,
++  ContainsPasswordProtectedFile: false,
++  ContainsRestrictedFileFormat: false,
++  ContainsMacros: false,
++  ContainsXmlExternalEntities: false,
++  ContainsInsecureDeserialization: false,
++  ContainsHtml: false,
++  ContainsUnsafeArchive: false,
++  ContainsOleEmbeddedObject: false,
++  ContainsUnwantedAction: false,
++};
++const bytes = Buffer.from("Project notes");
++const scan = (impl: typeof fetch, apiKey: string | undefined = "test-key") =>
++  scanWithCloudmersive(bytes, "text/plain", "txt", { apiKey, fetch: impl });
++
++test("scanner only accepts a complete clean verdict and never sends identifying metadata", async () => {
++  const receipt = await scan(async (url, init) => {
++    expect(url).toBe(ANTIVIRUS_ENDPOINT);
++    expect(init?.redirect).toBe("error");
++    expect(init?.cache).toBe("no-store");
++    expect(init?.signal).toBeInstanceOf(AbortSignal);
++    const headers = new Headers(init?.headers);
++    expect(headers.get("apikey")).toBe("test-key");
++    expect(headers.get("allowScripts")).toBe("false");
++    expect(headers.get("allowHtml")).toBe("false");
++    const file = (init?.body as FormData).get("inputFile") as File;
++    expect(file.name).toBe("attachment.txt");
++    expect(await file.text()).toBe("Project notes");
++    return Response.json(clean);
++  });
++  expect(receipt).toMatchObject({
++    status: "clean",
++    provider: "cloudmersive",
++    version: 1,
++    sha256: fileHash(bytes),
++  });
++  expect(hasCleanScan({ antivirus: receipt } as Attachment)).toBe(true);
++  expect(
++    hasCleanScan({ antivirus: { ...receipt, sha256: "fake" } } as Attachment),
++  ).toBe(false);
++});
++
++test("scanner fails closed on threat verdicts, bad responses, outages and missing configuration", async () => {
++  for (const response of [
++    { ...clean, CleanResult: false },
++    { ...clean, FoundViruses: [{ VirusName: "test-threat" }] },
++    ...Object.keys(clean)
++      .filter((key) => key.startsWith("Contains"))
++      .map((flag) => ({ ...clean, [flag]: true })),
++  ])
++    await expect(
++      scan(async () => Response.json(response)),
++    ).rejects.toMatchObject({ reason: "blocked" });
++  for (const impl of [
++    async () => Response.json({ CleanResult: true }),
++    async () => Response.json({ ...clean, CleanResult: "true" }),
++    async () => Response.json({ ...clean, FoundViruses: "none" }),
++    async () => Response.json({ ...clean, ContainsScript: undefined }),
++    async () => new Response("upstream-private-error", { status: 503 }),
++    async () => new Response("quota", { status: 429 }),
++    async () => new Response("credential-error", { status: 401 }),
++    async () =>
++      new Response("{broken-json", {
++        headers: { "Content-Type": "application/json" },
++      }),
++    async () =>
++      new Response("x".repeat(65537), {
++        headers: { "Content-Type": "application/json" },
++      }),
++    async () => {
++      throw new DOMException("Timed out", "TimeoutError");
++    },
++  ])
++    await expect(scan(impl)).rejects.toMatchObject({ reason: "unavailable" });
++  await expect(
++    scan(async () => {
++      throw new Error("Must not call provider");
++    }, ""),
++  ).rejects.toMatchObject({ reason: "unavailable" });
++});
++
++test("both original and rewritten images must scan clean before storage", async () => {
++  const photo = await sharp({
++    create: { width: 5, height: 5, channels: 3, background: "#ffffff" },
++  })
++    .jpeg()
++    .toBuffer();
++  const original = Buffer.concat([photo, Buffer.from("test-appended-payload")]);
++  const file = new File([original], "Customer name.jpg", {
++    type: "image/jpeg",
++  });
++  const calls: string[] = [];
++  const prepared = await prepareSecureFile(
++    file,
++    async (input, mime, extension) => {
++      calls.push(fileHash(input));
++      return scanWithCloudmersive(input, mime, extension, {
++        apiKey: "test",
++        fetch: async () => Response.json(clean),
++      });
++    },
++  );
++  expect(calls).toEqual([fileHash(original), fileHash(prepared.bytes)]);
++  expect(prepared.antivirus.sourceSha256).toBe(fileHash(original));
++  expect(prepared.antivirus.sha256).toBe(fileHash(prepared.bytes));
++  let count = 0;
++  await expect(
++    prepareSecureFile(file, async (input, mime, extension) => {
++      count++;
++      if (count === 2) throw new AntivirusError("blocked");
++      return scanWithCloudmersive(input, mime, extension, {
++        apiKey: "test",
++        fetch: async () => Response.json(clean),
++      });
++    }),
++  ).rejects.toMatchObject({ reason: "blocked" });
++  expect(count).toBe(2);
++});
+--- /dev/null
++++ b/tests/scanner-preload.mjs
+@@ -0,0 +1,32 @@
++// Integration-test stub only. Excluded from Vercel; this is NOT an antivirus engine.
++// Intercept server-side fetch in the test process without a production bypass flag.
++const actualFetch = globalThis.fetch;
++globalThis.fetch = async (url, init) => {
++  if (String(url) !== "https://api.cloudmersive.com/virus/scan/file/advanced")
++    return actualFetch(url, init);
++  if (new Headers(init?.headers).get("Apikey") !== "integration-test-key")
++    throw new Error("Test scanner requires a dummy key.");
++  const file = init.body.get("inputFile");
++  const text = await file.text();
++  if (text.includes("scanner-test-outage"))
++    return new Response("Unavailable", { status: 503 });
++  if (text.includes("scanner-test-invalid"))
++    return Response.json({ CleanResult: true });
++  const infected = text.includes("EICAR-STANDARD-ANTIVIRUS-TEST-FILE");
++  return Response.json({
++    CleanResult: !infected,
++    FoundViruses: infected ? [{ VirusName: "EICAR test stub" }] : null,
++    ContainsExecutable: false,
++    ContainsInvalidFile: false,
++    ContainsScript: false,
++    ContainsPasswordProtectedFile: false,
++    ContainsRestrictedFileFormat: false,
++    ContainsMacros: false,
++    ContainsXmlExternalEntities: false,
++    ContainsInsecureDeserialization: false,
++    ContainsHtml: false,
++    ContainsUnsafeArchive: false,
++    ContainsOleEmbeddedObject: false,
++    ContainsUnwantedAction: false,
++  });
++};
+--- /dev/null
++++ b/supabase/migrations/202609130001_antivirus_storage.sql
+@@ -0,0 +1,15 @@
++-- Apply with the antivirus release, after existing attachments have been scanned.
++-- Preserve all files; only the authorized API can release scanned bytes.
++begin;
++drop policy if exists remodel_files_server_only on storage.objects;
++create policy remodel_files_server_only on storage.objects
++  as restrictive for all to anon, authenticated
++  using (bucket_id <> 'remodel-files')
++  with check (bucket_id <> 'remodel-files');
++update storage.buckets
++set public = false, allowed_mime_types = array[
++  'image/jpeg','image/png','image/webp','application/pdf','text/plain'
++]
++where id = 'remodel-files';
++notify pgrst, 'reload schema';
++commit;
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -97,6 +97,14 @@
+   path: string;
+   authorName: string;
+   validationVersion?: number;
++  antivirus?: {
++    status: "clean" | "blocked";
++    provider: "cloudmersive";
++    version: number;
++    scannedAt: string;
++    sha256: string;
++    sourceSha256?: string;
++  };
+ }
+ export const activityTypes = [
+   "Payment received",
+--- a/app/api/files/route.ts
++++ b/app/api/files/route.ts
+@@ -6,10 +6,13 @@
+   requireUser,
+   limitAttempts,
+ } from "@/lib/auth";
+-import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
++import { supabaseAdmin } from "@/lib/supabase/server";
+ import { deleteRecord, findRecord, insertRecord } from "@/lib/repository";
+ import type { Attachment } from "@/lib/types";
+-import { validateStoredFile } from "@/lib/validate-file";
++import { prepareSecureFile } from "@/lib/secure-file";
++import { scanForMalware } from "@/lib/antivirus";
++import { AntivirusError, fileHash } from "@/lib/antivirus-client";
++import { hasCleanScan } from "@/lib/file-security";
+ import { MAX_FILE_SIZE } from "@/lib/file-policy";
+ export const runtime = "nodejs";
+ export const maxDuration = 60;
+@@ -34,14 +37,20 @@
+     await limitAttempts(`files:${user.id}`, 120);
+     let validated;
+     try {
+-      validated = await validateStoredFile(file);
++      validated = await prepareSecureFile(file, scanForMalware);
+     } catch (error) {
++      if (error instanceof AntivirusError)
++        throw new HttpError(
++          error.reason === "blocked" ? 422 : 503,
++          error.message,
++        );
+       throw new HttpError(
+         400,
+         error instanceof Error ? error.message : "Unsupported file.",
+       );
+     }
+-    const { bytes, mime, name, extension, validationVersion } = validated;
++    const { bytes, mime, name, extension, validationVersion, antivirus } =
++      validated;
+     const storedPath = `${user.organizationId}/${projectId}/${randomUUID()}/file.${extension}`;
+     const storage = supabaseAdmin().storage.from(bucket);
+     const { error } = await storage.upload(storedPath, bytes, {
+@@ -57,6 +66,7 @@
+           mime,
+           size: bytes.length,
+           validationVersion,
++          antivirus,
+           storage: "supabase",
+           path: storedPath,
+           authorName: user.name,
+@@ -81,9 +91,25 @@
+       : null;
+     if (!file || !file.path.startsWith(`${user.organizationId}/`))
+       throw new HttpError(404, "File not found.");
+-    const { data, error } = await (await supabaseServer()).storage.from(bucket).download(file.path);
++    if (!hasCleanScan(file))
++      throw new HttpError(
++        423,
++        "This file is unavailable until it passes antivirus scanning. Contact an administrator.",
++      );
++    // Storage is server-only; a user must pass the company and scan checks above.
++    const { data, error } = await supabaseAdmin()
++      .storage.from(bucket)
++      .download(file.path);
+     if (error || !data) throw new HttpError(404, "File unavailable.");
+-    return new Response(data, {
++    if (data.size > maxSize)
++      throw new HttpError(423, "File security verification failed.");
++    const bytes = new Uint8Array(await data.arrayBuffer());
++    if (fileHash(bytes) !== file.antivirus?.sha256)
++      throw new HttpError(
++        423,
++        "File security verification failed. Contact an administrator.",
++      );
++    return new Response(bytes, {
+       headers: {
+         "Content-Type": file.mime,
+         "Cache-Control": "private, no-store",
+--- a/app/api/workspace/route.ts
++++ b/app/api/workspace/route.ts
+@@ -11,6 +11,7 @@
+ import { preserveScopeCosts } from "@/lib/project-finances";
+ import { FILE_VALIDATION_VERSION } from "@/lib/file-policy";
+ import type { Attachment } from "@/lib/types";
++import { hasCleanScan } from "@/lib/file-security";
+ import { preserveProjectHistory } from "@/lib/quotes";
+ import { preserveWorkSchedule } from "@/lib/work";
+ import { projectDates } from "@/lib/project-timing";
+@@ -120,6 +121,11 @@
+           attachment.projectId !== data.projectId
+         )
+           throw new HttpError(400, "Attachments must belong to this project.");
++        if (!hasCleanScan(attachment as Attachment))
++          throw new HttpError(
++            400,
++            "Attachments must pass antivirus scanning before they can be shared.",
++          );
+         if (
+           kind === "comment" &&
+           (attachment as Attachment).validationVersion !==
+--- a/components/settings-panel.tsx
++++ b/components/settings-panel.tsx
+@@ -6,6 +6,7 @@
+ import GenerationSettings from "./generation-settings";
+ import { AppearanceSettings } from "./theme-controls";
+ import { InstallAppPanel } from "./pwa-install";
++import FileSecuritySettings from "./file-security-settings";
+ export default function SettingsPanel({
+   user,
+   demo,
+@@ -29,6 +30,7 @@
+       </div>
+       <AppearanceSettings />
+       <InstallAppPanel />
++      {user.role === "admin" && <FileSecuritySettings demo={demo} />}
+       <GenerationSettings demo={demo} admin={user.role === "admin"} />
+       <div className="settings-section">
+         <div className="settings-title">
+--- a/components/files-panel.tsx
++++ b/components/files-panel.tsx
+@@ -11,6 +11,7 @@
+ import type { Attachment } from "@/lib/types";
+ import { dateLabel } from "@/lib/utils";
+ import { Modal } from "./ui";
++import { hasCleanScan, fileSecurityLabel } from "@/lib/file-security";
+ import {
+   FILE_ACCEPT,
+   FILE_TYPES_LABEL,
+@@ -88,7 +89,9 @@
+         </span>
+         <strong>
+           {busy
+-            ? "Uploading your files…"
++            ? demo
++              ? "Uploading your files…"
++              : "Scanning and uploading your files…"
+             : "Drop your job photos and files here"}
+         </strong>
+         <span>
+@@ -106,6 +109,7 @@
+           <div className="file-item" key={file.id}>
+             <button
+               className="file-preview"
++              disabled={!demo && !hasCleanScan(file)}
+               onClick={() => {
+                 if (file.mime.startsWith("image/")) setPreview(file);
+                 else {
+@@ -116,7 +120,12 @@
+                 }
+               }}
+             >
+-              {file.mime.startsWith("image/") ? (
++              {!demo && !hasCleanScan(file) ? (
++                <div className="file-type">
++                  <FileText size={38} />
++                  <span>{fileSecurityLabel(file)}</span>
++                </div>
++              ) : file.mime.startsWith("image/") ? (
+                 <img src={url(file)} alt={file.name} />
+               ) : (
+                 <div className="file-type">
+@@ -132,6 +141,7 @@
+               </span>
+               <small>Added by {file.authorName}</small>
+               <div className="file-actions">
++                {(demo || hasCleanScan(file)) && (
+                   <a
+                     href={demo ? file.path : `${url(file)}&download=1`}
+                     download={file.name}
+@@ -140,6 +150,7 @@
+                     <Download size={13} />
+                     Download
+                   </a>
++                )}
+                 {admin && (
+                   <button
+                     className="icon-button delete-action"
+--- a/components/note-attachments.tsx
++++ b/components/note-attachments.tsx
+@@ -3,6 +3,7 @@
+ import { Download, FileText } from "lucide-react";
+ import type { Attachment } from "@/lib/types";
+ import { Modal } from "./ui";
++import { hasCleanScan, fileSecurityLabel } from "@/lib/file-security";
+ 
+ export default function NoteAttachments({
+   ids,
+@@ -30,6 +31,13 @@
+           const image = ["image/jpeg", "image/png", "image/webp"].includes(
+             file.mime,
+           );
++          if (!demo && !hasCleanScan(file))
++            return (
++              <div className="note-attachment" key={id}>
++                <span>{file.name}</span>
++                <small className="muted">{fileSecurityLabel(file)}</small>
++              </div>
++            );
+           return (
+             <div className="note-attachment" key={id}>
+               {image && (
+--- a/playwright.config.ts
++++ b/playwright.config.ts
+@@ -17,7 +17,8 @@
+     screenshot: "only-on-failure",
+   },
+   webServer: {
+-    command: "npm run start -- --port 3100",
++    command:
++      "node --import ./tests/scanner-preload.mjs ./node_modules/next/dist/bin/next start --port 3100",
+     url: "http://localhost:3100/login",
+     reuseExistingServer: false,
+     timeout: 60000,
+@@ -25,6 +26,7 @@
+       SUPABASE_ORGANIZATION_ID: process.env.SUPABASE_TEST_ORGANIZATION_ID,
+       APP_URL: "http://localhost:3100",
+       VERCEL: "",
++      CLOUDMERSIVE_API_KEY: "integration-test-key",
+     },
+   },
+ });
+--- a/tests/file-uploads-api.spec.ts
++++ b/tests/file-uploads-api.spec.ts
+@@ -1,4 +1,7 @@
+ import { randomUUID } from "node:crypto";
++import { readFile } from "node:fs/promises";
++import pg from "pg";
++import { createClient } from "@supabase/supabase-js";
+ import sharp from "sharp";
+ import { PDFDocument } from "pdf-lib";
+ import { test, expect, password } from "./supabase-fixture";
+@@ -7,7 +10,7 @@
+ 
+ cloudTest(
+   "company upload validation cannot be bypassed and note files stay scoped and deduplicated",
+-  async ({ page, request }) => {
++  async ({ company, page, request }) => {
+     const api = page.request;
+     expect(
+       (
+@@ -61,6 +64,69 @@
+     expect(uploaded.status()).toBe(201);
+     const file = await uploaded.json();
+     expect(file.validationVersion).toBe(1);
++    expect(file.antivirus).toMatchObject({
++      status: "clean",
++      provider: "cloudmersive",
++      version: 1,
++    });
++    // Exercise the new storage policy inside a rolled-back transaction only.
++    // No production policy change becomes visible to other connections.
++    const publicClient = createClient(
++      process.env.NEXT_PUBLIC_SUPABASE_URL!,
++      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
++      { auth: { persistSession: false } },
++    );
++    const auth = await publicClient.auth.signInWithPassword({
++      email: company.email,
++      password,
++    });
++    expect(auth.error).toBeNull();
++    const token = auth.data.session!.access_token;
++    const claims = Buffer.from(token.split(".")[1], "base64url").toString(
++      "utf8",
++    );
++    const db = new pg.Client({
++      connectionString: process.env.DATABASE_URL,
++      ssl: { rejectUnauthorized: false },
++      connectionTimeoutMillis: 10000,
++    });
++    try {
++      await db.connect();
++      await db.query("begin");
++      await db.query(
++        "set local lock_timeout = '3s'; set local statement_timeout = '10s'",
++      );
++      const migration = await readFile(
++        "supabase/migrations/202609130001_antivirus_storage.sql",
++        "utf8",
++      );
++      await db.query(migration.replace(/^\s*(begin|commit);\s*$/gm, ""));
++      await db.query("set local role authenticated");
++      await db.query("select set_config('request.jwt.claims', $1, true)", [
++        claims,
++      ]);
++      expect(
++        (await db.query("select * from public.remodel_current_member()"))
++          .rowCount,
++      ).toBe(1);
++      expect(
++        (
++          await db.query(
++            "select name from storage.objects where bucket_id = 'remodel-files' and name = $1",
++            [file.path],
++          )
++        ).rowCount,
++      ).toBe(0);
++      await expect(
++        db.query(
++          "insert into storage.objects(bucket_id,name) values ('remodel-files',$1)",
++          [`${company.organizationId}/blocked-upload.txt`],
++        ),
++      ).rejects.toMatchObject({ code: "42501" });
++    } finally {
++      await db.query("rollback").catch(() => {});
++      await db.end();
++    }
+     const download = await api.get(`/api/files?id=${file.id}`);
+     expect(download.status()).toBe(200);
+     expect(
+@@ -69,6 +135,66 @@
+     expect(download.headers()["x-content-type-options"]).toBe("nosniff");
+     expect(download.headers()["content-security-policy"]).toContain("sandbox");
+     expect((await request.get(`/api/files?id=${file.id}`)).status()).toBe(401);
++    const beforeRejected = await (await api.get("/api/workspace")).json();
++    for (const [payload, status] of [
++      ["EICAR-STANDARD-ANTIVIRUS-TEST-FILE", 422],
++      ["scanner-test-outage", 503],
++      ["scanner-test-invalid", 503],
++    ] as const) {
++      expect(
++        (
++          await upload("scan-test.txt", "text/plain", Buffer.from(payload))
++        ).status(),
++      ).toBe(status);
++    }
++    expect(
++      (await (await api.get("/api/workspace")).json()).attachments,
++    ).toHaveLength(beforeRejected.attachments.length);
++
++    // A server/storage mutation cannot reuse an old verdict for different bytes.
++    const stored = await company.admin.storage
++      .from("remodel-files")
++      .download(file.path);
++    expect(stored.error).toBeNull();
++    const overwritten = await company.admin.storage
++      .from("remodel-files")
++      .update(file.path, Buffer.from("changed"), { contentType: file.mime });
++    expect(overwritten.error).toBeNull();
++    expect((await api.get(`/api/files?id=${file.id}`)).status()).toBe(423);
++    expect(
++      (
++        await company.admin.storage
++          .from("remodel-files")
++          .update(file.path, stored.data!, { contentType: file.mime })
++      ).error,
++    ).toBeNull();
++
++    const { antivirus: ignoredScan, ...legacy } = file;
++    void ignoredScan;
++    expect(
++      (
++        await company.admin
++          .from("remodel_records")
++          .update({ data: legacy })
++          .eq("id", file.id)
++      ).error,
++    ).toBeNull();
++    expect((await api.get(`/api/files?id=${file.id}`)).status()).toBe(423);
++    await page.goto(
++      `/?view=Projects&project=${project.id}&tab=Photos%20%26%20files`,
++    );
++    await expect(page.getByText("Awaiting antivirus scan")).toBeVisible();
++    await expect(
++      page.getByRole("link", { name: "Download", exact: true }),
++    ).toHaveCount(0);
++    expect(
++      (
++        await company.admin
++          .from("remodel_records")
++          .update({ data: file })
++          .eq("id", file.id)
++      ).error,
++    ).toBeNull();
+     for (const [name, mimeType, bytes] of [
+       ["script.svg", "image/svg+xml", "<svg />"],
+       ["run.exe.jpg", "image/jpeg", "fake"],
+@@ -138,6 +264,35 @@
+     ]);
+     for (const attempt of attempts) expect(attempt.status()).toBe(201);
+     const workspace = await (await api.get("/api/workspace")).json();
++    const security = await api.get("/api/file-security");
++    expect(await security.json()).toMatchObject({
++      configured: true,
++      scanned: 2,
++      pending: 0,
++      blocked: 0,
++    });
++    expect((await request.get("/api/file-security")).status()).toBe(401);
++    await page.goto("/?view=Settings");
++    const securityPanel = page.getByRole("region", {
++      name: "File security",
++      exact: true,
++    });
++    await expect(securityPanel).toContainText("Cloudmersive configured");
++    await expect(securityPanel).toContainText(
++      "2 scanned · 0 awaiting scan · 0 blocked",
++    );
++    await page.setViewportSize({ width: 390, height: 844 });
++    await page.evaluate(
++      () => (document.documentElement.dataset.theme = "dark"),
++    );
++    await securityPanel.scrollIntoViewIfNeeded();
++    expect(
++      await page.evaluate(
++        () => document.documentElement.scrollWidth <= innerWidth,
++      ),
++    ).toBe(true);
++    await page.screenshot({ path: "artifacts/antivirus-settings-dark.png" });
++    await page.setViewportSize({ width: 1440, height: 950 });
+     expect(workspace.comments).toHaveLength(1);
+     expect(workspace.attachments).toHaveLength(2);
+     expect(workspace.comments[0]).toMatchObject({
+--- a/.env.example
++++ b/.env.example
+@@ -11,3 +11,5 @@
+ DATABASE_URL=
+ # Server only: used for renovation previews. Never prefix with NEXT_PUBLIC_.
+ OPENROUTER_API_KEY=
++# Server only: required for project attachments. Scanning fails closed when unavailable.
++CLOUDMERSIVE_API_KEY=
+--- a/README.md
++++ b/README.md
+@@ -112,7 +112,21 @@
+ 
+ New uploads may be up to **4 MB**: JPG, PNG, WebP, static PDF, and UTF-8 TXT only. Scripts, executables, SVG/HTML, archives, Office documents and CSV uploads are blocked. The server verifies extensions, declared types and contents; decodes and rewrites still images (up to 40 megapixels) without source metadata or appended data; parses and reserializes PDFs (up to 200 pages), rejecting encryption, forms, actions, scripts and embedded files. Documents download as attachments with nosniff and sandbox headers.
+ 
+-Antivirus scanning is deferred in [TODO.md](TODO.md). The prepared implementation is preserved in `deferred/antivirus/`, excluded from application builds and deployments. Current protection is strict file validation, not antivirus scanning.
++Project attachments now require Cloudmersive Advanced Virus Scan (`CLOUDMERSIVE_API_KEY`, server only). The original is scanned before image/PDF parsing; rewritten bytes are scanned again unless unchanged. Only a complete, explicitly clean verdict is accepted. Threats return 422; timeouts, malformed responses, quota errors and missing credentials return 503. Nothing is stored on these failures. The private attachment record includes provider, timestamp, policy version, source hash and stored SHA-256. Downloads require a clean record and verify the stored hash. Unscanned/blocked attachments cannot be opened or linked to new notes/activities. The storage migration denies direct browser/API access to the bucket, including signed-URL creation, so users must use the authenticated file route. Existing signed URLs should be considered valid until their original expiry; the app never issues them.
++
++The provider receives file contents over HTTPS with a generic filename; no project/client names, bucket credentials or storage links are sent as metadata. File contents themselves can contain private information. Cloudmersive states its stateless APIs do not retain processed payloads ([security](https://cloudmersive.com/security)). The production plan must support 4 MB files and sufficient requests; a rewritten attachment can consume two scans. The published free evaluation tier has a smaller 3.5 MB limit. Never use a public malware-sharing service for company documents. Antivirus and file validation reduce risk but do not guarantee malware-free files. Keep dependencies current and do not interpret a clean result as a guarantee.
++
++### Antivirus activation and existing attachments
++
++**Deferred by user request on September 13, 2026; tracked in [TODO.md](TODO.md).** Antivirus is not active in production. The prepared local integration requires scanner configuration before deployment; there is no production bypass. Production remains on the previous validation-only release. Separate this pending integration before deploying unrelated changes so a missing scanner key does not interrupt uploads or downloads. Do not apply its storage migration while activation is deferred.
++
++1. Add `CLOUDMERSIVE_API_KEY` to Vercel Production and the local private environment used for rollout. Do not commit or paste keys into logs. No provider subscription is created by this app.
++2. Run `npx tsx scripts/verify-antivirus.ts`. This contacts the **real engine**, verifies a harmless clean file is accepted, and the industry-standard EICAR test is rejected. Do not enable the release unless both succeed.
++3. Review `npx tsx scripts/scan-existing-files.ts` (dry run), then run it with `--apply`. It only processes attachments in `SUPABASE_ORGANIZATION_ID`. Clean files are rewritten to a new immutable path and receive a scan receipt. Rejected files are marked blocked and retained privately. Scanner failures stop the rollout. Updates are conditional to prevent overwriting concurrent changes. Scan receipts are tied to the bytes at upload time, not a scheduled continuous re-scan.
++4. Deploy this release, then immediately run `npm run db:migrate` to apply `202609130001_antivirus_storage.sql`. Until that policy is applied, direct company storage access could bypass the API. Verify direct reads/uploads/signing are denied and clean downloads still work before calling activation complete.
++5. Check Settings → File security for configuration and pending/blocked counts. After activation, rolling back the API also requires preserving its server-only storage access; do not remove the storage restriction to work around scanner outages.
++
++Integration tests use an explicitly isolated fetch stub in `tests/scanner-preload.mjs` with a dummy key; this stub is excluded from Vercel and cannot be enabled by a production request or environment toggle. These tests verify fail-closed application behavior, not actual malware detection. `verify-antivirus.ts` is the separate real-provider acceptance test. Demo files stay in the browser and are never antivirus scanned. Generate's transient photo processing is separate from project attachment storage.
+ 
+ Notes accept up to three attachments and can contain just a photo/file. The note stores project attachment IDs, so its files also appear in Photos & files without copying them. Uploaded files remain if note saving fails or the note is deleted; retries reuse completed uploads. Only administrators delete project files. Uploads use a private bucket. Downloads and image previews require an active company account and are never publicly cached. Sample mode keeps files in the browser and performs basic file checks; full content validation is enforced for company uploads on the server.
+ 
+--- a/TODO.md
++++ b/TODO.md
+@@ -5,4 +5,4 @@
+   - Scan existing attachments, deploy the integration, and apply its storage restriction.
+   - Verify uploads, downloads, and direct-storage access before marking this complete.
+ 
+-The deferred implementation, migration, tests, and activation guide are preserved in `deferred/antivirus/`. They are excluded from active code and deployments. Resume by reviewing its README and merging its patch with subsequent app changes.
++Deployment note: the prepared antivirus code currently requires a scanner key and clean scan receipts. Do not include it or `202609130001_antivirus_storage.sql` in an unrelated deployment while this item is deferred; first separate the pending integration so existing uploads and downloads keep working. Activation instructions are in [README.md](README.md#antivirus-activation-and-existing-attachments).

@@ -1,0 +1,15 @@
+import "server-only";
+import { scanWithCloudmersive } from "./antivirus-client";
+
+export function antivirusConfigured() {
+  return Boolean(process.env.CLOUDMERSIVE_API_KEY?.trim());
+}
+export function scanForMalware(
+  bytes: Uint8Array,
+  mime: string,
+  extension: string,
+) {
+  return scanWithCloudmersive(bytes, mime, extension, {
+    apiKey: process.env.CLOUDMERSIVE_API_KEY,
+  });
+}

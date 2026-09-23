@@ -1,0 +1,126 @@
+import { createHash } from "node:crypto";
+import { z } from "zod";
+import { FILE_ACCEPT, MAX_FILE_SIZE } from "./file-policy";
+
+export const ANTIVIRUS_VERSION = 1;
+export const ANTIVIRUS_ENDPOINT =
+  "https://api.cloudmersive.com/virus/scan/file/advanced";
+export class AntivirusError extends Error {
+  constructor(public readonly reason: "unavailable" | "blocked") {
+    super(
+      reason === "blocked"
+        ? "This file was blocked by the antivirus scanner. Choose a different file."
+        : "Antivirus scanning is unavailable. The file has not been accepted. Please try again later or contact an administrator.",
+    );
+  }
+}
+const flags = [
+  "ContainsExecutable",
+  "ContainsInvalidFile",
+  "ContainsScript",
+  "ContainsPasswordProtectedFile",
+  "ContainsRestrictedFileFormat",
+  "ContainsMacros",
+  "ContainsXmlExternalEntities",
+  "ContainsInsecureDeserialization",
+  "ContainsHtml",
+  "ContainsUnsafeArchive",
+  "ContainsOleEmbeddedObject",
+  "ContainsUnwantedAction",
+] as const;
+const verdictSchema = z.object({
+  CleanResult: z.boolean(),
+  FoundViruses: z.array(z.object({ VirusName: z.string() })).nullable(),
+  ...(Object.fromEntries(flags.map((flag) => [flag, z.boolean()])) as Record<
+    (typeof flags)[number],
+    z.ZodBoolean
+  >),
+});
+export function fileHash(bytes: Uint8Array) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+export async function scanWithCloudmersive(
+  bytes: Uint8Array,
+  mime: string,
+  extension: string,
+  options: { apiKey: string | undefined; fetch?: typeof fetch },
+) {
+  if (!options.apiKey?.trim() || !bytes.length || bytes.length > MAX_FILE_SIZE)
+    throw new AntivirusError("unavailable");
+  const body = new FormData();
+  // Never send client names, project IDs, storage URLs or credentials to the scanner.
+  body.set(
+    "inputFile",
+    new Blob([new Uint8Array(bytes)], { type: mime }),
+    `attachment.${extension}`,
+  );
+  const headers: Record<string, string> = {
+    Apikey: options.apiKey.trim(),
+    Accept: "application/json",
+    restrictFileTypes: FILE_ACCEPT,
+  };
+  for (const flag of [
+    "allowExecutables",
+    "allowInvalidFiles",
+    "allowScripts",
+    "allowPasswordProtectedFiles",
+    "allowMacros",
+    "allowXmlExternalEntities",
+    "allowInsecureDeserialization",
+    "allowHtml",
+    "allowUnsafeArchives",
+    "allowOleEmbeddedObject",
+    "allowUnwantedAction",
+  ])
+    headers[flag] = "false";
+  try {
+    const response = await (options.fetch ?? fetch)(ANTIVIRUS_ENDPOINT, {
+      method: "POST",
+      headers,
+      body,
+      signal: AbortSignal.timeout(15000),
+      redirect: "error",
+      cache: "no-store",
+    });
+    if (
+      !response.ok ||
+      !response.headers.get("content-type")?.includes("application/json")
+    )
+      throw new AntivirusError("unavailable");
+    const reader = response.body?.getReader();
+    if (!reader) throw new AntivirusError("unavailable");
+    let size = 0;
+    const chunks: Uint8Array[] = [];
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.length;
+        if (size > 65536) throw new AntivirusError("unavailable");
+        chunks.push(value);
+      }
+    } finally {
+      await reader.cancel();
+    }
+    const verdict = verdictSchema.parse(
+      JSON.parse(Buffer.concat(chunks).toString("utf8")),
+    );
+    if (
+      !verdict.CleanResult ||
+      verdict.FoundViruses?.length ||
+      flags.some((flag) => verdict[flag] === true)
+    )
+      throw new AntivirusError("blocked");
+    return {
+      status: "clean" as const,
+      provider: "cloudmersive" as const,
+      version: ANTIVIRUS_VERSION,
+      scannedAt: new Date().toISOString(),
+      sha256: fileHash(bytes),
+    };
+  } catch (error) {
+    // Never expose provider responses, credentials or file contents in logs/errors.
+    if (error instanceof AntivirusError) throw error;
+    throw new AntivirusError("unavailable");
+  }
+}

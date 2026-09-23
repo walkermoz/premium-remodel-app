@@ -1,0 +1,17 @@
+import type { Attachment } from "./types";
+
+export function hasCleanScan(file: Attachment) {
+  const scan = file.antivirus;
+  return (
+    scan?.status === "clean" &&
+    scan.provider === "cloudmersive" &&
+    scan.version === 1 &&
+    /^[a-f0-9]{64}$/.test(scan.sha256 ?? "") &&
+    Number.isFinite(Date.parse(scan.scannedAt))
+  );
+}
+export function fileSecurityLabel(file: Attachment) {
+  return file.antivirus?.status === "blocked"
+    ? "Blocked by file security checks"
+    : "Awaiting antivirus scan";
+}

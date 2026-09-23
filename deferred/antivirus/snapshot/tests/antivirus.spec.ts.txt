@@ -1,0 +1,135 @@
+import { test, expect } from "@playwright/test";
+import sharp from "sharp";
+import {
+  scanWithCloudmersive,
+  AntivirusError,
+  ANTIVIRUS_ENDPOINT,
+  fileHash,
+} from "../lib/antivirus-client";
+import { prepareSecureFile } from "../lib/secure-file";
+import { hasCleanScan } from "../lib/file-security";
+import type { Attachment } from "../lib/types";
+
+const clean = {
+  CleanResult: true,
+  FoundViruses: null,
+  ContainsExecutable: false,
+  ContainsInvalidFile: false,
+  ContainsScript: false,
+  ContainsPasswordProtectedFile: false,
+  ContainsRestrictedFileFormat: false,
+  ContainsMacros: false,
+  ContainsXmlExternalEntities: false,
+  ContainsInsecureDeserialization: false,
+  ContainsHtml: false,
+  ContainsUnsafeArchive: false,
+  ContainsOleEmbeddedObject: false,
+  ContainsUnwantedAction: false,
+};
+const bytes = Buffer.from("Project notes");
+const scan = (impl: typeof fetch, apiKey: string | undefined = "test-key") =>
+  scanWithCloudmersive(bytes, "text/plain", "txt", { apiKey, fetch: impl });
+
+test("scanner only accepts a complete clean verdict and never sends identifying metadata", async () => {
+  const receipt = await scan(async (url, init) => {
+    expect(url).toBe(ANTIVIRUS_ENDPOINT);
+    expect(init?.redirect).toBe("error");
+    expect(init?.cache).toBe("no-store");
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    const headers = new Headers(init?.headers);
+    expect(headers.get("apikey")).toBe("test-key");
+    expect(headers.get("allowScripts")).toBe("false");
+    expect(headers.get("allowHtml")).toBe("false");
+    const file = (init?.body as FormData).get("inputFile") as File;
+    expect(file.name).toBe("attachment.txt");
+    expect(await file.text()).toBe("Project notes");
+    return Response.json(clean);
+  });
+  expect(receipt).toMatchObject({
+    status: "clean",
+    provider: "cloudmersive",
+    version: 1,
+    sha256: fileHash(bytes),
+  });
+  expect(hasCleanScan({ antivirus: receipt } as Attachment)).toBe(true);
+  expect(
+    hasCleanScan({ antivirus: { ...receipt, sha256: "fake" } } as Attachment),
+  ).toBe(false);
+});
+
+test("scanner fails closed on threat verdicts, bad responses, outages and missing configuration", async () => {
+  for (const response of [
+    { ...clean, CleanResult: false },
+    { ...clean, FoundViruses: [{ VirusName: "test-threat" }] },
+    ...Object.keys(clean)
+      .filter((key) => key.startsWith("Contains"))
+      .map((flag) => ({ ...clean, [flag]: true })),
+  ])
+    await expect(
+      scan(async () => Response.json(response)),
+    ).rejects.toMatchObject({ reason: "blocked" });
+  for (const impl of [
+    async () => Response.json({ CleanResult: true }),
+    async () => Response.json({ ...clean, CleanResult: "true" }),
+    async () => Response.json({ ...clean, FoundViruses: "none" }),
+    async () => Response.json({ ...clean, ContainsScript: undefined }),
+    async () => new Response("upstream-private-error", { status: 503 }),
+    async () => new Response("quota", { status: 429 }),
+    async () => new Response("credential-error", { status: 401 }),
+    async () =>
+      new Response("{broken-json", {
+        headers: { "Content-Type": "application/json" },
+      }),
+    async () =>
+      new Response("x".repeat(65537), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    async () => {
+      throw new DOMException("Timed out", "TimeoutError");
+    },
+  ])
+    await expect(scan(impl)).rejects.toMatchObject({ reason: "unavailable" });
+  await expect(
+    scan(async () => {
+      throw new Error("Must not call provider");
+    }, ""),
+  ).rejects.toMatchObject({ reason: "unavailable" });
+});
+
+test("both original and rewritten images must scan clean before storage", async () => {
+  const photo = await sharp({
+    create: { width: 5, height: 5, channels: 3, background: "#ffffff" },
+  })
+    .jpeg()
+    .toBuffer();
+  const original = Buffer.concat([photo, Buffer.from("test-appended-payload")]);
+  const file = new File([original], "Customer name.jpg", {
+    type: "image/jpeg",
+  });
+  const calls: string[] = [];
+  const prepared = await prepareSecureFile(
+    file,
+    async (input, mime, extension) => {
+      calls.push(fileHash(input));
+      return scanWithCloudmersive(input, mime, extension, {
+        apiKey: "test",
+        fetch: async () => Response.json(clean),
+      });
+    },
+  );
+  expect(calls).toEqual([fileHash(original), fileHash(prepared.bytes)]);
+  expect(prepared.antivirus.sourceSha256).toBe(fileHash(original));
+  expect(prepared.antivirus.sha256).toBe(fileHash(prepared.bytes));
+  let count = 0;
+  await expect(
+    prepareSecureFile(file, async (input, mime, extension) => {
+      count++;
+      if (count === 2) throw new AntivirusError("blocked");
+      return scanWithCloudmersive(input, mime, extension, {
+        apiKey: "test",
+        fetch: async () => Response.json(clean),
+      });
+    }),
+  ).rejects.toMatchObject({ reason: "blocked" });
+  expect(count).toBe(2);
+});

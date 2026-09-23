@@ -1,0 +1,26 @@
+import { checkFileSelection, checkFileContents } from "./file-policy";
+import { validateStoredFile } from "./validate-file";
+import { fileHash, type scanWithCloudmersive } from "./antivirus-client";
+
+type Scanner = (
+  bytes: Uint8Array,
+  mime: string,
+  extension: string,
+) => ReturnType<typeof scanWithCloudmersive>;
+export async function prepareSecureFile(file: File, scan: Scanner) {
+  const info = checkFileSelection(file);
+  const original = new Uint8Array(await file.arrayBuffer());
+  checkFileContents(original, info.mime);
+  // Scan the original before feeding untrusted bytes into image/PDF parsers.
+  const sourceScan = await scan(original, info.mime, info.extension);
+  const validated = await validateStoredFile(file);
+  // Rewrites are scanned again; the verdict always binds to the bytes we store.
+  const antivirus =
+    fileHash(validated.bytes) === sourceScan.sha256
+      ? sourceScan
+      : await scan(validated.bytes, info.mime, info.extension);
+  return {
+    ...validated,
+    antivirus: { ...antivirus, sourceSha256: sourceScan.sha256 },
+  };
+}
