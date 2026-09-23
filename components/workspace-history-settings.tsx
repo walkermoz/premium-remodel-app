@@ -90,11 +90,14 @@ function ActionIcon({ action }: { action: AuditAction }) {
   return <Pencil size={12} aria-hidden="true" />;
 }
 
+const INITIAL_VISIBLE = 3;
+
 export default function WorkspaceHistorySettings({ demo }: { demo: boolean }) {
   const [entries, setEntries] = useState<AuditEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(!demo);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(
@@ -153,7 +156,13 @@ export default function WorkspaceHistorySettings({ demo }: { demo: boolean }) {
         <div className="workspace-history-toolbar">
           <div>
             <strong>Latest changes</strong>
-            {!demo && <span>{entries.length} shown</span>}
+            {!demo && (
+              <span>
+                {expanded
+                  ? `${entries.length} shown`
+                  : `${Math.min(entries.length, INITIAL_VISIBLE)} of ${entries.length}${hasMore ? "+" : ""} shown`}
+              </span>
+            )}
           </div>
           {!demo && (
             <button
@@ -182,7 +191,10 @@ export default function WorkspaceHistorySettings({ demo }: { demo: boolean }) {
         ) : entries.length ? (
           <>
             <ol className="workspace-history-list">
-              {entries.map((entry) => (
+              {(expanded
+                ? entries
+                : entries.slice(0, INITIAL_VISIBLE)
+              ).map((entry) => (
                 <li key={entry.id}>
                   <span
                     className={`history-action history-action-${entry.action}`}
@@ -212,16 +224,31 @@ export default function WorkspaceHistorySettings({ demo }: { demo: boolean }) {
                 </li>
               ))}
             </ol>
-            {hasMore && (
-              <button
-                type="button"
-                className="button small-button"
-                onClick={() => void load(entries.length)}
-                disabled={loadingMore}
-              >
-                {loadingMore ? "Loading…" : "Show older changes"}
-              </button>
-            )}
+            <div className="workspace-history-actions">
+              {(entries.length > INITIAL_VISIBLE || hasMore) && (
+                <button
+                  type="button"
+                  className="button small-button"
+                  onClick={() => {
+                    if (!expanded) {
+                      setExpanded(true);
+                      return;
+                    }
+                    if (hasMore) void load(entries.length);
+                    else setExpanded(false);
+                  }}
+                  disabled={loadingMore}
+                >
+                  {loadingMore
+                    ? "Loading…"
+                    : !expanded
+                      ? `Show more (${entries.length - INITIAL_VISIBLE}${hasMore ? "+" : ""} older)`
+                      : hasMore
+                        ? "Show older changes"
+                        : "Show less"}
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <p className="generation-note">

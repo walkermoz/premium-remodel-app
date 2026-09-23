@@ -3604,6 +3604,12 @@ small {
   align-items: center;
   gap: 5px;
 }
+.workspace-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
 .workspace-history-list {
   list-style: none;
   padding: 0;

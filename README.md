@@ -185,13 +185,16 @@ Lead funnel stages: `New` → `Follow-up` → `Quote drafted` → `Quote sent` �
 Dispositions `Archive` / `Junk` / `Spam` / `Test` exit the funnel and are excluded from close rate.
 
 ### New-lead webhook
-Administrators configure an HTTPS URL in **Settings → New-lead webhook**. Website lead intake POSTs `lead.created` JSON (lead id + core fields) immediately after create. Optional signing secret adds `X-ServiceBuddy-Signature` (HMAC-SHA256 hex of the raw body).
+Admin Settings no longer exposes a New-lead webhook UI. Dispatch relies on short-cadence polling for new leads instead of an in-app webhook URL.
 
-Apply migration `202609230001_api_keys_lead_webhook.sql` before relying on keys or webhook settings:
+Server-side `lead.created` webhook helpers and org columns from migration `202609230001_api_keys_lead_webhook.sql` may still exist for internal/service use; they are not configured from the product UI.
+
+Apply that migration before relying on admin API keys:
 
 ```sh
 npm run db:migrate
 ```
+
 
 ### GitHub Actions → Vercel preview
 Workflow stub (copy into `.github/workflows/ci.yml` when the pushing account has the GitHub `workflow` scope): `docs/github-actions/ci.yml`
