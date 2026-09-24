@@ -65,7 +65,7 @@ export const schemas = {
       contactId: z.uuid(),
       name: short.min(1),
       project: short.min(1),
-      projectDescription: z.string().trim().min(10).max(1000),
+      projectDescription: z.string().trim().max(1000),
       status: z.enum(leadStages),
       disposition: z.enum(leadDispositions).optional(),
       notes: text.optional(),

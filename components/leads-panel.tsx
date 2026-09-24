@@ -437,10 +437,12 @@ export default function LeadsPanel({
                   </p>
                 )}
               </section>
-              <section className="lead-project-brief">
-                <span>PROJECT REQUEST</span>
-                <p>{selected.projectDescription}</p>
-              </section>
+              {selected.projectDescription && (
+                <section className="lead-project-brief">
+                  <span>PROJECT REQUEST</span>
+                  <p>{selected.projectDescription}</p>
+                </section>
+              )}
               {selected.quoteDate && (
                 <section className="lead-quote-appointment">
                   <CalendarClock size={18} aria-hidden="true" />

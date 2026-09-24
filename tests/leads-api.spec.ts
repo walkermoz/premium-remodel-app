@@ -46,6 +46,21 @@ test("Discord lead notification preserves the form details safely", () => {
   expect(message.embeds[0].timestamp).toBe("2026-09-16T20:00:00.000Z");
 });
 
+test("Discord lead notification omits fields that were not submitted", () => {
+  const message = buildDiscordLeadMessage(
+    {
+      first_name: "Jordan",
+      phone: "+19195550142",
+    },
+    new Date("2026-09-16T20:00:00.000Z"),
+  );
+
+  expect(message.embeds[0].fields.map((field) => field.name)).toEqual([
+    "👤 Name",
+    "📞 Phone",
+  ]);
+});
+
 test("leads page shows linked website inquiry and contact details", async ({
   page,
 }) => {
@@ -176,16 +191,20 @@ cloudTest(
 
     const invalid = await request.post("/api/leads", {
       headers: { Origin: websiteOrigin },
-      data: { ...payload, project_description: "short" },
+      data: { ...payload, email: "not-an-email" },
     });
     expect(invalid.status()).toBe(400);
     expect(invalid.headers()["access-control-allow-origin"]).toBe(
       websiteOrigin,
     );
 
+    const withoutDescription = {
+      ...payload,
+      project_description: undefined,
+    };
     const response = await request.post("/api/leads", {
       headers: { Origin: websiteOrigin },
-      data: payload,
+      data: withoutDescription,
     });
     expect(response.status()).toBe(201);
     expect(response.headers()["access-control-allow-origin"]).toBe(
@@ -240,7 +259,7 @@ cloudTest(
       contactId: workspace.contacts[0].id,
       name: "Jordan Lee",
       project: payload.project,
-      projectDescription: payload.project_description,
+      projectDescription: "",
       status: "New",
       source: "Premium Remodel website",
       discordNotification: {
@@ -269,7 +288,7 @@ cloudTest(
 
     await page.goto("/?view=Leads");
     const leadDetail = page.getByRole("article", { name: "Jordan Lee lead" });
-    await expect(leadDetail).toContainText(payload.project_description);
+    await expect(leadDetail.getByText("PROJECT REQUEST")).toHaveCount(0);
     await leadDetail
       .getByRole("button", { name: "Schedule consultation" })
       .click();
