@@ -1,4 +1,5 @@
 import type {
+  Contact,
   Lead,
   LeadDisposition,
   LeadDispositionEvent,
@@ -6,6 +7,49 @@ import type {
   Quote,
   QuoteStatus,
 } from "./types";
+
+export function quotePrefillFromLead(
+  lead: Lead,
+  contact?: Contact | null,
+): Partial<Quote> {
+  const project = lead.project.trim() || "Project";
+  const client = contact?.name.trim() || lead.name.trim();
+  const street = contact?.address.trim() || "";
+  const zip = contact?.zip.trim() || "";
+  const address =
+    zip && !street.includes(zip)
+      ? [street, zip].filter(Boolean).join(", ")
+      : street;
+  const normalized = project.toLowerCase();
+  const category = normalized.includes("bath")
+    ? "Bathroom"
+    : normalized.includes("kitchen")
+      ? "Kitchen"
+      : normalized.includes("basement") || normalized.includes("attic")
+        ? "Basement"
+        : normalized.includes("deck") ||
+            normalized.includes("exterior") ||
+            normalized.includes("shed")
+          ? "Outdoor"
+          : normalized.includes("whole")
+            ? "Whole home"
+            : "Other";
+
+  return {
+    name: `${client} · ${project}`,
+    client,
+    clientEmail: contact?.email || "",
+    clientPhone: contact?.phone || "",
+    address,
+    category,
+    description: lead.projectDescription || "",
+    leadId: lead.id,
+    status: "Draft",
+    startDate: "",
+    endDate: "",
+    cover: "",
+  };
+}
 
 export function leadDisposition(lead: Lead): LeadDisposition {
   return lead.disposition || "Active";

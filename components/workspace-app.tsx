@@ -70,6 +70,7 @@ import { acceptedQuote, preserveProjectHistory } from "@/lib/quotes";
 import {
   leadDisposition,
   leadPatchFromQuote,
+  quotePrefillFromLead,
   withDispositionChange,
 } from "@/lib/leads";
 import QuotesPanel, { QuoteDetail } from "./quotes-panel";
@@ -424,10 +425,7 @@ export default function WorkspaceApp({
           );
           if (kind === "quote") {
             const prior = existing as Quote | undefined;
-            if (
-              data.status === "Sent" &&
-              prior?.status !== "Sent"
-            )
+            if (data.status === "Sent" && prior?.status !== "Sent")
               data.quoteSentAt = now;
             if (
               (data.status === "Declined" || data.status === "Expired") &&
@@ -1329,9 +1327,20 @@ export default function WorkspaceApp({
                 <LeadsPanel
                   leads={workspace.leads}
                   contacts={workspace.contacts}
+                  quotes={workspace.quotes || []}
                   search={search}
                   demo={demo}
                   onSaveLead={(data, lead) => save("lead", data, lead)}
+                  onQuote={(lead, contact, quote) => {
+                    if (quote) {
+                      navigate("Quotes", quote.id);
+                      return;
+                    }
+                    setEditor({
+                      kind: "quote",
+                      initialValues: quotePrefillFromLead(lead, contact),
+                    });
+                  }}
                 />
               )}
               {(page === "Overview" || page === "Projects") && (
@@ -1861,7 +1870,7 @@ export default function WorkspaceApp({
       </div>
       {editor && (
         <EntityForm
-          key={`${editor.kind}-${editor.entity?.id || "new"}`}
+          key={`${editor.kind}-${editor.entity?.id || editor.initialValues?.leadId || "new"}`}
           editor={editor}
           workspace={workspace}
           onSave={save}

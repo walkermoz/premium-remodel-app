@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   CalendarClock,
   CalendarPlus,
+  FilePlus2,
   Inbox,
   LoaderCircle,
   Mail,
@@ -20,6 +21,7 @@ import {
   type LeadApprovalState,
   type LeadDisposition,
   type LeadStage,
+  type Quote,
 } from "@/lib/types";
 import { leadDisposition } from "@/lib/leads";
 import { workToday } from "@/lib/work";
@@ -30,15 +32,19 @@ type LeadFilter = "Active" | "All" | LeadDisposition;
 export default function LeadsPanel({
   leads,
   contacts,
+  quotes,
   search,
   demo,
   onSaveLead,
+  onQuote,
 }: {
   leads: Lead[];
   contacts: Contact[];
+  quotes: Quote[];
   search: string;
   demo: boolean;
   onSaveLead: (data: Record<string, unknown>, lead: Lead) => Promise<unknown>;
+  onQuote: (lead: Lead, contact: Contact | null, quote?: Quote) => void;
 }) {
   const [selectedId, setSelectedId] = useState("");
   const [scheduling, setScheduling] = useState<Lead | null>(null);
@@ -69,6 +75,9 @@ export default function LeadsPanel({
   const contact = selected
     ? contacts.find((item) => item.id === selected.contactId) || null
     : null;
+  const linkedQuote = selected
+    ? quotes.find((quote) => quote.leadId === selected.id)
+    : undefined;
   const activeCount = leads.filter(
     (lead) => leadDisposition(lead) === "Active",
   ).length;
@@ -131,14 +140,7 @@ export default function LeadsPanel({
       {demo && <span className="sample-data-label">SAMPLE DATA</span>}
       <div className="filter-tabs lead-filters" aria-label="Filter leads">
         {(
-          [
-            "Active",
-            "All",
-            "Archive",
-            "Junk",
-            "Spam",
-            "Test",
-          ] as LeadFilter[]
+          ["Active", "All", "Archive", "Junk", "Spam", "Test"] as LeadFilter[]
         ).map((item) => (
           <button
             key={item}
@@ -230,6 +232,13 @@ export default function LeadsPanel({
                     {new Date(selected.submittedAt).toLocaleString()}
                   </time>
                   <button
+                    className="button primary small-button"
+                    onClick={() => onQuote(selected, contact, linkedQuote)}
+                  >
+                    <FilePlus2 size={15} aria-hidden="true" />
+                    {linkedQuote ? "Open quote" : "Create quote"}
+                  </button>
+                  <button
                     className="button secondary small-button"
                     onClick={() => {
                       setScheduleError("");
@@ -270,8 +279,7 @@ export default function LeadsPanel({
                       disabled={saving}
                       onChange={(event) =>
                         void patchLead(selected, {
-                          disposition: event.target
-                            .value as LeadDisposition,
+                          disposition: event.target.value as LeadDisposition,
                         })
                       }
                     >
@@ -372,9 +380,7 @@ export default function LeadsPanel({
                     rows={3}
                     maxLength={15000}
                     disabled={saving}
-                    value={
-                      notesDraft[selected.id] ?? selected.notes ?? ""
-                    }
+                    value={notesDraft[selected.id] ?? selected.notes ?? ""}
                     onChange={(event) =>
                       setNotesDraft((current) => ({
                         ...current,

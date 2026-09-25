@@ -3,10 +3,11 @@ import {
   countsTowardCloseRate,
   leadDisposition,
   leadPatchFromQuote,
+  quotePrefillFromLead,
   stageForQuoteStatus,
   withDispositionChange,
 } from "@/lib/leads";
-import type { Lead } from "@/lib/types";
+import type { Contact, Lead } from "@/lib/types";
 
 const baseLead: Lead = {
   id: "00000000-0000-4000-8000-000000000201",
@@ -55,6 +56,34 @@ test("quote status drives lead funnel stages", () => {
       { accepted: true },
     ),
   ).toEqual({ status: "Won" });
+});
+
+test("quote defaults carry the available lead and contact details", () => {
+  const contact: Contact = {
+    id: baseLead.contactId,
+    firstName: "Brad",
+    lastName: "Smith",
+    name: "Brad Smith",
+    email: "brad@example.com",
+    phone: "+19195550123",
+    zip: "27513",
+    address: "1214 Willowbrook Drive, Cary, NC",
+    source: "Premium Remodel website",
+    createdAt: baseLead.createdAt,
+    updatedAt: baseLead.updatedAt,
+  };
+
+  expect(quotePrefillFromLead(baseLead, contact)).toMatchObject({
+    name: "Brad Smith · Patio door",
+    client: "Brad Smith",
+    clientEmail: "brad@example.com",
+    clientPhone: "+19195550123",
+    address: "1214 Willowbrook Drive, Cary, NC, 27513",
+    category: "Other",
+    description: baseLead.projectDescription,
+    leadId: baseLead.id,
+    status: "Draft",
+  });
 });
 
 test("leads UI exposes disposition controls in sample mode", async ({
