@@ -50,6 +50,12 @@ export default function QuotesPanel({
     )
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const sent = quotes.filter((quote) => quote.status === "Sent");
+  const sentCount = quotes.filter((quote) => Boolean(quote.quoteSentAt)).length;
+  const wonCount = workspace.projects.filter((project) =>
+    Boolean(project.quoteAcceptedAt),
+  ).length;
+  const closeRate =
+    sentCount > 0 ? Math.round((wonCount / sentCount) * 1000) / 10 : 0;
   return (
     <>
       <div className="page-heading">
@@ -85,6 +91,20 @@ export default function QuotesPanel({
             in sent quotes
           </span>
         </div>
+      </div>
+      <div className="quote-close-rate" aria-label="Close rate">
+        <article>
+          <strong>{sentCount}</strong>
+          <span>Quotes sent</span>
+        </article>
+        <article>
+          <strong>{wonCount}</strong>
+          <span>Quotes won</span>
+        </article>
+        <article>
+          <strong>{closeRate}%</strong>
+          <span>Close rate (won ÷ sent)</span>
+        </article>
       </div>
       <div className="filter-tabs quote-filters" aria-label="Filter quotes">
         {["All quotes", ...quoteStatuses].map((status) => (

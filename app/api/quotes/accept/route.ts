@@ -6,6 +6,7 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { acceptQuote, findRecord } from "@/lib/repository";
+import { syncLeadStageFromQuote } from "@/lib/lead-records";
 import type { Project, Quote } from "@/lib/types";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { after } from "next/server";
@@ -37,6 +38,9 @@ export async function POST(request: Request) {
       quote,
       String(body.updatedAt || ""),
     );
+    if (quote.leadId) {
+      await syncLeadStageFromQuote(user, quote.leadId, { status: "Won" });
+    }
     const origin = appOrigin(request);
     after(() =>
       syncOrganizationGoogleCalendars(user.organizationId, origin).catch(

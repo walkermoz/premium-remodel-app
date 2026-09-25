@@ -164,6 +164,52 @@ The administrator map uses Leaflet with OpenStreetMap standard tiles and visible
 
 Run `npm run db:migrate` before deploying location support. Location tests use isolated test accounts and mocked phone coordinates; production employees are never tracked during verification.
 
+
+## Admin API keys, Dispatch polling, and CI/CD
+
+### Admin API keys
+Administrators mint and revoke admin-scoped keys in **Settings → Admin API keys**. Secrets are shown once and stored only as SHA-256 hashes.
+
+Authenticated requests use either:
+
+- `Authorization: Bearer sbk_…`
+- `X-API-Key: sbk_…`
+
+Endpoints:
+
+- `GET /api/v1/leads?status=New&disposition=Active&limit=50`
+- `GET /api/v1/leads/:id`
+- `PATCH /api/v1/leads/:id` with any of `notes`, `status`, `disposition`, `nextAction`, `nextActionDue`, `draftReply`, `approvalState`
+
+Lead funnel stages: `New` → `Follow-up` → `Quote drafted` → `Quote sent` → `Won` | `Lost` | `Stale`.  
+Dispositions `Archive` / `Junk` / `Spam` / `Test` exit the funnel and are excluded from close rate.
+
+### Dispatch new-lead wake (polling)
+Dispatch uses **API polling** (`GET /api/v1/leads` with Admin API keys). The New-lead webhook Admin Settings block, `/api/admin/lead-webhook`, and lead-create webhook dispatch are **removed** — not shipping. Discord `#leads` alerting (env webhook) remains separate.
+
+Org columns from migration `202609230001_api_keys_lead_webhook.sql` are unused leftovers (migration name is historical); apply that migration for Admin API keys:
+
+```sh
+npm run db:migrate
+```
+
+
+### GitHub Actions → Vercel preview
+Workflow stub (copy into `.github/workflows/ci.yml` when the pushing account has the GitHub `workflow` scope): `docs/github-actions/ci.yml`
+
+- Every PR: lint, typecheck, Playwright sample tests
+- Every PR: Vercel preview deploy **when secrets are configured**
+
+Walker must add these **GitHub Actions repository secrets** (do not invent values here):
+
+| Secret | Purpose |
+|--------|---------|
+| `VERCEL_TOKEN` | Vercel account token with deploy access to `servicebuddy-ui` |
+| `VERCEL_ORG_ID` | Vercel team/org id (`vercel project ls` / dashboard) |
+| `VERCEL_PROJECT_ID` | Vercel project id for **servicebuddy-ui** |
+
+Until those secrets exist, the preview job posts a notice and skips deploy. GrokPR’s OAuth token cannot create workflow files directly; Walker (or an account with the `workflow` scope) should copy `docs/github-actions/ci.yml` to `.github/workflows/ci.yml` on this branch or after merge prep. Production remains protected by requiring Walker review before merge to `main`.
+
 ## Verification
 
 ```sh

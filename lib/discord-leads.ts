@@ -1,12 +1,12 @@
 export interface DiscordLeadInput {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  zip: string;
-  address: string;
-  project: string;
-  project_description: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  zip?: string;
+  address?: string;
+  project?: string;
+  project_description?: string;
 }
 
 export interface DiscordNotificationResult {
@@ -23,8 +23,47 @@ export function buildDiscordLeadMessage(
   lead: DiscordLeadInput,
   timestamp = new Date(),
 ) {
-  const name = safeDiscordText(`${lead.first_name} ${lead.last_name}`.trim());
-  const phone = safeDiscordText(lead.phone);
+  const name = `${lead.first_name || ""} ${lead.last_name || ""}`.trim();
+  const phone = lead.phone ? safeDiscordText(lead.phone) : "";
+  const address = [lead.address, lead.zip].filter(Boolean).join(", ");
+  const fields: { name: string; value: string; inline: boolean }[] = [];
+
+  if (name)
+    fields.push({
+      name: "👤 Name",
+      value: safeDiscordText(name),
+      inline: true,
+    });
+  if (lead.email)
+    fields.push({
+      name: "📧 Email",
+      value: safeDiscordText(lead.email),
+      inline: true,
+    });
+  if (phone)
+    fields.push({
+      name: "📞 Phone",
+      value: `[📞 Call ${phone}](tel:${phone})`,
+      inline: true,
+    });
+  if (address)
+    fields.push({
+      name: "📍 Address",
+      value: safeDiscordText(address),
+      inline: false,
+    });
+  if (lead.project)
+    fields.push({
+      name: "🛠 Project",
+      value: safeDiscordText(lead.project),
+      inline: false,
+    });
+  if (lead.project_description)
+    fields.push({
+      name: "📍 Project Description",
+      value: safeDiscordText(lead.project_description),
+      inline: false,
+    });
 
   return {
     username: "Premium Remodel Bot",
@@ -34,34 +73,7 @@ export function buildDiscordLeadMessage(
         title: "🔔 New Lead - Premium Living Home Improvement",
         description: "🔥 New inbound lead ready for follow-up",
         color: 3066993,
-        fields: [
-          { name: "👤 Name", value: name, inline: true },
-          {
-            name: "📧 Email",
-            value: safeDiscordText(lead.email),
-            inline: true,
-          },
-          {
-            name: "📞 Phone",
-            value: `[📞 Call ${phone}](tel:${phone})`,
-            inline: true,
-          },
-          {
-            name: "📍 Address",
-            value: safeDiscordText(`${lead.address}, ${lead.zip}`),
-            inline: false,
-          },
-          {
-            name: "🛠 Project",
-            value: safeDiscordText(lead.project),
-            inline: false,
-          },
-          {
-            name: "📍 Project Description",
-            value: safeDiscordText(lead.project_description),
-            inline: false,
-          },
-        ],
+        fields,
         footer: { text: "Premium Remodel Lead Intake" },
         timestamp: timestamp.toISOString(),
       },

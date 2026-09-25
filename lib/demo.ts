@@ -297,6 +297,8 @@ export function demoWorkspace(): Workspace {
       projectDescription:
         "We would like to update our cabinets, countertops, lighting, and flooring while keeping the current kitchen layout.",
       status: "New",
+      disposition: "Active",
+      approvalState: "none",
       source: "Premium Remodel website",
       submittedAt: new Date(Date.now() - 45 * 60_000).toISOString(),
       quoteDate: day(2),
