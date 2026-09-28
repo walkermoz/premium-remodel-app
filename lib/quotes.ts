@@ -13,6 +13,8 @@ export function preserveProjectHistory(
     "quoteAcceptedBy",
     "clientEmail",
     "clientPhone",
+    "leadId",
+    "outcomeAt",
   ] as const) {
     if (
       current &&

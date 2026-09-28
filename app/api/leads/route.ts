@@ -13,24 +13,48 @@ const productionOrigins = new Set([
 const previewOrigin =
   /^https:\/\/plhi(?:-[a-z0-9-]+)?-walkermozs-projects\.vercel\.app$/;
 
+function optionalField<T extends z.ZodType>(schema: T) {
+  return z.preprocess(
+    (value) =>
+      value == null || (typeof value === "string" && !value.trim())
+        ? undefined
+        : value,
+    schema.optional(),
+  );
+}
+
 const leadInput = z
   .object({
-    first_name: z.string().trim().min(1).max(100),
-    last_name: z.string().trim().min(1).max(100),
-    email: z.email().max(250),
-    phone: z
-      .string()
-      .trim()
-      .regex(/^\+?[1-9]\d{9,14}$/, "Enter a valid phone number."),
-    zip: z
-      .string()
-      .trim()
-      .regex(/^\d{5}(?:-\d{4})?$/, "Enter a valid ZIP code."),
-    address: z.string().trim().min(1).max(250),
-    project: z.string().trim().min(1).max(100),
-    project_description: z.string().trim().min(10).max(1000),
+    first_name: optionalField(z.string().trim().min(1).max(100)),
+    last_name: optionalField(z.string().trim().min(1).max(100)),
+    email: optionalField(z.email().max(250)),
+    phone: optionalField(
+      z
+        .string()
+        .trim()
+        .regex(/^\+?[1-9]\d{9,14}$/, "Enter a valid phone number."),
+    ),
+    zip: optionalField(
+      z
+        .string()
+        .trim()
+        .regex(/^\d{5}(?:-\d{4})?$/, "Enter a valid ZIP code."),
+    ),
+    address: optionalField(z.string().trim().min(1).max(250)),
+    project: optionalField(z.string().trim().min(1).max(100)),
+    project_description: optionalField(z.string().trim().max(1000)),
   })
-  .strict();
+  .refine(
+    (data) =>
+      Boolean(
+        data.first_name ||
+        data.last_name ||
+        data.email ||
+        data.phone ||
+        data.address,
+      ),
+    { message: "Include at least one contact detail." },
+  );
 
 function allowedOrigin(origin: string) {
   return (
@@ -79,29 +103,35 @@ export async function POST(request: Request) {
       throw new Error("Lead intake organization is not configured.");
 
     const data = leadInput.parse(await request.json());
+    const firstName =
+      data.first_name ||
+      (data.last_name ? "" : data.email || data.phone || "Website lead");
+    const lastName = data.last_name || "";
     const forwarded =
       request.headers.get("x-vercel-forwarded-for") ||
       request.headers.get("x-forwarded-for") ||
       "unknown";
     const ip = forwarded.split(",")[0].trim().slice(0, 80);
-    await Promise.all([
-      limitAttempts(`website-lead:ip:${ip}`, 12),
-      limitAttempts(`website-lead:email:${data.email.toLowerCase()}`, 4),
-    ]);
+    const limits = [limitAttempts(`website-lead:ip:${ip}`, 12)];
+    if (data.email)
+      limits.push(
+        limitAttempts(`website-lead:email:${data.email.toLowerCase()}`, 4),
+      );
+    await Promise.all(limits);
 
     const admin = supabaseAdmin();
     const { data: created, error } = await admin.rpc(
       "remodel_receive_website_lead",
       {
         p_organization: organizationId,
-        p_first_name: data.first_name,
-        p_last_name: data.last_name,
-        p_email: data.email.trim().toLowerCase(),
-        p_phone: data.phone,
-        p_zip: data.zip,
-        p_address: data.address,
-        p_project: data.project,
-        p_project_description: data.project_description,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_email: data.email?.toLowerCase() || "",
+        p_phone: data.phone || "",
+        p_zip: data.zip || "",
+        p_address: data.address || "",
+        p_project: data.project || "Project not specified",
+        p_project_description: data.project_description || "",
       },
     );
     if (error) throw error;
@@ -128,6 +158,7 @@ export async function POST(request: Request) {
           data: {
             ...leadData,
             discordNotification: notification,
+            disposition: "Active",
             updatedAt,
           },
           updated_at: updatedAt,

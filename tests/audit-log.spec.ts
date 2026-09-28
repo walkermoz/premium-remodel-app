@@ -112,6 +112,12 @@ cloudTest(
     const historySection = page.getByRole("region", {
       name: "Workspace history",
     });
+    const expandHistory = historySection.getByRole("button", {
+      name: /Show more|Show older changes/,
+    });
+    if (await expandHistory.count()) {
+      await expandHistory.first().click();
+    }
     await expect(historySection).toContainText("Workspace Owner");
     await expect(historySection).toContainText("Updated audit trail task");
     await expect(historySection).toContainText("deleted work item");

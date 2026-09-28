@@ -19,6 +19,7 @@ export type FormKind = "project" | "quote" | "task" | "contractor" | "scope";
 export interface Editor {
   kind: FormKind;
   entity?: Entity;
+  initialValues?: Partial<Quote>;
   projectId?: string;
   dueDate?: string;
   workType?: WorkType;
@@ -42,8 +43,12 @@ export function EntityForm({
   const [error, setError] = useState("");
   const { kind, entity } = editor;
   const project = entity as Project | Quote | undefined;
+  const projectValues = {
+    ...editor.initialValues,
+    ...project,
+  } as Partial<Project | Quote>;
   const [projectStatus, setProjectStatus] = useState<string>(
-    project?.status || (kind === "quote" ? "Draft" : "Planning"),
+    projectValues.status || (kind === "quote" ? "Draft" : "Planning"),
   );
   const task = entity as Task | undefined;
   const [workType, setWorkType] = useState<WorkType>(
@@ -177,7 +182,9 @@ export function EntityForm({
           ? "Save their contact details, then return to your work."
           : kind === "scope"
             ? "Enter totals for this item. Quantity is shown separately."
-            : "Keep the details your team needs in one place."
+            : kind === "quote" && editor.initialValues?.leadId
+              ? "Lead and contact details are filled in. Review them, then create the quote."
+              : "Keep the details your team needs in one place."
       }
       onClose={() => {
         if (busy || contractorBusy) return;
@@ -198,7 +205,7 @@ export function EntityForm({
                 {kind === "quote" ? "Quote name" : "Project name"}
                 <input
                   name="name"
-                  defaultValue={project?.name}
+                  defaultValue={projectValues.name}
                   placeholder="e.g. Oakwood kitchen remodel"
                   required
                   maxLength={250}
@@ -209,7 +216,7 @@ export function EntityForm({
                   Client name
                   <input
                     name="client"
-                    defaultValue={project?.client}
+                    defaultValue={projectValues.client}
                     placeholder="Client or family name"
                     maxLength={250}
                   />
@@ -218,7 +225,7 @@ export function EntityForm({
                   Project type
                   <select
                     name="category"
-                    defaultValue={project?.category || "Kitchen"}
+                    defaultValue={projectValues.category || "Kitchen"}
                   >
                     {[
                       "Kitchen",
@@ -240,7 +247,7 @@ export function EntityForm({
                     name="clientEmail"
                     type="email"
                     maxLength={250}
-                    defaultValue={project?.clientEmail}
+                    defaultValue={projectValues.clientEmail}
                   />
                 </label>
                 <label>
@@ -249,15 +256,38 @@ export function EntityForm({
                     name="clientPhone"
                     type="tel"
                     maxLength={250}
-                    defaultValue={project?.clientPhone}
+                    defaultValue={projectValues.clientPhone}
                   />
                 </label>
               </div>
-              <AddressInput defaultValue={project?.address} />
+              <AddressInput defaultValue={projectValues.address} />
               <p className="project-date-help">
                 The price comes from the scope of work. Add priced scope items
                 after saving.
               </p>
+              {kind === "quote" && (
+                <label>
+                  Linked lead
+                  <select
+                    name="leadId"
+                    defaultValue={
+                      (projectValues as Partial<Quote>).leadId || ""
+                    }
+                  >
+                    <option value="">No linked lead</option>
+                    {workspace.leads
+                      .slice()
+                      .sort((a, b) =>
+                        b.submittedAt.localeCompare(a.submittedAt),
+                      )
+                      .map((lead) => (
+                        <option key={lead.id} value={lead.id}>
+                          {lead.name} · {lead.project} · {lead.status}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
               <label>
                 Status
                 <select
@@ -279,7 +309,7 @@ export function EntityForm({
                   <input
                     name="startDate"
                     type="date"
-                    defaultValue={project?.startDate}
+                    defaultValue={projectValues.startDate}
                   />
                 </label>
                 <label>
@@ -287,7 +317,7 @@ export function EntityForm({
                   <input
                     name="endDate"
                     type="date"
-                    defaultValue={project?.endDate}
+                    defaultValue={projectValues.endDate}
                   />
                 </label>
               </div>
@@ -305,8 +335,8 @@ export function EntityForm({
                     type="date"
                     max={workToday()}
                     defaultValue={
-                      project?.completedDate ||
-                      (project?.status === "Completed" ? "" : workToday())
+                      projectValues.completedDate ||
+                      (projectValues.status === "Completed" ? "" : workToday())
                     }
                   />
                 </label>
@@ -316,12 +346,16 @@ export function EntityForm({
                 <textarea
                   name="description"
                   rows={4}
-                  defaultValue={project?.description}
+                  defaultValue={projectValues.description}
                   placeholder="Describe the work, materials, and details for this project."
                   maxLength={15000}
                 />
               </label>
-              <input name="cover" type="hidden" value={project?.cover || ""} />
+              <input
+                name="cover"
+                type="hidden"
+                value={projectValues.cover || ""}
+              />
             </>
           )}
           {kind === "task" && (

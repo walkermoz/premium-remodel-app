@@ -47,10 +47,19 @@ export interface Project extends Base {
   cover: string;
   coverAttachmentId?: string;
 }
-export const quoteStatuses = ["Draft", "Sent", "Declined"] as const;
+export const quoteStatuses = [
+  "Draft",
+  "Sent",
+  "Declined",
+  "Expired",
+] as const;
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export interface Quote extends Omit<Project, "status" | "contractPrice"> {
   status: QuoteStatus;
+  /** Optional linked sales lead. */
+  leadId?: string;
+  /** When status first became Declined or Expired. */
+  outcomeAt?: string;
 }
 export interface Task extends Base {
   completion?: { id: string; at: string; byId: string; byName: string };
@@ -156,12 +165,58 @@ export interface Contact extends Base {
   address: string;
   source: string;
 }
+export const leadStages = [
+  "New",
+  "Follow-up",
+  "Quote drafted",
+  "Quote sent",
+  "Won",
+  "Lost",
+  "Stale",
+] as const;
+export type LeadStage = (typeof leadStages)[number];
+
+/** Side-door exits from the sales funnel — not stages; excluded from close rate. */
+export const leadDispositions = [
+  "Active",
+  "Archive",
+  "Junk",
+  "Spam",
+  "Test",
+] as const;
+export type LeadDisposition = (typeof leadDispositions)[number];
+
+export const leadApprovalStates = [
+  "none",
+  "awaiting_matthew",
+  "approved",
+  "rejected",
+] as const;
+export type LeadApprovalState = (typeof leadApprovalStates)[number];
+
+export interface LeadDispositionEvent {
+  at: string;
+  byId: string;
+  byName: string;
+  from: LeadDisposition;
+  to: LeadDisposition;
+}
+
 export interface Lead extends Base {
   contactId: string;
   name: string;
   project: string;
   projectDescription: string;
-  status: "New";
+  /** Funnel stage. Legacy leads use "New". */
+  status: LeadStage;
+  /** Default Active when omitted (legacy leads). */
+  disposition?: LeadDisposition;
+  notes?: string;
+  nextAction?: string;
+  nextActionDue?: string;
+  draftReply?: string;
+  approvalState?: LeadApprovalState;
+  dispositionHistory?: LeadDispositionEvent[];
   source: string;
   submittedAt: string;
   quoteDate?: string;

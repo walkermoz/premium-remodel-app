@@ -46,6 +46,21 @@ test("Discord lead notification preserves the form details safely", () => {
   expect(message.embeds[0].timestamp).toBe("2026-09-16T20:00:00.000Z");
 });
 
+test("Discord lead notification omits fields that were not submitted", () => {
+  const message = buildDiscordLeadMessage(
+    {
+      first_name: "Jordan",
+      phone: "+19195550142",
+    },
+    new Date("2026-09-16T20:00:00.000Z"),
+  );
+
+  expect(message.embeds[0].fields.map((field) => field.name)).toEqual([
+    "👤 Name",
+    "📞 Phone",
+  ]);
+});
+
 test("leads page shows linked website inquiry and contact details", async ({
   page,
 }) => {
@@ -152,6 +167,50 @@ test("a lead consultation can be scheduled and appears on the calendar", async (
   await expect(page.getByText("10:30 AM–11:30 AM")).toBeVisible();
 });
 
+test("a lead creates a quote with its available details filled in", async ({
+  page,
+}) => {
+  await page.goto("/demo?view=Leads");
+  const detail = page.getByRole("article", { name: "Taylor Reed lead" });
+  await detail.getByRole("button", { name: "Create quote" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New quote" });
+  await expect(dialog.getByLabel("Quote name")).toHaveValue(
+    "Taylor Reed · Kitchen Remodel",
+  );
+  await expect(dialog.getByLabel("Client name")).toHaveValue("Taylor Reed");
+  await expect(dialog.getByLabel("Project type")).toHaveValue("Kitchen");
+  await expect(dialog.getByLabel("Client email")).toHaveValue(
+    "taylor@example.com",
+  );
+  await expect(dialog.getByLabel("Client phone")).toHaveValue("+19195550142");
+  await expect(dialog.getByLabel("Address")).toHaveValue(
+    "1214 Willowbrook Drive, Cary, NC, 27513",
+  );
+  await expect(dialog.getByLabel("Linked lead")).toHaveValue(
+    "00000000-0000-4000-8000-000000000102",
+  );
+  await expect(dialog.getByLabel("Full scope of work")).toHaveValue(
+    /update our cabinets, countertops, lighting, and flooring/i,
+  );
+
+  await dialog.getByRole("button", { name: "Create quote" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole("heading", {
+      name: "Taylor Reed · Kitchen Remodel",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  await page.goto("/demo?view=Leads");
+  const updated = page.getByRole("article", { name: "Taylor Reed lead" });
+  await expect(updated.getByLabel("Stage")).toHaveValue("Quote drafted");
+  await expect(
+    updated.getByRole("button", { name: "Open quote" }),
+  ).toBeVisible();
+});
+
 cloudTest(
   "public website submissions create private linked contacts and leads",
   async ({ company, page, request }) => {
@@ -176,16 +235,20 @@ cloudTest(
 
     const invalid = await request.post("/api/leads", {
       headers: { Origin: websiteOrigin },
-      data: { ...payload, project_description: "short" },
+      data: { ...payload, email: "not-an-email" },
     });
     expect(invalid.status()).toBe(400);
     expect(invalid.headers()["access-control-allow-origin"]).toBe(
       websiteOrigin,
     );
 
+    const withoutDescription = {
+      ...payload,
+      project_description: undefined,
+    };
     const response = await request.post("/api/leads", {
       headers: { Origin: websiteOrigin },
-      data: payload,
+      data: withoutDescription,
     });
     expect(response.status()).toBe(201);
     expect(response.headers()["access-control-allow-origin"]).toBe(
@@ -240,7 +303,7 @@ cloudTest(
       contactId: workspace.contacts[0].id,
       name: "Jordan Lee",
       project: payload.project,
-      projectDescription: payload.project_description,
+      projectDescription: "",
       status: "New",
       source: "Premium Remodel website",
       discordNotification: {
@@ -269,7 +332,7 @@ cloudTest(
 
     await page.goto("/?view=Leads");
     const leadDetail = page.getByRole("article", { name: "Jordan Lee lead" });
-    await expect(leadDetail).toContainText(payload.project_description);
+    await expect(leadDetail.getByText("PROJECT REQUEST")).toHaveCount(0);
     await leadDetail
       .getByRole("button", { name: "Schedule consultation" })
       .click();

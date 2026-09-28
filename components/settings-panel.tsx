@@ -10,6 +10,7 @@ import TwilioSettings from "./twilio-settings";
 import WorkspaceAlertSettings from "./workspace-alert-settings";
 import WorkspaceHistorySettings from "./workspace-history-settings";
 import GoogleCalendarSettings from "./google-calendar-settings";
+import ApiKeysSettings from "./api-keys-settings";
 import type { WorkspaceAlert } from "@/lib/types";
 export default function SettingsPanel({
   user,
@@ -53,6 +54,7 @@ export default function SettingsPanel({
       )}
       {user.role === "admin" && <WorkspaceHistorySettings demo={demo} />}
       {user.role === "admin" && <TwilioSettings demo={demo} />}
+      {user.role === "admin" && <ApiKeysSettings demo={demo} />}
       <GenerationSettings demo={demo} admin={user.role === "admin"} />
       <div className="settings-section">
         <div className="settings-title">

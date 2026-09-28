@@ -64,7 +64,7 @@ Alert duration control interaction thesis: amount and unit remain separate acces
 
 Workspace history visual thesis: a quiet administrator ledger with compact action markers, clear names, and precise timestamps in the existing Settings layout.
 Workspace history content plan: active alerts show who posted them and when; a durable history records create, update, and delete actions for projects, quotes, work, contractors, scope, notes, files, activities, and alerts, including records that are later deleted.
-Workspace history interaction thesis: the newest changes appear first, administrators can refresh or progressively load older entries, and new actions refresh the ledger without interrupting the current Settings task.
+Workspace history interaction thesis: the newest changes appear first with a compact default of about three rows, administrators can expand to see more or progressively load older entries, refresh stays available, and new actions refresh the ledger without interrupting the current Settings task.
 
 Alert editing visual thesis: keep management within the active-alert row, with a small edit action and a focused dialog for the two values that can change.
 Alert editing content plan: administrators can revise an active alert's message and exact expiration date and time while its audience and original author remain intact.
