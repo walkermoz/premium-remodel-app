@@ -152,6 +152,12 @@ export const schemas = {
       status: z.enum(quoteStatuses),
       leadId: z.union([z.uuid(), z.literal("")]).optional(),
       outcomeAt: z.iso.datetime().optional(),
+      quoteNumber: short.optional(),
+      customerId: short.optional(),
+      revisedDate: date.optional(),
+      preparedBy: short.optional(),
+      preparedByPhone: short.optional(),
+      quoteNotes: text.optional(),
     })
     .refine((p) => !p.startDate || !p.endDate || p.endDate >= p.startDate, {
       message: "End date must be on or after start date",

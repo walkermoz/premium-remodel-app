@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { PDFDocument } from "pdf-lib";
 import { test, expect, password } from "./supabase-fixture";
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const headers = { Origin: "http://localhost:3100" };
@@ -27,6 +28,12 @@ cloudTest(
       description: "Garage scope",
       category: "Other",
       cover: "",
+      quoteNumber: "TEST-129",
+      customerId: "TEST-CUSTOMER",
+      revisedDate: "2026-09-28",
+      preparedBy: "Test Admin",
+      preparedByPhone: "9195550199",
+      quoteNotes: "Labor only.",
     };
     const created = await api.post("/api/workspace", {
       headers,
@@ -112,6 +119,18 @@ cloudTest(
     ).json();
     expect(scope.id).toBeTruthy();
     expect(scope.materialCost).toBe(1234.56);
+    const pdfResponse = await api.get(`/api/quotes/${quote.id}/pdf`);
+    expect(pdfResponse.status()).toBe(200);
+    expect(pdfResponse.headers()["content-type"]).toBe("application/pdf");
+    expect(pdfResponse.headers()["content-disposition"]).toContain(
+      "Quote TEST-129.pdf",
+    );
+    const pdf = await PDFDocument.load(await pdfResponse.body());
+    expect(pdf.getPageCount()).toBe(1);
+    expect(pdf.getTitle()).toContain("Jason");
+    expect((await request.get(`/api/quotes/${quote.id}/pdf`)).status()).toBe(
+      401,
+    );
     for (const invalid of [-1, null, 1_000_000_001, "not a number"]) {
       const rejected = await api.post("/api/workspace", {
         headers,

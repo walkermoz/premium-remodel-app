@@ -274,6 +274,9 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await expect(
     page.getByRole("heading", { name: "Jason’s garage quote", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Download PDF" }),
+  ).toHaveAttribute("href", /\/api\/quotes\/[0-9a-f-]+\/pdf$/);
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await dialog.getByLabel("Work item", { exact: true }).fill("Garage framing");
   await dialog.getByLabel("Price · total ($)", { exact: true }).fill("5000.15");

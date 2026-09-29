@@ -10,3 +10,5 @@ playwright-report/
 *.tsbuildinfo
 artifacts/
 fade-treasury/
+output/
+tmp/
