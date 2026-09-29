@@ -2873,6 +2873,183 @@ small {
 .scope-table .badge {
   font-size: 8px;
 }
+.scope-grid-error {
+  margin: 0 0 12px;
+}
+.scope-table-editable {
+  min-width: 920px;
+  table-layout: fixed;
+}
+.scope-table-editable th:nth-child(1) {
+  width: 27%;
+}
+.scope-table-editable th:nth-child(2) {
+  width: 14%;
+}
+.scope-table-editable th:nth-child(3),
+.scope-table-editable th:nth-child(4),
+.scope-table-editable th:nth-child(5),
+.scope-table-editable th:nth-child(6) {
+  width: 11%;
+}
+.scope-table-editable th:nth-child(7) {
+  width: 10%;
+}
+.scope-table-editable th:nth-child(8) {
+  width: 5%;
+}
+.scope-table-editable tbody tr:not(.scope-add-row) {
+  transition: background 120ms ease;
+}
+.scope-table-editable tbody tr:not(.scope-add-row):hover,
+.scope-table-editable tbody tr:focus-within {
+  background: color-mix(in srgb, var(--blue) 4%, var(--surface));
+}
+.scope-table-editable td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+.scope-table-editable td:first-child {
+  min-width: 0;
+}
+.scope-cell-input,
+.scope-cell-select,
+.scope-status-select {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: 0;
+}
+.scope-cell-input:hover,
+.scope-cell-select:hover,
+.scope-status-select:hover {
+  border-color: var(--line);
+}
+.scope-cell-input:focus,
+.scope-cell-select:focus,
+.scope-status-select:focus {
+  border-color: var(--blue);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 15%, transparent);
+}
+.scope-cell-input:disabled,
+.scope-cell-select:disabled,
+.scope-status-select:disabled {
+  opacity: 0.65;
+}
+.scope-title-input {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-link, #425d72);
+}
+.scope-contractor-select {
+  height: 26px;
+  margin-top: 1px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: 9px;
+  color: var(--theme-text-muted, #a1adb7);
+}
+.scope-quantity-cell {
+  display: grid;
+  grid-template-columns: minmax(48px, 0.85fr) minmax(68px, 1.15fr);
+  gap: 3px;
+}
+.scope-number-input,
+.scope-money-input {
+  font-variant-numeric: tabular-nums;
+}
+.scope-money-cell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.scope-money-cell > span {
+  display: inline-block;
+  width: 10px;
+  color: var(--theme-text-muted, #91a0ab);
+}
+.scope-money-input {
+  width: calc(100% - 12px);
+  text-align: right;
+}
+.scope-cell-input[type="number"]::-webkit-inner-spin-button,
+.scope-cell-input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+.scope-calculated {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.scope-status-select {
+  height: 29px;
+  padding: 4px 7px;
+  font-size: 9px;
+  font-weight: 600;
+}
+.scope-status-to-do {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+.scope-status-in-progress {
+  color: var(--theme-warning, #a16b10);
+  background: color-mix(
+    in srgb,
+    var(--theme-warning, #a16b10) 13%,
+    transparent
+  );
+}
+.scope-status-done {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 13%, transparent);
+}
+.scope-row-actions {
+  justify-content: flex-end;
+}
+.scope-row-saving {
+  display: inline-flex;
+  width: 24px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+}
+.scope-save-row {
+  color: var(--green) !important;
+}
+.scope-new-row {
+  background: color-mix(in srgb, var(--blue) 6%, var(--surface));
+}
+.scope-add-row td {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--line);
+}
+.scope-add-row-button {
+  display: flex;
+  width: 100%;
+  min-height: 41px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.scope-add-row-button:hover,
+.scope-add-row-button:focus-visible {
+  background: color-mix(in srgb, var(--blue) 6%, var(--surface));
+  outline: 0;
+}
 .footnote {
   font-size: 10px;
   line-height: 1.8;
@@ -7009,7 +7186,6 @@ small {
     padding-right: 10px;
   }
 }
-
 
 .lead-filters {
   margin: 0 0 1rem;

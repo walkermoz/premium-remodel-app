@@ -277,13 +277,28 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await expect(
     page.getByRole("link", { name: "Download PDF" }),
   ).toHaveAttribute("href", /\/api\/quotes\/[0-9a-f-]+\/pdf$/);
-  await page.getByRole("button", { name: "Add item", exact: true }).click();
-  await dialog.getByLabel("Work item", { exact: true }).fill("Garage framing");
-  await dialog.getByLabel("Price · total ($)", { exact: true }).fill("5000.15");
-  await dialog.getByLabel("Subcontractor cost · total ($)").fill("2000");
-  await dialog.getByLabel("Material cost · total ($)").fill("750.15");
-  await dialog.getByRole("button", { name: "Create scope item" }).click();
-  await expect(dialog).not.toBeVisible();
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const newRow = page.locator(".scope-new-row");
+  await newRow
+    .getByRole("textbox", { name: "New work item", exact: true })
+    .fill("Garage framing");
+  await newRow
+    .getByLabel("Price for Garage framing", { exact: true })
+    .fill("5000.15");
+  await newRow
+    .getByLabel("Subcontractor cost for Garage framing", { exact: true })
+    .fill("2000");
+  await newRow
+    .getByLabel("Material cost for Garage framing", { exact: true })
+    .fill("750.15");
+  await newRow.getByRole("button", { name: "Save Garage framing" }).click();
+  await expect(newRow).toHaveCount(0);
+  const savedRow = page.locator(".scope-table tbody tr").filter({
+    has: page.locator('input[value="Garage framing"]'),
+  });
+  await savedRow.getByLabel("Price for Garage framing").fill("5100.15");
+  await page.getByRole("heading", { name: "Scope & pricing" }).click();
+  await expect(page.locator(".scope-table tfoot")).toContainText("$5,100.15");
   await page.locator('.files-panel input[type="file"]').setInputFiles({
     name: "quote.txt",
     mimeType: "text/plain",
@@ -293,7 +308,7 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await page.getByRole("button", { name: "Mark as sent", exact: true }).click();
   await expect(page.getByLabel("Quote status")).toHaveValue("Sent");
   await page.getByRole("button", { name: "All quotes", exact: true }).click();
-  await expect(page.locator(".quote-summary")).toContainText("$5,000.15");
+  await expect(page.locator(".quote-summary")).toContainText("$5,100.15");
   await page
     .getByRole("button", { name: /Jason’s garage quote Jason/ })
     .click();
@@ -301,11 +316,11 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await page.getByRole("button", { name: "Accept quote", exact: true }).click();
   await expect(page.getByLabel("Project status")).toHaveValue("Planning");
   expect(new URL(page.url()).searchParams.get("project")).toBe(quoteId);
-  await expect(page.locator(".scope-metrics")).toContainText("$5,000.15");
+  await expect(page.locator(".scope-metrics")).toContainText("$5,100.15");
   await expect(page.locator(".scope-price-warning")).toHaveCount(0);
   await expect(page.locator(".scope-table")).toContainText("Garage framing");
   await expect(page.locator(".scope-table tfoot")).toContainText("$750.15");
-  await expect(page.locator(".scope-table tfoot")).toContainText("$2,250");
+  await expect(page.locator(".scope-table tfoot")).toContainText("$2,350");
   await page.getByRole("tab", { name: /Photos & files/ }).click();
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
   await page.reload();

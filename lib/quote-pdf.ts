@@ -216,7 +216,17 @@ export async function buildQuotePdf(
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await pdf.embedPng(logoBytes);
-  const items = scope.filter((item) => item.projectId === quote.id);
+  const items = scope
+    .filter((item) => item.projectId === quote.id)
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      if (a.item.position !== undefined && b.item.position !== undefined)
+        return a.item.position - b.item.position || a.index - b.index;
+      if (a.item.position !== undefined) return -1;
+      if (b.item.position !== undefined) return 1;
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
   const total = items.reduce((sum, item) => sum + item.estimate, 0);
 
   const pages: PDFPage[] = [];
@@ -317,6 +327,12 @@ export async function buildQuotePdf(
       });
     drawTop(page, item.title, 54, rowTop + 6, regular, 9);
     drawRight(page, money(item.estimate), 558, rowTop + 6, regular, 9);
+    page.drawLine({
+      start: { x: LEFT, y: PAGE_HEIGHT - rowTop - rowHeight },
+      end: { x: RIGHT, y: PAGE_HEIGHT - rowTop - rowHeight },
+      thickness: 0.35,
+      color: colors.line,
+    });
     rowTop += rowHeight;
     itemIndex++;
   }

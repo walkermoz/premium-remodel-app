@@ -273,6 +273,7 @@ export const schemas = {
   }),
   scope: z.object({
     projectId: short.min(1),
+    position: z.number().int().min(0).max(1_000_000).optional(),
     title: short.min(1),
     quantity: z.number().min(0).max(1_000_000_000),
     unit: short,

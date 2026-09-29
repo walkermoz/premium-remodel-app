@@ -219,7 +219,6 @@ export function QuoteDetail({
   const files = workspace.attachments.filter(
     (file) => file.projectId === quote.id,
   );
-  const addScope = () => onEdit({ kind: "scope", projectId: quote.id });
   async function change(action: () => Promise<unknown>) {
     if (busy) return;
     setBusy(true);
@@ -367,18 +366,17 @@ export function QuoteDetail({
         <div className="section-heading">
           <div>
             <h2>Scope & pricing</h2>
-            <p>Line item prices make up the quote total.</p>
+            <p>
+              Edit any cell. Each row saves when you leave it or press Enter.
+            </p>
           </div>
-          <button className="button secondary small-button" onClick={addScope}>
-            <Plus size={15} />
-            Add item
-          </button>
         </div>
         <ScopeTable
           items={items}
           workspace={workspace}
-          onAdd={addScope}
-          onEdit={(item) => onEdit({ kind: "scope", entity: item })}
+          inline
+          projectId={quote.id}
+          onSave={(data, item) => onSave("scope", data, item)}
           onDelete={(item) => onDelete("scope", item)}
         />
       </section>
