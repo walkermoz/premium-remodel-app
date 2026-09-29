@@ -36,6 +36,7 @@ function scopeItem(index: number): ScopeItem {
     createdAt: timestamp,
     updatedAt: timestamp,
     projectId: quote.id,
+    position: index,
     title: `Scope item ${index + 1}`,
     quantity: 1,
     unit: "job",
