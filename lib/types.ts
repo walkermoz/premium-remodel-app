@@ -47,12 +47,7 @@ export interface Project extends Base {
   cover: string;
   coverAttachmentId?: string;
 }
-export const quoteStatuses = [
-  "Draft",
-  "Sent",
-  "Declined",
-  "Expired",
-] as const;
+export const quoteStatuses = ["Draft", "Sent", "Declined", "Expired"] as const;
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export interface Quote extends Omit<Project, "status" | "contractPrice"> {
   status: QuoteStatus;
@@ -60,6 +55,13 @@ export interface Quote extends Omit<Project, "status" | "contractPrice"> {
   leadId?: string;
   /** When status first became Declined or Expired. */
   outcomeAt?: string;
+  /** Human-facing identifiers and copy used on the generated quote document. */
+  quoteNumber?: string;
+  customerId?: string;
+  revisedDate?: string;
+  preparedBy?: string;
+  preparedByPhone?: string;
+  quoteNotes?: string;
 }
 export interface Task extends Base {
   completion?: { id: string; at: string; byId: string; byName: string };

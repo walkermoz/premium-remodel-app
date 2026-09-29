@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Check,
+  Download,
   FileText,
   Mail,
   MapPin,
@@ -250,6 +251,14 @@ export function QuoteDetail({
           </div>
         </div>
         <div className="project-actions">
+          <a
+            className="button secondary"
+            href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
+            download
+          >
+            <Download size={15} />
+            Download PDF
+          </a>
           <button
             className="button secondary"
             disabled={busy}

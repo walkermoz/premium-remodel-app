@@ -266,27 +266,106 @@ export function EntityForm({
                 after saving.
               </p>
               {kind === "quote" && (
-                <label>
-                  Linked lead
-                  <select
-                    name="leadId"
-                    defaultValue={
-                      (projectValues as Partial<Quote>).leadId || ""
-                    }
-                  >
-                    <option value="">No linked lead</option>
-                    {workspace.leads
-                      .slice()
-                      .sort((a, b) =>
-                        b.submittedAt.localeCompare(a.submittedAt),
-                      )
-                      .map((lead) => (
-                        <option key={lead.id} value={lead.id}>
-                          {lead.name} · {lead.project} · {lead.status}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+                <>
+                  <label>
+                    Linked lead
+                    <select
+                      name="leadId"
+                      defaultValue={
+                        (projectValues as Partial<Quote>).leadId || ""
+                      }
+                    >
+                      <option value="">No linked lead</option>
+                      {workspace.leads
+                        .slice()
+                        .sort((a, b) =>
+                          b.submittedAt.localeCompare(a.submittedAt),
+                        )
+                        .map((lead) => (
+                          <option key={lead.id} value={lead.id}>
+                            {lead.name} · {lead.project} · {lead.status}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <fieldset className="work-schedule-fields">
+                    <legend>
+                      Quote document <span>shown on the downloaded PDF</span>
+                    </legend>
+                    <div className="form-grid">
+                      <label>
+                        Quote number
+                        <input
+                          name="quoteNumber"
+                          maxLength={250}
+                          defaultValue={
+                            (projectValues as Partial<Quote>).quoteNumber || ""
+                          }
+                          placeholder="e.g. 129"
+                        />
+                      </label>
+                      <label>
+                        Customer ID
+                        <input
+                          name="customerId"
+                          maxLength={250}
+                          defaultValue={
+                            (projectValues as Partial<Quote>).customerId || ""
+                          }
+                          placeholder="e.g. PLHI-26030"
+                        />
+                      </label>
+                    </div>
+                    <div className="form-grid">
+                      <label>
+                        Revised date
+                        <input
+                          name="revisedDate"
+                          type="date"
+                          defaultValue={
+                            (projectValues as Partial<Quote>).revisedDate || ""
+                          }
+                        />
+                      </label>
+                      <label>
+                        Prepared by
+                        <input
+                          name="preparedBy"
+                          maxLength={250}
+                          defaultValue={
+                            (projectValues as Partial<Quote>).preparedBy || ""
+                          }
+                          placeholder="Team member name"
+                        />
+                      </label>
+                    </div>
+                    <label>
+                      Prepared-by phone
+                      <input
+                        name="preparedByPhone"
+                        type="tel"
+                        maxLength={250}
+                        defaultValue={
+                          (projectValues as Partial<Quote>).preparedByPhone ||
+                          ""
+                        }
+                        placeholder="(919) 555-0123"
+                      />
+                    </label>
+                    <label>
+                      Notes & payment
+                      <textarea
+                        name="quoteNotes"
+                        rows={3}
+                        maxLength={15000}
+                        defaultValue={
+                          (projectValues as Partial<Quote>).quoteNotes || ""
+                        }
+                        placeholder="Add quote-specific labor, material, or payment notes."
+                      />
+                    </label>
+                  </fieldset>
+                </>
               )}
               <label>
                 Status
