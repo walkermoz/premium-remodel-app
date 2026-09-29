@@ -98,6 +98,7 @@ export default function ScopeTable({
   onEdit,
   onDelete,
   inline = false,
+  showStatus = true,
   projectId,
   onSave,
 }: {
@@ -107,6 +108,7 @@ export default function ScopeTable({
   onEdit?: (item: ScopeItem) => void;
   onDelete: (item: ScopeItem) => void;
   inline?: boolean;
+  showStatus?: boolean;
   projectId?: string;
   onSave?: (
     data: Record<string, unknown>,
@@ -278,7 +280,7 @@ export default function ScopeTable({
       )}
       <div className="table-scroll">
         <table
-          className={`scope-table${inline ? " scope-table-editable" : ""}`}
+          className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}`}
         >
           <thead>
             <tr>
@@ -288,7 +290,7 @@ export default function ScopeTable({
               <th>Sub cost</th>
               <th>Material cost</th>
               <th>Difference</th>
-              <th>Status</th>
+              {showStatus && <th>Status</th>}
               <th>
                 <span className="sr-only">Actions</span>
               </th>
@@ -309,6 +311,7 @@ export default function ScopeTable({
                   difference={difference}
                   saving={saving.has(item.id)}
                   dirty={dirty(item)}
+                  showStatus={showStatus}
                   onChange={(patch) => updateDraft(item.id, patch, item)}
                   onSave={() => void saveRow(item)}
                   onDelete={() => onDelete(item)}
@@ -340,9 +343,11 @@ export default function ScopeTable({
                   <td className={scopeDifference(item) < 0 ? "is-overdue" : ""}>
                     {money(scopeDifference(item))}
                   </td>
-                  <td>
-                    <Badge status={item.status} />
-                  </td>
+                  {showStatus && (
+                    <td>
+                      <Badge status={item.status} />
+                    </td>
+                  )}
                   <td>
                     <div className="row-actions">
                       <button
@@ -375,6 +380,7 @@ export default function ScopeTable({
                 }
                 saving={saving.has("new")}
                 dirty
+                showStatus={showStatus}
                 newRow
                 titleRef={newTitle}
                 onChange={(patch) =>
@@ -392,7 +398,7 @@ export default function ScopeTable({
             )}
             {inline && !adding && (
               <tr className="scope-add-row">
-                <td colSpan={8}>
+                <td colSpan={showStatus ? 8 : 7}>
                   <button
                     type="button"
                     className="scope-add-row-button"
@@ -415,7 +421,7 @@ export default function ScopeTable({
               <td>{money(subCosts)}</td>
               <td>{money(materialCosts)}</td>
               <td>{money(estimated - costs)}</td>
-              <td colSpan={2} />
+              <td colSpan={showStatus ? 2 : 1} />
             </tr>
           </tfoot>
         </table>
@@ -430,6 +436,7 @@ function EditableRow({
   difference,
   saving,
   dirty,
+  showStatus,
   newRow = false,
   titleRef,
   onChange,
@@ -443,6 +450,7 @@ function EditableRow({
   difference: number;
   saving: boolean;
   dirty: boolean;
+  showStatus: boolean;
   newRow?: boolean;
   titleRef?: React.RefObject<HTMLInputElement | null>;
   onChange: (patch: Partial<ScopeDraft>) => void;
@@ -535,23 +543,25 @@ function EditableRow({
       >
         {money(difference)}
       </td>
-      <td>
-        <select
-          className={`scope-status-select scope-status-${draft.status
-            .toLowerCase()
-            .replaceAll(" ", "-")}`}
-          aria-label={`Status for ${draft.title || "new work item"}`}
-          value={draft.status}
-          disabled={saving}
-          onChange={(event) =>
-            onChange({ status: event.target.value as TaskStatus })
-          }
-        >
-          {statuses.map((status) => (
-            <option key={status}>{status}</option>
-          ))}
-        </select>
-      </td>
+      {showStatus && (
+        <td>
+          <select
+            className={`scope-status-select scope-status-${draft.status
+              .toLowerCase()
+              .replaceAll(" ", "-")}`}
+            aria-label={`Status for ${draft.title || "new work item"}`}
+            value={draft.status}
+            disabled={saving}
+            onChange={(event) =>
+              onChange({ status: event.target.value as TaskStatus })
+            }
+          >
+            {statuses.map((status) => (
+              <option key={status}>{status}</option>
+            ))}
+          </select>
+        </td>
+      )}
       <td>
         <div className="row-actions scope-row-actions">
           {saving ? (

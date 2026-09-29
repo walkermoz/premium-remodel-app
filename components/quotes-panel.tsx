@@ -375,6 +375,7 @@ export function QuoteDetail({
           items={items}
           workspace={workspace}
           inline
+          showStatus={false}
           projectId={quote.id}
           onSave={(data, item) => onSave("scope", data, item)}
           onDelete={(item) => onDelete("scope", item)}

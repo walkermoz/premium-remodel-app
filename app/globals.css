@@ -2898,6 +2898,24 @@ small {
 .scope-table-editable th:nth-child(8) {
   width: 5%;
 }
+.scope-table-editable.scope-table-no-status {
+  min-width: 820px;
+}
+.scope-table-editable.scope-table-no-status th:nth-child(1) {
+  width: 30%;
+}
+.scope-table-editable.scope-table-no-status th:nth-child(2) {
+  width: 15%;
+}
+.scope-table-editable.scope-table-no-status th:nth-child(3),
+.scope-table-editable.scope-table-no-status th:nth-child(4),
+.scope-table-editable.scope-table-no-status th:nth-child(5),
+.scope-table-editable.scope-table-no-status th:nth-child(6) {
+  width: 12%;
+}
+.scope-table-editable.scope-table-no-status th:nth-child(7) {
+  width: 7%;
+}
 .scope-table-editable tbody tr:not(.scope-add-row) {
   transition: background 120ms ease;
 }
