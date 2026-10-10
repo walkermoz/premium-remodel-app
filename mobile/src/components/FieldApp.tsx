@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as Location from "expo-location";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Image,
   Linking,
   Pressable,
@@ -13,6 +21,7 @@ import {
   View,
 } from "react-native";
 import MapView, {
+  Circle,
   Marker,
   type MapPressEvent,
   type Region,
@@ -31,7 +40,9 @@ import type {
   DoorOutcome,
   DoorVisit,
   Lead,
+  LocatedMember,
   Member,
+  SharedLocation,
   VisitDraft,
 } from "../types";
 import VisitModal from "./VisitModal";
@@ -86,6 +97,22 @@ function roleName(role: string) {
     : role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+function locationLabel(location: SharedLocation, now: number) {
+  const age = Math.max(0, now - Date.parse(location.capturedAt));
+  if (age < 60_000) return "Updated just now";
+  const minutes = Math.floor(age / 60_000);
+  return `Updated ${minutes} min ago`;
+}
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
 async function reverseAddress(coordinate: Coordinate) {
   try {
     const matches = await Location.reverseGeocodeAsync(coordinate);
@@ -105,6 +132,9 @@ export default function FieldApp() {
   const [visits, setVisits] = useState<DoorVisit[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [team, setTeam] = useState<LocatedMember[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [mapNow, setMapNow] = useState(Date.now);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -149,6 +179,26 @@ export default function FieldApp() {
     setLoading(false);
   }, []);
 
+  const loadTeamLocations = useCallback(async (showError = false) => {
+    setTeamLoading(true);
+    try {
+      const result = await appRequest<{ members: LocatedMember[] }>(
+        "/api/locations",
+      );
+      setTeam(result.members);
+      setMapNow(Date.now());
+    } catch (caught) {
+      if (showError)
+        setMessage(
+          caught instanceof Error
+            ? caught.message
+            : "Could not refresh team locations.",
+        );
+    } finally {
+      setTeamLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     Promise.all([load(), locationSharingActive().then(setSharing)]).catch(
       (caught) => {
@@ -162,11 +212,24 @@ export default function FieldApp() {
     );
   }, [load]);
 
+  useEffect(() => {
+    if (tab !== "map") return;
+    void loadTeamLocations(true);
+    const timer = setInterval(() => void loadTeamLocations(), 15_000);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void loadTeamLocations();
+    });
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, [loadTeamLocations, tab]);
+
   async function refresh() {
     setRefreshing(true);
     setMessage("");
     try {
-      await load(true);
+      await Promise.all([load(true), loadTeamLocations(true)]);
     } catch (caught) {
       setMessage(
         caught instanceof Error ? caught.message : "Could not refresh.",
@@ -216,10 +279,12 @@ export default function FieldApp() {
       if (sharing) {
         await stopLocationSharing();
         setSharing(false);
+        await loadTeamLocations();
         setMessage("Shift ended. Your saved location was cleared.");
       } else {
         const point = await startLocationSharing();
         setSharing(true);
+        await loadTeamLocations();
         setMessage("Shift started. Your latest work location is now shared.");
         mapRef.current?.animateToRegion(
           {
@@ -298,6 +363,37 @@ export default function FieldApp() {
     [leads],
   );
 
+  const locatedTeam = useMemo(
+    () => team.filter((person) => person.location),
+    [team],
+  );
+
+  function fitTeam() {
+    const coordinates = locatedTeam.map((person) => ({
+      latitude: person.location!.latitude,
+      longitude: person.location!.longitude,
+    }));
+    if (!coordinates.length) {
+      setMessage(
+        sharing
+          ? "Waiting for a fresh location update."
+          : "No teammates are sharing a recent location.",
+      );
+      return;
+    }
+    if (coordinates.length === 1) {
+      mapRef.current?.animateToRegion(
+        { ...coordinates[0], latitudeDelta: 0.018, longitudeDelta: 0.014 },
+        500,
+      );
+      return;
+    }
+    mapRef.current?.fitToCoordinates(coordinates, {
+      animated: true,
+      edgePadding: { top: 90, right: 60, bottom: 210, left: 60 },
+    });
+  }
+
   if (loading)
     return (
       <View style={styles.loading}>
@@ -375,7 +471,78 @@ export default function FieldApp() {
                   description={`${visit.outcome} · ${visit.canvasserName}`}
                 />
               ))}
+              {locatedTeam.map((person) => {
+                const location = person.location!;
+                const stale =
+                  mapNow - Date.parse(location.capturedAt) >= 2 * 60_000;
+                const markerColor = stale ? colors.gray : colors.green;
+                return (
+                  <Fragment key={`team-location-${person.id}`}>
+                    <Circle
+                      center={{
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                      }}
+                      radius={Math.max(10, location.accuracy)}
+                      strokeColor={stale ? "#87959E88" : "#2D966866"}
+                      fillColor={stale ? "#87959E18" : "#2D966818"}
+                    />
+                    <Marker
+                      anchor={{ x: 0.5, y: 1 }}
+                      coordinate={{
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                      }}
+                      description={`${locationLabel(location, mapNow)} · Accuracy ±${Math.round(location.accuracy)} m`}
+                      title={`${person.name}${person.id === member?.id ? " (you)" : ""}`}
+                      zIndex={100}
+                    >
+                      <View style={styles.teamMarkerWrap}>
+                        <View
+                          style={[
+                            styles.teamMarker,
+                            { backgroundColor: markerColor },
+                          ]}
+                        >
+                          <Text style={styles.teamMarkerText}>
+                            {initials(person.name) || "PR"}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.teamMarkerPoint,
+                            { borderTopColor: markerColor },
+                          ]}
+                        />
+                      </View>
+                    </Marker>
+                  </Fragment>
+                );
+              })}
             </MapView>
+            <Pressable
+              accessibilityLabel="Fit shared teammate locations on the map"
+              accessibilityRole="button"
+              onPress={fitTeam}
+              style={styles.teamPresence}
+            >
+              {teamLoading ? (
+                <ActivityIndicator color={colors.blue} size="small" />
+              ) : (
+                <View
+                  style={[
+                    styles.teamPresenceDot,
+                    locatedTeam.length > 0 && styles.teamPresenceDotLive,
+                  ]}
+                />
+              )}
+              <View>
+                <Text style={styles.teamPresenceTitle}>
+                  {locatedTeam.length} sharing
+                </Text>
+                <Text style={styles.teamPresenceCaption}>TEAM LOCATIONS</Text>
+              </View>
+            </Pressable>
             {marking && (
               <View pointerEvents="none" style={styles.mapInstruction}>
                 <Text style={styles.mapInstructionText}>
@@ -412,6 +579,11 @@ export default function FieldApp() {
                   {visits.filter((visit) => visit.leadId).length}
                 </Text>
                 <Text style={styles.summaryLabel}>LEADS CAPTURED</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View>
+                <Text style={styles.summaryNumber}>{locatedTeam.length}</Text>
+                <Text style={styles.summaryLabel}>TEAM LIVE</Text>
               </View>
             </View>
             {!!visits[0] && (
@@ -691,6 +863,70 @@ const styles = StyleSheet.create({
     right: 14,
     alignItems: "flex-end",
     gap: 10,
+  },
+  teamPresence: {
+    position: "absolute",
+    top: 14,
+    left: 14,
+    minHeight: 43,
+    paddingHorizontal: 12,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    backgroundColor: "rgba(255,255,255,.96)",
+    shadowColor: colors.navyDeep,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.13,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  teamPresenceDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.gray,
+  },
+  teamPresenceDotLive: { backgroundColor: colors.green },
+  teamPresenceTitle: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  teamPresenceCaption: {
+    color: colors.muted,
+    fontSize: 7,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    marginTop: 1,
+  },
+  teamMarkerWrap: { alignItems: "center" },
+  teamMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 3,
+    borderColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.navyDeep,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.24,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  teamMarkerText: { color: "#fff", fontSize: 10, fontWeight: "900" },
+  teamMarkerPoint: {
+    width: 0,
+    height: 0,
+    marginTop: -2,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 9,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
   },
   mapCircle: {
     width: 43,

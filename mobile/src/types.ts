@@ -47,6 +47,19 @@ export type Member = {
   role: string;
 };
 
+export type SharedLocation = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  capturedAt: string;
+};
+
+export type LocatedMember = {
+  id: string;
+  name: string;
+  location: SharedLocation | null;
+};
+
 export type VisitDraft = {
   address: string;
   latitude: number;

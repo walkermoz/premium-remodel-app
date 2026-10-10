@@ -58,7 +58,7 @@ export async function GET(request: Request) {
       .eq("organization_id", user.organizationId)
       .eq("sharing", true)
       .gt("captured_at", cutoff);
-    if (user.role !== "admin") {
+    if (!new Set(["owner", "admin"]).has(user.role)) {
       profiles = profiles.eq("id", user.id);
       locations = locations.eq("profile_id", user.id);
     }

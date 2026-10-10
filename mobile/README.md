@@ -18,6 +18,7 @@ Background location requires a native development or release build. It does not 
 
 - A teammate must tap **Start shift** and approve the operating system prompts.
 - The app sends a fresh fix after meaningful movement while the shift is active.
+- The native Field map refreshes opted-in teammate positions every 15 seconds for administrators and shows each reading's age and accuracy.
 - The server stores only the latest position, not a route history.
 - **End shift** clears the position from the company map.
 - Signing out also ends an active shift.
