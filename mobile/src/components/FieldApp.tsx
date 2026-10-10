@@ -3,6 +3,7 @@ import * as Location from "expo-location";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Linking,
   Pressable,
   RefreshControl,
@@ -23,7 +24,6 @@ import {
   stopLocationSharing,
 } from "../background-location";
 import { appRequest } from "../lib/api";
-import { appUrl } from "../lib/config";
 import { supabase } from "../lib/supabase";
 import { colors } from "../theme";
 import type {
@@ -35,8 +35,9 @@ import type {
   VisitDraft,
 } from "../types";
 import VisitModal from "./VisitModal";
+import WorkspaceScreen from "./WorkspaceScreen";
 
-type Tab = "map" | "schedule" | "account";
+type Tab = "workspace" | "map" | "schedule" | "account";
 type Coordinate = { latitude: number; longitude: number };
 
 const raleighRegion: Region = {
@@ -99,7 +100,7 @@ async function reverseAddress(coordinate: Coordinate) {
 
 export default function FieldApp() {
   const mapRef = useRef<MapView>(null);
-  const [tab, setTab] = useState<Tab>("map");
+  const [tab, setTab] = useState<Tab>("workspace");
   const [member, setMember] = useState<Member | null>(null);
   const [visits, setVisits] = useState<DoorVisit[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -310,7 +311,12 @@ export default function FieldApp() {
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safe}>
       <View style={styles.topbar}>
         <View>
-          <Text style={styles.brand}>PREMIUM REMODEL</Text>
+          <Image
+            accessibilityLabel="Premium Remodel"
+            source={require("../../assets/premium-remodel-logo.png")}
+            resizeMode="contain"
+            style={styles.wordmark}
+          />
           <Text style={styles.welcome}>
             Hi, {member?.full_name.split(" ")[0] || "there"}
           </Text>
@@ -343,6 +349,8 @@ export default function FieldApp() {
       )}
 
       <View style={styles.content}>
+        {tab === "workspace" && <WorkspaceScreen />}
+
         {tab === "map" && (
           <View style={styles.mapPage}>
             <MapView
@@ -539,20 +547,10 @@ export default function FieldApp() {
                 access can also be revoked in your phone settings.
               </Text>
             </View>
-            <Pressable
-              onPress={() => Linking.openURL(appUrl)}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryButtonText}>
-                Open full web dashboard
-              </Text>
-            </Pressable>
             <Pressable onPress={signOut} style={styles.signOutButton}>
               <Text style={styles.signOutText}>Sign out</Text>
             </Pressable>
-            <Text style={styles.version}>
-              Premium Remodel Field · Version 1.0
-            </Text>
+            <Text style={styles.version}>Premium Remodel · Version 1.1</Text>
           </ScrollView>
         )}
       </View>
@@ -560,8 +558,9 @@ export default function FieldApp() {
       <View style={styles.tabs}>
         {(
           [
-            ["map", "⌖", "Map"],
-            ["schedule", "◷", "Schedule"],
+            ["workspace", "▦", "Workspace"],
+            ["map", "⌖", "Field"],
+            ["schedule", "◷", "Calendar"],
             ["account", "○", "Account"],
           ] as const
         ).map(([value, icon, label]) => (
@@ -622,13 +621,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  brand: {
-    color: colors.blue,
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 1.8,
-  },
-  welcome: { color: colors.ink, fontSize: 19, fontWeight: "800", marginTop: 3 },
+  wordmark: { width: 123, height: 34 },
+  welcome: { color: colors.ink, fontSize: 13, fontWeight: "800", marginTop: 1 },
   shift: {
     minWidth: 106,
     height: 38,
@@ -940,17 +934,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 7,
   },
-  secondaryButton: {
-    height: 50,
-    marginTop: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
-  secondaryButtonText: { color: colors.navy, fontSize: 13, fontWeight: "900" },
   signOutButton: {
     height: 50,
     marginTop: 10,

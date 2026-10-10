@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,8 +16,11 @@ import { supabase } from "../lib/supabase";
 import { colors } from "../theme";
 
 export default function LoginScreen() {
+  const scrollRef = useRef<ScrollView>(null);
+  const passwordRef = useRef<TextInput>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,78 +36,117 @@ export default function LoginScreen() {
     setBusy(false);
   }
 
+  function keepPasswordVisible() {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 180);
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        style={styles.page}
+        style={styles.keyboard}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.brand}>
-          <View style={styles.mark}>
-            <View style={styles.roof} />
-            <View style={styles.door} />
-          </View>
-          <View>
-            <Text style={styles.brandTop}>PREMIUM</Text>
-            <Text style={styles.brandBottom}>REMODEL</Text>
-          </View>
-        </View>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.page}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+        >
+          <Image
+            accessibilityLabel="Premium Remodel"
+            source={require("../../assets/premium-remodel-logo.png")}
+            resizeMode="contain"
+            style={styles.logo}
+          />
 
-        <View style={styles.intro}>
-          <Text style={styles.eyebrow}>FIELD COMPANION</Text>
-          <Text style={styles.title}>Your shift, mapped.</Text>
-          <Text style={styles.subtitle}>
-            Mark visits, capture leads, schedule quotes, and share your active
-            work location.
+          <View style={styles.intro}>
+            <Text style={styles.eyebrow}>COMPANY WORKSPACE</Text>
+            <Text style={styles.title}>Everything your team needs.</Text>
+            <Text style={styles.subtitle}>
+              Projects, leads, quotes, schedules, contractors, and field work in
+              one place.
+            </Text>
+          </View>
+
+          <View style={styles.form}>
+            <Text style={styles.label}>Work email</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              keyboardType="email-address"
+              returnKeyType="next"
+              textContentType="username"
+              value={email}
+              onChangeText={setEmail}
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              placeholder="you@premiumremodel.com"
+              placeholderTextColor="#8A9AA6"
+              style={styles.input}
+            />
+
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordField}>
+              <TextInput
+                ref={passwordRef}
+                autoCapitalize="none"
+                autoComplete="current-password"
+                autoCorrect={false}
+                secureTextEntry={!showPassword}
+                returnKeyType="go"
+                textContentType="password"
+                value={password}
+                onChangeText={setPassword}
+                onFocus={keepPasswordVisible}
+                onSubmitEditing={signIn}
+                placeholder="Your password"
+                placeholderTextColor="#8A9AA6"
+                style={styles.passwordInput}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showPassword ? "Hide password" : "Show password"
+                }
+                onPress={() => setShowPassword((value) => !value)}
+                hitSlop={8}
+                style={styles.showButton}
+              >
+                <Text style={styles.showButtonText}>
+                  {showPassword ? "Hide" : "Show"}
+                </Text>
+              </Pressable>
+            </View>
+
+            {!!error && <Text style={styles.error}>{error}</Text>}
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy || !email.trim() || !password}
+              onPress={signIn}
+              style={({ pressed }) => [
+                styles.button,
+                pressed && styles.pressed,
+                (busy || !email.trim() || !password) && styles.disabled,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign in</Text>
+              )}
+            </Pressable>
+          </View>
+
+          <Text style={styles.privacy}>
+            Location sharing begins only when you tap Start shift and stops when
+            you tap End shift.
           </Text>
-        </View>
-
-        <View style={styles.form}>
-          <Text style={styles.label}>Work email</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@premiumremodel.com"
-            placeholderTextColor="#8A9AA6"
-            style={styles.input}
-          />
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoComplete="password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            onSubmitEditing={signIn}
-            placeholder="Your password"
-            placeholderTextColor="#8A9AA6"
-            style={styles.input}
-          />
-          {!!error && <Text style={styles.error}>{error}</Text>}
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy || !email.trim() || !password}
-            onPress={signIn}
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.pressed,
-              (busy || !email.trim() || !password) && styles.disabled,
-            ]}
-          >
-            {busy ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
-            )}
-          </Pressable>
-        </View>
-        <Text style={styles.privacy}>
-          Location sharing begins only when you tap Start shift and stops when
-          you tap End shift.
-        </Text>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -110,65 +154,42 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  page: { flex: 1, paddingHorizontal: 26, paddingTop: 24 },
-  brand: { flexDirection: "row", alignItems: "center", gap: 12 },
-  mark: {
-    width: 42,
-    height: 42,
-    backgroundColor: colors.blue,
-    overflow: "hidden",
-    position: "relative",
+  keyboard: { flex: 1 },
+  scroll: { flex: 1 },
+  page: {
+    flexGrow: 1,
+    paddingHorizontal: 26,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
-  roof: {
-    position: "absolute",
-    width: 38,
-    height: 38,
-    backgroundColor: colors.background,
-    transform: [{ rotate: "45deg" }],
-    left: -8,
-    top: 16,
-  },
-  door: {
-    position: "absolute",
-    width: 8,
-    height: 9,
-    backgroundColor: colors.blue,
-    right: 5,
-    bottom: 5,
-  },
-  brandTop: {
-    color: colors.blue,
-    fontSize: 15,
-    fontWeight: "800",
-    letterSpacing: 4,
-  },
-  brandBottom: { color: colors.ink, fontSize: 14, letterSpacing: 3 },
-  intro: { marginTop: 76 },
+  logo: { width: 226, height: 65 },
+  intro: { marginTop: 42 },
   eyebrow: {
     color: colors.blue,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 2,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.8,
   },
   title: {
     color: colors.ink,
-    fontSize: 38,
-    lineHeight: 44,
-    fontWeight: "800",
-    marginTop: 10,
+    fontSize: 34,
+    lineHeight: 39,
+    fontWeight: "900",
+    marginTop: 9,
+    maxWidth: 340,
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 12,
-    maxWidth: 330,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
+    maxWidth: 350,
   },
-  form: { marginTop: 42 },
+  form: { marginTop: 28 },
   label: {
     color: colors.ink,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
     marginBottom: 8,
   },
   input: {
@@ -180,8 +201,32 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 16,
     paddingHorizontal: 15,
+    marginBottom: 17,
+  },
+  passwordField: {
+    height: 52,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 18,
   },
+  passwordInput: {
+    flex: 1,
+    height: "100%",
+    color: colors.ink,
+    fontSize: 16,
+    paddingHorizontal: 15,
+  },
+  showButton: {
+    height: "100%",
+    minWidth: 62,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  showButtonText: { color: colors.blue, fontSize: 12, fontWeight: "900" },
   error: { color: colors.red, fontSize: 13, lineHeight: 18, marginBottom: 14 },
   button: {
     height: 52,
@@ -190,7 +235,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.navy,
   },
-  buttonText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  buttonText: { color: "#fff", fontSize: 15, fontWeight: "900" },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.45 },
   privacy: {
@@ -199,6 +244,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     textAlign: "center",
     marginTop: "auto",
-    marginBottom: 22,
+    paddingTop: 30,
   },
 });
