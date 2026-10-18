@@ -1,4 +1,19 @@
-import type { Project, Quote } from "./types";
+import type { Project, Quote, Workspace } from "./types";
+
+export function nextQuoteNumber(
+  workspace: Pick<Workspace, "projects" | "quotes">,
+) {
+  const highest = [...(workspace.quotes || []), ...workspace.projects].reduce(
+    (maximum, record) => {
+      const value = "quoteNumber" in record ? record.quoteNumber : undefined;
+      return typeof value === "string" && /^\d+$/.test(value)
+        ? Math.max(maximum, Number(value))
+        : maximum;
+    },
+    0,
+  );
+  return String(highest + 1);
+}
 
 // Keep trusted historical values through edits without accepting client replacements.
 export function preserveProjectHistory(

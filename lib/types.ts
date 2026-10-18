@@ -57,7 +57,6 @@ export interface Quote extends Omit<Project, "status" | "contractPrice"> {
   outcomeAt?: string;
   /** Human-facing identifiers and copy used on the generated quote document. */
   quoteNumber?: string;
-  customerId?: string;
   revisedDate?: string;
   preparedBy?: string;
   preparedByPhone?: string;

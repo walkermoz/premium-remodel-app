@@ -117,6 +117,16 @@ export async function insertRecord(
   }
   return entity;
 }
+export async function allocateQuoteNumber(user: WorkspaceUser) {
+  const { data, error } = await supabaseAdmin().rpc(
+    "remodel_allocate_quote_number",
+    { target_organization: user.organizationId },
+  );
+  if (error) throw error;
+  if (typeof data !== "string" || !/^\d+$/.test(data))
+    throw new Error("The next quote number could not be assigned.");
+  return data;
+}
 export async function updateRecord(
   user: WorkspaceUser,
   current: Entity,

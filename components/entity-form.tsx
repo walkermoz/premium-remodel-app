@@ -15,6 +15,7 @@ import ContractorFields from "./contractor-fields";
 import AddressInput from "./address-input";
 import { workTypes, quoteStatuses, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
+import { nextQuoteNumber } from "@/lib/quotes";
 export type FormKind = "project" | "quote" | "task" | "contractor" | "scope";
 export interface Editor {
   kind: FormKind;
@@ -292,30 +293,17 @@ export function EntityForm({
                     <legend>
                       Quote document <span>shown on the downloaded PDF</span>
                     </legend>
-                    <div className="form-grid">
-                      <label>
-                        Quote number
-                        <input
-                          name="quoteNumber"
-                          maxLength={250}
-                          defaultValue={
-                            (projectValues as Partial<Quote>).quoteNumber || ""
-                          }
-                          placeholder="e.g. 129"
-                        />
-                      </label>
-                      <label>
-                        Customer ID
-                        <input
-                          name="customerId"
-                          maxLength={250}
-                          defaultValue={
-                            (projectValues as Partial<Quote>).customerId || ""
-                          }
-                          placeholder="e.g. PLHI-26030"
-                        />
-                      </label>
-                    </div>
+                    <label>
+                      Quote number
+                      <input
+                        value={
+                          (projectValues as Partial<Quote>).quoteNumber ||
+                          nextQuoteNumber(workspace)
+                        }
+                        readOnly
+                        aria-readonly="true"
+                      />
+                    </label>
                     <label>
                       Revised date
                       <input

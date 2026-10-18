@@ -66,7 +66,11 @@ import {
   projectMoney as money,
   preserveScopeCosts,
 } from "@/lib/project-finances";
-import { acceptedQuote, preserveProjectHistory } from "@/lib/quotes";
+import {
+  acceptedQuote,
+  nextQuoteNumber,
+  preserveProjectHistory,
+} from "@/lib/quotes";
 import {
   leadDisposition,
   leadPatchFromQuote,
@@ -425,7 +429,10 @@ export default function WorkspaceApp({
           );
           if (kind === "quote") {
             const prior = existing as Quote | undefined;
-            data.preparedBy = prior?.preparedBy || user.name || "Premium Remodel";
+            data.quoteNumber =
+              prior?.quoteNumber || nextQuoteNumber(workspaceRef.current);
+            data.preparedBy =
+              prior?.preparedBy || user.name || "Premium Remodel";
             if (data.status === "Sent" && prior?.status !== "Sent")
               data.quoteSentAt = now;
             if (

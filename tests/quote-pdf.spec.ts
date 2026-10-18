@@ -22,7 +22,6 @@ const quote: Quote = {
   category: "Bathroom",
   cover: "",
   quoteNumber: "129",
-  customerId: "PLHI-26030",
   revisedDate: "2026-09-28",
   preparedBy: "Matthew Magner",
   preparedByPhone: "(919) 413-9782",

@@ -153,7 +153,6 @@ export const schemas = {
       leadId: z.union([z.uuid(), z.literal("")]).optional(),
       outcomeAt: z.iso.datetime().optional(),
       quoteNumber: short.optional(),
-      customerId: short.optional(),
       revisedDate: date.optional(),
       preparedBy: short.optional(),
       preparedByPhone: short.optional(),

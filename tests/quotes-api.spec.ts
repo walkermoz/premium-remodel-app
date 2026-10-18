@@ -28,8 +28,6 @@ cloudTest(
       description: "Garage scope",
       category: "Other",
       cover: "",
-      quoteNumber: "TEST-129",
-      customerId: "TEST-CUSTOMER",
       revisedDate: "2026-09-28",
       preparedBy: "Test Admin",
       preparedByPhone: "9195550199",
@@ -44,6 +42,7 @@ cloudTest(
     });
     expect(created.status()).toBe(201);
     const quote = await created.json();
+    expect(quote.quoteNumber).toMatch(/^\d+$/);
     const foreignOrg = randomUUID(),
       foreignQuote = randomUUID();
     try {
@@ -123,7 +122,7 @@ cloudTest(
     expect(pdfResponse.status()).toBe(200);
     expect(pdfResponse.headers()["content-type"]).toBe("application/pdf");
     expect(pdfResponse.headers()["content-disposition"]).toContain(
-      "Quote TEST-129.pdf",
+      `Quote ${quote.quoteNumber}.pdf`,
     );
     const pdf = await PDFDocument.load(await pdfResponse.body());
     expect(pdf.getPageCount()).toBe(1);

@@ -8,6 +8,7 @@ import {
   type WorkspaceUser,
 } from "@/lib/auth";
 import {
+  allocateQuoteNumber,
   deleteRecord,
   findRecord,
   getWorkspace,
@@ -240,6 +241,8 @@ async function save(request: Request, editing: boolean) {
       data = preserveProjectHistory(data, current as Project | Quote | null);
       if (kind === "quote") {
         const prior = current as Quote | null;
+        data.quoteNumber =
+          prior?.quoteNumber || (await allocateQuoteNumber(user));
         data.preparedBy = prior?.preparedBy || user.name || "Premium Remodel";
         const leadId = String(data.leadId || prior?.leadId || "").trim();
         if (leadId) {

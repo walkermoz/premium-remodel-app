@@ -247,7 +247,6 @@ export async function buildQuotePdf(
   drawTop(page, heading, LEFT, 117, bold, headingSize);
   const meta = [
     `Quote #${quote.quoteNumber || quote.id.slice(0, 8).toUpperCase()}`,
-    quote.customerId ? `Customer ID: ${quote.customerId}` : "",
     `Revised ${displayDate(quote.revisedDate, quote.updatedAt)}`,
   ]
     .filter(Boolean)
