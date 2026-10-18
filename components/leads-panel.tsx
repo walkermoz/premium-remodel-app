@@ -399,22 +399,6 @@ export default function LeadsPanel({
                     placeholder="Operator notes, disposition context, follow-up detail."
                   />
                 </label>
-                <label>
-                  Draft reply
-                  <textarea
-                    rows={3}
-                    maxLength={15000}
-                    disabled={saving}
-                    defaultValue={selected.draftReply || ""}
-                    key={`${selected.id}-draft-${selected.updatedAt}`}
-                    onBlur={(event) => {
-                      const value = event.target.value.trim();
-                      if (value === (selected.draftReply || "")) return;
-                      void patchLead(selected, { draftReply: value });
-                    }}
-                    placeholder="Optional draft for Matthew approval."
-                  />
-                </label>
                 {actionError && (
                   <div className="alert" role="alert">
                     {actionError}
