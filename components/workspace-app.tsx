@@ -425,6 +425,7 @@ export default function WorkspaceApp({
           );
           if (kind === "quote") {
             const prior = existing as Quote | undefined;
+            data.preparedBy = prior?.preparedBy || user.name || "Premium Remodel";
             if (data.status === "Sent" && prior?.status !== "Sent")
               data.quoteSentAt = now;
             if (

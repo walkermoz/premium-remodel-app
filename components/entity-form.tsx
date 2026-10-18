@@ -316,29 +316,16 @@ export function EntityForm({
                         />
                       </label>
                     </div>
-                    <div className="form-grid">
-                      <label>
-                        Revised date
-                        <input
-                          name="revisedDate"
-                          type="date"
-                          defaultValue={
-                            (projectValues as Partial<Quote>).revisedDate || ""
-                          }
-                        />
-                      </label>
-                      <label>
-                        Prepared by
-                        <input
-                          name="preparedBy"
-                          maxLength={250}
-                          defaultValue={
-                            (projectValues as Partial<Quote>).preparedBy || ""
-                          }
-                          placeholder="Team member name"
-                        />
-                      </label>
-                    </div>
+                    <label>
+                      Revised date
+                      <input
+                        name="revisedDate"
+                        type="date"
+                        defaultValue={
+                          (projectValues as Partial<Quote>).revisedDate || ""
+                        }
+                      />
+                    </label>
                     <label>
                       Prepared-by phone
                       <input

@@ -240,6 +240,7 @@ async function save(request: Request, editing: boolean) {
       data = preserveProjectHistory(data, current as Project | Quote | null);
       if (kind === "quote") {
         const prior = current as Quote | null;
+        data.preparedBy = prior?.preparedBy || user.name || "Premium Remodel";
         const leadId = String(data.leadId || prior?.leadId || "").trim();
         if (leadId) {
           data.leadId = leadId;
