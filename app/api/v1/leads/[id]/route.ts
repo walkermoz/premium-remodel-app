@@ -5,7 +5,7 @@ import { findLeadRecord, updateLeadRecord } from "@/lib/lead-records";
 import { leadDisposition, withDispositionChange } from "@/lib/leads";
 import {
   leadApprovalStates,
-  leadDispositions,
+  leadDispositionActions,
   leadStages,
   type Contact,
   type Lead,
@@ -18,7 +18,7 @@ const patchInput = z
   .object({
     notes: z.string().trim().max(15000).optional(),
     status: z.enum(leadStages).optional(),
-    disposition: z.enum(leadDispositions).optional(),
+    disposition: z.enum(leadDispositionActions).optional(),
     nextAction: z.string().trim().max(250).optional(),
     nextActionDue: z
       .string()

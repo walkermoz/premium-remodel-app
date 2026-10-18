@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import {
   leadApprovalStates,
-  leadDispositions,
+  leadDispositionActions,
   leadStages,
   type Contact,
   type Lead,
@@ -139,9 +139,7 @@ export default function LeadsPanel({
       </div>
       {demo && <span className="sample-data-label">SAMPLE DATA</span>}
       <div className="filter-tabs lead-filters" aria-label="Filter leads">
-        {(
-          ["Active", "All", "Archive", "Junk", "Spam", "Test"] as LeadFilter[]
-        ).map((item) => (
+        {(["Active", "All", "Archive", "Junk"] as LeadFilter[]).map((item) => (
           <button
             key={item}
             className={item === filter ? "active" : ""}
@@ -170,7 +168,7 @@ export default function LeadsPanel({
             {search
               ? "Try another name, project, email, phone number, or address."
               : filter === "Active"
-                ? "Active funnel leads appear here. Use All or Junk/Test to find disposed items."
+                ? "Active funnel leads appear here. Use All, Archive, or Junk to find disposed items."
                 : "No leads match this disposition filter."}
           </p>
         </div>
@@ -283,7 +281,7 @@ export default function LeadsPanel({
                         })
                       }
                     >
-                      {leadDispositions.map((item) => (
+                      {leadDispositionActions.map((item) => (
                         <option key={item} value={item}>
                           {item}
                         </option>
@@ -346,21 +344,19 @@ export default function LeadsPanel({
                   </label>
                 </div>
                 <div className="lead-disposition-actions">
-                  {(["Archive", "Junk", "Spam", "Test"] as const).map(
-                    (item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        className="button secondary small-button"
-                        disabled={saving || leadDisposition(selected) === item}
-                        onClick={() =>
-                          void patchLead(selected, { disposition: item })
-                        }
-                      >
-                        Mark {item}
-                      </button>
-                    ),
-                  )}
+                  {(["Archive", "Junk"] as const).map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className="button secondary small-button"
+                      disabled={saving || leadDisposition(selected) === item}
+                      onClick={() =>
+                        void patchLead(selected, { disposition: item })
+                      }
+                    >
+                      Mark {item}
+                    </button>
+                  ))}
                   {leadDisposition(selected) !== "Active" && (
                     <button
                       type="button"

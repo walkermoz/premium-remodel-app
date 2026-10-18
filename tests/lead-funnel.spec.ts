@@ -94,12 +94,21 @@ test("leads UI exposes disposition controls in sample mode", async ({
   await expect(page.getByRole("button", { name: /Active/ })).toBeVisible();
   const detail = page.getByRole("article", { name: "Taylor Reed lead" });
   await expect(detail.getByLabel("Disposition")).toBeVisible();
+  await expect(
+    detail.getByRole("button", { name: "Mark Archive" }),
+  ).toBeVisible();
   await expect(detail.getByRole("button", { name: "Mark Junk" })).toBeVisible();
-  await detail.getByLabel("Disposition").selectOption("Test");
+  await expect(detail.getByRole("button", { name: "Mark Spam" })).toHaveCount(
+    0,
+  );
+  await expect(detail.getByRole("button", { name: "Mark Test" })).toHaveCount(
+    0,
+  );
+  await detail.getByLabel("Disposition").selectOption("Archive");
   await expect(page.getByRole("button", { name: /^All/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
   const updated = page.getByRole("article", { name: "Taylor Reed lead" });
-  await expect(updated.getByLabel("Disposition")).toHaveValue("Test");
+  await expect(updated.getByLabel("Disposition")).toHaveValue("Archive");
 });

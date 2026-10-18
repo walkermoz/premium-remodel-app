@@ -188,6 +188,8 @@ export const leadDispositions = [
   "Test",
 ] as const;
 export type LeadDisposition = (typeof leadDispositions)[number];
+export const leadDispositionActions = ["Active", "Archive", "Junk"] as const;
+export type LeadDispositionAction = (typeof leadDispositionActions)[number];
 
 export const leadApprovalStates = [
   "none",

@@ -60,7 +60,7 @@ export function isActiveFunnelLead(lead: Lead) {
   return disposition === "Active";
 }
 
-/** Close-rate denominator excludes Junk/Spam/Test/Archive. */
+/** Close-rate denominator excludes leads removed from the active funnel. */
 export function countsTowardCloseRate(lead: Lead) {
   return isActiveFunnelLead(lead);
 }
