@@ -86,14 +86,14 @@ test("quote defaults carry the available lead and contact details", () => {
   });
 });
 
-test("leads UI exposes disposition controls in sample mode", async ({
+test("leads UI uses clear archive and junk actions in sample mode", async ({
   page,
 }) => {
   await page.goto("/demo?view=Leads");
   await expect(page.getByRole("heading", { name: "Leads." })).toBeVisible();
   await expect(page.getByRole("button", { name: /Active/ })).toBeVisible();
   const detail = page.getByRole("article", { name: "Taylor Reed lead" });
-  await expect(detail.getByLabel("Disposition")).toBeVisible();
+  await expect(detail.getByLabel("Disposition")).toHaveCount(0);
   await expect(
     detail.getByRole("button", { name: "Mark Archive" }),
   ).toBeVisible();
@@ -104,11 +104,13 @@ test("leads UI exposes disposition controls in sample mode", async ({
   await expect(detail.getByRole("button", { name: "Mark Test" })).toHaveCount(
     0,
   );
-  await detail.getByLabel("Disposition").selectOption("Archive");
+  await detail.getByRole("button", { name: "Mark Archive" }).click();
   await expect(page.getByRole("button", { name: /^All/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
   const updated = page.getByRole("article", { name: "Taylor Reed lead" });
-  await expect(updated.getByLabel("Disposition")).toHaveValue("Archive");
+  await expect(
+    updated.getByRole("button", { name: "Restore Active" }),
+  ).toBeVisible();
 });

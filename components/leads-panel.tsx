@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import {
   leadApprovalStates,
-  leadDispositionActions,
   leadStages,
   type Contact,
   type Lead,
@@ -251,7 +250,7 @@ export default function LeadsPanel({
                 </div>
               </header>
               <section className="lead-ops-card" aria-label="Lead lifecycle">
-                <div className="form-row three">
+                <div className="form-row two">
                   <label>
                     Stage
                     <select
@@ -266,24 +265,6 @@ export default function LeadsPanel({
                       {leadStages.map((stage) => (
                         <option key={stage} value={stage}>
                           {stage}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Disposition
-                    <select
-                      value={leadDisposition(selected)}
-                      disabled={saving}
-                      onChange={(event) =>
-                        void patchLead(selected, {
-                          disposition: event.target.value as LeadDisposition,
-                        })
-                      }
-                    >
-                      {leadDispositionActions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
                         </option>
                       ))}
                     </select>
