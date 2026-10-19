@@ -13,7 +13,7 @@ import { Modal } from "./ui";
 import { LoaderCircle } from "lucide-react";
 import ContractorFields from "./contractor-fields";
 import AddressInput from "./address-input";
-import { workTypes, quoteStatuses, type WorkType } from "@/lib/types";
+import { workTypes, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
 export type FormKind = "project" | "quote" | "task" | "contractor" | "scope";
 export interface Editor {
@@ -138,6 +138,7 @@ export function EntityForm({
     const data: Record<string, unknown> = Object.fromEntries(
       new FormData(event.currentTarget),
     );
+    if (kind === "quote") data.status = projectValues.status || "Draft";
     for (const key of ["quantity", "estimate", "subCost", "materialCost"])
       if (key in data) data[key] = Number(data[key]);
     try {
@@ -307,21 +308,22 @@ export function EntityForm({
                   </fieldset>
                 </>
               )}
-              <label>
-                Status
-                <select
-                  name="status"
-                  value={projectStatus}
-                  onChange={(event) => setProjectStatus(event.target.value)}
-                >
-                  {(kind === "quote"
-                    ? quoteStatuses
-                    : ["Planning", "In progress", "On hold", "Completed"]
-                  ).map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
-              </label>
+              {kind === "project" && (
+                <label>
+                  Status
+                  <select
+                    name="status"
+                    value={projectStatus}
+                    onChange={(event) => setProjectStatus(event.target.value)}
+                  >
+                    {["Planning", "In progress", "On hold", "Completed"].map(
+                      (status) => (
+                        <option key={status}>{status}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+              )}
               <div className="form-grid">
                 <label>
                   Start date
