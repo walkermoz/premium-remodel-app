@@ -266,6 +266,9 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await page.goto("/demo?view=Quotes");
   await page.getByRole("button", { name: "New quote" }).first().click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Quote number")).toHaveCount(0);
+  await expect(dialog.getByLabel("Revised date")).toHaveCount(0);
+  await expect(dialog.getByLabel("Prepared-by phone")).toHaveCount(0);
   await dialog.getByLabel("Quote name").fill("Jason’s garage quote");
   await dialog.getByLabel("Client name").fill("Jason");
   await dialog.getByLabel("Client email").fill("jason@example.com");

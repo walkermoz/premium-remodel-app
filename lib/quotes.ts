@@ -30,6 +30,8 @@ export function preserveProjectHistory(
     "clientPhone",
     "leadId",
     "outcomeAt",
+    "revisedDate",
+    "preparedByPhone",
   ] as const) {
     if (
       current &&

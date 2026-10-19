@@ -15,7 +15,6 @@ import ContractorFields from "./contractor-fields";
 import AddressInput from "./address-input";
 import { workTypes, quoteStatuses, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
-import { nextQuoteNumber } from "@/lib/quotes";
 export type FormKind = "project" | "quote" | "task" | "contractor" | "scope";
 export interface Editor {
   kind: FormKind;
@@ -293,40 +292,6 @@ export function EntityForm({
                     <legend>
                       Quote document <span>shown on the downloaded PDF</span>
                     </legend>
-                    <label>
-                      Quote number
-                      <input
-                        value={
-                          (projectValues as Partial<Quote>).quoteNumber ||
-                          nextQuoteNumber(workspace)
-                        }
-                        readOnly
-                        aria-readonly="true"
-                      />
-                    </label>
-                    <label>
-                      Revised date
-                      <input
-                        name="revisedDate"
-                        type="date"
-                        defaultValue={
-                          (projectValues as Partial<Quote>).revisedDate || ""
-                        }
-                      />
-                    </label>
-                    <label>
-                      Prepared-by phone
-                      <input
-                        name="preparedByPhone"
-                        type="tel"
-                        maxLength={250}
-                        defaultValue={
-                          (projectValues as Partial<Quote>).preparedByPhone ||
-                          ""
-                        }
-                        placeholder="(919) 555-0123"
-                      />
-                    </label>
                     <label>
                       Notes & payment
                       <textarea
