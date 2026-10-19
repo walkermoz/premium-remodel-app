@@ -222,6 +222,33 @@ export default function LeadsPanel({
                   <span className="lead-status">{selected.status} lead</span>
                   <h2>{selected.name}</h2>
                   <p>{selected.project}</p>
+                  <div className="lead-disposition-actions lead-header-disposition-actions">
+                    {(["Archive", "Junk"] as const).map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="button secondary small-button"
+                        disabled={saving || leadDisposition(selected) === item}
+                        onClick={() =>
+                          void patchLead(selected, { disposition: item })
+                        }
+                      >
+                        Mark {item}
+                      </button>
+                    ))}
+                    {leadDisposition(selected) !== "Active" && (
+                      <button
+                        type="button"
+                        className="button primary small-button"
+                        disabled={saving}
+                        onClick={() =>
+                          void patchLead(selected, { disposition: "Active" })
+                        }
+                      >
+                        Restore Active
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="lead-detail-actions">
                   <time dateTime={selected.submittedAt}>
@@ -323,33 +350,6 @@ export default function LeadsPanel({
                       }}
                     />
                   </label>
-                </div>
-                <div className="lead-disposition-actions">
-                  {(["Archive", "Junk"] as const).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      className="button secondary small-button"
-                      disabled={saving || leadDisposition(selected) === item}
-                      onClick={() =>
-                        void patchLead(selected, { disposition: item })
-                      }
-                    >
-                      Mark {item}
-                    </button>
-                  ))}
-                  {leadDisposition(selected) !== "Active" && (
-                    <button
-                      type="button"
-                      className="button primary small-button"
-                      disabled={saving}
-                      onClick={() =>
-                        void patchLead(selected, { disposition: "Active" })
-                      }
-                    >
-                      Restore Active
-                    </button>
-                  )}
                 </div>
                 <label>
                   Notes
