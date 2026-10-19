@@ -105,13 +105,15 @@ test("leads UI uses clear archive and junk actions in sample mode", async ({
   await expect(detail.getByRole("button", { name: "Mark Test" })).toHaveCount(
     0,
   );
-  await detail.getByRole("button", { name: "Mark Archive" }).click();
-  await expect(page.getByRole("button", { name: /^All/ })).toHaveAttribute(
+  await detail.getByRole("button", { name: "Mark Junk" }).click();
+  await expect(page.getByRole("button", { name: /^Active/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  const updated = page.getByRole("article", { name: "Taylor Reed lead" });
   await expect(
-    updated.getByRole("button", { name: "Restore Active" }),
+    page.getByRole("article", { name: "Taylor Reed lead" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "No leads in this view" }),
   ).toBeVisible();
 });

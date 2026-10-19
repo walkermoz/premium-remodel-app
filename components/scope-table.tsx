@@ -1,15 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, LoaderCircle, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Bath,
+  Check,
+  FolderPlus,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { ScopeItem, TaskStatus, Workspace } from "@/lib/types";
+import { bathroomScopeTemplate } from "@/lib/scope-templates";
 import {
   projectMoney as money,
   scopeTotal,
   scopeCosts,
   scopeDifference,
 } from "@/lib/project-finances";
-import { Badge, Empty } from "./ui";
+import { Badge, Empty, Modal } from "./ui";
 
 const units = ["job", "sq ft", "linear ft", "each", "hours"];
 const statuses: TaskStatus[] = ["To do", "In progress", "Done"];
@@ -123,6 +133,12 @@ export default function ScopeTable({
   const [newDraft, setNewDraft] = useState<ScopeDraft>(() => draftFrom());
   const [saving, setSaving] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateError, setTemplateError] = useState("");
+  const [selectedTemplateRows, setSelectedTemplateRows] = useState<Set<string>>(
+    () => new Set(bathroomScopeTemplate.rows.map((row) => row.id)),
+  );
   const newTitle = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -271,6 +287,55 @@ export default function ScopeTable({
     }
   }
 
+  function resetTemplate() {
+    setTemplateOpen(false);
+    setTemplateError("");
+    setSelectedTemplateRows(
+      new Set(bathroomScopeTemplate.rows.map((row) => row.id)),
+    );
+  }
+
+  async function addBathroomProject() {
+    if (!inline || !projectId || !onSave || templateSaving) return;
+    const rows = bathroomScopeTemplate.rows.filter((row) =>
+      selectedTemplateRows.has(row.id),
+    );
+    if (!rows.length) {
+      setTemplateError("Select at least one bathroom row to add.");
+      return;
+    }
+    setTemplateSaving(true);
+    setTemplateError("");
+    const remaining = new Set(selectedTemplateRows);
+    try {
+      for (const [index, row] of rows.entries()) {
+        await onSave({
+          projectId,
+          title: row.title,
+          quantity: 1,
+          unit: row.unit,
+          estimate: 0,
+          subCost: 0,
+          materialCost: 0,
+          contractorId: "",
+          status: "To do",
+          position: nextPosition + index,
+        });
+        remaining.delete(row.id);
+        setSelectedTemplateRows(new Set(remaining));
+      }
+      resetTemplate();
+    } catch (saveError) {
+      setTemplateError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Some bathroom rows could not be added. The remaining rows are still selected.",
+      );
+    } finally {
+      setTemplateSaving(false);
+    }
+  }
+
   return (
     <div className={inline ? "scope-grid" : undefined}>
       {error && (
@@ -399,17 +464,30 @@ export default function ScopeTable({
             {inline && !adding && (
               <tr className="scope-add-row">
                 <td colSpan={showStatus ? 8 : 7}>
-                  <button
-                    type="button"
-                    className="scope-add-row-button"
-                    onClick={() => {
-                      setError("");
-                      setAdding(true);
-                    }}
-                  >
-                    <Plus size={15} />
-                    Add row
-                  </button>
+                  <div className="scope-add-actions">
+                    <button
+                      type="button"
+                      className="scope-add-row-button"
+                      onClick={() => {
+                        setError("");
+                        setAdding(true);
+                      }}
+                    >
+                      <Plus size={15} />
+                      Add row
+                    </button>
+                    <button
+                      type="button"
+                      className="scope-add-row-button scope-add-project-button"
+                      onClick={() => {
+                        setTemplateError("");
+                        setTemplateOpen(true);
+                      }}
+                    >
+                      <FolderPlus size={15} />
+                      Add project
+                    </button>
+                  </div>
                 </td>
               </tr>
             )}
@@ -426,6 +504,98 @@ export default function ScopeTable({
           </tfoot>
         </table>
       </div>
+      {templateOpen && (
+        <Modal
+          title="Add project"
+          subtitle="Choose the bathroom work areas to add as editable quote rows."
+          onClose={() => {
+            if (!templateSaving) resetTemplate();
+          }}
+        >
+          <div className="scope-template-body">
+            <div className="scope-template-project" aria-label="Project type">
+              <span className="scope-template-icon">
+                <Bath size={20} />
+              </span>
+              <div>
+                <strong>{bathroomScopeTemplate.name}</strong>
+                <p>{bathroomScopeTemplate.description}</p>
+              </div>
+              <span className="scope-template-selected">Selected</span>
+            </div>
+            <div className="scope-template-heading">
+              <div>
+                <h3>Rows to add</h3>
+                <p>Uncheck anything that is not part of this bathroom.</p>
+              </div>
+              <button
+                type="button"
+                className="text-button"
+                disabled={templateSaving}
+                onClick={() =>
+                  setSelectedTemplateRows((current) =>
+                    current.size === bathroomScopeTemplate.rows.length
+                      ? new Set()
+                      : new Set(
+                          bathroomScopeTemplate.rows.map((row) => row.id),
+                        ),
+                  )
+                }
+              >
+                {selectedTemplateRows.size === bathroomScopeTemplate.rows.length
+                  ? "Clear all"
+                  : "Select all"}
+              </button>
+            </div>
+            <div className="scope-template-rows">
+              {bathroomScopeTemplate.rows.map((row) => (
+                <label key={row.id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTemplateRows.has(row.id)}
+                    disabled={templateSaving}
+                    onChange={(event) => {
+                      setTemplateError("");
+                      setSelectedTemplateRows((current) => {
+                        const next = new Set(current);
+                        if (event.target.checked) next.add(row.id);
+                        else next.delete(row.id);
+                        return next;
+                      });
+                    }}
+                  />
+                  <span>{row.title}</span>
+                </label>
+              ))}
+            </div>
+            {templateError && (
+              <div className="alert" role="alert">
+                {templateError}
+              </div>
+            )}
+          </div>
+          <footer className="modal-footer">
+            <button
+              type="button"
+              className="button secondary"
+              disabled={templateSaving}
+              onClick={resetTemplate}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button primary"
+              disabled={templateSaving || selectedTemplateRows.size === 0}
+              onClick={() => void addBathroomProject()}
+            >
+              {templateSaving
+                ? "Adding rows…"
+                : `Add ${selectedTemplateRows.size} ${selectedTemplateRows.size === 1 ? "row" : "rows"}`}
+            </button>
+          </footer>
+        </Modal>
+      )}
     </div>
   );
 }

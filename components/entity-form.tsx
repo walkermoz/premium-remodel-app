@@ -262,10 +262,6 @@ export function EntityForm({
                 </label>
               </div>
               <AddressInput defaultValue={projectValues.address} />
-              <p className="project-date-help">
-                The price comes from the scope of work. Add priced scope items
-                after saving.
-              </p>
               {kind === "quote" && (
                 <>
                   <label>

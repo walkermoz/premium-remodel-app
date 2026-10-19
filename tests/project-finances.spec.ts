@@ -332,3 +332,41 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await page.getByRole("button", { name: "Quotes", exact: true }).click();
   await expect(page.locator(".quote-row")).toHaveCount(0);
 });
+
+test("bathroom project templates add selected editable quote rows", async ({
+  page,
+}) => {
+  await page.goto("/demo?view=Quotes");
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const createDialog = page.getByRole("dialog");
+  await createDialog.getByLabel("Quote name").fill("Bathroom template quote");
+  await createDialog.getByLabel("Client name").fill("Taylor Homeowner");
+  await createDialog.getByRole("button", { name: "Create quote" }).click();
+
+  await page.getByRole("button", { name: "Add project" }).click();
+  const templateDialog = page.getByRole("dialog", { name: "Add project" });
+  await expect(
+    templateDialog.getByText("Bathroom", { exact: true }),
+  ).toBeVisible();
+  await expect(templateDialog.getByRole("checkbox")).toHaveCount(16);
+  await templateDialog.getByLabel("Toilet installation").uncheck();
+  await templateDialog.getByRole("button", { name: "Add 15 rows" }).click();
+  await expect(templateDialog).not.toBeVisible();
+
+  const table = page.locator(".scope-table");
+  await expect(
+    table.getByLabel("Work item Demolition & site protection"),
+  ).toBeVisible();
+  await expect(
+    table.getByLabel("Work item Shower wall tile installation"),
+  ).toBeVisible();
+  await expect(table.getByLabel("Work item Toilet installation")).toHaveCount(
+    0,
+  );
+
+  await table.getByLabel("Price for Shower base & waterproofing").fill("4250");
+  await table
+    .getByRole("button", { name: "Save Shower base & waterproofing" })
+    .click();
+  await expect(table.locator("tfoot")).toContainText("$4,250");
+});

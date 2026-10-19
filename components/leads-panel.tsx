@@ -97,15 +97,6 @@ export default function LeadsPanel({
         lead,
       );
       setSelectedId(lead.id);
-      if (typeof patch.disposition === "string") {
-        const next = patch.disposition as LeadDisposition;
-        if (
-          filter === "Active"
-            ? next !== "Active"
-            : filter !== "All" && filter !== next
-        )
-          setFilter("All");
-      }
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Could not update this lead.",
@@ -177,9 +168,6 @@ export default function LeadsPanel({
               <strong>{visible.length}</strong>
             </div>
             {visible.map((lead) => {
-              const leadContact = contacts.find(
-                (item) => item.id === lead.contactId,
-              );
               const disposition = leadDisposition(lead);
               return (
                 <button
@@ -187,9 +175,6 @@ export default function LeadsPanel({
                   className={`lead-row ${selected?.id === lead.id ? "selected" : ""}`}
                   onClick={() => setSelectedId(lead.id)}
                 >
-                  <span className="lead-avatar">
-                    {(leadContact?.firstName || lead.name).charAt(0)}
-                  </span>
                   <span className="lead-row-body">
                     <span className="lead-row-top">
                       <strong>{lead.name}</strong>
