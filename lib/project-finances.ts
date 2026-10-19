@@ -55,6 +55,8 @@ export function preserveScopeCosts(
 ) {
   return {
     ...input,
+    details:
+      input.details === undefined ? (current?.details ?? "") : input.details,
     materialCost:
       input.materialCost === undefined
         ? (current?.materialCost ?? 0)

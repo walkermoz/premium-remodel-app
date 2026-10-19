@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bath,
   Check,
   FolderPlus,
   LoaderCircle,
@@ -12,7 +11,11 @@ import {
   X,
 } from "lucide-react";
 import type { ScopeItem, TaskStatus, Workspace } from "@/lib/types";
-import { bathroomScopeTemplate } from "@/lib/scope-templates";
+import type {
+  BathroomQuestionnaireAnswers,
+  BathroomQuestionnaireProject,
+  GeneratedBathroomScopeRow,
+} from "@/lib/bathroom-questionnaire";
 import {
   projectMoney as money,
   scopeTotal,
@@ -20,12 +23,14 @@ import {
   scopeDifference,
 } from "@/lib/project-finances";
 import { Badge, Empty, Modal } from "./ui";
+import BathroomQuestionnaire from "./bathroom-questionnaire";
 
 const units = ["job", "sq ft", "linear ft", "each", "hours"];
 const statuses: TaskStatus[] = ["To do", "In progress", "Done"];
 
 interface ScopeDraft {
   title: string;
+  details: string;
   quantity: string;
   unit: string;
   estimate: string;
@@ -38,6 +43,7 @@ interface ScopeDraft {
 function draftFrom(item?: ScopeItem): ScopeDraft {
   return {
     title: item?.title || "",
+    details: item?.details || "",
     quantity: String(item?.quantity ?? 1),
     unit: item?.unit || "job",
     estimate: String(item?.estimate ?? 0),
@@ -60,6 +66,7 @@ function draftValues(draft: ScopeDraft) {
   if (!title) throw new Error("Add a work item name before saving this row.");
   return {
     title,
+    details: draft.details.trim(),
     quantity: numberValue(draft.quantity, "Quantity"),
     unit: draft.unit,
     estimate: numberValue(draft.estimate, "Price"),
@@ -78,6 +85,7 @@ function draftNumber(value: string) {
 function draftValuesForMath(draft: ScopeDraft) {
   return {
     title: draft.title,
+    details: draft.details,
     quantity: draftNumber(draft.quantity),
     unit: draft.unit,
     estimate: draftNumber(draft.estimate),
@@ -111,6 +119,8 @@ export default function ScopeTable({
   showStatus = true,
   projectId,
   onSave,
+  templateProject,
+  onSaveTemplateProject,
 }: {
   items: ScopeItem[];
   workspace: Workspace;
@@ -124,6 +134,10 @@ export default function ScopeTable({
     data: Record<string, unknown>,
     item?: ScopeItem,
   ) => Promise<unknown>;
+  templateProject?: Partial<BathroomQuestionnaireProject>;
+  onSaveTemplateProject?: (
+    project: BathroomQuestionnaireProject,
+  ) => Promise<unknown>;
 }) {
   const orderedItems = useMemo(() => ordered(items), [items]);
   const [drafts, setDrafts] = useState<Record<string, ScopeDraft>>(() =>
@@ -136,9 +150,6 @@ export default function ScopeTable({
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateError, setTemplateError] = useState("");
-  const [selectedTemplateRows, setSelectedTemplateRows] = useState<Set<string>>(
-    () => new Set(bathroomScopeTemplate.rows.map((row) => row.id)),
-  );
   const newTitle = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -185,6 +196,7 @@ export default function ScopeTable({
     const draft = drafts[item.id] || draftFrom(item);
     return (
       draft.title !== item.title ||
+      draft.details !== (item.details || "") ||
       draft.quantity !== String(item.quantity) ||
       draft.unit !== item.unit ||
       draft.estimate !== String(item.estimate) ||
@@ -225,6 +237,7 @@ export default function ScopeTable({
           ...current,
           [item.id]: {
             title: values.title,
+            details: values.details,
             quantity: String(values.quantity),
             unit: values.unit,
             estimate: String(values.estimate),
@@ -290,28 +303,32 @@ export default function ScopeTable({
   function resetTemplate() {
     setTemplateOpen(false);
     setTemplateError("");
-    setSelectedTemplateRows(
-      new Set(bathroomScopeTemplate.rows.map((row) => row.id)),
-    );
   }
 
-  async function addBathroomProject() {
+  async function addBathroomProject(
+    answers: BathroomQuestionnaireAnswers,
+    rows: GeneratedBathroomScopeRow[],
+  ) {
     if (!inline || !projectId || !onSave || templateSaving) return;
-    const rows = bathroomScopeTemplate.rows.filter((row) =>
-      selectedTemplateRows.has(row.id),
-    );
     if (!rows.length) {
-      setTemplateError("Select at least one bathroom row to add.");
+      setTemplateError("Complete the questionnaire so there is work to add.");
       return;
     }
     setTemplateSaving(true);
     setTemplateError("");
-    const remaining = new Set(selectedTemplateRows);
     try {
+      await onSaveTemplateProject?.({
+        customerName: answers.customerName,
+        customerPhone: answers.customerPhone,
+        customerEmail: answers.customerEmail,
+        address: answers.address,
+        preferredStartDate: answers.preferredStartDate,
+      });
       for (const [index, row] of rows.entries()) {
         await onSave({
           projectId,
           title: row.title,
+          details: row.details,
           quantity: 1,
           unit: row.unit,
           estimate: 0,
@@ -321,15 +338,13 @@ export default function ScopeTable({
           status: "To do",
           position: nextPosition + index,
         });
-        remaining.delete(row.id);
-        setSelectedTemplateRows(new Set(remaining));
       }
       resetTemplate();
     } catch (saveError) {
       setTemplateError(
         saveError instanceof Error
           ? saveError.message
-          : "Some bathroom rows could not be added. The remaining rows are still selected.",
+          : "The bathroom questionnaire could not be added to this quote.",
       );
     } finally {
       setTemplateSaving(false);
@@ -506,94 +521,19 @@ export default function ScopeTable({
       </div>
       {templateOpen && (
         <Modal
-          title="Add project"
-          subtitle="Choose the bathroom work areas to add as editable quote rows."
+          title="Bathroom questionnaire"
+          subtitle="Use the project details and selections to create a consistent, itemized quote."
           onClose={() => {
             if (!templateSaving) resetTemplate();
           }}
         >
-          <div className="scope-template-body">
-            <div className="scope-template-project" aria-label="Project type">
-              <span className="scope-template-icon">
-                <Bath size={20} />
-              </span>
-              <div>
-                <strong>{bathroomScopeTemplate.name}</strong>
-                <p>{bathroomScopeTemplate.description}</p>
-              </div>
-              <span className="scope-template-selected">Selected</span>
-            </div>
-            <div className="scope-template-heading">
-              <div>
-                <h3>Rows to add</h3>
-                <p>Uncheck anything that is not part of this bathroom.</p>
-              </div>
-              <button
-                type="button"
-                className="text-button"
-                disabled={templateSaving}
-                onClick={() =>
-                  setSelectedTemplateRows((current) =>
-                    current.size === bathroomScopeTemplate.rows.length
-                      ? new Set()
-                      : new Set(
-                          bathroomScopeTemplate.rows.map((row) => row.id),
-                        ),
-                  )
-                }
-              >
-                {selectedTemplateRows.size === bathroomScopeTemplate.rows.length
-                  ? "Clear all"
-                  : "Select all"}
-              </button>
-            </div>
-            <div className="scope-template-rows">
-              {bathroomScopeTemplate.rows.map((row) => (
-                <label key={row.id}>
-                  <input
-                    type="checkbox"
-                    checked={selectedTemplateRows.has(row.id)}
-                    disabled={templateSaving}
-                    onChange={(event) => {
-                      setTemplateError("");
-                      setSelectedTemplateRows((current) => {
-                        const next = new Set(current);
-                        if (event.target.checked) next.add(row.id);
-                        else next.delete(row.id);
-                        return next;
-                      });
-                    }}
-                  />
-                  <span>{row.title}</span>
-                </label>
-              ))}
-            </div>
-            {templateError && (
-              <div className="alert" role="alert">
-                {templateError}
-              </div>
-            )}
-          </div>
-          <footer className="modal-footer">
-            <button
-              type="button"
-              className="button secondary"
-              disabled={templateSaving}
-              onClick={resetTemplate}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={templateSaving || selectedTemplateRows.size === 0}
-              onClick={() => void addBathroomProject()}
-            >
-              {templateSaving
-                ? "Adding rows…"
-                : `Add ${selectedTemplateRows.size} ${selectedTemplateRows.size === 1 ? "row" : "rows"}`}
-            </button>
-          </footer>
+          <BathroomQuestionnaire
+            project={templateProject}
+            busy={templateSaving}
+            error={templateError}
+            onCancel={resetTemplate}
+            onSubmit={(answers, rows) => void addBathroomProject(answers, rows)}
+          />
         </Modal>
       )}
     </div>
@@ -646,6 +586,16 @@ function EditableRow({
           value={draft.title}
           disabled={saving}
           onChange={(event) => onChange({ title: event.target.value })}
+        />
+        <textarea
+          className="scope-cell-input scope-details-input"
+          aria-label={`Details for ${draft.title || "new work item"}`}
+          placeholder="Scope details"
+          rows={1}
+          maxLength={15000}
+          value={draft.details}
+          disabled={saving}
+          onChange={(event) => onChange({ details: event.target.value })}
         />
         <select
           className="scope-cell-select scope-contractor-select"

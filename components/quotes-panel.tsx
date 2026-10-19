@@ -377,6 +377,27 @@ export function QuoteDetail({
           inline
           showStatus={false}
           projectId={quote.id}
+          templateProject={{
+            customerName: quote.client,
+            customerPhone: quote.clientPhone || "",
+            customerEmail: quote.clientEmail || "",
+            address: quote.address,
+            preferredStartDate: quote.startDate,
+          }}
+          onSaveTemplateProject={(project) =>
+            onSave(
+              "quote",
+              {
+                ...quote,
+                client: project.customerName,
+                clientPhone: project.customerPhone,
+                clientEmail: project.customerEmail,
+                address: project.address,
+                startDate: project.preferredStartDate,
+              },
+              quote,
+            )
+          }
           onSave={(data, item) => onSave("scope", data, item)}
           onDelete={(item) => onDelete("scope", item)}
         />

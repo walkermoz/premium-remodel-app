@@ -189,9 +189,13 @@ test("material costs edit, persist, total and export on existing scope items", a
   await page.getByRole("button", { name: "Export sheet", exact: true }).click();
   const file = await downloaded;
   const csv = await readFile((await file.path())!, "utf8");
-  expect(csv).toContain('"Subcontractor cost","Material cost","Difference"');
-  expect(csv).toContain('"Flooring","1","job","600","200","150.25","249.75"');
-  expect(csv).toContain('"TOTAL","","","600","200","150.25","249.75"');
+  expect(csv).toContain(
+    '"Scope details","Quantity","Unit","Price","Subcontractor cost","Material cost","Difference"',
+  );
+  expect(csv).toContain(
+    '"Flooring","","1","job","600","200","150.25","249.75"',
+  );
+  expect(csv).toContain('"TOTAL","","","","600","200","150.25","249.75"');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: /Scope & costs/ }).click();
   expect(
@@ -333,7 +337,7 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await expect(page.locator(".quote-row")).toHaveCount(0);
 });
 
-test("bathroom project templates add selected editable quote rows", async ({
+test("bathroom questionnaire turns detailed selections into editable quote rows", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
@@ -344,13 +348,60 @@ test("bathroom project templates add selected editable quote rows", async ({
   await createDialog.getByRole("button", { name: "Create quote" }).click();
 
   await page.getByRole("button", { name: "Add project" }).click();
-  const templateDialog = page.getByRole("dialog", { name: "Add project" });
-  await expect(
-    templateDialog.getByText("Bathroom", { exact: true }),
-  ).toBeVisible();
-  await expect(templateDialog.getByRole("checkbox")).toHaveCount(16);
-  await templateDialog.getByLabel("Toilet installation").uncheck();
-  await templateDialog.getByRole("button", { name: "Add 15 rows" }).click();
+  const templateDialog = page.getByRole("dialog", {
+    name: "Bathroom questionnaire",
+  });
+  await expect(templateDialog.getByLabel("Customer name")).toHaveValue(
+    "Taylor Homeowner",
+  );
+  await templateDialog.getByLabel("Room length").fill("10 ft");
+  await templateDialog.getByLabel("Room width").fill("8 ft");
+  await templateDialog.getByLabel("Ceiling height").fill("9 ft");
+  await templateDialog
+    .getByRole("group", { name: "Vanity", exact: true })
+    .getByLabel("Replace")
+    .check();
+  await templateDialog
+    .getByRole("group", { name: "Toilet", exact: true })
+    .getByLabel("Keep")
+    .check();
+  await templateDialog
+    .getByRole("group", { name: "Bathroom floor tile", exact: true })
+    .getByLabel("Replace")
+    .check();
+  await templateDialog.getByRole("button", { name: "Continue" }).click();
+
+  await templateDialog.getByLabel("Shower base").selectOption("Curbless");
+  await templateDialog
+    .getByLabel("Tile supply / allowance")
+    .selectOption("Include allowance");
+  await templateDialog
+    .getByLabel("Tile style, color, and size")
+    .fill("Large warm-white porcelain");
+  await templateDialog.getByLabel("Recessed niche").check();
+  await templateDialog
+    .getByLabel("Shower valve, trim, and shower head")
+    .selectOption("Replace");
+  await templateDialog
+    .getByLabel("Preferred fixture finish / brand")
+    .fill("Brushed nickel");
+  await templateDialog.getByRole("button", { name: "Continue" }).click();
+
+  await templateDialog
+    .getByLabel("Glass preference", { exact: true })
+    .selectOption("Frameless clear glass");
+  await templateDialog.getByLabel("Hardware finish").fill("Brushed nickel");
+  await templateDialog.getByLabel("Replace mirror / light").check();
+  await templateDialog
+    .getByLabel("Priorities, inspiration, products, and notes")
+    .fill("Prioritize an easy-to-clean shower and accessible storage.");
+  await templateDialog.getByRole("button", { name: "Continue" }).click();
+
+  await expect(templateDialog.getByText(/quote rows ready/)).toBeVisible();
+  await expect(templateDialog).toContainText("Shower base & waterproofing");
+  await templateDialog
+    .getByRole("button", { name: /Add \d+ quote rows/ })
+    .click();
   await expect(templateDialog).not.toBeVisible();
 
   const table = page.locator(".scope-table");
@@ -360,9 +411,30 @@ test("bathroom project templates add selected editable quote rows", async ({
   await expect(
     table.getByLabel("Work item Shower wall tile installation"),
   ).toBeVisible();
+  await expect(
+    table.getByLabel("Details for Shower base & waterproofing"),
+  ).toHaveValue(/Base: Curbless/);
+  await expect(
+    table.getByLabel("Details for Shower wall tile installation"),
+  ).toHaveValue(/Large warm-white porcelain/);
   await expect(table.getByLabel("Work item Toilet installation")).toHaveCount(
     0,
   );
+  await expect(
+    table.getByLabel("Details for Demolition & site protection"),
+  ).toHaveValue(/Room: 10 ft x 8 ft/);
+  await expect(
+    table.getByLabel("Details for Paint, finish carpentry & final cleanup"),
+  ).toHaveValue(/Prioritize an easy-to-clean shower and accessible storage/);
+  await table
+    .getByRole("button", { name: "Delete Demolition & site protection" })
+    .click();
+  await expect(page.getByRole("dialog", { name: /Delete this/ })).toHaveCount(
+    0,
+  );
+  await expect(
+    table.getByLabel("Work item Demolition & site protection"),
+  ).toHaveCount(0);
 
   await table.getByLabel("Price for Shower base & waterproofing").fill("4250");
   await table

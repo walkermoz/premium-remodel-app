@@ -89,6 +89,8 @@ export interface ScopeItem extends Base {
   // Stable document/grid order. Older rows fall back to their loaded order.
   position?: number;
   title: string;
+  /** Specifications and selections that belong with this priced row. */
+  details?: string;
   quantity: number;
   unit: string;
   estimate: number;

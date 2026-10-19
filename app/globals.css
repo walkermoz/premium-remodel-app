@@ -2966,6 +2966,17 @@ small {
   font-weight: 600;
   color: var(--theme-link, #425d72);
 }
+.scope-details-input {
+  height: 27px;
+  min-height: 27px;
+  margin-top: 1px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  resize: vertical;
+  font-size: 9px;
+  line-height: 1.45;
+  color: var(--theme-text-secondary, #698094);
+}
 .scope-contractor-select {
   height: 26px;
   margin-top: 1px;
@@ -3074,97 +3085,262 @@ small {
   background: color-mix(in srgb, var(--blue) 6%, var(--surface));
   outline: 0;
 }
-.scope-template-body {
-  display: grid;
-  gap: 20px;
-  padding: 24px 27px;
+.bathroom-questionnaire {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
 }
-.scope-template-project {
+.modal:has(.bathroom-questionnaire) {
+  width: 760px;
+}
+.questionnaire-progress {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 0 27px;
+  border-bottom: 1px solid var(--line);
+}
+.questionnaire-progress button {
+  display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 13px;
-  padding: 15px;
-  border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--blue) 7%, var(--surface));
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 6px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--theme-text-muted, #91a0ab);
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
 }
-.scope-template-icon {
+.questionnaire-progress button > span {
   display: inline-flex;
-  width: 38px;
-  height: 38px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 9px;
+}
+.questionnaire-progress button.is-current {
+  border-bottom-color: var(--blue);
+  color: var(--heading);
+  font-weight: 700;
+}
+.questionnaire-progress button.is-current > span,
+.questionnaire-progress button.is-complete > span {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: white;
+}
+.questionnaire-progress button:disabled {
+  cursor: default;
+}
+.questionnaire-body {
+  display: grid;
+  gap: 18px;
+  padding: 22px 27px 26px;
+}
+.questionnaire-project-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--blue) 6%, var(--surface));
+}
+.questionnaire-project-banner > span {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   border-radius: 7px;
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
   color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
 }
-.scope-template-project strong,
-.scope-template-heading h3 {
+.questionnaire-project-banner strong,
+.questionnaire-section h3 {
   color: var(--heading);
   font-family: "Manrope", sans-serif;
 }
-.scope-template-project p,
-.scope-template-heading p {
+.questionnaire-project-banner p,
+.questionnaire-section header p {
   margin-top: 3px;
   color: var(--theme-text-muted, #91a0ab);
   font-size: 10px;
   line-height: 1.5;
 }
-.scope-template-selected {
-  border-radius: 999px;
-  padding: 4px 8px;
-  color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.questionnaire-step {
+  display: grid;
+  gap: 22px;
 }
-.scope-template-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
+.questionnaire-section {
+  display: grid;
+  gap: 13px;
 }
-.scope-template-heading h3 {
+.questionnaire-section > header {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.questionnaire-section h3 {
   font-size: 13px;
 }
-.scope-template-heading .text-button {
-  flex-shrink: 0;
+.questionnaire-grid {
+  display: grid;
+  gap: 12px;
+}
+.questionnaire-grid.two-column {
+  grid-template-columns: 1fr 1fr;
+}
+.questionnaire-grid.measurement-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+.questionnaire-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--theme-text-secondary, #698094);
   font-size: 10px;
 }
-.scope-template-rows {
+.questionnaire-field input,
+.questionnaire-field select,
+.questionnaire-field textarea {
+  width: 100%;
+  min-width: 0;
+  font-size: 11px;
+}
+.questionnaire-field textarea {
+  resize: vertical;
+}
+.questionnaire-check-list,
+.questionnaire-option-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-.scope-template-rows label {
+.questionnaire-option-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.questionnaire-check {
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  min-width: 0;
   padding: 10px 11px;
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--theme-text-secondary, #698094);
   font-size: 10px;
-  line-height: 1.4;
+  line-height: 1.45;
   cursor: pointer;
 }
-.scope-template-rows label:has(input:checked) {
+.questionnaire-check:has(input:checked) {
   border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
   background: color-mix(in srgb, var(--blue) 5%, var(--surface));
   color: var(--heading);
 }
-.scope-template-rows input[type="checkbox"] {
-  flex: 0 0 auto;
+.questionnaire-check input[type="checkbox"],
+.existing-item-choice input[type="radio"] {
   width: 14px;
   height: 14px;
   min-height: 0;
-  margin-top: 1px;
+  flex: 0 0 auto;
+  margin: 1px 0 0;
   padding: 0;
   accent-color: var(--blue);
+}
+.existing-item-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.existing-item-choice {
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.existing-item-choice legend {
+  padding: 0 4px;
+  color: var(--heading);
+  font-size: 10px;
+  font-weight: 700;
+}
+.existing-item-choice > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.existing-item-choice label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 9px;
+  cursor: pointer;
+}
+.questionnaire-review-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--blue) 7%, var(--surface));
+}
+.questionnaire-review-summary strong {
+  color: var(--heading);
+}
+.questionnaire-review-summary span {
+  color: var(--theme-text-muted, #91a0ab);
+  font-size: 10px;
+}
+.questionnaire-row-preview {
+  display: grid;
+  gap: 0;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  list-style-position: inside;
+}
+.questionnaire-row-preview li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--blue);
+  font-size: 10px;
+}
+.questionnaire-row-preview li:last-child {
+  border-bottom: 0;
+}
+.questionnaire-row-preview strong {
+  color: var(--heading);
+}
+.questionnaire-row-preview span {
+  padding-left: 17px;
+  color: var(--theme-text-muted, #91a0ab);
+  font-size: 9px;
+  line-height: 1.5;
+}
+.questionnaire-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  justify-content: space-between;
+}
+.questionnaire-footer > span {
+  color: var(--theme-text-muted, #91a0ab);
+  font-size: 9px;
+}
+.questionnaire-footer .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 @media (max-width: 560px) {
   .scope-add-actions {
@@ -3173,17 +3349,27 @@ small {
   .scope-add-row-button {
     flex: 1;
   }
-  .scope-template-body {
-    padding: 20px;
+  .questionnaire-progress {
+    padding: 0 12px;
   }
-  .scope-template-project {
-    grid-template-columns: auto minmax(0, 1fr);
+  .questionnaire-progress button {
+    font-size: 0;
   }
-  .scope-template-selected {
-    display: none;
+  .questionnaire-progress button > span {
+    font-size: 9px;
   }
-  .scope-template-rows {
+  .questionnaire-body {
+    padding: 18px 20px 22px;
+  }
+  .questionnaire-grid.two-column,
+  .questionnaire-grid.measurement-grid,
+  .questionnaire-option-grid,
+  .existing-item-grid {
     grid-template-columns: 1fr;
+  }
+  .questionnaire-review-summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 .footnote {

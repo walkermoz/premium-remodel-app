@@ -301,11 +301,23 @@ export async function buildQuotePdf(
   let tableTop = 301;
   drawTableHeader(page, bold, tableTop);
   let rowTop = tableTop + 23;
-  const rowHeight = 22;
   const rowBottomLimit = 572;
   let itemIndex = 0;
 
   while (itemIndex < items.length) {
+    const item = items[itemIndex];
+    const titleLines = wrap(item.title, regular, 9, 390);
+    const allDetailLines = item.details
+      ? wrap(item.details, regular, 7.2, 425)
+      : [];
+    const detailLines = allDetailLines.slice(0, 8);
+    if (allDetailLines.length > detailLines.length)
+      detailLines[detailLines.length - 1] =
+        "Additional details are saved in the workspace.";
+    const rowHeight = Math.max(
+      24,
+      10 + titleLines.length * 10 + detailLines.length * 9,
+    );
     if (rowTop + rowHeight > rowBottomLimit) {
       page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
       pages.push(page);
@@ -315,7 +327,6 @@ export async function buildQuotePdf(
       drawTableHeader(page, bold, tableTop);
       rowTop = tableTop + 23;
     }
-    const item = items[itemIndex];
     if (itemIndex % 2 === 1)
       page.drawRectangle({
         x: LEFT,
@@ -324,7 +335,20 @@ export async function buildQuotePdf(
         height: rowHeight,
         color: colors.stripe,
       });
-    drawTop(page, item.title, 54, rowTop + 6, regular, 9);
+    titleLines.forEach((line, index) =>
+      drawTop(page, line, 54, rowTop + 5 + index * 10, regular, 9),
+    );
+    detailLines.forEach((line, index) =>
+      drawTop(
+        page,
+        line,
+        54,
+        rowTop + 7 + titleLines.length * 10 + index * 9,
+        regular,
+        7.2,
+        colors.muted,
+      ),
+    );
     drawRight(page, money(item.estimate), 558, rowTop + 6, regular, 9);
     page.drawLine({
       start: { x: LEFT, y: PAGE_HEIGHT - rowTop - rowHeight },

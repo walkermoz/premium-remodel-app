@@ -486,6 +486,16 @@ export function EntityForm({
                   maxLength={250}
                 />
               </label>
+              <label>
+                Scope details
+                <textarea
+                  name="details"
+                  rows={3}
+                  defaultValue={item?.details || ""}
+                  placeholder="Measurements, selections, allowances, or other specifications"
+                  maxLength={15000}
+                />
+              </label>
               <div className="form-grid">
                 <label>
                   Quantity

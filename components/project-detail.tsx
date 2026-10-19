@@ -168,6 +168,7 @@ export default function ProjectDetail({
       [],
       [
         "Work item",
+        "Scope details",
         "Quantity",
         "Unit",
         "Price",
@@ -179,6 +180,7 @@ export default function ProjectDetail({
       ],
       ...items.map((i) => [
         i.title,
+        i.details || "",
         i.quantity,
         i.unit,
         i.estimate,
@@ -189,7 +191,7 @@ export default function ProjectDetail({
           "Unassigned",
         i.status,
       ]),
-      ["TOTAL", "", "", estimated, subCosts, materialCosts, margin],
+      ["TOTAL", "", "", "", estimated, subCosts, materialCosts, margin, "", ""],
       [],
       [
         "Work",

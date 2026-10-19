@@ -809,52 +809,59 @@ export default function WorkspaceApp({
       }
     }
   }
-  async function remove() {
-    if (!deleting) return;
-    setDeleteBusy(true);
-    pending.current.add("delete");
+  async function removeRecord(
+    target: { kind: EntityKind; entity: Entity },
+    fromConfirmation = false,
+  ) {
+    const pendingKey = `delete-${target.entity.id}`;
+    if (pending.current.has(pendingKey)) return;
+    if (fromConfirmation) setDeleteBusy(true);
+    pending.current.add(pendingKey);
     syncVersion.current++;
     try {
       if (!demo) {
         const response = await fetch(
-          deleting.kind === "attachment" ? "/api/files" : "/api/workspace",
+          target.kind === "attachment" ? "/api/files" : "/api/workspace",
           {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              kind: deleting.kind,
-              id: deleting.entity.id,
+              kind: target.kind,
+              id: target.entity.id,
             }),
           },
         );
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
       }
-      const key = kindKey[deleting.kind];
+      const key = kindKey[target.kind];
       const current = workspaceRef.current;
       commit(
         {
           ...current,
           [key]: (current[key] as Entity[]).filter(
-            (item) => item.id !== deleting.entity.id,
+            (item) => item.id !== target.entity.id,
           ),
         },
         true,
       );
       if (!demo)
         window.dispatchEvent(new Event("premium-remodel-audit-updated"));
-      setDeleting(null);
-      notify("Record deleted");
+      if (fromConfirmation) setDeleting(null);
+      notify(target.kind === "scope" ? "Scope row deleted" : "Record deleted");
     } catch (e) {
       notify(
         e instanceof Error ? e.message : "Could not delete. Please try again.",
         true,
       );
     } finally {
-      setDeleteBusy(false);
-      pending.current.delete("delete");
+      if (fromConfirmation) setDeleteBusy(false);
+      pending.current.delete(pendingKey);
       syncVersion.current++;
     }
+  }
+  async function remove() {
+    if (deleting) await removeRecord(deleting, true);
   }
   const toggle = (task: Task) => {
     void save(
@@ -863,8 +870,10 @@ export default function WorkspaceApp({
       task,
     ).catch((e) => notify(e.message, true));
   };
-  const requestDelete = (kind: EntityKind, entity: Entity) =>
-    setDeleting({ kind, entity });
+  const requestDelete = (kind: EntityKind, entity: Entity) => {
+    if (kind === "scope") void removeRecord({ kind, entity });
+    else setDeleting({ kind, entity });
+  };
   const selected = workspace.projects.find((p) => p.id === projectId);
   const selectedQuote = (workspace.quotes || []).find(
     (quote) => quote.id === projectId,
@@ -1887,7 +1896,7 @@ export default function WorkspaceApp({
       )}
       {deleting && (
         <Modal
-          title={`Delete this ${deleting.kind === "scope" ? "scope item" : deleting.kind === "attachment" ? "file" : deleting.kind === "comment" ? "note" : deleting.kind === "activity" ? "activity" : deleting.kind === "alert" ? "alert" : "work item"}?`}
+          title={`Delete this ${deleting.kind === "attachment" ? "file" : deleting.kind === "comment" ? "note" : deleting.kind === "activity" ? "activity" : deleting.kind === "alert" ? "alert" : "work item"}?`}
           subtitle="This removes it for everyone in your workspace and cannot be undone."
           onClose={() => {
             if (!deleteBusy) setDeleting(null);
