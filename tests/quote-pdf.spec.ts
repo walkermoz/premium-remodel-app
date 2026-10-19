@@ -58,10 +58,11 @@ test("quote PDF is a valid letter document with stable metadata and filename", a
   );
   expect(Buffer.from(bytes).subarray(0, 5).toString()).toBe("%PDF-");
   const document = await PDFDocument.load(bytes);
-  expect(document.getPageCount()).toBe(1);
+  expect(document.getPageCount()).toBe(2);
   expect(document.getTitle()).toBe("Premium Remodel - Jeremey Ulrey - Quote");
   expect(document.getSubject()).toBe("PRIMARY BATH SHOWER / BATH REMODEL");
-  expect(document.getPage(0).getSize()).toEqual({ width: 612, height: 792 });
+  for (const page of document.getPages())
+    expect(page.getSize()).toEqual({ width: 612, height: 792 });
   expect(quotePdfFileName(quote)).toBe(
     "Premium Remodel - Jeremey Ulrey - Quote 129.pdf",
   );

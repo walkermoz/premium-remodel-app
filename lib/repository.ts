@@ -117,6 +117,37 @@ export async function insertRecord(
   }
   return entity;
 }
+
+export async function insertRecords(
+  user: WorkspaceUser,
+  kind: EntityKind,
+  records: Record<string, unknown>[],
+) {
+  if (!records.length) return [];
+  const now = new Date().toISOString();
+  const entities = records.map((data) => ({
+    ...data,
+    id: randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+  }));
+  const { error } = await supabaseAdmin()
+    .from("remodel_records")
+    .insert(
+      entities.map((entity) => ({
+        id: entity.id,
+        organization_id: user.organizationId,
+        created_by: user.id,
+        updated_by: user.id,
+        kind,
+        project_id: (entity as Record<string, unknown>).projectId || null,
+        data: entity,
+        updated_at: now,
+      })),
+    );
+  if (error) throw error;
+  return entities;
+}
 export async function allocateQuoteNumber(user: WorkspaceUser) {
   const { data, error } = await supabaseAdmin().rpc(
     "remodel_allocate_quote_number",

@@ -157,11 +157,30 @@ test("material costs edit, persist, total and export on existing scope items", a
   await expect(
     table.getByRole("columnheader", { name: "Material cost", exact: true }),
   ).toBeVisible();
-  await expect(table.locator("tbody td").nth(4)).toHaveText("$0");
+  await expect(
+    table
+      .getByRole("button", { name: "Edit Flooring", exact: true })
+      .locator("xpath=ancestor::tr")
+      .locator("td")
+      .nth(4),
+  ).toHaveText("$0");
+  await expect(
+    table
+      .getByRole("button", { name: "Edit Flooring", exact: true })
+      .locator("xpath=ancestor::tr")
+      .locator("td")
+      .nth(1),
+  ).toHaveText("Flat price");
   await table
     .getByRole("button", { name: "Edit Flooring", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Pricing basis")).toHaveValue("job");
+  await expect(dialog.getByLabel("Quantity", { exact: true })).toHaveCount(0);
+  await dialog.getByLabel("Pricing basis").selectOption("sq ft");
+  await expect(dialog.getByLabel("Quantity", { exact: true })).toBeVisible();
+  await dialog.getByLabel("Pricing basis").selectOption("job");
+  await expect(dialog.getByLabel("Quantity", { exact: true })).toHaveCount(0);
   await expect(dialog.getByLabel("Material cost · total ($)")).toHaveValue("0");
   await dialog.getByLabel("Material cost · total ($)").fill("150.25");
   await dialog.getByRole("button", { name: "Save changes" }).click();
@@ -190,12 +209,12 @@ test("material costs edit, persist, total and export on existing scope items", a
   const file = await downloaded;
   const csv = await readFile((await file.path())!, "utf8");
   expect(csv).toContain(
-    '"Scope details","Quantity","Unit","Price","Subcontractor cost","Material cost","Difference"',
+    '"Project section","Work item","Scope details","Quantity","Unit","Price","Subcontractor cost","Material cost","Difference"',
   );
   expect(csv).toContain(
     '"Flooring","","1","job","600","200","150.25","249.75"',
   );
-  expect(csv).toContain('"TOTAL","","","","600","200","150.25","249.75"');
+  expect(csv).toContain('"TOTAL","","","","","600","200","150.25","249.75"');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: /Scope & costs/ }).click();
   expect(
@@ -354,6 +373,7 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
   await expect(templateDialog.getByLabel("Customer name")).toHaveValue(
     "Taylor Homeowner",
   );
+  await templateDialog.getByLabel("Project name").fill("Primary Bathroom");
   await templateDialog.getByLabel("Room length").fill("10 ft");
   await templateDialog.getByLabel("Room width").fill("8 ft");
   await templateDialog.getByLabel("Ceiling height").fill("9 ft");
@@ -399,6 +419,26 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
 
   await expect(templateDialog.getByText(/quote rows ready/)).toBeVisible();
   await expect(templateDialog).toContainText("Shower base & waterproofing");
+  await page.evaluate(() => {
+    const tableBody = document.querySelector(".scope-table-editable tbody");
+    if (!tableBody) throw new Error("Scope table body was not found.");
+    const state = {
+      counts: [] as number[],
+      observer: null as MutationObserver | null,
+    };
+    state.observer = new MutationObserver(() => {
+      const count = tableBody.querySelectorAll(
+        ":scope > tr:not(.scope-add-row)",
+      ).length;
+      if (state.counts.at(-1) !== count) state.counts.push(count);
+    });
+    state.observer.observe(tableBody, { childList: true });
+    (
+      window as typeof window & {
+        __scopeBatchTest?: typeof state;
+      }
+    ).__scopeBatchTest = state;
+  });
   await templateDialog
     .getByRole("button", { name: /Add \d+ quote rows/ })
     .click();
@@ -408,12 +448,49 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
   await expect(
     table.getByLabel("Work item Demolition & site protection"),
   ).toBeVisible();
+  await expect(table.locator(".scope-section-row")).toContainText(
+    "Primary Bathroom",
+  );
+  const batchRender = await page.evaluate(() => {
+    const state = (
+      window as typeof window & {
+        __scopeBatchTest?: {
+          counts: number[];
+          observer: MutationObserver | null;
+        };
+      }
+    ).__scopeBatchTest;
+    state?.observer?.disconnect();
+    return state?.counts || [];
+  });
+  expect(batchRender).toHaveLength(1);
   await expect(
     table.getByLabel("Work item Shower wall tile installation"),
   ).toBeVisible();
   await expect(
+    table.getByLabel("Quantity for Shower base & waterproofing"),
+  ).toHaveCount(0);
+  await expect(
+    table.getByLabel("Unit for Shower base & waterproofing"),
+  ).toHaveValue("job");
+  await expect(
+    table.getByLabel("Quantity for Shower wall tile installation"),
+  ).toBeVisible();
+  await expect(
+    table.getByLabel("Unit for Shower wall tile installation"),
+  ).toHaveValue("sq ft");
+  await expect(
     table.getByLabel("Details for Shower base & waterproofing"),
   ).toHaveValue(/Base: Curbless/);
+  await expect
+    .poll(() =>
+      table
+        .getByLabel("Details for Shower base & waterproofing")
+        .evaluate(
+          (element) => element.scrollHeight <= element.clientHeight + 1,
+        ),
+    )
+    .toBe(true);
   await expect(
     table.getByLabel("Details for Shower wall tile installation"),
   ).toHaveValue(/Large warm-white porcelain/);
@@ -441,4 +518,23 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
     .getByRole("button", { name: "Save Shower base & waterproofing" })
     .click();
   await expect(table.locator("tfoot")).toContainText("$4,250");
+
+  await page.getByRole("button", { name: "Add project" }).click();
+  const secondProject = page.getByRole("dialog", {
+    name: "Bathroom questionnaire",
+  });
+  await secondProject.getByLabel("Project name").fill("Guest Bathroom");
+  await secondProject.getByRole("button", { name: "Continue" }).click();
+  await secondProject.getByRole("button", { name: "Continue" }).click();
+  await secondProject.getByRole("button", { name: "Continue" }).click();
+  await secondProject
+    .getByRole("button", { name: /Add \d+ quote rows/ })
+    .click();
+  await expect(table.locator(".scope-section-row")).toHaveCount(2);
+  await expect(table.locator(".scope-section-row").nth(0)).toContainText(
+    "Primary Bathroom",
+  );
+  await expect(table.locator(".scope-section-row").nth(1)).toContainText(
+    "Guest Bathroom",
+  );
 });

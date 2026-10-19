@@ -272,6 +272,8 @@ export const schemas = {
   }),
   scope: z.object({
     projectId: short.min(1),
+    sectionId: short.optional(),
+    sectionName: short.optional(),
     position: z.number().int().min(0).max(1_000_000).optional(),
     title: short.min(1),
     details: text.optional(),

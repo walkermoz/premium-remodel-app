@@ -167,6 +167,7 @@ export default function ProjectDetail({
       ["Full scope of work", project.description],
       [],
       [
+        "Project section",
         "Work item",
         "Scope details",
         "Quantity",
@@ -179,6 +180,7 @@ export default function ProjectDetail({
         "Status",
       ],
       ...items.map((i) => [
+        i.sectionName || project.category || "General scope",
         i.title,
         i.details || "",
         i.quantity,
@@ -191,7 +193,19 @@ export default function ProjectDetail({
           "Unassigned",
         i.status,
       ]),
-      ["TOTAL", "", "", "", estimated, subCosts, materialCosts, margin, "", ""],
+      [
+        "TOTAL",
+        "",
+        "",
+        "",
+        "",
+        estimated,
+        subCosts,
+        materialCosts,
+        margin,
+        "",
+        "",
+      ],
       [],
       [
         "Work",
@@ -247,6 +261,7 @@ export default function ProjectDetail({
       onAdd={addScope}
       onEdit={(item: ScopeItem) => onEdit({ kind: "scope", entity: item })}
       onDelete={(item) => onDelete("scope", item)}
+      defaultSectionName={project.category || "General scope"}
     />
   );
   const taskList = (limited: boolean) => (

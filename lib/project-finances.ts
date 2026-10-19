@@ -55,6 +55,12 @@ export function preserveScopeCosts(
 ) {
   return {
     ...input,
+    sectionId:
+      input.sectionId === undefined ? current?.sectionId : input.sectionId,
+    sectionName:
+      input.sectionName === undefined
+        ? current?.sectionName
+        : input.sectionName,
     details:
       input.details === undefined ? (current?.details ?? "") : input.details,
     materialCost:

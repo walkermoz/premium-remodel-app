@@ -80,10 +80,16 @@ cloudTest(
       await page.getByRole("button", { name: "Add item", exact: true }).click();
       dialog = page.getByRole("dialog");
       await dialog.getByLabel("Work item", { exact: true }).fill(item.title);
-      await dialog.getByLabel("Quantity", { exact: true }).fill(item.qty);
       await dialog
-        .getByRole("combobox", { name: "Unit", exact: true })
+        .getByRole("combobox", { name: "Pricing basis", exact: true })
         .selectOption(item.unit);
+      if (item.unit === "job") {
+        await expect(
+          dialog.getByLabel("Quantity", { exact: true }),
+        ).toHaveCount(0);
+      } else {
+        await dialog.getByLabel("Quantity", { exact: true }).fill(item.qty);
+      }
       await dialog.getByLabel("Price · total ($)").fill(item.estimate);
       await dialog.getByLabel("Subcontractor cost · total ($)").fill(item.sub);
       await dialog

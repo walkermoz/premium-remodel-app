@@ -2916,19 +2916,59 @@ small {
 .scope-table-editable.scope-table-no-status th:nth-child(7) {
   width: 7%;
 }
-.scope-table-editable tbody tr:not(.scope-add-row) {
+.scope-table-editable tbody tr:not(.scope-add-row):not(.scope-section-row) {
   transition: background 120ms ease;
 }
-.scope-table-editable tbody tr:not(.scope-add-row):hover,
-.scope-table-editable tbody tr:focus-within {
+.scope-table-editable
+  tbody
+  tr:not(.scope-add-row):not(.scope-section-row):hover,
+.scope-table-editable tbody tr:not(.scope-section-row):focus-within {
   background: color-mix(in srgb, var(--blue) 4%, var(--surface));
 }
 .scope-table-editable td {
   padding: 8px 10px;
-  vertical-align: middle;
+  vertical-align: top;
 }
 .scope-table-editable td:first-child {
   min-width: 0;
+}
+.scope-table .scope-section-row td {
+  padding: 11px 15px;
+  border-top: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
+  border-bottom: 1px solid color-mix(in srgb, var(--blue) 18%, var(--line));
+  background: color-mix(in srgb, var(--blue) 8%, var(--surface));
+}
+.scope-table tbody .scope-section-row:first-child td {
+  border-top: 0;
+}
+.scope-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.scope-section-heading > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.scope-section-heading span {
+  color: var(--blue);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.scope-section-heading strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.scope-table .scope-section-heading small {
+  margin: 0;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
 }
 .scope-cell-input,
 .scope-cell-select,
@@ -2967,12 +3007,14 @@ small {
   color: var(--theme-link, #425d72);
 }
 .scope-details-input {
-  height: 27px;
+  height: auto;
   min-height: 27px;
   margin-top: 1px;
   padding-top: 5px;
   padding-bottom: 5px;
-  resize: vertical;
+  overflow-y: hidden;
+  resize: none;
+  field-sizing: content;
   font-size: 9px;
   line-height: 1.45;
   color: var(--theme-text-secondary, #698094);
@@ -2989,6 +3031,9 @@ small {
   display: grid;
   grid-template-columns: minmax(48px, 0.85fr) minmax(68px, 1.15fr);
   gap: 3px;
+}
+.scope-quantity-cell.is-flat {
+  grid-template-columns: minmax(96px, 1fr);
 }
 .scope-number-input,
 .scope-money-input {
@@ -4793,6 +4838,9 @@ small {
 }
 .form-grid > * {
   min-width: 0;
+}
+.form-grid.scope-pricing-basis-grid {
+  grid-template-columns: 1fr;
 }
 .form-fields label {
   font-size: 11px;

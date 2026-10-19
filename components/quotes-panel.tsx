@@ -18,6 +18,7 @@ import {
   type Entity,
   type EntityKind,
   type Quote,
+  type ScopeItem,
   type User,
   type Workspace,
 } from "@/lib/types";
@@ -194,6 +195,7 @@ export function QuoteDetail({
   onBack,
   onEdit,
   onSave,
+  onSaveScopeBatch,
   onAccept,
   onDelete,
   onUpload,
@@ -209,6 +211,7 @@ export function QuoteDetail({
     data: Record<string, unknown>,
     entity?: Entity,
   ) => Promise<Entity>;
+  onSaveScopeBatch: (rows: Record<string, unknown>[]) => Promise<ScopeItem[]>;
   onAccept: (quote: Quote) => Promise<void>;
   onDelete: (kind: EntityKind, entity: Entity) => void;
   onUpload: (file: File, projectId: string) => Promise<Attachment>;
@@ -377,7 +380,9 @@ export function QuoteDetail({
           inline
           showStatus={false}
           projectId={quote.id}
+          defaultSectionName={quote.category || "General scope"}
           templateProject={{
+            projectName: "Bathroom",
             customerName: quote.client,
             customerPhone: quote.clientPhone || "",
             customerEmail: quote.clientEmail || "",
@@ -399,6 +404,7 @@ export function QuoteDetail({
             )
           }
           onSave={(data, item) => onSave("scope", data, item)}
+          onSaveMany={onSaveScopeBatch}
           onDelete={(item) => onDelete("scope", item)}
         />
       </section>

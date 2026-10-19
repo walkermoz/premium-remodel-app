@@ -111,6 +111,11 @@ export default function BathroomQuestionnaire({
             >
               <div className="questionnaire-grid two-column">
                 <TextField
+                  label="Project name"
+                  value={answers.projectName}
+                  onChange={(projectName) => update({ projectName })}
+                />
+                <TextField
                   label="Customer name"
                   value={answers.customerName}
                   onChange={(customerName) => update({ customerName })}
@@ -471,7 +476,10 @@ export default function BathroomQuestionnaire({
               description="Every row remains editable after it is added. Prices and costs start at zero."
             >
               <div className="questionnaire-review-summary">
-                <strong>{rows.length} quote rows ready</strong>
+                <strong>
+                  {answers.projectName.trim() || "Bathroom"} · {rows.length}{" "}
+                  quote rows ready
+                </strong>
                 <span>
                   {answers.customerName || "Customer"} ·{" "}
                   {answers.address || "No address added"}

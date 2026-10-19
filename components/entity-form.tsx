@@ -56,6 +56,7 @@ export function EntityForm({
   );
   const sub = entity as Contractor | undefined;
   const item = entity as ScopeItem | undefined;
+  const [scopeUnit, setScopeUnit] = useState(item?.unit || "job");
   const [contractorId, setContractorId] = useState(
     entity && "contractorId" in entity ? entity.contractorId : "",
   );
@@ -182,7 +183,7 @@ export function EntityForm({
         addingContractor
           ? "Save their contact details, then return to your work."
           : kind === "scope"
-            ? "Enter totals for this item. Quantity is shown separately."
+            ? "Choose flat pricing or a measured quantity, then enter the item totals."
             : kind === "quote" && editor.initialValues?.leadId
               ? "Lead and contact details are filled in. Review them, then create the quote."
               : "Keep the details your team needs in one place."
@@ -496,25 +497,37 @@ export function EntityForm({
                   maxLength={15000}
                 />
               </label>
-              <div className="form-grid">
+              <div
+                className={`form-grid${scopeUnit === "job" ? " scope-pricing-basis-grid" : ""}`}
+              >
+                {scopeUnit === "job" ? (
+                  <input name="quantity" type="hidden" value="1" />
+                ) : (
+                  <label>
+                    Quantity
+                    <input
+                      name="quantity"
+                      type="number"
+                      min="0"
+                      max="1000000000"
+                      step="0.01"
+                      defaultValue={item?.quantity ?? 1}
+                      required
+                    />
+                  </label>
+                )}
                 <label>
-                  Quantity
-                  <input
-                    name="quantity"
-                    type="number"
-                    min="0"
-                    max="1000000000"
-                    step="0.01"
-                    defaultValue={item?.quantity ?? 1}
-                    required
-                  />
-                </label>
-                <label>
-                  Unit
-                  <select name="unit" defaultValue={item?.unit || "job"}>
-                    {["job", "sq ft", "linear ft", "each", "hours"].map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
+                  Pricing basis
+                  <select
+                    name="unit"
+                    value={scopeUnit}
+                    onChange={(event) => setScopeUnit(event.target.value)}
+                  >
+                    <option value="job">Flat price</option>
+                    <option value="sq ft">sq ft</option>
+                    <option value="linear ft">linear ft</option>
+                    <option value="each">each</option>
+                    <option value="hours">hours</option>
                   </select>
                 </label>
               </div>

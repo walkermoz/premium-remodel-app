@@ -86,6 +86,9 @@ export interface Contractor extends Base {
 }
 export interface ScopeItem extends Base {
   projectId: string;
+  /** Keeps related work together within a multi-project quote. */
+  sectionId?: string;
+  sectionName?: string;
   // Stable document/grid order. Older rows fall back to their loaded order.
   position?: number;
   title: string;

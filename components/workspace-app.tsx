@@ -606,6 +606,66 @@ export default function WorkspaceApp({
       syncVersion.current++;
     }
   }
+
+  async function saveScopeBatch(rows: Record<string, unknown>[]) {
+    const key = "new-scope-batch";
+    if (pending.current.has(key))
+      throw new Error("Scope items are already being added. Please wait.");
+    if (!rows.length) throw new Error("Add at least one scope item.");
+    const projectId = String(rows[0].projectId || "");
+    if (!projectId || rows.some((row) => row.projectId !== projectId))
+      throw new Error("Scope items must belong to the same quote or project.");
+
+    pending.current.add(key);
+    syncVersion.current++;
+    try {
+      let entities: ScopeItem[];
+      if (demo) {
+        const now = new Date().toISOString();
+        entities = rows.map((row) => {
+          const parsed = schemas.scope.safeParse(preserveScopeCosts(row));
+          if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+          return {
+            ...parsed.data,
+            id: crypto.randomUUID(),
+            createdAt: now,
+            updatedAt: now,
+          };
+        });
+      } else {
+        const response = await fetch("/api/workspace/scope-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, items: rows }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        if (!Array.isArray(result))
+          throw new Error("The scope items could not be added.");
+        entities = result as ScopeItem[];
+      }
+
+      const current = workspaceRef.current;
+      const ids = new Set(entities.map((item) => item.id));
+      commit(
+        {
+          ...current,
+          scope: [
+            ...entities,
+            ...current.scope.filter((item) => !ids.has(item.id)),
+          ],
+        },
+        true,
+      );
+      if (!demo)
+        window.dispatchEvent(new Event("premium-remodel-audit-updated"));
+      notify(`${entities.length} scope items added`);
+      return entities;
+    } finally {
+      pending.current.delete(key);
+      syncVersion.current++;
+    }
+  }
   async function accept(quote: Quote) {
     if (pending.current.has(quote.id))
       throw new Error("A save is already in progress.");
@@ -1307,6 +1367,7 @@ export default function WorkspaceApp({
               onBack={() => navigate("Quotes")}
               onEdit={setEditor}
               onSave={save}
+              onSaveScopeBatch={saveScopeBatch}
               onAccept={accept}
               onDelete={requestDelete}
               onUpload={upload}

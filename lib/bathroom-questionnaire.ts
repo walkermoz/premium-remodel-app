@@ -36,6 +36,7 @@ export const proposalOptions = [
 export type ProposalOptionId = (typeof proposalOptions)[number][0];
 
 export interface BathroomQuestionnaireProject {
+  projectName: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -84,6 +85,7 @@ export function defaultBathroomQuestionnaire(
   project?: Partial<BathroomQuestionnaireProject>,
 ): BathroomQuestionnaireAnswers {
   return {
+    projectName: project?.projectName || "Bathroom",
     customerName: project?.customerName || "",
     customerPhone: project?.customerPhone || "",
     customerEmail: project?.customerEmail || "",

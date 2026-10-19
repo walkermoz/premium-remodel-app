@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   FolderPlus,
@@ -25,8 +25,23 @@ import {
 import { Badge, Empty, Modal } from "./ui";
 import BathroomQuestionnaire from "./bathroom-questionnaire";
 
-const units = ["job", "sq ft", "linear ft", "each", "hours"];
+const units = [
+  { value: "job", label: "Flat price" },
+  { value: "sq ft", label: "sq ft" },
+  { value: "linear ft", label: "linear ft" },
+  { value: "each", label: "each" },
+  { value: "hours", label: "hours" },
+];
 const statuses: TaskStatus[] = ["To do", "In progress", "Done"];
+
+function detailRowCount(value: string) {
+  return value
+    .split(/\r?\n/)
+    .reduce(
+      (total, line) => total + Math.max(1, Math.ceil(line.length / 44)),
+      0,
+    );
+}
 
 interface ScopeDraft {
   title: string;
@@ -67,7 +82,8 @@ function draftValues(draft: ScopeDraft) {
   return {
     title,
     details: draft.details.trim(),
-    quantity: numberValue(draft.quantity, "Quantity"),
+    quantity:
+      draft.unit === "job" ? 1 : numberValue(draft.quantity, "Quantity"),
     unit: draft.unit,
     estimate: numberValue(draft.estimate, "Price"),
     subCost: numberValue(draft.subCost, "Subcontractor cost"),
@@ -109,6 +125,18 @@ function ordered(items: ScopeItem[]) {
     .map(({ item }) => item);
 }
 
+function scopeSectionKey(item: ScopeItem) {
+  return item.sectionId?.trim()
+    ? `id:${item.sectionId.trim()}`
+    : item.sectionName?.trim()
+      ? `name:${item.sectionName.trim().toLowerCase()}`
+      : "ungrouped";
+}
+
+function scopeSectionName(item: ScopeItem, fallback: string) {
+  return item.sectionName?.trim() || fallback;
+}
+
 export default function ScopeTable({
   items,
   workspace,
@@ -119,8 +147,10 @@ export default function ScopeTable({
   showStatus = true,
   projectId,
   onSave,
+  onSaveMany,
   templateProject,
   onSaveTemplateProject,
+  defaultSectionName = "General scope",
 }: {
   items: ScopeItem[];
   workspace: Workspace;
@@ -134,10 +164,12 @@ export default function ScopeTable({
     data: Record<string, unknown>,
     item?: ScopeItem,
   ) => Promise<unknown>;
+  onSaveMany?: (rows: Record<string, unknown>[]) => Promise<unknown>;
   templateProject?: Partial<BathroomQuestionnaireProject>;
   onSaveTemplateProject?: (
     project: BathroomQuestionnaireProject,
   ) => Promise<unknown>;
+  defaultSectionName?: string;
 }) {
   const orderedItems = useMemo(() => ordered(items), [items]);
   const [drafts, setDrafts] = useState<Record<string, ScopeDraft>>(() =>
@@ -178,6 +210,19 @@ export default function ScopeTable({
     : orderedItems;
   const estimated = scopeTotal(visibleItems);
   const { subCosts, materialCosts, costs } = scopeCosts(visibleItems);
+  const sectionStats = new Map<
+    string,
+    { name: string; count: number; total: number }
+  >();
+  for (const item of visibleItems) {
+    const key = scopeSectionKey(item);
+    const current = sectionStats.get(key);
+    sectionStats.set(key, {
+      name: scopeSectionName(item, defaultSectionName),
+      count: (current?.count || 0) + 1,
+      total: (current?.total || 0) + item.estimate,
+    });
+  }
   const nextPosition =
     Math.max(-1, ...items.map((item) => item.position ?? -1)) + 1;
 
@@ -309,7 +354,7 @@ export default function ScopeTable({
     answers: BathroomQuestionnaireAnswers,
     rows: GeneratedBathroomScopeRow[],
   ) {
-    if (!inline || !projectId || !onSave || templateSaving) return;
+    if (!inline || !projectId || !onSaveMany || templateSaving) return;
     if (!rows.length) {
       setTemplateError("Complete the questionnaire so there is work to add.");
       return;
@@ -317,16 +362,21 @@ export default function ScopeTable({
     setTemplateSaving(true);
     setTemplateError("");
     try {
+      const sectionId = crypto.randomUUID();
+      const sectionName = answers.projectName.trim() || "Bathroom";
       await onSaveTemplateProject?.({
+        projectName: sectionName,
         customerName: answers.customerName,
         customerPhone: answers.customerPhone,
         customerEmail: answers.customerEmail,
         address: answers.address,
         preferredStartDate: answers.preferredStartDate,
       });
-      for (const [index, row] of rows.entries()) {
-        await onSave({
+      await onSaveMany(
+        rows.map((row, index) => ({
           projectId,
+          sectionId,
+          sectionName,
           title: row.title,
           details: row.details,
           quantity: 1,
@@ -337,8 +387,8 @@ export default function ScopeTable({
           contractorId: "",
           status: "To do",
           position: nextPosition + index,
-        });
-      }
+        })),
+      );
       resetTemplate();
     } catch (saveError) {
       setTemplateError(
@@ -365,7 +415,7 @@ export default function ScopeTable({
           <thead>
             <tr>
               <th>Work item / contractor</th>
-              <th>Quantity</th>
+              <th>Pricing basis</th>
               <th>Price</th>
               <th>Sub cost</th>
               <th>Material cost</th>
@@ -377,76 +427,102 @@ export default function ScopeTable({
             </tr>
           </thead>
           <tbody>
-            {orderedItems.map((item) => {
+            {orderedItems.map((item, index) => {
               const draft = drafts[item.id] || draftFrom(item);
               const difference =
                 draftNumber(draft.estimate) -
                 draftNumber(draft.subCost) -
                 draftNumber(draft.materialCost);
-              return inline ? (
-                <EditableRow
-                  key={item.id}
-                  draft={draft}
-                  workspace={workspace}
-                  difference={difference}
-                  saving={saving.has(item.id)}
-                  dirty={dirty(item)}
-                  showStatus={showStatus}
-                  onChange={(patch) => updateDraft(item.id, patch, item)}
-                  onSave={() => void saveRow(item)}
-                  onDelete={() => onDelete(item)}
-                  onBlur={(event) => rowBlur(event, item)}
-                  onKeyDown={(event) => rowKeyDown(event, item)}
-                />
-              ) : (
-                <tr key={item.id}>
-                  <td>
-                    <button
-                      className="text-button"
-                      onClick={() => onEdit?.(item)}
-                    >
-                      {item.title}
-                    </button>
-                    <small>
-                      {workspace.contractors.find(
-                        (contractor) => contractor.id === item.contractorId,
-                      )?.name || "Unassigned"}
-                    </small>
-                  </td>
-                  <td className="nowrap">
-                    {item.quantity.toLocaleString()}{" "}
-                    <span className="muted">{item.unit}</span>
-                  </td>
-                  <td>{money(item.estimate)}</td>
-                  <td>{money(item.subCost)}</td>
-                  <td>{money(item.materialCost ?? 0)}</td>
-                  <td className={scopeDifference(item) < 0 ? "is-overdue" : ""}>
-                    {money(scopeDifference(item))}
-                  </td>
-                  {showStatus && (
-                    <td>
-                      <Badge status={item.status} />
-                    </td>
+              const sectionKey = scopeSectionKey(item);
+              const startsSection =
+                index === 0 ||
+                scopeSectionKey(orderedItems[index - 1]) !== sectionKey;
+              const section = sectionStats.get(sectionKey);
+              return (
+                <Fragment key={item.id}>
+                  {startsSection && section && (
+                    <ScopeSectionRow
+                      name={section.name}
+                      count={section.count}
+                      total={section.total}
+                      colSpan={showStatus ? 8 : 7}
+                    />
                   )}
-                  <td>
-                    <div className="row-actions">
-                      <button
-                        className="icon-button"
-                        onClick={() => onEdit?.(item)}
-                        aria-label={`Edit ${item.title}`}
+                  {inline ? (
+                    <EditableRow
+                      draft={draft}
+                      workspace={workspace}
+                      difference={difference}
+                      saving={saving.has(item.id)}
+                      dirty={dirty(item)}
+                      showStatus={showStatus}
+                      onChange={(patch) => updateDraft(item.id, patch, item)}
+                      onSave={() => void saveRow(item)}
+                      onDelete={() => onDelete(item)}
+                      onBlur={(event) => rowBlur(event, item)}
+                      onKeyDown={(event) => rowKeyDown(event, item)}
+                    />
+                  ) : (
+                    <tr>
+                      <td>
+                        <button
+                          className="text-button"
+                          onClick={() => onEdit?.(item)}
+                        >
+                          {item.title}
+                        </button>
+                        <small>
+                          {workspace.contractors.find(
+                            (contractor) => contractor.id === item.contractorId,
+                          )?.name || "Unassigned"}
+                        </small>
+                      </td>
+                      <td className="nowrap">
+                        {item.unit === "job" ? (
+                          "Flat price"
+                        ) : (
+                          <>
+                            {item.quantity.toLocaleString()}{" "}
+                            <span className="muted">{item.unit}</span>
+                          </>
+                        )}
+                      </td>
+                      <td>{money(item.estimate)}</td>
+                      <td>{money(item.subCost)}</td>
+                      <td>{money(item.materialCost ?? 0)}</td>
+                      <td
+                        className={
+                          scopeDifference(item) < 0 ? "is-overdue" : ""
+                        }
                       >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        className="icon-button delete-action"
-                        onClick={() => onDelete(item)}
-                        aria-label={`Delete ${item.title}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                        {money(scopeDifference(item))}
+                      </td>
+                      {showStatus && (
+                        <td>
+                          <Badge status={item.status} />
+                        </td>
+                      )}
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            className="icon-button"
+                            onClick={() => onEdit?.(item)}
+                            aria-label={`Edit ${item.title}`}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            className="icon-button delete-action"
+                            onClick={() => onDelete(item)}
+                            aria-label={`Delete ${item.title}`}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
             {inline && adding && (
@@ -540,6 +616,34 @@ export default function ScopeTable({
   );
 }
 
+function ScopeSectionRow({
+  name,
+  count,
+  total,
+  colSpan,
+}: {
+  name: string;
+  count: number;
+  total: number;
+  colSpan: number;
+}) {
+  return (
+    <tr className="scope-section-row">
+      <td colSpan={colSpan}>
+        <div className="scope-section-heading">
+          <div>
+            <span>Project</span>
+            <strong>{name}</strong>
+          </div>
+          <small>
+            {count} {count === 1 ? "item" : "items"} · {money(total)}
+          </small>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function EditableRow({
   draft,
   workspace,
@@ -591,7 +695,7 @@ function EditableRow({
           className="scope-cell-input scope-details-input"
           aria-label={`Details for ${draft.title || "new work item"}`}
           placeholder="Scope details"
-          rows={1}
+          rows={detailRowCount(draft.details)}
           maxLength={15000}
           value={draft.details}
           disabled={saving}
@@ -613,27 +717,38 @@ function EditableRow({
         </select>
       </td>
       <td>
-        <div className="scope-quantity-cell">
-          <input
-            className="scope-cell-input scope-number-input"
-            aria-label={`Quantity for ${draft.title || "new work item"}`}
-            type="number"
-            min="0"
-            max="1000000000"
-            step="0.01"
-            value={draft.quantity}
-            disabled={saving}
-            onChange={(event) => onChange({ quantity: event.target.value })}
-          />
+        <div
+          className={`scope-quantity-cell${draft.unit === "job" ? " is-flat" : ""}`}
+        >
+          {draft.unit !== "job" && (
+            <input
+              className="scope-cell-input scope-number-input"
+              aria-label={`Quantity for ${draft.title || "new work item"}`}
+              type="number"
+              min="0"
+              max="1000000000"
+              step="0.01"
+              value={draft.quantity}
+              disabled={saving}
+              onChange={(event) => onChange({ quantity: event.target.value })}
+            />
+          )}
           <select
             className="scope-cell-select scope-unit-select"
             aria-label={`Unit for ${draft.title || "new work item"}`}
             value={draft.unit}
             disabled={saving}
-            onChange={(event) => onChange({ unit: event.target.value })}
+            onChange={(event) =>
+              onChange({
+                unit: event.target.value,
+                ...(event.target.value === "job" ? { quantity: "1" } : {}),
+              })
+            }
           >
             {units.map((unit) => (
-              <option key={unit}>{unit}</option>
+              <option key={unit.value} value={unit.value}>
+                {unit.label}
+              </option>
             ))}
           </select>
         </div>

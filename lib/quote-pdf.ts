@@ -207,6 +207,18 @@ function drawTableHeader(page: PDFPage, bold: PDFFont, top: number) {
   drawRight(page, "LINE TOTAL", 558, top + 5, bold, 8);
 }
 
+function quoteSectionKey(item: ScopeItem) {
+  return item.sectionId?.trim()
+    ? `id:${item.sectionId.trim()}`
+    : item.sectionName?.trim()
+      ? `name:${item.sectionName.trim().toLowerCase()}`
+      : "ungrouped";
+}
+
+function quoteSectionName(item: ScopeItem, fallback: string) {
+  return item.sectionName?.trim() || fallback;
+}
+
 export async function buildQuotePdf(
   quote: Quote,
   scope: ScopeItem[],
@@ -228,6 +240,15 @@ export async function buildQuotePdf(
     })
     .map(({ item }) => item);
   const total = items.reduce((sum, item) => sum + item.estimate, 0);
+  const sectionTotals = new Map<string, { name: string; total: number }>();
+  for (const item of items) {
+    const key = quoteSectionKey(item);
+    const current = sectionTotals.get(key);
+    sectionTotals.set(key, {
+      name: quoteSectionName(item, quote.category || "General scope"),
+      total: (current?.total || 0) + item.estimate,
+    });
+  }
 
   const pages: PDFPage[] = [];
   let page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
@@ -303,9 +324,13 @@ export async function buildQuotePdf(
   let rowTop = tableTop + 23;
   const rowBottomLimit = 572;
   let itemIndex = 0;
+  let lastSectionKey = "";
 
   while (itemIndex < items.length) {
     const item = items[itemIndex];
+    const sectionKey = quoteSectionKey(item);
+    const section = sectionTotals.get(sectionKey);
+    let needsSectionHeader = sectionKey !== lastSectionKey;
     const titleLines = wrap(item.title, regular, 9, 390);
     const allDetailLines = item.details
       ? wrap(item.details, regular, 7.2, 425)
@@ -318,7 +343,7 @@ export async function buildQuotePdf(
       22,
       8 + titleLines.length * 10 + detailLines.length * 9,
     );
-    if (rowTop + rowHeight > rowBottomLimit) {
+    if (rowTop + rowHeight + (needsSectionHeader ? 21 : 0) > rowBottomLimit) {
       page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
       pages.push(page);
       drawTop(page, `${heading} - SCOPE CONTINUED`, LEFT, 44, bold, 13);
@@ -326,6 +351,35 @@ export async function buildQuotePdf(
       tableTop = 92;
       drawTableHeader(page, bold, tableTop);
       rowTop = tableTop + 23;
+      needsSectionHeader = true;
+    }
+    if (needsSectionHeader && section) {
+      page.drawRectangle({
+        x: LEFT,
+        y: PAGE_HEIGHT - rowTop - 21,
+        width: CONTENT_WIDTH,
+        height: 21,
+        color: colors.pale,
+      });
+      drawTop(
+        page,
+        `PROJECT  |  ${section.name.toUpperCase()}`,
+        54,
+        rowTop + 5,
+        bold,
+        8,
+        colors.blue,
+      );
+      drawRight(
+        page,
+        `SECTION TOTAL  ${money(section.total)}`,
+        558,
+        rowTop + 5,
+        bold,
+        8,
+        colors.blue,
+      );
+      rowTop += 21;
     }
     if (itemIndex % 2 === 1)
       page.drawRectangle({
@@ -357,6 +411,7 @@ export async function buildQuotePdf(
       color: colors.line,
     });
     rowTop += rowHeight;
+    lastSectionKey = sectionKey;
     itemIndex++;
   }
 
