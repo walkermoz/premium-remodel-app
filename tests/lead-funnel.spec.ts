@@ -94,6 +94,7 @@ test("leads UI uses clear archive and junk actions in sample mode", async ({
   await expect(page.getByRole("button", { name: /Active/ })).toBeVisible();
   const detail = page.getByRole("article", { name: "Taylor Reed lead" });
   await expect(detail.getByLabel("Disposition")).toHaveCount(0);
+  await expect(detail.getByLabel("Approval")).toHaveCount(0);
   await expect(
     detail.getByRole("button", { name: "Mark Archive" }),
   ).toBeVisible();

@@ -13,11 +13,9 @@ import {
   UserRound,
 } from "lucide-react";
 import {
-  leadApprovalStates,
   leadStages,
   type Contact,
   type Lead,
-  type LeadApprovalState,
   type LeadDisposition,
   type LeadStage,
   type Quote,
@@ -277,49 +275,24 @@ export default function LeadsPanel({
                 </div>
               </header>
               <section className="lead-ops-card" aria-label="Lead lifecycle">
-                <div className="form-row two">
-                  <label>
-                    Stage
-                    <select
-                      value={selected.status}
-                      disabled={saving}
-                      onChange={(event) =>
-                        void patchLead(selected, {
-                          status: event.target.value as LeadStage,
-                        })
-                      }
-                    >
-                      {leadStages.map((stage) => (
-                        <option key={stage} value={stage}>
-                          {stage}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Approval
-                    <select
-                      value={selected.approvalState || "none"}
-                      disabled={saving}
-                      onChange={(event) =>
-                        void patchLead(selected, {
-                          approvalState: event.target
-                            .value as LeadApprovalState,
-                        })
-                      }
-                    >
-                      {leadApprovalStates.map((state) => (
-                        <option key={state} value={state}>
-                          {state === "awaiting_matthew"
-                            ? "Awaiting Matthew"
-                            : state === "none"
-                              ? "None"
-                              : state[0].toUpperCase() + state.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                <label>
+                  Stage
+                  <select
+                    value={selected.status}
+                    disabled={saving}
+                    onChange={(event) =>
+                      void patchLead(selected, {
+                        status: event.target.value as LeadStage,
+                      })
+                    }
+                  >
+                    {leadStages.map((stage) => (
+                      <option key={stage} value={stage}>
+                        {stage}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <div className="form-row two">
                   <label>
                     Next action
