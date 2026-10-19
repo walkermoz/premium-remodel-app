@@ -315,8 +315,8 @@ export async function buildQuotePdf(
       detailLines[detailLines.length - 1] =
         "Additional details are saved in the workspace.";
     const rowHeight = Math.max(
-      24,
-      10 + titleLines.length * 10 + detailLines.length * 9,
+      22,
+      8 + titleLines.length * 10 + detailLines.length * 9,
     );
     if (rowTop + rowHeight > rowBottomLimit) {
       page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
