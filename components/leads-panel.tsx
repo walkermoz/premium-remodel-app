@@ -16,7 +16,6 @@ import {
   leadStages,
   type Contact,
   type Lead,
-  type LeadDisposition,
   type LeadStage,
   type Quote,
 } from "@/lib/types";
@@ -24,7 +23,7 @@ import { leadDisposition } from "@/lib/leads";
 import { workToday } from "@/lib/work";
 import { Modal } from "./ui";
 
-type LeadFilter = "Active" | "All" | LeadDisposition;
+type LeadFilter = "Active" | "Future" | "Archive" | "Junk";
 
 export default function LeadsPanel({
   leads,
@@ -56,9 +55,7 @@ export default function LeadsPanel({
       leads
         .filter((lead) => {
           const disposition = leadDisposition(lead);
-          if (filter === "Active") {
-            if (disposition !== "Active") return false;
-          } else if (filter !== "All" && disposition !== filter) return false;
+          if (disposition !== filter) return false;
           const contact = contacts.find((item) => item.id === lead.contactId);
           return `${lead.name} ${lead.project} ${lead.projectDescription} ${lead.status} ${disposition} ${contact?.email || ""} ${contact?.phone || ""} ${contact?.address || ""}`
             .toLowerCase()
@@ -127,24 +124,24 @@ export default function LeadsPanel({
       </div>
       {demo && <span className="sample-data-label">SAMPLE DATA</span>}
       <div className="filter-tabs lead-filters" aria-label="Filter leads">
-        {(["Active", "All", "Archive", "Junk"] as LeadFilter[]).map((item) => (
-          <button
-            key={item}
-            className={item === filter ? "active" : ""}
-            aria-pressed={item === filter}
-            onClick={() => setFilter(item)}
-          >
-            {item}
-            <span>
-              {item === "All"
-                ? leads.length
-                : item === "Active"
+        {(["Active", "Future", "Archive", "Junk"] as LeadFilter[]).map(
+          (item) => (
+            <button
+              key={item}
+              className={item === filter ? "active" : ""}
+              aria-pressed={item === filter}
+              onClick={() => setFilter(item)}
+            >
+              {item}
+              <span>
+                {item === "Active"
                   ? activeCount
                   : leads.filter((lead) => leadDisposition(lead) === item)
                       .length}
-            </span>
-          </button>
-        ))}
+              </span>
+            </button>
+          ),
+        )}
       </div>
       {!visible.length ? (
         <div className="empty leads-empty">
@@ -156,7 +153,7 @@ export default function LeadsPanel({
             {search
               ? "Try another name, project, email, phone number, or address."
               : filter === "Active"
-                ? "Active funnel leads appear here. Use All, Archive, or Junk to find disposed items."
+                ? "Active funnel leads appear here. Use Future, Archive, or Junk to find other leads."
                 : "No leads match this disposition filter."}
           </p>
         </div>
@@ -206,7 +203,7 @@ export default function LeadsPanel({
                   <h2>{selected.name}</h2>
                   <p>{selected.project}</p>
                   <div className="lead-disposition-actions lead-header-disposition-actions">
-                    {(["Archive", "Junk"] as const).map((item) => (
+                    {(["Future", "Archive", "Junk"] as const).map((item) => (
                       <button
                         key={item}
                         type="button"

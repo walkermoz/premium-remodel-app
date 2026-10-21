@@ -52,6 +52,7 @@ export function quotePrefillFromLead(
 }
 
 export function leadDisposition(lead: Lead): LeadDisposition {
+  if (lead.disposition === "Spam" || lead.disposition === "Test") return "Junk";
   return lead.disposition || "Active";
 }
 

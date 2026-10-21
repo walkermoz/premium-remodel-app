@@ -192,13 +192,19 @@ export type LeadStage = (typeof leadStages)[number];
 /** Side-door exits from the sales funnel — not stages; excluded from close rate. */
 export const leadDispositions = [
   "Active",
+  "Future",
   "Archive",
   "Junk",
   "Spam",
   "Test",
 ] as const;
 export type LeadDisposition = (typeof leadDispositions)[number];
-export const leadDispositionActions = ["Active", "Archive", "Junk"] as const;
+export const leadDispositionActions = [
+  "Active",
+  "Future",
+  "Archive",
+  "Junk",
+] as const;
 export type LeadDispositionAction = (typeof leadDispositionActions)[number];
 
 export const leadApprovalStates = [

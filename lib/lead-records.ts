@@ -1,5 +1,6 @@
 import "server-only";
 import { HttpError, type WorkspaceUser } from "./auth";
+import { leadDisposition } from "./leads";
 import type { Lead } from "./types";
 import { supabaseAdmin } from "./supabase/server";
 
@@ -41,12 +42,8 @@ export async function listLeadRecords(
   if (error) throw error;
   let leads = (data || []).map((row) => row.data as Lead);
   if (status) leads = leads.filter((lead) => lead.status === status);
-  if (disposition === "Active")
-    leads = leads.filter(
-      (lead) => !lead.disposition || lead.disposition === "Active",
-    );
-  else if (disposition)
-    leads = leads.filter((lead) => lead.disposition === disposition);
+  if (disposition)
+    leads = leads.filter((lead) => leadDisposition(lead) === disposition);
   return leads;
 }
 

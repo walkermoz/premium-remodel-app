@@ -39,6 +39,24 @@ test("disposition defaults to Active and junk exits close-rate", () => {
     byName: "Matthew",
   });
   expect(countsTowardCloseRate(junked)).toBe(false);
+  expect(leadDisposition({ ...baseLead, disposition: "Spam" })).toBe("Junk");
+  expect(leadDisposition({ ...baseLead, disposition: "Test" })).toBe("Junk");
+});
+
+test("future leads leave the active funnel and retain disposition history", () => {
+  const future = {
+    ...baseLead,
+    ...withDispositionChange(baseLead, "Future", {
+      id: "actor",
+      name: "Matthew",
+    }),
+  };
+  expect(leadDisposition(future)).toBe("Future");
+  expect(countsTowardCloseRate(future)).toBe(false);
+  expect(future.dispositionHistory?.[0]).toMatchObject({
+    from: "Active",
+    to: "Future",
+  });
 });
 
 test("quote status drives lead funnel stages", () => {
@@ -86,7 +104,7 @@ test("quote defaults carry the available lead and contact details", () => {
   });
 });
 
-test("leads UI uses clear archive and junk actions in sample mode", async ({
+test("leads UI offers future, archive, and junk without an all tab", async ({
   page,
 }) => {
   await page.goto("/demo?view=Leads");
@@ -98,14 +116,20 @@ test("leads UI uses clear archive and junk actions in sample mode", async ({
   await expect(
     detail.getByRole("button", { name: "Mark Archive" }),
   ).toBeVisible();
+  await expect(
+    detail.getByRole("button", { name: "Mark Future" }),
+  ).toBeVisible();
   await expect(detail.getByRole("button", { name: "Mark Junk" })).toBeVisible();
+  await expect(
+    page.locator(".lead-filters").getByRole("button", { name: /^All/ }),
+  ).toHaveCount(0);
   await expect(detail.getByRole("button", { name: "Mark Spam" })).toHaveCount(
     0,
   );
   await expect(detail.getByRole("button", { name: "Mark Test" })).toHaveCount(
     0,
   );
-  await detail.getByRole("button", { name: "Mark Junk" }).click();
+  await detail.getByRole("button", { name: "Mark Future" }).click();
   await expect(page.getByRole("button", { name: /^Active/ })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -115,5 +139,34 @@ test("leads UI uses clear archive and junk actions in sample mode", async ({
   ).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "No leads in this view" }),
+  ).toBeVisible();
+  await page
+    .locator(".lead-filters")
+    .getByRole("button", { name: /^Future/ })
+    .click();
+  await expect(
+    page.getByRole("article", { name: "Taylor Reed lead" }),
+  ).toBeVisible();
+  await page
+    .getByRole("article", { name: "Taylor Reed lead" })
+    .getByRole("button", { name: "Restore Active" })
+    .click();
+  await page
+    .locator(".lead-filters")
+    .getByRole("button", { name: /^Active/ })
+    .click();
+  await expect(
+    page.getByRole("article", { name: "Taylor Reed lead" }),
+  ).toBeVisible();
+  await page
+    .getByRole("article", { name: "Taylor Reed lead" })
+    .getByRole("button", { name: "Mark Junk" })
+    .click();
+  await page
+    .locator(".lead-filters")
+    .getByRole("button", { name: /^Junk/ })
+    .click();
+  await expect(
+    page.getByRole("article", { name: "Taylor Reed lead" }),
   ).toBeVisible();
 });
