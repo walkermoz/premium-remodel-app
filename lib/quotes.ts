@@ -33,6 +33,7 @@ export function preserveProjectHistory(
     "revisedDate",
     "preparedByPhone",
     "importedFrom",
+    "importedSources",
     "importedAt",
   ] as const) {
     if (

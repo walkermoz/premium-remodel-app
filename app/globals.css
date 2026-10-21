@@ -5075,6 +5075,49 @@ small {
 .quote-import-warning {
   font-size: 12px;
 }
+.quote-import-combine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 16px;
+}
+.quote-import-combine > label:not(.quote-import-combined-name) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.quote-import-combined-name {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  font-size: 11px;
+  color: var(--theme-text-secondary, #698094);
+}
+.quote-import-combined-name input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 9px 10px;
+  background: var(--surface);
+  color: var(--theme-link, #29475c);
+  font: inherit;
+}
+.quote-import-combined-total {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 12px;
+}
+.quote-import-combined-total strong {
+  font-size: 17px;
+}
 @media (max-width: 620px) {
   .quote-import-fields {
     grid-template-columns: 1fr;

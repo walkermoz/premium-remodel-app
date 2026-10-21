@@ -25,6 +25,57 @@ export const importedQuoteSchema = z.object({
 });
 export type ImportedQuote = z.infer<typeof importedQuoteSchema>;
 
+export function importedSectionName(draft: ImportedQuote) {
+  return (
+    draft.name
+      .replace(
+        new RegExp(
+          `^${draft.client.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[—–-]\\s*`,
+          "i",
+        ),
+        "",
+      )
+      .replace(/\s+Remodel$/i, "")
+      .trim() || draft.category
+  );
+}
+
+export function suggestedCombinedName(drafts: ImportedQuote[]) {
+  const client = drafts[0]?.client || "Imported";
+  const bathrooms = drafts.map(
+    (draft) => importedSectionName(draft).match(/^Bathroom\s+(\d+)$/i)?.[1],
+  );
+  if (drafts.length > 1 && bathrooms.every(Boolean))
+    return `${client} — Bathrooms ${bathrooms.join(" & ")} Remodel`;
+  return `${client} — Combined Quote`;
+}
+
+export function combinedPaymentSchedule(drafts: ImportedQuote[]) {
+  const schedules = drafts.map((draft) =>
+    [
+      ...draft.quoteNotes.matchAll(/(\d+)%[^:$\n]*:\s*\$([\d,]+(?:\.\d{2})?)/g),
+    ].map((match) => ({
+      percent: Number(match[1]),
+      amount: Math.round(dollars(match[2]) * 100),
+    })),
+  );
+  if (
+    !schedules.every(
+      (schedule) =>
+        schedule.length === 4 &&
+        schedule.map((step) => step.percent).join(",") === "40,30,20,10",
+    )
+  )
+    return "";
+  const labels = [
+    "40% deposit",
+    "30% after demolition and rough work",
+    "20% after waterproofing and tile installation",
+    "10% at substantial completion",
+  ];
+  return `Combined payment schedule: ${labels.map((label, index) => `${label}: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(schedules.reduce((sum, schedule) => sum + schedule[index].amount, 0) / 100)}`).join(" | ")}`;
+}
+
 function dollars(value: string) {
   return Number(value.replace(/[$,]/g, ""));
 }

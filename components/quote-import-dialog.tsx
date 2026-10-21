@@ -3,7 +3,11 @@
 import { useRef, useState } from "react";
 import { FileUp, Trash2 } from "lucide-react";
 import { projectMoney } from "@/lib/project-finances";
-import { importedQuoteSchema, type ImportedQuote } from "@/lib/quote-import";
+import {
+  importedQuoteSchema,
+  suggestedCombinedName,
+  type ImportedQuote,
+} from "@/lib/quote-import";
 import { readQuotePdf } from "@/lib/quote-pdf-text";
 import { Modal } from "./ui";
 
@@ -12,18 +16,37 @@ export default function QuoteImportDialog({
   onImport,
 }: {
   onClose: () => void;
-  onImport: (quotes: ImportedQuote[]) => Promise<void>;
+  onImport: (
+    quotes: ImportedQuote[],
+    options: { combine: boolean; combinedName: string },
+  ) => Promise<void>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [drafts, setDrafts] = useState<ImportedQuote[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [combine, setCombine] = useState(true);
+  const [combinedName, setCombinedName] = useState("");
   const total = (quote: ImportedQuote) =>
     quote.rows.reduce((sum, row) => sum + Math.round(row.amount * 100), 0) /
     100;
   const mismatched = drafts.some(
     (quote) => Math.abs(total(quote) - quote.expectedTotal) > 0.01,
   );
+  const differentCustomers =
+    drafts.length > 1 &&
+    drafts.some(
+      (draft) =>
+        draft.client.trim().toLowerCase() !==
+          drafts[0].client.trim().toLowerCase() ||
+        draft.address.trim().toLowerCase() !==
+          drafts[0].address.trim().toLowerCase(),
+    );
+  const combinedTotal =
+    drafts.reduce(
+      (sum, draft) => sum + Math.round(draft.expectedTotal * 100),
+      0,
+    ) / 100;
 
   async function addFiles(files: FileList | null) {
     if (!files?.length || busy) return;
@@ -67,12 +90,16 @@ export default function QuoteImportDialog({
     );
   }
   async function save() {
-    if (!drafts.length || busy || mismatched) return;
+    if (!drafts.length || busy || mismatched || (combine && differentCustomers))
+      return;
     setBusy(true);
     setError("");
     try {
       const parsed = drafts.map((draft) => importedQuoteSchema.parse(draft));
-      await onImport(parsed);
+      await onImport(parsed, {
+        combine: combine && drafts.length > 1,
+        combinedName: combinedName.trim() || suggestedCombinedName(parsed),
+      });
       onClose();
     } catch (cause) {
       setError(
@@ -84,7 +111,7 @@ export default function QuoteImportDialog({
   return (
     <Modal
       title="Import existing quotes"
-      subtitle="Choose up to five text-based PDF proposals. Review the customer, scope rows and totals before saving drafts."
+      subtitle="Choose up to five text-based PDF proposals. Review the customer, scope rows and totals before saving."
       onClose={() => {
         if (!busy) onClose();
       }}
@@ -122,6 +149,52 @@ export default function QuoteImportDialog({
             {error}
           </div>
         )}
+        {drafts.length > 1 && (
+          <div className="quote-import-combine">
+            <label>
+              <input
+                type="radio"
+                name="importGrouping"
+                checked={combine}
+                disabled={busy}
+                onChange={() => setCombine(true)}
+              />{" "}
+              One quote with a section for each project
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="importGrouping"
+                checked={!combine}
+                disabled={busy}
+                onChange={() => setCombine(false)}
+              />{" "}
+              Separate quotes
+            </label>
+            {combine && (
+              <>
+                <label className="quote-import-combined-name">
+                  Combined quote name
+                  <input
+                    value={combinedName || suggestedCombinedName(drafts)}
+                    disabled={busy}
+                    onChange={(event) => setCombinedName(event.target.value)}
+                  />
+                </label>
+                <div className="quote-import-combined-total">
+                  <span>Combined total</span>
+                  <strong>{projectMoney(combinedTotal)}</strong>
+                </div>
+                {differentCustomers && (
+                  <p className="quote-import-warning">
+                    The PDFs have different customers or addresses. Correct them
+                    below or choose separate quotes.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
         {drafts.map((draft, index) => (
           <section
             className="quote-import-preview"
@@ -130,7 +203,11 @@ export default function QuoteImportDialog({
             <div className="quote-import-preview-head">
               <div>
                 <small>{draft.fileName}</small>
-                <h3>Quote {index + 1}</h3>
+                <h3>
+                  {combine && drafts.length > 1
+                    ? `Project section ${index + 1}`
+                    : `Quote ${index + 1}`}
+                </h3>
               </div>
               <button
                 className="icon-button"
@@ -147,7 +224,9 @@ export default function QuoteImportDialog({
             </div>
             <div className="quote-import-fields">
               <label>
-                Quote name
+                {combine && drafts.length > 1
+                  ? "Project section name"
+                  : "Quote name"}
                 <input
                   value={draft.name}
                   disabled={busy}
@@ -269,12 +348,17 @@ export default function QuoteImportDialog({
         </button>
         <button
           className="button primary"
-          disabled={busy || !drafts.length || mismatched}
+          disabled={
+            busy ||
+            !drafts.length ||
+            mismatched ||
+            (combine && differentCustomers)
+          }
           onClick={() => void save()}
         >
           {busy
             ? "Working…"
-            : `Import ${drafts.length} ${drafts.length === 1 ? "quote" : "quotes"}`}
+            : `Import ${combine ? 1 : drafts.length} ${combine || drafts.length === 1 ? "quote" : "quotes"}`}
         </button>
       </div>
     </Modal>

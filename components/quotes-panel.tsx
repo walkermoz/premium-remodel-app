@@ -44,7 +44,10 @@ export default function QuotesPanel({
   search: string;
   onNew: () => void;
   onOpen: (id: string) => void;
-  onImport: (quotes: ImportedQuote[]) => Promise<void>;
+  onImport: (
+    quotes: ImportedQuote[],
+    options: { combine: boolean; combinedName: string },
+  ) => Promise<void>;
   demo: boolean;
 }) {
   const [filter, setFilter] = useState("All quotes");

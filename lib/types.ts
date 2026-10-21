@@ -53,6 +53,7 @@ export interface Quote extends Omit<Project, "status" | "contractPrice"> {
   status: QuoteStatus;
   /** Original filename for a PDF-imported quote; the PDF itself stays on the user's device. */
   importedFrom?: string;
+  importedSources?: string[];
   importedAt?: string;
   /** Optional linked sales lead. */
   leadId?: string;

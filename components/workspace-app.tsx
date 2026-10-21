@@ -717,11 +717,14 @@ export default function WorkspaceApp({
       syncVersion.current++;
     }
   }
-  async function importQuotes(quotes: ImportedQuote[]) {
+  async function importQuotes(
+    quotes: ImportedQuote[],
+    options: { combine: boolean; combinedName: string },
+  ) {
     const response = await fetch("/api/quotes/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quotes }),
+      body: JSON.stringify({ quotes, ...options }),
     });
     const result = await response.json();
     if (!response.ok)
