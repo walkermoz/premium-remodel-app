@@ -368,6 +368,38 @@ export default function LeadsPanel({
                   <p>{selected.projectDescription}</p>
                 </section>
               )}
+              {(selected.smsAppointmentOptIn !== undefined ||
+                selected.smsMarketingOptIn !== undefined) && (
+                <section className="lead-project-brief">
+                  <span>TEXT PREFERENCES</span>
+                  <p>
+                    Appointment texts:{" "}
+                    {selected.smsAppointmentOptIn === true
+                      ? "Opted in"
+                      : "Not opted in"}
+                    <br />
+                    Marketing texts:{" "}
+                    {selected.smsMarketingOptIn === true
+                      ? "Opted in"
+                      : "Not opted in"}
+                  </p>
+                </section>
+              )}
+              {!!Object.keys(selected.otherSubmittedFields || {}).length && (
+                <section className="lead-project-brief">
+                  <span>OTHER SUBMITTED FIELDS</span>
+                  <dl className="lead-other-fields">
+                    {Object.entries(selected.otherSubmittedFields || {}).map(
+                      ([key, value]) => (
+                        <div key={key}>
+                          <dt>{key}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ),
+                    )}
+                  </dl>
+                </section>
+              )}
               {selected.quoteDate && (
                 <section className="lead-quote-appointment">
                   <CalendarClock size={18} aria-hidden="true" />

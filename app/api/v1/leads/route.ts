@@ -13,6 +13,9 @@ function serializeLead(lead: Lead, contact: Contact | null) {
     name: lead.name,
     project: lead.project,
     projectDescription: lead.projectDescription,
+    smsAppointmentOptIn: lead.smsAppointmentOptIn === true,
+    smsMarketingOptIn: lead.smsMarketingOptIn === true,
+    otherSubmittedFields: lead.otherSubmittedFields || {},
     status: lead.status,
     disposition: leadDisposition(lead),
     notes: lead.notes || "",
@@ -61,8 +64,7 @@ export async function GET(request: Request) {
         .eq("kind", "contact")
         .in("id", contactIds);
       if (error) throw error;
-      for (const row of data || [])
-        contacts.set(row.id, row.data as Contact);
+      for (const row of data || []) contacts.set(row.id, row.data as Contact);
     }
     return Response.json(
       {

@@ -61,7 +61,7 @@ export function buildDiscordLeadMessage(
   if (lead.project_description)
     fields.push({
       name: "📍 Project Description",
-      value: safeDiscordText(lead.project_description),
+      value: safeDiscordText(lead.project_description).slice(0, 1024),
       inline: false,
     });
 

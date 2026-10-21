@@ -61,6 +61,18 @@ test("Discord lead notification omits fields that were not submitted", () => {
   ]);
 });
 
+test("Discord notification bounds long descriptions without losing the lead", () => {
+  const message = buildDiscordLeadMessage({
+    phone: "+19195550142",
+    project_description: "x".repeat(1500),
+  });
+  expect(
+    message.embeds[0].fields.find(
+      (field) => field.name === "📍 Project Description",
+    )?.value,
+  ).toHaveLength(1024);
+});
+
 test("leads page shows linked website inquiry and contact details", async ({
   page,
 }) => {
@@ -248,7 +260,12 @@ cloudTest(
     };
     const response = await request.post("/api/leads", {
       headers: { Origin: websiteOrigin },
-      data: withoutDescription,
+      data: {
+        ...withoutDescription,
+        sms_appointment_opt_in: true,
+        sms_marketing_opt_in: "true",
+        preferred_contact_time: "Morning",
+      },
     });
     expect(response.status()).toBe(201);
     expect(response.headers()["access-control-allow-origin"]).toBe(
@@ -304,6 +321,9 @@ cloudTest(
       name: "Jordan Lee",
       project: payload.project,
       projectDescription: "",
+      smsAppointmentOptIn: true,
+      smsMarketingOptIn: false,
+      otherSubmittedFields: { preferred_contact_time: "Morning" },
       status: "New",
       source: "Premium Remodel website",
       discordNotification: {

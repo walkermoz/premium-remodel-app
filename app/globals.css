@@ -4408,6 +4408,22 @@ small {
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
+.lead-other-fields {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.lead-other-fields div {
+  display: grid;
+  grid-template-columns: minmax(100px, 25%) minmax(0, 1fr);
+  gap: 12px;
+  color: var(--theme-text, #304956);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.lead-other-fields dt {
+  color: var(--theme-text-muted, #8b9ca8);
+}
 .lead-contact-card {
   padding: 22px 0;
 }

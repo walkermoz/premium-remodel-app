@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError, limitAttempts } from "@/lib/auth";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { parseWebsiteLead } from "@/lib/website-lead-input";
 
 export const runtime = "nodejs";
 
@@ -12,49 +13,6 @@ const productionOrigins = new Set([
 ]);
 const previewOrigin =
   /^https:\/\/plhi(?:-[a-z0-9-]+)?-walkermozs-projects\.vercel\.app$/;
-
-function optionalField<T extends z.ZodType>(schema: T) {
-  return z.preprocess(
-    (value) =>
-      value == null || (typeof value === "string" && !value.trim())
-        ? undefined
-        : value,
-    schema.optional(),
-  );
-}
-
-const leadInput = z
-  .object({
-    first_name: optionalField(z.string().trim().min(1).max(100)),
-    last_name: optionalField(z.string().trim().min(1).max(100)),
-    email: optionalField(z.email().max(250)),
-    phone: optionalField(
-      z
-        .string()
-        .trim()
-        .regex(/^\+?[1-9]\d{9,14}$/, "Enter a valid phone number."),
-    ),
-    zip: optionalField(
-      z
-        .string()
-        .trim()
-        .regex(/^\d{5}(?:-\d{4})?$/, "Enter a valid ZIP code."),
-    ),
-    address: optionalField(z.string().trim().min(1).max(250)),
-    project: optionalField(z.string().trim().min(1).max(100)),
-    project_description: optionalField(z.string().trim().max(1000)),
-  })
-  .refine(
-    (data) =>
-      Boolean(
-        data.first_name ||
-        data.last_name ||
-        data.email ||
-        data.phone ||
-        data.address,
-      ),
-    { message: "Include at least one contact detail." },
-  );
 
 function allowedOrigin(origin: string) {
   return (
@@ -102,7 +60,9 @@ export async function POST(request: Request) {
     if (!organizationId || !z.uuid().safeParse(organizationId).success)
       throw new Error("Lead intake organization is not configured.");
 
-    const data = leadInput.parse(await request.json());
+    const { data, otherSubmittedFields } = parseWebsiteLead(
+      await request.json(),
+    );
     const firstName =
       data.first_name ||
       (data.last_name ? "" : data.email || data.phone || "Website lead");
@@ -157,6 +117,9 @@ export async function POST(request: Request) {
         .update({
           data: {
             ...leadData,
+            smsAppointmentOptIn: data.sms_appointment_opt_in,
+            smsMarketingOptIn: data.sms_marketing_opt_in,
+            otherSubmittedFields,
             discordNotification: notification,
             disposition: "Active",
             updatedAt,

@@ -222,6 +222,11 @@ export interface Lead extends Base {
   name: string;
   project: string;
   projectDescription: string;
+  /** Only explicit true from the website form grants category-specific SMS consent. */
+  smsAppointmentOptIn?: boolean;
+  smsMarketingOptIn?: boolean;
+  /** Bounded, inert values from unrecognized website form fields. */
+  otherSubmittedFields?: Record<string, string>;
   /** Funnel stage. Legacy leads use "New". */
   status: LeadStage;
   /** Default Active when omitted (legacy leads). */

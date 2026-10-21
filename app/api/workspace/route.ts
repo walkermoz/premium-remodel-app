@@ -167,6 +167,9 @@ async function save(request: Request, editing: boolean) {
         "discordNotification",
         "leadWebhook",
         "dispositionHistory",
+        "smsAppointmentOptIn",
+        "smsMarketingOptIn",
+        "otherSubmittedFields",
       ] as const) {
         if (key in currentLead && !(key in data))
           (data as Record<string, unknown>)[key] =
