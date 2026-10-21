@@ -155,6 +155,8 @@ export const schemas = {
     .object({
       ...projectFields,
       status: z.enum(quoteStatuses),
+      importedFrom: short.optional(),
+      importedAt: z.iso.datetime().optional(),
       leadId: z.union([z.uuid(), z.literal("")]).optional(),
       outcomeAt: z.iso.datetime().optional(),
       quoteNumber: short.optional(),

@@ -11,6 +11,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  FileUp,
 } from "lucide-react";
 import {
   quoteStatuses,
@@ -28,19 +29,26 @@ import { Empty } from "./ui";
 import type { Editor } from "./entity-form";
 import ScopeTable from "./scope-table";
 import FilesPanel from "./files-panel";
+import QuoteImportDialog from "./quote-import-dialog";
+import type { ImportedQuote } from "@/lib/quote-import";
 
 export default function QuotesPanel({
   workspace,
   search,
   onNew,
   onOpen,
+  onImport,
+  demo,
 }: {
   workspace: Workspace;
   search: string;
   onNew: () => void;
   onOpen: (id: string) => void;
+  onImport: (quotes: ImportedQuote[]) => Promise<void>;
+  demo: boolean;
 }) {
   const [filter, setFilter] = useState("All quotes");
+  const [importOpen, setImportOpen] = useState(false);
   const quotes = workspace.quotes || [];
   const visible = quotes
     .filter(
@@ -71,10 +79,19 @@ export default function QuotesPanel({
             Projects.
           </p>
         </div>
-        <button className="button primary" onClick={onNew}>
-          <Plus size={17} />
-          New quote
-        </button>
+        <div className="project-actions">
+          {!demo && (
+            <button
+              className="button secondary"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileUp size={16} /> Import PDFs
+            </button>
+          )}
+          <button className="button primary" onClick={onNew}>
+            <Plus size={17} /> New quote
+          </button>
+        </div>
       </div>
       <div className="quote-summary">
         <FileText size={20} />
@@ -181,6 +198,12 @@ export default function QuotesPanel({
               New quote
             </button>
           }
+        />
+      )}
+      {importOpen && (
+        <QuoteImportDialog
+          onClose={() => setImportOpen(false)}
+          onImport={onImport}
         />
       )}
     </>

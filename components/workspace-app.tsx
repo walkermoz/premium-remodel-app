@@ -104,6 +104,7 @@ import { checkUploadFile, FILE_VALIDATION_VERSION } from "@/lib/file-policy";
 import OverviewAlerts from "./overview-alerts";
 import LeadsPanel from "./leads-panel";
 import DoorKnockingPanel, { type DoorVisitDraft } from "./door-knocking-panel";
+import type { ImportedQuote } from "@/lib/quote-import";
 type Page =
   | "Overview"
   | "Projects"
@@ -715,6 +716,36 @@ export default function WorkspaceApp({
       pending.current.delete(key);
       syncVersion.current++;
     }
+  }
+  async function importQuotes(quotes: ImportedQuote[]) {
+    const response = await fetch("/api/quotes/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quotes }),
+    });
+    const result = await response.json();
+    if (!response.ok)
+      throw new Error(result.error || "Could not import quotes.");
+    const importedQuotes = result.quotes as Quote[];
+    const importedScope = result.scope as ScopeItem[];
+    if (!Array.isArray(importedQuotes) || !Array.isArray(importedScope))
+      throw new Error(
+        "The import response was incomplete. Refresh your workspace.",
+      );
+    const current = workspaceRef.current;
+    commit(
+      {
+        ...current,
+        quotes: [...importedQuotes, ...(current.quotes || [])],
+        scope: [...importedScope, ...current.scope],
+      },
+      true,
+    );
+    window.dispatchEvent(new Event("premium-remodel-audit-updated"));
+    notify(
+      `${importedQuotes.length} ${importedQuotes.length === 1 ? "quote" : "quotes"} imported`,
+    );
+    navigate("Quotes", importedQuotes[0].id);
   }
   async function accept(quote: Quote) {
     if (pending.current.has(quote.id))
@@ -1443,6 +1474,8 @@ export default function WorkspaceApp({
                   search={search}
                   onNew={() => setEditor({ kind: "quote" })}
                   onOpen={(id) => navigate("Quotes", id)}
+                  onImport={importQuotes}
+                  demo={demo}
                 />
               )}
               {page === "Door knocking" && (

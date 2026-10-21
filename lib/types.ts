@@ -51,6 +51,9 @@ export const quoteStatuses = ["Draft", "Sent", "Declined", "Expired"] as const;
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export interface Quote extends Omit<Project, "status" | "contractPrice"> {
   status: QuoteStatus;
+  /** Original filename for a PDF-imported quote; the PDF itself stays on the user's device. */
+  importedFrom?: string;
+  importedAt?: string;
   /** Optional linked sales lead. */
   leadId?: string;
   /** When status first became Declined or Expired. */
