@@ -434,7 +434,8 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
   await expect(page.locator(".project-card")).toHaveCount(6);
   await page.getByRole("button", { name: "Planning", exact: true }).click();
   await expect(page.locator(".project-card")).toHaveCount(1);
-  await page.getByRole("button", { name: /^All projects/ }).click();
+  await page.getByRole("button", { name: /^Planning/ }).click();
+  await expect(page.locator(".project-card")).toHaveCount(6);
   await page.getByRole("textbox", { name: "Search projects" }).fill("oakwood");
   await expect(page.locator(".project-card")).toHaveCount(1);
   await page.getByRole("button", { name: "Clear search" }).click();

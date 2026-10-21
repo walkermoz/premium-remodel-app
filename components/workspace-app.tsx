@@ -1572,30 +1572,29 @@ export default function WorkspaceApp({
                   </div>
                   <div className="project-toolbar">
                     <div className="filter-tabs">
-                      {[
-                        "All projects",
-                        "In progress",
-                        "Planning",
-                        "On hold",
-                        "Completed",
-                      ].map((f) => (
-                        <button
-                          key={f}
-                          className={filter === f ? "active" : ""}
-                          onClick={() => setFilter(f)}
-                        >
-                          {f}
-                          {filter === f && (
-                            <span>
-                              {f === "All projects"
-                                ? workspace.projects.length
-                                : workspace.projects.filter(
+                      {["In progress", "Planning", "On hold", "Completed"].map(
+                        (f) => (
+                          <button
+                            key={f}
+                            className={filter === f ? "active" : ""}
+                            aria-pressed={filter === f}
+                            onClick={() =>
+                              setFilter(filter === f ? "All projects" : f)
+                            }
+                          >
+                            {f}
+                            {filter === f && (
+                              <span>
+                                {
+                                  workspace.projects.filter(
                                     (p) => p.status === f,
-                                  ).length}
-                            </span>
-                          )}
-                        </button>
-                      ))}
+                                  ).length
+                                }
+                              </span>
+                            )}
+                          </button>
+                        ),
+                      )}
                     </div>
                     <label className="sort-select">
                       <SlidersHorizontal size={14} />
