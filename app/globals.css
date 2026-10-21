@@ -4220,6 +4220,12 @@ small {
 .leads-heading {
   align-items: flex-end;
 }
+.leads-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .leads-total {
   display: grid;
   grid-template-columns: auto auto;

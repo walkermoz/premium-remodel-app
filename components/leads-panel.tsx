@@ -10,6 +10,7 @@ import {
   Mail,
   MapPin,
   Phone,
+  Plus,
   UserRound,
 } from "lucide-react";
 import {
@@ -21,6 +22,8 @@ import {
 } from "@/lib/types";
 import { leadDisposition } from "@/lib/leads";
 import { workToday } from "@/lib/work";
+import { manualLeadInput, type ManualLeadInput } from "@/lib/manual-lead";
+import AddressInput from "./address-input";
 import { Modal } from "./ui";
 
 type LeadFilter = "Active" | "Future" | "Archive" | "Junk";
@@ -32,6 +35,7 @@ export default function LeadsPanel({
   search,
   demo,
   onSaveLead,
+  onCreateLead,
   onQuote,
 }: {
   leads: Lead[];
@@ -40,6 +44,7 @@ export default function LeadsPanel({
   search: string;
   demo: boolean;
   onSaveLead: (data: Record<string, unknown>, lead: Lead) => Promise<unknown>;
+  onCreateLead: (data: ManualLeadInput) => Promise<Lead>;
   onQuote: (lead: Lead, contact: Contact | null, quote?: Quote) => void;
 }) {
   const [selectedId, setSelectedId] = useState("");
@@ -47,6 +52,9 @@ export default function LeadsPanel({
   const [saving, setSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState("");
   const [filter, setFilter] = useState<LeadFilter>("Active");
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
 
@@ -112,14 +120,29 @@ export default function LeadsPanel({
             Leads<span className="heading-dot">.</span>
           </h1>
           <p>
-            Website inquiries through quote-sent. Disposition exits the funnel;
-            stages track close rate.
+            Track new inquiries and follow-up through quotes and projects.
           </p>
         </div>
-        <div className="leads-total" aria-label={`${activeCount} active leads`}>
-          <Inbox size={18} aria-hidden="true" />
-          <span>Active leads</span>
-          <strong>{activeCount.toString().padStart(2, "0")}</strong>
+        <div className="leads-heading-actions">
+          <button
+            className="button primary"
+            type="button"
+            onClick={() => {
+              setCreateError("");
+              setCreating(true);
+            }}
+          >
+            <Plus size={16} aria-hidden="true" />
+            New lead
+          </button>
+          <div
+            className="leads-total"
+            aria-label={`${activeCount} active leads`}
+          >
+            <Inbox size={18} aria-hidden="true" />
+            <span>Active leads</span>
+            <strong>{activeCount.toString().padStart(2, "0")}</strong>
+          </div>
         </div>
       </div>
       {demo && <span className="sample-data-label">SAMPLE DATA</span>}
@@ -159,7 +182,7 @@ export default function LeadsPanel({
         </div>
       ) : (
         <div className="leads-layout">
-          <section className="leads-list" aria-label="Website leads">
+          <section className="leads-list" aria-label="Leads">
             <div className="leads-list-heading">
               <span>Newest first</span>
               <strong>{visible.length}</strong>
@@ -450,16 +473,18 @@ export default function LeadsPanel({
                         </dd>
                       </div>
                     )}
-                    <div>
-                      <dt>Address</dt>
-                      <dd>
-                        <MapPin size={14} />
-                        <span>
-                          {contact.address}
-                          <small>{contact.zip}</small>
-                        </span>
-                      </dd>
-                    </div>
+                    {(contact.address || contact.zip) && (
+                      <div>
+                        <dt>Address</dt>
+                        <dd>
+                          <MapPin size={14} />
+                          <span>
+                            {contact.address}
+                            <small>{contact.zip}</small>
+                          </span>
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 ) : (
                   <p className="generation-note">
@@ -474,6 +499,136 @@ export default function LeadsPanel({
             </article>
           )}
         </div>
+      )}
+      {creating && (
+        <Modal
+          title="New lead"
+          subtitle="Add the customer's contact information and the work they have in mind."
+          onClose={() => {
+            if (!createBusy) setCreating(false);
+          }}
+        >
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (createBusy) return;
+              const fields = Object.fromEntries(
+                new FormData(event.currentTarget),
+              );
+              const data = {
+                name: String(fields.name || "").trim(),
+                email: String(fields.email || "").trim(),
+                phone: String(fields.phone || "").trim(),
+                address: String(fields.address || "").trim(),
+                zip: String(fields.zip || "").trim(),
+                project: String(fields.project || "").trim(),
+                projectDescription: String(
+                  fields.projectDescription || "",
+                ).trim(),
+              };
+              const parsed = manualLeadInput.safeParse(data);
+              if (!parsed.success) {
+                setCreateError(parsed.error.issues[0].message);
+                return;
+              }
+              setCreateBusy(true);
+              setCreateError("");
+              try {
+                const lead = await onCreateLead(parsed.data);
+                setFilter("Active");
+                setSelectedId(lead.id);
+                setCreating(false);
+              } catch (error) {
+                setCreateError(
+                  error instanceof Error
+                    ? error.message
+                    : "Could not create this lead.",
+                );
+              } finally {
+                setCreateBusy(false);
+              }
+            }}
+          >
+            <div className="form-fields">
+              <label>
+                Customer name
+                <input
+                  name="name"
+                  autoComplete="name"
+                  maxLength={250}
+                  required
+                />
+              </label>
+              <div className="form-row two">
+                <label>
+                  Email
+                  <input
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    maxLength={250}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    maxLength={30}
+                  />
+                </label>
+              </div>
+              <AddressInput label="Project address" />
+              <label>
+                ZIP code
+                <input
+                  name="zip"
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  maxLength={20}
+                />
+              </label>
+              <label>
+                Project or service
+                <input
+                  name="project"
+                  maxLength={250}
+                  placeholder="e.g. Bathroom remodel"
+                  required
+                />
+              </label>
+              <label>
+                Project description
+                <textarea
+                  name="projectDescription"
+                  rows={3}
+                  maxLength={15000}
+                  placeholder="What does the customer want done?"
+                />
+              </label>
+              {createError && (
+                <div className="alert" role="alert">
+                  {createError}
+                </div>
+              )}
+            </div>
+            <footer className="modal-footer">
+              <button
+                type="button"
+                className="button secondary"
+                disabled={createBusy}
+                onClick={() => setCreating(false)}
+              >
+                Cancel
+              </button>
+              <button className="button primary" disabled={createBusy}>
+                {createBusy && <LoaderCircle size={15} className="spin" />}
+                {createBusy ? "Creating…" : "Create lead"}
+              </button>
+            </footer>
+          </form>
+        </Modal>
       )}
       {scheduling && (
         <Modal

@@ -79,6 +79,10 @@ import {
 } from "@/lib/leads";
 import QuotesPanel, { QuoteDetail } from "./quotes-panel";
 import { schemas } from "@/lib/schemas";
+import {
+  buildManualLeadRecords,
+  type ManualLeadInput,
+} from "@/lib/manual-lead";
 import { Avatar, Badge, Empty, Loading, Modal } from "./ui";
 import { EntityForm, type Editor } from "./entity-form";
 import ProjectDetail, { projectTabs, type ProjectTab } from "./project-detail";
@@ -601,6 +605,52 @@ export default function WorkspaceApp({
           "Sample storage is full. Use smaller files or sign in to the real workspace.",
         );
       throw e;
+    } finally {
+      pending.current.delete(key);
+      syncVersion.current++;
+    }
+  }
+
+  async function createLead(data: ManualLeadInput): Promise<Lead> {
+    const key = "new-manual-lead";
+    if (pending.current.has(key))
+      throw new Error("A lead is already being created. Please wait.");
+    pending.current.add(key);
+    syncVersion.current++;
+    try {
+      let contact: Contact;
+      let lead: Lead;
+      if (demo) {
+        ({ contact, lead } = buildManualLeadRecords(
+          data,
+          crypto.randomUUID(),
+          crypto.randomUUID(),
+          new Date().toISOString(),
+        ));
+      } else {
+        const response = await fetch("/api/leads/manual", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "Could not create this lead.");
+        ({ contact, lead } = result as { contact: Contact; lead: Lead });
+      }
+      const current = workspaceRef.current;
+      commit(
+        {
+          ...current,
+          contacts: [contact, ...current.contacts],
+          leads: [lead, ...current.leads],
+        },
+        true,
+      );
+      if (!demo)
+        window.dispatchEvent(new Event("premium-remodel-audit-updated"));
+      notify("Lead created");
+      return lead;
     } finally {
       pending.current.delete(key);
       syncVersion.current++;
@@ -1409,6 +1459,7 @@ export default function WorkspaceApp({
                   search={search}
                   demo={demo}
                   onSaveLead={(data, lead) => save("lead", data, lead)}
+                  onCreateLead={createLead}
                   onQuote={(lead, contact, quote) => {
                     if (quote) {
                       navigate("Quotes", quote.id);

@@ -78,9 +78,9 @@ test("leads page shows linked website inquiry and contact details", async ({
 }) => {
   await page.goto("/demo?view=Leads");
   await expect(page.getByRole("heading", { name: "Leads." })).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Website leads" }),
-  ).toContainText("Taylor Reed");
+  await expect(page.getByRole("region", { name: "Leads" })).toContainText(
+    "Taylor Reed",
+  );
   const detail = page.getByRole("article", { name: "Taylor Reed lead" });
   await expect(detail).toContainText("Kitchen Remodel");
   await expect(
