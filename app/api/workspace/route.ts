@@ -449,6 +449,11 @@ export async function DELETE(request: Request) {
       );
     const current = await findRecord(user, String(body.id), kind);
     if (!current) throw new HttpError(404, "Record not found.");
+    if (kind === "activity" && "stripeSessionId" in current)
+      throw new HttpError(
+        403,
+        "Stripe payments cannot be deleted from the activity log.",
+      );
     if (kind === "alert" && user.role !== "admin")
       throw new HttpError(403, "Only administrators can manage alerts.");
     if (

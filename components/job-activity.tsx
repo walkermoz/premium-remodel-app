@@ -186,22 +186,25 @@ export default function JobActivity({
                       minute: "2-digit",
                     })}
                   </time>
-                  {(user.role === "admin" || user.id === entry.authorId) && (
-                    <button
-                      className="icon-button delete-action"
-                      aria-label="Delete activity"
-                      onClick={() =>
-                        onDelete(
-                          kind,
-                          kind === "comment"
-                            ? workspace.comments.find((c) => c.id === entry.id)!
-                            : entry,
-                        )
-                      }
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                  {!entry.stripeSessionId &&
+                    (user.role === "admin" || user.id === entry.authorId) && (
+                      <button
+                        className="icon-button delete-action"
+                        aria-label="Delete activity"
+                        onClick={() =>
+                          onDelete(
+                            kind,
+                            kind === "comment"
+                              ? workspace.comments.find(
+                                  (c) => c.id === entry.id,
+                                )!
+                              : entry,
+                          )
+                        }
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                 </div>
                 <h3>{activityHeadline(entry)}</h3>
                 {entry.activityType !== "Work completed" && (

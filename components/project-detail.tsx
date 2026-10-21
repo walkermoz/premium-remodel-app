@@ -480,6 +480,7 @@ export default function ProjectDetail({
               workspace={workspace}
               demo={demo}
               onLog={() => onLogPayment(project.id)}
+              canCreateCardLink={user.role === "admin" && !demo}
             />
             <div className="overview-columns">
               <section className="project-brief">

@@ -143,6 +143,11 @@ export interface Activity extends Base {
   contractorId: string;
   attachmentIds: string[];
   sourceTaskId?: string;
+  /** Set only by the verified Stripe webhook. */
+  stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  stripeGrossCents?: number;
+  stripeRefundedCents?: number;
 }
 export const alertAudiences = [
   "administrators",
