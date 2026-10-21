@@ -137,7 +137,7 @@ export default function WorkspaceApp({
   const [projectId, setProjectId] = useState("");
   const [projectTab, setProjectTab] = useState<ProjectTab>("Overview");
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("All projects");
+  const [filter, setFilter] = useState<Project["status"]>("In progress");
   const [upcomingView, setUpcomingView] = useState<UpcomingView>("Calendar");
   const [view, setView] = useState("grid");
   const [sort, setSort] = useState("Recently updated");
@@ -312,7 +312,7 @@ export default function WorkspaceApp({
     setUpcomingView(layout);
     setSidebar(false);
     setSearch("");
-    setFilter("All projects");
+    setFilter("In progress");
     const params = new URLSearchParams({ view: next });
     if (id) params.set("project", id);
     if (id && tab !== "Overview") params.set("tab", tab);
@@ -996,7 +996,7 @@ export default function WorkspaceApp({
   const visibleProjects = workspace.projects
     .filter(
       (p) =>
-        (filter === "All projects" || p.status === filter) &&
+        p.status === filter &&
         `${p.name} ${p.address} ${p.client} ${p.category}`
           .toLowerCase()
           .includes(search.toLowerCase()),
@@ -1488,9 +1488,7 @@ export default function WorkspaceApp({
                           : "THE BIG PICTURE"}
                       </span>
                       <h1>
-                        {page === "Overview"
-                          ? "Project overview"
-                          : "All projects"}
+                        {page === "Overview" ? "Project overview" : "Projects"}
                         <span className="heading-dot">.</span>
                       </h1>
                       <p>
@@ -1595,7 +1593,7 @@ export default function WorkspaceApp({
                       <h2>
                         Your projects{" "}
                         <span className="count-pill">
-                          {workspace.projects.length}
+                          {visibleProjects.length}
                         </span>
                       </h2>
                       {demo && (
@@ -1623,29 +1621,31 @@ export default function WorkspaceApp({
                   </div>
                   <div className="project-toolbar">
                     <div className="filter-tabs">
-                      {["In progress", "Planning", "On hold", "Completed"].map(
-                        (f) => (
-                          <button
-                            key={f}
-                            className={filter === f ? "active" : ""}
-                            aria-pressed={filter === f}
-                            onClick={() =>
-                              setFilter(filter === f ? "All projects" : f)
-                            }
-                          >
-                            {f}
-                            {filter === f && (
-                              <span>
-                                {
-                                  workspace.projects.filter(
-                                    (p) => p.status === f,
-                                  ).length
-                                }
-                              </span>
-                            )}
-                          </button>
-                        ),
-                      )}
+                      {(
+                        [
+                          "In progress",
+                          "Planning",
+                          "On hold",
+                          "Completed",
+                        ] as const
+                      ).map((f) => (
+                        <button
+                          key={f}
+                          className={filter === f ? "active" : ""}
+                          aria-pressed={filter === f}
+                          onClick={() => setFilter(f)}
+                        >
+                          {f}
+                          {filter === f && (
+                            <span>
+                              {
+                                workspace.projects.filter((p) => p.status === f)
+                                  .length
+                              }
+                            </span>
+                          )}
+                        </button>
+                      ))}
                     </div>
                     <label className="sort-select">
                       <SlidersHorizontal size={14} />
@@ -1671,33 +1671,38 @@ export default function WorkspaceApp({
                   ) : (
                     <Empty
                       title={
-                        workspace.projects.length
-                          ? "No matching projects"
-                          : "Your next project starts here"
+                        !workspace.projects.length
+                          ? "Your next project starts here"
+                          : search
+                            ? "No matching projects"
+                            : filter === "In progress"
+                              ? "No projects in progress"
+                              : `No ${filter.toLowerCase()} projects`
                       }
                       text={
-                        workspace.projects.length
-                          ? "Try a different search or project status."
-                          : "Add a job, then build out the scope, costs, and next steps."
+                        !workspace.projects.length
+                          ? "Add a job, then build out the scope, costs, and next steps."
+                          : search
+                            ? "Try a different search or project status."
+                            : "Choose another status to see its projects."
                       }
                       action={
-                        <button
-                          className="button primary"
-                          onClick={() =>
-                            workspace.projects.length
-                              ? (setSearch(""), setFilter("All projects"))
-                              : setEditor({ kind: "project" })
-                          }
-                        >
-                          {workspace.projects.length ? (
-                            "Clear filters"
-                          ) : (
-                            <>
-                              <Plus size={16} />
-                              Create first project
-                            </>
-                          )}
-                        </button>
+                        !workspace.projects.length ? (
+                          <button
+                            className="button primary"
+                            onClick={() => setEditor({ kind: "project" })}
+                          >
+                            <Plus size={16} />
+                            Create first project
+                          </button>
+                        ) : search ? (
+                          <button
+                            className="button primary"
+                            onClick={() => setSearch("")}
+                          >
+                            Clear search
+                          </button>
+                        ) : undefined
                       }
                     />
                   )}
