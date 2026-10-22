@@ -88,6 +88,7 @@ test("a job starts its counter, updates across midnight, freezes, and resumes af
     { ...emptyWorkspace, projects: [project] },
   );
   await page.goto("/demo");
+  await page.getByRole("button", { name: /^Planning/ }).click();
   const card = page.locator(".project-card");
   await expect(card.locator(".badge-planning")).toHaveCSS(
     "background-color",

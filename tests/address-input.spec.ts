@@ -207,6 +207,7 @@ test("keyboard selection fills and saves an address without submitting the form 
   );
   expect(saved.address).toBe(fullAddress);
   await page.reload();
+  await page.getByRole("button", { name: /^Planning/ }).click();
   await page
     .getByRole("heading", { name: "Address selection project" })
     .click();
