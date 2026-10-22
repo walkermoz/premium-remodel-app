@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 const env = process.env;
 const webhook = new URL(env.DISCORD_BUILD_WEBHOOK);
 
@@ -7,13 +9,17 @@ if (webhook.origin !== "https://discord.com" || !webhook.pathname.startsWith("/a
 
 const isPreview = env.GITHUB_EVENT_NAME === "pull_request";
 const deployResult = isPreview ? env.PREVIEW_RESULT : env.PRODUCTION_RESULT;
-const deployUrl = isPreview ? env.PREVIEW_URL : env.PRODUCTION_URL;
+const deployUrl = isPreview
+  ? env.PREVIEW_URL
+  : deployResult === "success" ? "https://servicebuddy-ui.vercel.app/" : "";
 const checksPassed = env.QUALITY_RESULT === "success";
 const failed = !checksPassed || deployResult === "failure";
 const deployment = isPreview ? "Preview" : "Production";
 const status = failed ? "failed" : deployUrl ? "deployed" : "checks passed";
 const icon = failed ? "❌" : deployUrl ? "✅" : "⚠️";
 const runUrl = `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`;
+const commitSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+const commitMessage = execFileSync("git", ["log", "-1", "--format=%B"], { encoding: "utf8" }).trim() || "No commit message";
 const source = isPreview
   ? `Pull request #${env.PR_NUMBER || "?"} · ${env.BUILD_REF}`
   : env.BUILD_REF;
@@ -27,8 +33,9 @@ const payload = {
     color: failed ? 0xd54444 : deployUrl ? 0x2b9348 : 0xe6a23c,
     fields: [
       { name: "Source", value: source.slice(0, 1024), inline: true },
-      { name: "Commit", value: env.GITHUB_SHA.slice(0, 7), inline: true },
+      { name: "Commit", value: `[${commitSha.slice(0, 7)}](${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/commit/${commitSha})`, inline: true },
       { name: "Checks", value: checksPassed ? "Passed" : "Failed", inline: true },
+      { name: "Commit message", value: commitMessage.length > 1024 ? `${commitMessage.slice(0, 1021)}...` : commitMessage, inline: false },
       { name: "Deployment", value: deployUrl ? `[Open ${deployment.toLowerCase()}](${deployUrl})` : deployResult === "failure" ? "Failed" : "No deployment URL", inline: false },
     ],
     timestamp: new Date().toISOString(),

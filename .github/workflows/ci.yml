@@ -169,6 +169,8 @@ jobs:
       DISCORD_BUILD_WEBHOOK: ${{ secrets.DISCORD_BUILD_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Post build result
         if: env.DISCORD_BUILD_WEBHOOK != ''
         continue-on-error: true
@@ -180,4 +182,3 @@ jobs:
           PREVIEW_RESULT: ${{ needs.vercel-preview.result }}
           PREVIEW_URL: ${{ needs.vercel-preview.outputs.url }}
           PRODUCTION_RESULT: ${{ needs.vercel-production.result }}
-          PRODUCTION_URL: ${{ needs.vercel-production.outputs.url }}
