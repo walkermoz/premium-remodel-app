@@ -331,7 +331,6 @@ export default async function ClientQuotePage({
       >
         <div className={styles.sidebarBrand}>
           <img src="/images/logo.png" alt="Premium Remodel" />
-          <span>Client portal</span>
         </div>
         <a className={styles.newRequest} href={`${quoteUrl}?view=new-request`}>
           <Plus size={18} aria-hidden="true" /> New request
