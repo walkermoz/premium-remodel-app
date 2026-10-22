@@ -9,7 +9,7 @@ import {
   Link2Off,
   RefreshCw,
 } from "lucide-react";
-import type { Project } from "@/lib/types";
+import type { Project, Quote } from "@/lib/types";
 import { Modal } from "./ui";
 
 interface ClientLinkState {
@@ -40,12 +40,16 @@ function linkDate(value: string) {
 
 export default function ClientLinkDialog({
   project,
+  kind = "project",
   onClose,
   notify,
 }: {
-  project: Project;
+  project: Pick<Project | Quote, "id" | "name" | "status"> & {
+    quoteAcceptedAt?: string;
+  };
+  kind?: "project" | "quote";
   onClose: () => void;
-  notify: (message: string, error?: boolean) => void;
+  notify?: (message: string, error?: boolean) => void;
 }) {
   const [link, setLink] = useState<ClientLinkState>(emptyState);
   const [loading, setLoading] = useState(true);
@@ -58,7 +62,7 @@ export default function ClientLinkDialog({
     void (async () => {
       try {
         const response = await fetch(
-          `/api/client-links?projectId=${encodeURIComponent(project.id)}`,
+          `/api/client-links?projectId=${encodeURIComponent(project.id)}&kind=${kind}`,
           { cache: "no-store", signal: controller.signal },
         );
         const result = await response.json();
@@ -76,7 +80,7 @@ export default function ClientLinkDialog({
       }
     })();
     return () => controller.abort();
-  }, [project.id]);
+  }, [project.id, kind]);
 
   async function createLink(rotate = false) {
     setSaving(true);
@@ -85,14 +89,14 @@ export default function ClientLinkDialog({
       const response = await fetch("/api/client-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, rotate }),
+        body: JSON.stringify({ projectId: project.id, kind, rotate }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       setLink(result);
       setCopied(false);
       window.dispatchEvent(new Event("premium-remodel-audit-updated"));
-      notify(rotate ? "Client link replaced" : "Client link ready");
+      notify?.(rotate ? "Client link replaced" : "Client link ready");
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -111,14 +115,14 @@ export default function ClientLinkDialog({
       const response = await fetch("/api/client-links", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id }),
+        body: JSON.stringify({ projectId: project.id, kind }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       setLink(emptyState);
       setCopied(false);
       window.dispatchEvent(new Event("premium-remodel-audit-updated"));
-      notify("Client link disabled");
+      notify?.("Client link disabled");
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -135,7 +139,7 @@ export default function ClientLinkDialog({
     try {
       await navigator.clipboard.writeText(link.url);
       setCopied(true);
-      notify("Client link copied");
+      notify?.("Client link copied");
     } catch {
       setError("Select and copy the link below.");
     }
@@ -143,8 +147,12 @@ export default function ClientLinkDialog({
 
   return (
     <Modal
-      title="Client project link"
-      subtitle="A read-only update page you can send to the client."
+      title={kind === "quote" ? "Client quote link" : "Client project link"}
+      subtitle={
+        kind === "quote"
+          ? "A client-safe quote page with scope, total, and PDF."
+          : "A read-only update page you can send to the client."
+      }
       onClose={onClose}
     >
       <div className="client-link-dialog">
@@ -165,8 +173,9 @@ export default function ClientLinkDialog({
               <div>
                 <strong>Client access is active</strong>
                 <p>
-                  The page updates whenever project work changes. Internal
-                  costs, contractors, notes, and files are excluded.
+                  {kind === "quote"
+                    ? "The page shows a saved version of the quote. Replace this link to publish later edits. Internal costs and workspace notes are excluded."
+                    : "The page updates whenever project work changes. Internal costs, contractors, notes, and files are excluded."}
                 </p>
               </div>
             </div>
@@ -216,10 +225,17 @@ export default function ClientLinkDialog({
             <span>
               <Link2 size={23} />
             </span>
-            <h3>Create a private project update page</h3>
+            <h3>
+              {kind === "quote"
+                ? "Create a private quote page"
+                : "Create a private project update page"}
+            </h3>
             <p>
-              Anyone with the link can view the client-safe project summary. You
-              can replace or disable the link at any time.
+              {kind === "quote" &&
+              project.status !== "Sent" &&
+              !project.quoteAcceptedAt
+                ? "Mark this quote as sent before creating a client link."
+                : "Anyone with the link can view the client-safe summary. You can replace or disable the link at any time."}
             </p>
           </div>
         )}
@@ -261,7 +277,13 @@ export default function ClientLinkDialog({
           <button
             type="button"
             className="button primary"
-            disabled={saving || loading}
+            disabled={
+              saving ||
+              loading ||
+              (kind === "quote" &&
+                project.status !== "Sent" &&
+                !project.quoteAcceptedAt)
+            }
             onClick={() => void createLink()}
           >
             <Link2 size={15} />

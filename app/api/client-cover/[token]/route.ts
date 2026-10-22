@@ -20,6 +20,7 @@ export async function GET(
       .from("remodel_client_links")
       .select("organization_id,project_id")
       .eq("id", linkId)
+      .eq("kind", "project")
       .is("revoked_at", null)
       .maybeSingle();
     if (linkError) throw linkError;

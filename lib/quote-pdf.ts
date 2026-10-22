@@ -23,9 +23,9 @@ const colors = {
   white: rgb(1, 1, 1),
 };
 
-const changeOrderTerms =
+export const changeOrderTerms =
   "Work outside the defined scope must be approved in writing before execution, with cost and schedule impacts documented.";
-const paymentTerms =
+export const paymentTerms =
   "This quote is an estimate of the services described above, not an invoice. Payment will be collected prior to provision of services.";
 
 function safeText(value: unknown) {

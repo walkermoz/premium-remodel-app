@@ -97,6 +97,7 @@ export async function readClientPortal(token: string) {
     .from("remodel_client_links")
     .select("id,organization_id,project_id")
     .eq("id", id)
+    .eq("kind", "project")
     .is("revoked_at", null)
     .maybeSingle();
   if (linkError) throw linkError;

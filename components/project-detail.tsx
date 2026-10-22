@@ -101,6 +101,7 @@ export default function ProjectDetail({
   onUpcomingViewChange: (view: UpcomingView) => void;
 }) {
   const [clientLinkOpen, setClientLinkOpen] = useState(false);
+  const [quoteLinkOpen, setQuoteLinkOpen] = useState(false);
   const clock = contractClock(project, contractToday);
   const tabs = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -305,6 +306,14 @@ export default function ProjectDetail({
           </div>
         </div>
         <div className="project-actions">
+          {user.role === "admin" && !demo && project.quoteAcceptedAt && (
+            <button
+              className="button secondary"
+              onClick={() => setQuoteLinkOpen(true)}
+            >
+              <Share2 size={15} /> Quote link
+            </button>
+          )}
           {user.role === "admin" && !demo && (
             <button
               className="button secondary"
@@ -331,6 +340,14 @@ export default function ProjectDetail({
         <ClientLinkDialog
           project={project}
           onClose={() => setClientLinkOpen(false)}
+          notify={notify}
+        />
+      )}
+      {quoteLinkOpen && (
+        <ClientLinkDialog
+          project={project}
+          kind="quote"
+          onClose={() => setQuoteLinkOpen(false)}
           notify={notify}
         />
       )}
