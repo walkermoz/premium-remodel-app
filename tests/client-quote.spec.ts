@@ -105,7 +105,7 @@ cloudTest(
     expect(accepted.status()).toBe(200);
     await clientPage.reload();
     await expect(
-      clientPage.getByText("Approved", { exact: true }),
+      clientPage.getByText("Approved", { exact: true }).first(),
     ).toBeVisible();
     const projectLink = await api.post("/api/client-links", {
       headers: origin,
