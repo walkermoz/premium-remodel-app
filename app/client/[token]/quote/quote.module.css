@@ -120,6 +120,7 @@
   font-weight: 700;
   line-height: 1.08;
   text-transform: uppercase;
+  word-spacing: 0.18em;
 }
 
 .titleBlock p {
