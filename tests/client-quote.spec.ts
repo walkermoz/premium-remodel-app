@@ -69,7 +69,7 @@ cloudTest(
       .replace("/client/", "/api/client-quote/")
       .replace(/\/quote$/, "/wallet");
     const missingFormToken = await client.request.post(walletEndpoint, {
-      form: { method: "card" },
+      form: {},
       maxRedirects: 0,
     });
     expect(missingFormToken.status()).toBe(303);
@@ -84,7 +84,6 @@ cloudTest(
       .digest("base64url");
     const validForm = await client.request.post(walletEndpoint, {
       form: {
-        method: "card",
         authenticity: `${issuedAt}.${formSignature}`,
       },
       maxRedirects: 0,

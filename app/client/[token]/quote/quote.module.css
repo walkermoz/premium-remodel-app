@@ -354,11 +354,6 @@
   cursor: pointer;
 }
 
-.walletActions form + form button {
-  color: #176b42;
-  background: #fff;
-}
-
 .walletActions button:hover {
   filter: brightness(0.94);
 }

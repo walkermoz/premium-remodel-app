@@ -45,10 +45,6 @@ export async function POST(
     if (!process.env.STRIPE_SECRET_KEY)
       return Response.redirect(walletUrl(request, token, "unavailable"), 303);
     await limitAttempts(`client-wallet:${id}`, 10);
-    const method = form.get("method");
-    if (method !== "card" && method !== "bank")
-      throw new HttpError(400, "Choose a payment method.");
-
     const admin = supabaseAdmin();
     const { data: link, error } = await admin
       .from("remodel_client_links")
@@ -86,9 +82,7 @@ export async function POST(
     const session = await stripe.checkout.sessions.create({
       mode: "setup",
       customer: customerId,
-      allowed_payment_method_types: [
-        method === "card" ? "card" : "us_bank_account",
-      ],
+      allowed_payment_method_types: ["card", "us_bank_account"],
       billing_address_collection: "auto",
       client_reference_id: id,
       metadata: { source: "premium_remodel_client_wallet", client_link_id: id },

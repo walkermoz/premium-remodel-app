@@ -207,7 +207,7 @@ async function ClientSectionView({
     <main className={styles.sectionPage}>
       <h1>Payment methods</h1>
       <p className={styles.sectionIntro}>
-        Save a card or bank account securely with Stripe for future invoices.
+        Add a card or bank account securely with Stripe for future invoices.
         Nothing is charged today.
       </p>
       <div className={styles.walletCard}>
@@ -245,28 +245,13 @@ async function ClientSectionView({
               method="post"
               action={`/api/client-quote/${encodeURIComponent(token)}/wallet`}
             >
-              <input type="hidden" name="method" value="card" />
               <input
                 type="hidden"
                 name="authenticity"
                 value={walletFormToken}
               />
               <button type="submit">
-                <CreditCard size={18} aria-hidden="true" /> Save a card
-              </button>
-            </form>
-            <form
-              method="post"
-              action={`/api/client-quote/${encodeURIComponent(token)}/wallet`}
-            >
-              <input type="hidden" name="method" value="bank" />
-              <input
-                type="hidden"
-                name="authenticity"
-                value={walletFormToken}
-              />
-              <button type="submit">
-                <Plus size={18} aria-hidden="true" /> Save a bank account
+                <CreditCard size={18} aria-hidden="true" /> Add payment method
               </button>
             </form>
           </div>
