@@ -154,15 +154,19 @@ export default function CustomerAcceptance({
   if (acceptance)
     return (
       <div className={styles.acceptanceGrid}>
-        <div>
+        <div className={styles.acceptanceDetails}>
+          <div>
+            <span className={styles.acceptanceLabel}>Print name</span>
+            <p>{acceptance.signedName}</p>
+          </div>
+          <div>
+            <span className={styles.acceptanceLabel}>Date</span>
+            <p>{displayDate(new Date(acceptance.signedAt))}</p>
+          </div>
+        </div>
+        <div className={styles.acceptanceSignature}>
           <span className={styles.acceptanceLabel}>Signature</span>
           <SignatureImage strokes={acceptance.signatureStrokes} />
-        </div>
-        <div>
-          <span className={styles.acceptanceLabel}>Print name</span>
-          <p>{acceptance.signedName}</p>
-          <span className={styles.acceptanceLabel}>Date</span>
-          <p>{displayDate(new Date(acceptance.signedAt))}</p>
         </div>
       </div>
     );
@@ -173,7 +177,29 @@ export default function CustomerAcceptance({
   return (
     <form className={styles.signForm} onSubmit={submit}>
       <div className={styles.acceptanceGrid}>
-        <div>
+        <div className={styles.acceptanceDetails}>
+          <div>
+            <label htmlFor="customer-name" className={styles.acceptanceLabel}>
+              Print name
+            </label>
+            <input
+              id="customer-name"
+              name="signedName"
+              value={signedName}
+              onChange={(event) => setSignedName(event.target.value)}
+              autoComplete="name"
+              maxLength={100}
+              minLength={2}
+              required
+              disabled={pending}
+            />
+          </div>
+          <div>
+            <span className={styles.acceptanceLabel}>Date</span>
+            <p>{today}</p>
+          </div>
+        </div>
+        <div className={styles.acceptanceSignature}>
           <label
             htmlFor="customer-signature"
             className={styles.acceptanceLabel}
@@ -215,24 +241,6 @@ export default function CustomerAcceptance({
           >
             Clear signature
           </button>
-        </div>
-        <div>
-          <label htmlFor="customer-name" className={styles.acceptanceLabel}>
-            Print name
-          </label>
-          <input
-            id="customer-name"
-            name="signedName"
-            value={signedName}
-            onChange={(event) => setSignedName(event.target.value)}
-            autoComplete="name"
-            maxLength={100}
-            minLength={2}
-            required
-            disabled={pending}
-          />
-          <span className={styles.acceptanceLabel}>Date</span>
-          <p>{today}</p>
         </div>
       </div>
       <label className={styles.signConsent}>
