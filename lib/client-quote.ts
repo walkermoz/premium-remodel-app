@@ -14,6 +14,9 @@ const quoteSchema = z.object({
   status: z.string(),
   quoteNumber: z.string().optional(),
   revisedDate: z.string().optional(),
+  clientPhone: z.string().optional(),
+  preparedBy: z.string().optional(),
+  preparedByPhone: z.string().optional(),
   quoteSentAt: z.string().optional(),
   quoteAcceptedAt: z.string().optional(),
   quoteNotes: z.string().optional(),
@@ -45,9 +48,6 @@ const snapshotSchema = z.object({
         "/images/outdoor.jpg",
         "/images/home.jpg",
       ]),
-      clientPhone: z.string().optional(),
-      preparedBy: z.string().optional(),
-      preparedByPhone: z.string().optional(),
     })
     .passthrough(),
   items: z

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Download, Mail, MapPin } from "lucide-react";
+import { Download, Mail } from "lucide-react";
 import { readClientQuote } from "@/lib/client-quote";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import styles from "./quote.module.css";
@@ -21,13 +21,17 @@ function money(value: number) {
 
 function date(value?: string) {
   if (!value) return "";
-  const parsed = new Date(value);
+  const day = value.slice(0, 10);
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(day)
+    ? new Date(`${day}T00:00:00Z`)
+    : new Date(value);
   return Number.isNaN(parsed.valueOf())
     ? ""
     : new Intl.DateTimeFormat("en-US", {
         month: "long",
         day: "numeric",
         year: "numeric",
+        timeZone: "UTC",
       }).format(parsed);
 }
 
@@ -41,126 +45,151 @@ export default async function ClientQuotePage({
   if (!view) notFound();
 
   const { quote, items, total, approved } = view;
-  const sections = new Map<string, { name: string; items: typeof items }>();
-  for (const item of items) {
-    const name = item.sectionName?.trim() || quote.category || "Scope of work";
-    const key = item.sectionId || name;
-    if (!sections.has(key)) sections.set(key, { name, items: [] });
-    sections.get(key)!.items.push(item);
-  }
+  const number = quote.quoteNumber || quote.id.slice(0, 8).toUpperCase();
+  const sectionTotals = new Map<string, number>();
+  const sections: Array<{
+    key: string;
+    name: string;
+    items: Array<{ item: (typeof items)[number]; striped: boolean }>;
+  }> = [];
+  items.forEach((item, index) => {
+    const name = item.sectionName?.trim() || quote.category || "General scope";
+    const key = item.sectionId?.trim()
+      ? `id:${item.sectionId.trim()}`
+      : item.sectionName?.trim()
+        ? `name:${item.sectionName.trim().toLowerCase()}`
+        : "ungrouped";
+    sectionTotals.set(key, (sectionTotals.get(key) || 0) + item.estimate);
+    if (sections.at(-1)?.key !== key) sections.push({ key, name, items: [] });
+    sections.at(-1)!.items.push({ item, striped: index % 2 === 1 });
+  });
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <img src="/images/logo.png" alt="Premium Remodel" />
-          <span>Client quote</span>
+      <nav className={styles.toolbar} aria-label="Quote actions">
+        <div className={styles.toolbarMeta}>
+          <span>Premium Remodel Quote #{number}</span>
+          <span className={styles.toolbarStatus}>
+            {approved ? "Approved" : "Awaiting response"}
+          </span>
         </div>
-      </header>
-      <main className={styles.layout}>
-        <article className={styles.document}>
-          <div className={styles.heading}>
-            <div className={styles.kicker}>
-              PREMIUM REMODEL · QUOTE{" "}
-              {quote.quoteNumber ? `#${quote.quoteNumber}` : ""}
-            </div>
-            <div className={styles.headingRow}>
-              <h1>{quote.name}</h1>
-              <span className={approved ? styles.approved : styles.awaiting}>
-                {approved ? "Approved" : "Awaiting response"}
-              </span>
-            </div>
-            {quote.address && (
-              <p className={styles.address}>
-                <MapPin size={16} aria-hidden="true" /> {quote.address}
-              </p>
-            )}
-            <dl className={styles.meta}>
-              <div>
-                <dt>Prepared for</dt>
-                <dd>{quote.client || "Client"}</dd>
-              </div>
-              <div>
-                <dt>{approved ? "Approved" : "Sent"}</dt>
-                <dd>
-                  {date(approved ? quote.quoteAcceptedAt : quote.quoteSentAt) ||
-                    "Date unavailable"}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <section className={styles.scope} aria-labelledby="scope-title">
-            <div className={styles.sectionHeading}>
-              <h2 id="scope-title">Scope of work</h2>
-              <span>
-                {items.length} {items.length === 1 ? "item" : "items"}
-              </span>
-            </div>
-            {sections.size ? (
-              [...sections.entries()].map(([key, section]) => (
-                <div className={styles.group} key={key}>
-                  <h3>{section.name}</h3>
-                  {section.items.map((item) => (
-                    <div className={styles.item} key={item.id}>
-                      <div>
-                        <strong>{item.title}</strong>
-                        {item.details && <p>{item.details}</p>}
-                      </div>
-                      <span>{money(item.estimate)}</span>
-                    </div>
-                  ))}
-                </div>
-              ))
-            ) : (
-              <p className={styles.empty}>
-                Scope details have not been added yet.
-              </p>
-            )}
-            <div className={styles.total}>
-              <span>Total project investment</span>
-              <strong>{money(total)}</strong>
-            </div>
-          </section>
-
-          <section className={styles.terms} aria-labelledby="terms-title">
-            <h2 id="terms-title">Notes & payment</h2>
-            {quote.quoteNotes && (
-              <p className={styles.quoteNotes}>{quote.quoteNotes}</p>
-            )}
-            <p>{changeOrderTerms}</p>
-            <p>{paymentTerms}</p>
-          </section>
-        </article>
-
-        <aside className={styles.actions}>
-          <p className={styles.actionsEyebrow}>YOUR QUOTE</p>
-          <strong>{money(total)}</strong>
-          <p>
-            {approved
-              ? "Thank you for approving this quote."
-              : "Review the scope and reply to your quote email when you’re ready to move forward or need a change."}
-          </p>
+        <div className={styles.toolbarActions}>
           <a
-            className={styles.primary}
+            href={`mailto:contact@premiumremodel.com?subject=${encodeURIComponent(`Question about Premium Remodel Quote #${number}`)}`}
+          >
+            <Mail size={16} aria-hidden="true" /> Ask a question
+          </a>
+          <a
+            className={styles.download}
             href={`/api/client-quote/${encodeURIComponent(token)}/pdf`}
           >
-            <Download size={17} aria-hidden="true" /> Download PDF
+            <Download size={16} aria-hidden="true" /> Download PDF
           </a>
-          <a
-            className={styles.secondary}
-            href={`mailto:contact@premiumremodel.com?subject=${encodeURIComponent(`Question about Premium Remodel Quote ${quote.quoteNumber ? `#${quote.quoteNumber}` : quote.name}`)}`}
-          >
-            <Mail size={17} aria-hidden="true" /> Ask a question
-          </a>
-        </aside>
+        </div>
+      </nav>
+
+      <main className={styles.document}>
+        <div className={styles.masthead}>
+          <p>PREMIUM REMODEL&nbsp; | &nbsp;REMODEL QUOTE</p>
+          <img src="/images/logo.png" alt="Premium Remodel" />
+        </div>
+
+        <header className={styles.titleBlock}>
+          <h1>{quote.name}</h1>
+          <p>
+            Quote #{number} <span aria-hidden="true">|</span> Revised{" "}
+            {date(quote.revisedDate || quote.updatedAt)}
+          </p>
+        </header>
+
+        <section className={styles.parties} aria-label="Quote details">
+          <div>
+            <h2>Prepared for</h2>
+            <p>{quote.client || "Client"}</p>
+            {quote.clientPhone && <p>{quote.clientPhone}</p>}
+            <small>Prepared by {quote.preparedBy || "Premium Remodel"}</small>
+          </div>
+          <div>
+            <h2>Project address</h2>
+            {quote.address ? (
+              quote.address
+                .split(",")
+                .map((part) => part.trim())
+                .filter(Boolean)
+                .map((part, index) => <p key={`${index}-${part}`}>{part}</p>)
+            ) : (
+              <p>Address to be confirmed</p>
+            )}
+          </div>
+        </section>
+
+        <section
+          className={styles.investment}
+          aria-label="Total project investment"
+        >
+          <span>Total project investment</span>
+          <strong>{money(total)}</strong>
+        </section>
+
+        <section className={styles.scope} aria-label="Scope of work">
+          <div className={styles.scopeHeader}>
+            <h2>Scope of work</h2>
+            <span>Line total</span>
+          </div>
+          {sections.map((section, index) => (
+            <div key={`${section.key}-${index}`}>
+              <div className={styles.sectionHeader}>
+                <h3>Project&nbsp; | &nbsp;{section.name}</h3>
+                <span>
+                  Section total&nbsp;{" "}
+                  {money(sectionTotals.get(section.key) || 0)}
+                </span>
+              </div>
+              {section.items.map(({ item, striped }) => (
+                <div
+                  className={`${styles.item} ${striped ? styles.striped : ""}`}
+                  key={item.id}
+                >
+                  <div>
+                    <strong>{item.title}</strong>
+                    {item.details && <p>{item.details}</p>}
+                  </div>
+                  <span>{money(item.estimate)}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+          <div className={styles.scopeTotal}>
+            <span>Total project investment</span>
+            <strong>{money(total)}</strong>
+          </div>
+        </section>
+
+        <section className={styles.terms} aria-labelledby="terms-title">
+          <h2 id="terms-title">Notes &amp; payment</h2>
+          {quote.quoteNotes && <p>{quote.quoteNotes}</p>}
+          <p>{changeOrderTerms}</p>
+          <p>{paymentTerms}</p>
+        </section>
+
+        <section className={styles.acceptance} aria-label="Customer acceptance">
+          <h2>Customer acceptance</h2>
+          <div>
+            <p>Signature: __________________________</p>
+            <p>Print name: ______________________</p>
+          </div>
+          <p>Date: _______________</p>
+        </section>
+
+        <footer className={styles.footer}>
+          <span>
+            premiumremodel.com&nbsp; | &nbsp;
+            {quote.preparedBy || "Premium Remodel"}&nbsp; | &nbsp;
+            {quote.preparedByPhone || "(919) 413-9782"}
+          </span>
+          <span>Page 1</span>
+        </footer>
       </main>
-      <footer className={styles.footer}>
-        <span>Premium Remodel</span>
-        <a href="mailto:contact@premiumremodel.com">
-          contact@premiumremodel.com
-        </a>
-      </footer>
     </div>
   );
 }
