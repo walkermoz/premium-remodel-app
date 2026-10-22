@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, limitAttempts } from "@/lib/auth";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
+import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
 
@@ -97,8 +98,25 @@ export async function POST(request: Request) {
     if (error) throw error;
     if (!created?.[0]) throw new Error("Lead intake did not return a record.");
 
-    const notification = await sendDiscordLeadNotification(data);
     const leadId = String(created[0].lead_id);
+    const [notificationResult, acknowledgementResult] =
+      await Promise.allSettled([
+        sendDiscordLeadNotification(data),
+        sendWebsiteLeadAcknowledgement({
+          organizationId,
+          recipientEmail: data.email,
+          firstName: data.first_name,
+          projectType: data.project,
+        }),
+      ]);
+    const notification =
+      notificationResult.status === "fulfilled"
+        ? notificationResult.value
+        : { status: "failed", attemptedAt: new Date().toISOString() };
+    const emailAcknowledgement =
+      acknowledgementResult.status === "fulfilled"
+        ? acknowledgementResult.value
+        : { status: "failed", attemptedAt: new Date().toISOString() };
     const { data: storedLead, error: readError } = await admin
       .from("remodel_records")
       .select("data")
@@ -121,6 +139,7 @@ export async function POST(request: Request) {
             smsMarketingOptIn: data.sms_marketing_opt_in,
             otherSubmittedFields,
             discordNotification: notification,
+            emailAcknowledgement,
             disposition: "Active",
             updatedAt,
           },

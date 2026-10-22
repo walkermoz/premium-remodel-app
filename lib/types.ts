@@ -237,6 +237,13 @@ export interface Lead extends Base {
   smsMarketingOptIn?: boolean;
   /** Bounded, inert values from unrecognized website form fields. */
   otherSubmittedFields?: Record<string, string>;
+  /** Delivery result for the transactional website lead acknowledgement. */
+  emailAcknowledgement?: {
+    status: "sent" | "failed" | "unknown" | "not_configured" | "skipped";
+    attemptedAt: string;
+    googleMessageId?: string;
+    detail?: string;
+  };
   /** Funnel stage. Legacy leads use "New". */
   status: LeadStage;
   /** Default Active when omitted (legacy leads). */

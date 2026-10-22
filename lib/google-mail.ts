@@ -27,7 +27,10 @@ type Connection = {
 };
 
 export class GoogleMailError extends Error {
-  constructor(message: string, public status = 502) {
+  constructor(
+    message: string,
+    public status = 502,
+  ) {
     super(message);
     this.name = "GoogleMailError";
   }
@@ -218,7 +221,9 @@ export async function connectGoogleMail(
     })
     .safeParse(await json(tokenResponse));
   if (!tokenResponse.ok || !tokens.success)
-    throw new GoogleMailError("Google could not connect this mailbox. Try again.");
+    throw new GoogleMailError(
+      "Google could not connect this mailbox. Try again.",
+    );
   if (!tokens.data.scope?.split(" ").includes(googleMailScope))
     throw new GoogleMailError("Gmail send permission was not granted.", 403);
   const infoResponse = await fetcher(
@@ -276,7 +281,10 @@ export async function connectGoogleMail(
 
 export async function disconnectGoogleMail(user: WorkspaceUser) {
   if (user.role !== "admin")
-    throw new HttpError(403, "Only administrators can disconnect company email.");
+    throw new HttpError(
+      403,
+      "Only administrators can disconnect company email.",
+    );
   const previous = await connection(user.organizationId);
   if (!previous) return googleMailStatus(user);
   const { error } = await supabaseAdmin()
@@ -297,9 +305,20 @@ export async function gmailAccessToken(
   user: WorkspaceUser,
   fetcher: Fetcher = fetch,
 ) {
-  const current = await connection(user.organizationId);
+  return gmailAccessTokenForOrganization(user.organizationId, fetcher);
+}
+
+/** Used by server-side website intake, which has no signed-in workspace user. */
+export async function gmailAccessTokenForOrganization(
+  organizationId: string,
+  fetcher: Fetcher = fetch,
+) {
+  const current = await connection(organizationId);
   if (!current)
-    throw new HttpError(409, "Connect the company Gmail account in Settings first.");
+    throw new HttpError(
+      409,
+      "Connect the company Gmail account in Settings first.",
+    );
   const { clientId, clientSecret } = requiredConfig();
   const response = await fetcher("https://oauth2.googleapis.com/token", {
     method: "POST",

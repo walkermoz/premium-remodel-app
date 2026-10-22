@@ -71,6 +71,20 @@ export const schemas = {
       otherSubmittedFields: z
         .record(z.string().max(80), z.string().max(1000))
         .optional(),
+      emailAcknowledgement: z
+        .object({
+          status: z.enum([
+            "sent",
+            "failed",
+            "unknown",
+            "not_configured",
+            "skipped",
+          ]),
+          attemptedAt: z.iso.datetime(),
+          googleMessageId: z.string().max(200).optional(),
+          detail: z.string().max(200).optional(),
+        })
+        .optional(),
       status: z.enum(leadStages),
       disposition: z.enum(leadDispositions).optional(),
       notes: text.optional(),

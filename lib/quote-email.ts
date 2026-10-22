@@ -7,6 +7,7 @@ import { z } from "zod";
 import { HttpError, type WorkspaceUser } from "./auth";
 import { recordAuditEvent } from "./audit-server";
 import { gmailAccessToken, googleMailAddress } from "./google-mail";
+import { renderQuoteEmail } from "./email-template";
 import { buildQuotePdf, quotePdfFileName } from "./quote-pdf";
 import { findRecord, getWorkspace, updateRecord } from "./repository";
 import { supabaseAdmin } from "./supabase/server";
@@ -28,21 +29,31 @@ function header(value: string) {
 }
 
 function base64Lines(bytes: Uint8Array) {
-  return Buffer.from(bytes)
-    .toString("base64")
-    .match(/.{1,76}/g)
-    ?.join("\r\n") || "";
+  return (
+    Buffer.from(bytes)
+      .toString("base64")
+      .match(/.{1,76}/g)
+      ?.join("\r\n") || ""
+  );
 }
 
 export function quoteEmailRaw(
   input: SendInput,
   pdf: Uint8Array,
   filename: string,
+  logo: Uint8Array,
 ) {
   const boundary = `premium-remodel-${randomUUID()}`;
-  const safeFilename = header(filename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, ""));
+  const relatedBoundary = `premium-remodel-related-${randomUUID()}`;
+  const alternativeBoundary = `premium-remodel-alternative-${randomUUID()}`;
+  const safeFilename = header(
+    filename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, ""),
+  );
   const safeSubject = header(input.subject);
   const safeRecipient = header(input.recipientEmail);
+  const email = renderQuoteEmail({
+    message: input.message,
+  });
   const lines = [
     `From: Premium Remodel <${googleMailAddress}>`,
     `To: ${safeRecipient}`,
@@ -51,10 +62,30 @@ export function quoteEmailRaw(
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     "",
     `--${boundary}`,
+    `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
+    "",
+    `--${relatedBoundary}`,
+    `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
+    "",
+    `--${alternativeBoundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
     "",
-    base64Lines(Buffer.from(input.message, "utf8")),
+    base64Lines(Buffer.from(email.text, "utf8")),
+    `--${alternativeBoundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    base64Lines(Buffer.from(email.html, "utf8")),
+    `--${alternativeBoundary}--`,
+    `--${relatedBoundary}`,
+    'Content-Type: image/png; name="premium-remodel-logo.png"',
+    "Content-Transfer-Encoding: base64",
+    "Content-ID: <premium-remodel-logo>",
+    'Content-Disposition: inline; filename="premium-remodel-logo.png"',
+    "",
+    base64Lines(logo),
+    `--${relatedBoundary}--`,
     `--${boundary}`,
     'Content-Type: application/pdf; name="quote.pdf"',
     "Content-Transfer-Encoding: base64",
@@ -150,7 +181,7 @@ export async function sendQuoteEmail(
     const pdf = await buildQuotePdf(quote, workspace.scope, logo);
     if (pdf.length > 20 * 1024 * 1024)
       throw new HttpError(413, "This quote PDF is too large to email.");
-    const raw = quoteEmailRaw(input, pdf, quotePdfFileName(quote));
+    const raw = quoteEmailRaw(input, pdf, quotePdfFileName(quote), logo);
     attempted = true;
     const response = await fetcher(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
@@ -184,7 +215,8 @@ export async function sendQuoteEmail(
         error: null,
       });
     } catch {
-      warning = "Gmail sent the quote, but its delivery log could not be updated.";
+      warning =
+        "Gmail sent the quote, but its delivery log could not be updated.";
     }
     const now = new Date().toISOString();
     try {
@@ -195,7 +227,8 @@ export async function sendQuoteEmail(
         quote.updatedAt,
       );
     } catch {
-      warning = "The email was sent, but the quote status could not be updated. Refresh the quote.";
+      warning =
+        "The email was sent, but the quote status could not be updated. Refresh the quote.";
     }
     try {
       await recordAuditEvent(user, {
@@ -212,7 +245,9 @@ export async function sendQuoteEmail(
         },
       });
     } catch {
-      warning = warning || "The email was sent, but its audit entry could not be saved.";
+      warning =
+        warning ||
+        "The email was sent, but its audit entry could not be saved.";
     }
     return { sent: true, warning };
   } catch (error) {
@@ -220,14 +255,16 @@ export async function sendQuoteEmail(
       try {
         await updateSend(user, input.requestId, {
           state: "sent",
-          error: "Google accepted the message; response processing was incomplete.",
+          error:
+            "Google accepted the message; response processing was incomplete.",
         });
       } catch {
         // The reserved ID still blocks accidental reuse of this send attempt.
       }
       return {
         sent: true,
-        warning: "Gmail accepted this quote, but confirmation could not be completed. Check Gmail Sent before trying again.",
+        warning:
+          "Gmail accepted this quote, but confirmation could not be completed. Check Gmail Sent before trying again.",
       };
     }
     const message =
