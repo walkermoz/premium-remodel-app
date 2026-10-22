@@ -106,7 +106,6 @@ export async function POST(request: Request) {
           organizationId,
           recipientEmail: data.email,
           firstName: data.first_name,
-          projectType: data.project,
         }),
       ]);
     const notification =

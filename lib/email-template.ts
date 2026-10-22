@@ -50,14 +50,13 @@ export function renderQuoteEmail(input: { message: string; logoSrc?: string }) {
 /** Transactional acknowledgement for a submitted website lead. */
 export function renderLeadAcknowledgement(input: {
   firstName?: string;
-  projectType?: string;
   logoSrc?: string;
 }) {
   const greeting = input.firstName ? `Hi ${input.firstName},` : "Hello,";
   return renderPremiumEmail({
-    preheader: "We received your project request.",
-    title: "We received your request",
-    message: `${greeting}\n\nThanks for reaching out to Premium Remodel. We received your${input.projectType ? ` ${input.projectType.toLowerCase()}` : " project"} request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThe Premium Remodel team`,
+    preheader: "We received your remodel request.",
+    title: "We received your remodel request",
+    message: `${greeting}\n\nThanks for reaching out to Premium Remodel. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThe Premium Remodel team`,
     logoSrc: input.logoSrc,
   });
 }

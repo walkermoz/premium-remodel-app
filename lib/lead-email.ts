@@ -30,18 +30,17 @@ function base64Lines(bytes: Uint8Array) {
 export function leadAcknowledgementRaw(
   recipientEmail: string,
   firstName: string,
-  projectType: string,
   logo: Uint8Array,
 ) {
   if (/[\r\n\x00-\x1f\x7f]/.test(recipientEmail))
     throw new HttpError(400, "Email address contains invalid characters.");
   const relatedBoundary = `premium-remodel-related-${randomUUID()}`;
   const alternativeBoundary = `premium-remodel-alternative-${randomUUID()}`;
-  const email = renderLeadAcknowledgement({ firstName, projectType });
+  const email = renderLeadAcknowledgement({ firstName });
   const lines = [
     `From: Premium Remodel <${googleMailAddress}>`,
     `To: ${recipientEmail}`,
-    "Subject: We received your project request",
+    "Subject: We received your remodel request",
     "MIME-Version: 1.0",
     `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
     "",
@@ -78,7 +77,6 @@ export async function sendWebsiteLeadAcknowledgement(
     organizationId: string;
     recipientEmail?: string;
     firstName?: string;
-    projectType?: string;
   },
   fetcher: typeof fetch = fetch,
 ): Promise<LeadEmailResult> {
@@ -99,7 +97,6 @@ export async function sendWebsiteLeadAcknowledgement(
     const raw = leadAcknowledgementRaw(
       input.recipientEmail,
       input.firstName || "",
-      input.projectType || "",
       logo,
     );
     attemptedSend = true;

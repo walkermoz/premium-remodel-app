@@ -26,11 +26,12 @@ test("quote message remains readable in both formats and escapes customer text",
   expect(email.text).not.toContain("premiumremodel.com");
 });
 
-test("lead acknowledgement works without optional project details", () => {
-  const email = renderLeadAcknowledgement({});
+test("lead acknowledgement uses the same remodel wording for every lead", () => {
+  const email = renderLeadAcknowledgement({ firstName: "Walker" });
   expect(email.text).toContain(
-    "We received your project request and will review",
+    "We received your remodel request and will review",
   );
-  expect(email.html).toContain("We received your request");
+  expect(email.html).toContain("We received your remodel request");
+  expect(email.text).not.toContain("bathroom remodel request");
   expect(email.text).not.toContain("undefined");
 });
