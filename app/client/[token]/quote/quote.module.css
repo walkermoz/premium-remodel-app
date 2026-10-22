@@ -287,8 +287,7 @@
 .quoteCardTotal {
   padding-top: 14px;
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
+  align-items: flex-start;
   flex-direction: column;
   gap: 4px;
   border-top: 1px solid #d7e0e5;
