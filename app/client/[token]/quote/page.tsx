@@ -187,9 +187,6 @@ async function ClientSectionView({
             <b>{money(total)}</b>
           </span>
         </a>
-        <p className={styles.sectionHint}>
-          This private link includes the quote shared with you.
-        </p>
       </main>
     );
 
