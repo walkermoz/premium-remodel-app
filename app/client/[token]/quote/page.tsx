@@ -13,6 +13,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { readClientQuote, type ClientQuoteView } from "@/lib/client-quote";
+import { createClientWalletFormToken } from "@/lib/client-portal";
 import { savedPaymentMethods } from "@/lib/client-wallet";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import styles from "./quote.module.css";
@@ -201,6 +202,7 @@ async function ClientSectionView({
       methodsUnavailable = true;
     }
   }
+  const walletFormToken = createClientWalletFormToken(token);
   return (
     <main className={styles.sectionPage}>
       <h1>Payment methods</h1>
@@ -232,6 +234,11 @@ async function ClientSectionView({
             contact us.
           </p>
         )}
+        {result === "expired" && (
+          <p role="alert" className={styles.walletError}>
+            Please try saving your payment method again.
+          </p>
+        )}
         {!methodsUnavailable && (
           <div className={styles.walletActions}>
             <form
@@ -239,6 +246,11 @@ async function ClientSectionView({
               action={`/api/client-quote/${encodeURIComponent(token)}/wallet`}
             >
               <input type="hidden" name="method" value="card" />
+              <input
+                type="hidden"
+                name="authenticity"
+                value={walletFormToken}
+              />
               <button type="submit">
                 <CreditCard size={18} aria-hidden="true" /> Save a card
               </button>
@@ -248,6 +260,11 @@ async function ClientSectionView({
               action={`/api/client-quote/${encodeURIComponent(token)}/wallet`}
             >
               <input type="hidden" name="method" value="bank" />
+              <input
+                type="hidden"
+                name="authenticity"
+                value={walletFormToken}
+              />
               <button type="submit">
                 <Plus size={18} aria-hidden="true" /> Save a bank account
               </button>

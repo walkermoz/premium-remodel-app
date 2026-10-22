@@ -1,11 +1,9 @@
-import {
-  checkOrigin,
-  HttpError,
-  limitAttempts,
-  requestOrigin,
-} from "@/lib/auth";
+import { HttpError, limitAttempts, requestOrigin } from "@/lib/auth";
 import { readClientQuote } from "@/lib/client-quote";
-import { parseClientPortalToken } from "@/lib/client-portal";
+import {
+  parseClientPortalToken,
+  validClientWalletFormToken,
+} from "@/lib/client-portal";
 import { stripeClient } from "@/lib/stripe-payments";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -21,6 +19,16 @@ function walletUrl(request: Request, token: string, result?: string) {
   return url.toString();
 }
 
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ token: string }> },
+) {
+  const { token } = await params;
+  if (!parseClientPortalToken(token) || !(await readClientQuote(token)))
+    return new Response(null, { status: 404 });
+  return Response.redirect(walletUrl(request, token), 303);
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -29,13 +37,14 @@ export async function POST(
   const id = parseClientPortalToken(token);
   if (!id) return new Response(null, { status: 404 });
   try {
-    checkOrigin(request);
+    const form = await request.formData();
+    if (!validClientWalletFormToken(token, form.get("authenticity")))
+      return Response.redirect(walletUrl(request, token, "expired"), 303);
     const quote = await readClientQuote(token);
     if (!quote) return new Response(null, { status: 404 });
     if (!process.env.STRIPE_SECRET_KEY)
       return Response.redirect(walletUrl(request, token, "unavailable"), 303);
     await limitAttempts(`client-wallet:${id}`, 10);
-    const form = await request.formData();
     const method = form.get("method");
     if (method !== "card" && method !== "bank")
       throw new HttpError(400, "Choose a payment method.");

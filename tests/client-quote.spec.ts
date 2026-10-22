@@ -1,4 +1,5 @@
 import { test, expect, password } from "./supabase-fixture";
+import { createHmac } from "node:crypto";
 
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
@@ -64,6 +65,32 @@ cloudTest(
     const altered = `${token.slice(0, -1)}${token.endsWith("A") ? "B" : "A"}`;
 
     const client = await browser.newContext();
+    const walletEndpoint = first.url
+      .replace("/client/", "/api/client-quote/")
+      .replace(/\/quote$/, "/wallet");
+    const missingFormToken = await client.request.post(walletEndpoint, {
+      form: { method: "card" },
+      maxRedirects: 0,
+    });
+    expect(missingFormToken.status()).toBe(303);
+    expect(missingFormToken.headers().location).toContain("result=expired");
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const linkId = token.split(".")[0];
+    const formSignature = createHmac(
+      "sha256",
+      "playwright-only-client-portal-secret-change-before-production",
+    )
+      .update(`premium-remodel-wallet-form:${linkId}:${issuedAt}`)
+      .digest("base64url");
+    const validForm = await client.request.post(walletEndpoint, {
+      form: {
+        method: "card",
+        authenticity: `${issuedAt}.${formSignature}`,
+      },
+      maxRedirects: 0,
+    });
+    expect(validForm.status()).toBe(303);
+    expect(validForm.headers().location).toContain("view=wallet");
     expect(
       (await client.request.get(first.url.replace(token, altered))).status(),
     ).toBe(404);
