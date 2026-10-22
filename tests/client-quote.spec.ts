@@ -5,6 +5,149 @@ const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
 
 cloudTest(
+  "a customer signs a sent quote and the signature remains on the quote and PDF",
+  async ({ company, page, browser }) => {
+    const api = page.request;
+    expect(
+      (
+        await api.post("/api/auth", {
+          headers: origin,
+          data: { action: "login", email: company.email, password },
+        })
+      ).status(),
+    ).toBe(200);
+    const created = await api.post("/api/workspace", {
+      headers: origin,
+      data: {
+        kind: "quote",
+        data: {
+          name: "Bathroom remodel",
+          address: "100 Test Lane",
+          client: "Walker Portal Test",
+          clientEmail: "client@example.com",
+          clientPhone: "",
+          startDate: "",
+          endDate: "",
+          completedDate: "",
+          status: "Sent",
+          description: "Test quote",
+          category: "Bathroom",
+          cover: "",
+          quoteNumber: "999",
+          quoteNotes: "Test quote only.",
+        },
+      },
+    });
+    expect(created.status()).toBe(201);
+    const quote = await created.json();
+    const scope = await api.post("/api/workspace", {
+      headers: origin,
+      data: {
+        kind: "scope",
+        data: {
+          projectId: quote.id,
+          title: "Shower waterproofing",
+          details: "Waterproof shower.",
+          quantity: 1,
+          unit: "job",
+          estimate: 1850,
+          subCost: 0,
+          materialCost: 0,
+          contractorId: "",
+          status: "To do",
+        },
+      },
+    });
+    expect(scope.status()).toBe(201);
+    const linkResponse = await api.post("/api/client-links", {
+      headers: origin,
+      data: { projectId: quote.id, kind: "quote" },
+    });
+    expect(linkResponse.status()).toBe(201);
+    const link = await linkResponse.json();
+    const client = await browser.newContext();
+    const signEndpoint = link.url
+      .replace("/client/", "/api/client-quote/")
+      .replace(/\/quote$/, "/sign");
+    const pdfEndpoint = link.url
+      .replace("/client/", "/api/client-quote/")
+      .replace(/\/quote$/, "/pdf");
+    const unsignedPdf = await client.request.get(pdfEndpoint);
+    expect(unsignedPdf.status()).toBe(200);
+    const missingConsent = await client.request.post(signEndpoint, {
+      headers: origin,
+      data: {
+        signedName: "Walker Portal Test",
+        quoteUpdatedAt: quote.updatedAt,
+        signatureStrokes: [[[0.1, 0.1], [0.3, 0.3]]],
+      },
+    });
+    expect(missingConsent.status()).toBe(400);
+    const customerPage = await client.newPage();
+    await customerPage.goto(link.url);
+    await expect(
+      customerPage.getByRole("textbox", { name: "Print name" }),
+    ).toHaveValue("Walker Portal Test");
+    await expect(customerPage.getByText("Date", { exact: true })).toBeVisible();
+    const pad = customerPage.getByRole("img", {
+      name: "Draw your signature here",
+    });
+    await pad.click();
+    await pad.scrollIntoViewIfNeeded();
+    const box = await pad.boundingBox();
+    expect(box).toBeTruthy();
+    await customerPage.mouse.move(box!.x + 20, box!.y + 40);
+    await customerPage.mouse.down();
+    await customerPage.mouse.move(box!.x + 100, box!.y + 20, { steps: 8 });
+    await customerPage.mouse.move(box!.x + 180, box!.y + 45, { steps: 8 });
+    await customerPage.mouse.up();
+    await expect(pad.locator("polyline")).toHaveCount(1);
+    await customerPage
+      .getByRole("checkbox", { name: /I agree to this quote/ })
+      .check();
+    await customerPage
+      .getByRole("button", { name: "Sign and accept quote" })
+      .click();
+    await expect(
+      customerPage.getByRole("img", { name: "Customer signature" }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByText("Walker Portal Test").last(),
+    ).toBeVisible();
+    const record = await company.admin
+      .from("remodel_records")
+      .select("kind,data")
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .single();
+    expect(record.error).toBeNull();
+    expect(record.data?.kind).toBe("project");
+    expect(record.data?.data.quoteAcceptance.signedName).toBe(
+      "Walker Portal Test",
+    );
+    expect(
+      record.data?.data.quoteAcceptance.signatureStrokes.length,
+    ).toBeGreaterThan(0);
+    expect(record.data?.data.quoteAcceptance.ip).toBeDefined();
+    const replay = await client.request.post(signEndpoint, {
+      headers: origin,
+      data: {
+        signedName: "Walker Portal Test",
+        quoteUpdatedAt: record.data?.data.quoteAcceptance.quoteUpdatedAt,
+        signatureStrokes: record.data?.data.quoteAcceptance.signatureStrokes,
+        acceptedTerms: true,
+      },
+    });
+    expect(replay.status()).toBe(200);
+    const pdf = await client.request.get(pdfEndpoint);
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toBe("application/pdf");
+    expect(await pdf.body()).not.toEqual(await unsignedPdf.body());
+    await client.close();
+  },
+);
+
+cloudTest(
   "a client quote link shows only one public quote and can be replaced",
   async ({ company, page, browser }) => {
     const api = page.request;

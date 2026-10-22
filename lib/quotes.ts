@@ -26,6 +26,7 @@ export function preserveProjectHistory(
     "quoteSentAt",
     "quoteAcceptedAt",
     "quoteAcceptedBy",
+    "quoteAcceptance",
     "quoteNumber",
     "quoteNotes",
     "preparedBy",

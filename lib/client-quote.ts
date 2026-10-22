@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { parseClientPortalToken } from "./client-portal";
+import { quoteAcceptanceSchema } from "./quote-signature";
 import { supabaseAdmin } from "./supabase/server";
 import type { Quote, ScopeItem } from "./types";
 
@@ -75,6 +76,10 @@ export type ClientQuoteView = {
   items: ClientQuoteItem[];
   total: number;
   approved: boolean;
+  acceptance?: Pick<
+    z.infer<typeof quoteAcceptanceSchema>,
+    "signedName" | "signedAt" | "signatureStrokes"
+  >;
 };
 
 export function isValidClientQuoteSnapshot(value: unknown) {
@@ -120,6 +125,12 @@ export async function readClientQuoteSource(token: string) {
     .object({ quoteAcceptedAt: z.string() })
     .safeParse(record.data);
   const approved = record.kind === "project" && acceptedAt.success;
+  const parsedAcceptance = quoteAcceptanceSchema.safeParse(
+    z.object({ quoteAcceptance: z.unknown() }).safeParse(record.data).data
+      ?.quoteAcceptance,
+  );
+  const acceptance =
+    approved && parsedAcceptance.success ? parsedAcceptance.data : undefined;
   if (record.kind !== "quote" && !approved) return null;
   if (record.kind === "quote") {
     const liveStatus = z
@@ -139,13 +150,25 @@ export async function readClientQuoteSource(token: string) {
     items,
     total: items.reduce((sum, item) => sum + item.estimate, 0),
     approved,
+    acceptance: acceptance
+      ? {
+          signedName: acceptance.signedName,
+          signedAt: acceptance.signedAt,
+          signatureStrokes: acceptance.signatureStrokes,
+        }
+      : undefined,
   };
 
   await admin.rpc("remodel_note_client_portal_view", { target_link: id });
   return {
     view,
+    organizationId: link.organization_id as string,
     // Kept on the server for the same customer-facing PDF used in the dashboard.
-    pdfQuote: snapshot.data.quote as Quote,
+    pdfQuote: {
+      ...snapshot.data.quote,
+      quoteAcceptance: acceptance,
+      quoteAcceptedAt: approved ? acceptedAt.data.quoteAcceptedAt : undefined,
+    } as Quote,
     pdfItems: snapshot.data.items.map((item) => ({
       ...item,
       createdAt: item.createdAt || snapshot.data.quote.createdAt,

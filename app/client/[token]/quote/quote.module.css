@@ -982,14 +982,97 @@
   text-transform: uppercase;
 }
 
-.acceptance > div {
+.acceptanceGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 20px;
 }
 
 .acceptance p {
   margin: 0 0 13px;
+}
+
+.acceptanceLabel {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.signaturePad,
+.signatureImage {
+  display: block;
+  width: 100%;
+  height: 90px;
+  color: #152c3c;
+  border-bottom: 1px solid var(--line);
+}
+
+.signaturePad {
+  touch-action: none;
+  cursor: crosshair;
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.clearSignature {
+  margin-top: 5px;
+  padding: 0;
+  color: var(--blue);
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.signForm input[type="text"],
+.signForm input[name="signedName"] {
+  width: 100%;
+  min-height: 34px;
+  margin-bottom: 12px;
+  padding: 7px 9px;
+  color: #152c3c;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.signConsent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 13px 0;
+  line-height: 1.5;
+}
+
+.signConsent input {
+  margin: 2px 0 0;
+  flex: none;
+}
+
+.signButton {
+  padding: 9px 14px;
+  color: #fff;
+  background: var(--blue);
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.signButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.acceptance .signError {
+  margin: 0 0 10px;
+  color: #aa1e24;
 }
 
 .footer {
@@ -1201,9 +1284,9 @@
     font-size: 14px;
   }
 
-  .acceptance > div {
+  .acceptanceGrid {
     grid-template-columns: 1fr;
-    gap: 0;
+    gap: 12px;
   }
 }
 

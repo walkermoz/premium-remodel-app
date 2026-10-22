@@ -26,6 +26,18 @@ export interface Base {
   updatedAt: string;
   createdAt: string;
 }
+export type SignatureStroke = Array<[number, number]>;
+export interface QuoteAcceptance {
+  signedName: string;
+  signedAt: string;
+  signatureStrokes: SignatureStroke[];
+  linkId: string;
+  quoteUpdatedAt: string;
+  quoteSnapshotSha256: string;
+  agreementText: string;
+  ip?: string;
+  userAgent?: string;
+}
 export interface Project extends Base {
   name: string;
   address: string;
@@ -37,6 +49,7 @@ export interface Project extends Base {
   quoteSentAt?: string;
   quoteAcceptedAt?: string;
   quoteAcceptedBy?: string;
+  quoteAcceptance?: QuoteAcceptance;
   startDate: string;
   endDate: string;
   // Actual completion, separate from the target end date. Older jobs may omit it.

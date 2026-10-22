@@ -102,3 +102,35 @@ export async function syncLeadStageFromQuote(
     return null;
   }
 }
+
+/** A client-link signature has no workspace member, so attribute this update to the link. */
+export async function syncLeadStageFromClientAcceptance(
+  organizationId: string,
+  leadId: string | undefined,
+) {
+  if (!leadId) return;
+  try {
+    const current = await findLeadRecord(organizationId, leadId);
+    if (!current || current.status === "Won") return;
+    const now = new Date(
+      Math.max(Date.now(), Date.parse(current.updatedAt) + 1),
+    ).toISOString();
+    const { error } = await supabaseAdmin()
+      .from("remodel_records")
+      .update({
+        data: { ...current, status: "Won", updatedAt: now },
+        updated_at: now,
+        updated_by: null,
+      })
+      .eq("organization_id", organizationId)
+      .eq("kind", "lead")
+      .eq("id", leadId)
+      .eq("updated_at", current.updatedAt);
+    if (error) throw error;
+  } catch (error) {
+    console.error(
+      "Could not sync lead stage from client acceptance",
+      error instanceof Error ? error.name : "LeadSyncError",
+    );
+  }
+}

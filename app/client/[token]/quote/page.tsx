@@ -17,6 +17,7 @@ import { createClientWalletFormToken } from "@/lib/client-portal";
 import { savedPaymentMethods } from "@/lib/client-wallet";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import ClientNewRequestForm from "./client-new-request-form";
+import CustomerAcceptance from "./customer-acceptance";
 import styles from "./quote.module.css";
 
 export const dynamic = "force-dynamic";
@@ -487,11 +488,19 @@ export default async function ClientQuotePage({
                 aria-label="Customer acceptance"
               >
                 <h2>Customer acceptance</h2>
-                <div>
-                  <p>Signature: __________________________</p>
-                  <p>Print name: ______________________</p>
-                </div>
-                <p>Date: _______________</p>
+                <CustomerAcceptance
+                  token={token}
+                  clientName={quote.client}
+                  today={new Intl.DateTimeFormat("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                    timeZone: "America/New_York",
+                  }).format(new Date())}
+                  quoteUpdatedAt={quote.updatedAt}
+                  approved={approved}
+                  acceptance={view.acceptance}
+                />
               </section>
 
               <footer className={styles.footer}>

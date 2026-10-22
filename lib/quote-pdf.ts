@@ -447,19 +447,68 @@ export async function buildQuotePdf(
   cursor += 12;
   cursor = drawParagraph(page, paymentTerms, cursor, regular, 8.4, 12, 450);
   cursor += 12;
+  if (cursor > 650) {
+    page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    pages.push(page);
+    cursor = 54;
+  }
   drawTop(page, "CUSTOMER ACCEPTANCE", LEFT, cursor, bold, 7, colors.muted);
   cursor += 18;
-  drawTop(
-    page,
-    "Signature: __________________________",
-    LEFT,
-    cursor,
-    regular,
-    8,
-  );
-  drawTop(page, "Print name: ______________________", 280, cursor, regular, 8);
-  cursor += 19;
-  drawTop(page, "Date: _______________", LEFT, cursor, regular, 8);
+  const acceptance = quote.quoteAcceptance;
+  if (acceptance) {
+    drawTop(page, "Signature", LEFT, cursor, regular, 8);
+    drawTop(page, "Print name", 280, cursor, regular, 8);
+    const signatureLeft = LEFT + 4;
+    const signatureBottom = PAGE_HEIGHT - cursor - 55;
+    for (const stroke of acceptance.signatureStrokes) {
+      for (let index = 1; index < stroke.length; index++) {
+        page.drawLine({
+          start: {
+            x: signatureLeft + stroke[index - 1][0] * 195,
+            y: signatureBottom + (1 - stroke[index - 1][1]) * 40,
+          },
+          end: {
+            x: signatureLeft + stroke[index][0] * 195,
+            y: signatureBottom + (1 - stroke[index][1]) * 40,
+          },
+          thickness: 1.4,
+          color: colors.navy,
+        });
+      }
+    }
+    drawTop(page, acceptance.signedName, 280, cursor + 22, regular, 9);
+    drawTop(
+      page,
+      `Date: ${new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "America/New_York",
+      }).format(new Date(acceptance.signedAt))}`,
+      LEFT,
+      cursor + 58,
+      regular,
+      8,
+    );
+  } else {
+    drawTop(
+      page,
+      "Signature: __________________________",
+      LEFT,
+      cursor,
+      regular,
+      8,
+    );
+    drawTop(
+      page,
+      "Print name: ______________________",
+      280,
+      cursor,
+      regular,
+      8,
+    );
+    drawTop(page, "Date: _______________", LEFT, cursor + 19, regular, 8);
+  }
 
   pages.forEach((current, index) =>
     drawFooter(current, regular, quote, index + 1, pages.length),
