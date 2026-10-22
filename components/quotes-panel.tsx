@@ -286,6 +286,13 @@ export function QuoteDetail({
   async function sendEmail(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sendBusy) return;
+    if (
+      (quote.quoteSentAt || quote.status === "Sent") &&
+      !window.confirm(
+        "This quote has already been sent. Are you sure you want to email it again?",
+      )
+    )
+      return;
     setSendBusy(true);
     setSendError("");
     const form = new FormData(event.currentTarget);
