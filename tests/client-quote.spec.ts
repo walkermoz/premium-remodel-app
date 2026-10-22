@@ -76,6 +76,30 @@ cloudTest(
     await expect(clientPage.getByText("$4,100.00").first()).toBeVisible();
     await expect(clientPage.getByText("987,654")).toHaveCount(0);
     await expect(clientPage.getByText("876,543")).toHaveCount(0);
+    await clientPage.getByRole("link", { name: "Quotes", exact: true }).click();
+    await expect(
+      clientPage.getByRole("heading", { name: "Your quotes" }),
+    ).toBeVisible();
+    await expect(
+      clientPage.getByRole("link", {
+        name: new RegExp(`Quote #${quote.quoteNumber}`),
+      }),
+    ).toBeVisible();
+    await clientPage.getByRole("link", { name: "Invoices" }).click();
+    await expect(
+      clientPage.getByText("No invoices are available in this quote link"),
+    ).toBeVisible();
+    await clientPage.getByRole("link", { name: "Wallet" }).click();
+    await expect(
+      clientPage.getByText("Payment methods are temporarily unavailable.", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await clientPage.getByRole("link", { name: "Contact us" }).click();
+    await expect(
+      clientPage.getByRole("link", { name: "contact@premiumremodel.com" }),
+    ).toBeVisible();
+    await clientPage.goto(first.url);
     const editedScope = await company.admin
       .from("remodel_records")
       .update({ data: { ...scope, estimate: 9900 } })

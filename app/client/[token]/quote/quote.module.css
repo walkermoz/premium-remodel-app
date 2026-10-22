@@ -142,6 +142,236 @@
   padding: 24px 28px 48px;
 }
 
+.sectionContent {
+  background: #f9f8f6;
+}
+
+.sectionPage {
+  width: min(100%, 650px);
+  margin: 0 auto;
+  padding: 8px 0 80px;
+  color: #0d2d3d;
+}
+
+.sectionPage h1 {
+  margin: 0 0 28px;
+  font-size: clamp(28px, 3vw, 38px);
+  line-height: 1.15;
+}
+
+.sectionIntro {
+  max-width: 550px;
+  margin: -18px 0 24px;
+  color: #476072;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.contactCard,
+.walletCard {
+  padding: 30px 32px;
+  border: 1px solid #d2dce3;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.contactCard h2,
+.walletCard h2 {
+  margin: 0 0 24px;
+  font-size: 23px;
+}
+
+.contactCard a {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: #0d2d3d;
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.contactCard a:hover,
+.quoteCard:hover {
+  color: #246fa8;
+}
+
+.emptyState {
+  min-height: 390px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.emptyState h2 {
+  margin: 0 0 15px;
+  font-size: 21px;
+}
+
+.emptyState p {
+  margin: 0 0 28px;
+  color: #476072;
+  font-size: 15px;
+}
+
+.outlineAction {
+  min-height: 42px;
+  padding: 0 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid #cbd9e1;
+  border-radius: 6px;
+  color: #176b42;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.outlineAction:hover {
+  border-color: #176b42;
+}
+
+.quoteGroup {
+  margin: 35px 0 16px;
+  color: #d8731d;
+  font-size: 23px;
+}
+
+.quoteGroup.approved {
+  color: #27784b;
+}
+
+.quoteCard {
+  padding: 20px 22px;
+  display: grid;
+  gap: 18px;
+  border: 1px solid #e1e7ea;
+  border-radius: 9px;
+  color: #0d2d3d;
+  background: #fff;
+  box-shadow: 0 3px 12px rgb(19 40 52 / 7%);
+  text-decoration: none;
+}
+
+.quoteCard > strong {
+  font-size: 22px;
+}
+
+.quoteCard > span:not(.quoteCardTotal) {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.quoteAddress {
+  padding-left: 36px;
+  white-space: pre-line;
+}
+
+.quoteCardTotal {
+  padding-top: 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid #d7e0e5;
+}
+
+.quoteCardTotal small {
+  color: #526b79;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.quoteCardTotal b {
+  font-size: 18px;
+}
+
+.sectionHint {
+  color: #627986;
+  font-size: 12px;
+}
+
+.walletCard > p,
+.walletNote {
+  color: #526b79;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.savedMethods {
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.savedMethods li {
+  padding: 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #e1e7ea;
+  font-size: 14px;
+}
+
+.walletActions {
+  margin-top: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.walletActions button {
+  min-height: 44px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #277e51;
+  border-radius: 6px;
+  color: #fff;
+  background: #277e51;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.walletActions form + form button {
+  color: #176b42;
+  background: #fff;
+}
+
+.walletActions button:hover {
+  filter: brightness(0.94);
+}
+
+.walletCard .walletNote {
+  margin: 26px 0 0;
+  font-size: 12px;
+}
+
+.walletCard .walletError {
+  color: #9c342d;
+}
+
 .toolbar {
   width: min(100%, 816px);
   min-height: 42px;
@@ -559,6 +789,11 @@
     padding: 0;
   }
 
+  .sectionContent {
+    min-height: calc(100svh - 70px);
+    padding: 28px 20px;
+  }
+
   .toolbar {
     width: 100%;
     margin: 0;
@@ -575,6 +810,17 @@
 }
 
 @media (max-width: 520px) {
+  .contactCard,
+  .walletCard {
+    padding: 24px 20px;
+  }
+
+  .walletActions,
+  .walletActions form,
+  .walletActions button {
+    width: 100%;
+  }
+
   .toolbar {
     align-items: stretch;
     flex-direction: column;
