@@ -125,6 +125,49 @@ cloudTest(
     await expect(
       clientPage.getByRole("link", { name: "contact@premiumremodel.com" }),
     ).toBeVisible();
+    await clientPage.getByRole("link", { name: "New request" }).first().click();
+    await expect(
+      clientPage.getByRole("heading", {
+        name: "Get Your Free In-Home Estimate",
+      }),
+    ).toBeVisible();
+    await clientPage.getByRole("button", { name: "Bathroom Remodel" }).click();
+    await clientPage.getByRole("button", { name: "Continue" }).click();
+    await clientPage
+      .getByRole("textbox", { name: "Full name" })
+      .fill("New Client");
+    await clientPage.getByRole("textbox", { name: "Zip code" }).fill("27513");
+    await clientPage
+      .getByRole("textbox", { name: "Street address" })
+      .fill("100 Test Lane");
+    await clientPage
+      .getByRole("textbox", { name: "Phone number" })
+      .fill("9195550100");
+    await clientPage
+      .getByRole("textbox", { name: "Email address" })
+      .fill("new@example.com");
+    await clientPage
+      .getByRole("checkbox", {
+        name: "Receive text messages about appointment",
+      })
+      .check();
+    let requestPayload: Record<string, unknown> | undefined;
+    await clientPage.route("**/api/leads", async (route) => {
+      requestPayload = route.request().postDataJSON();
+      await route.fulfill({ status: 201, json: { received: true } });
+    });
+    await clientPage.getByRole("button", { name: "Schedule Now" }).click();
+    await expect(
+      clientPage.getByRole("heading", { name: "Thank You!" }),
+    ).toBeVisible();
+    expect(requestPayload).toMatchObject({
+      first_name: "New",
+      last_name: "Client",
+      phone: "+19195550100",
+      project: "Bathroom Remodel",
+      sms_appointment_opt_in: true,
+      sms_marketing_opt_in: false,
+    });
     await clientPage.goto(first.url);
     const editedScope = await company.admin
       .from("remodel_records")

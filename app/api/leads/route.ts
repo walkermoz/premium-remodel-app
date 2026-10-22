@@ -11,14 +11,18 @@ const productionOrigins = new Set([
   "https://premiumremodel.com",
   "https://www.premiumremodel.com",
   "https://plhi.vercel.app",
+  "https://servicebuddy-ui.vercel.app",
 ]);
 const previewOrigin =
   /^https:\/\/plhi(?:-[a-z0-9-]+)?-walkermozs-projects\.vercel\.app$/;
+const dashboardPreviewOrigin =
+  /^https:\/\/servicebuddy(?:-ui)?-[a-z0-9-]+-walkermozs-projects\.vercel\.app$/;
 
 function allowedOrigin(origin: string) {
   return (
     productionOrigins.has(origin) ||
     previewOrigin.test(origin) ||
+    dashboardPreviewOrigin.test(origin) ||
     (process.env.NODE_ENV !== "production" &&
       /^http:\/\/localhost:\d+$/.test(origin))
   );

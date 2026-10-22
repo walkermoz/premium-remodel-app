@@ -16,6 +16,7 @@ import { readClientQuote, type ClientQuoteView } from "@/lib/client-quote";
 import { createClientWalletFormToken } from "@/lib/client-portal";
 import { savedPaymentMethods } from "@/lib/client-wallet";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
+import ClientNewRequestForm from "./client-new-request-form";
 import styles from "./quote.module.css";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,13 @@ function date(value?: string) {
 }
 
 type PortalView =
-  "detail" | "requests" | "quotes" | "invoices" | "wallet" | "contact";
+  | "detail"
+  | "requests"
+  | "new-request"
+  | "quotes"
+  | "invoices"
+  | "wallet"
+  | "contact";
 
 function ClientNavigation({
   quoteUrl,
@@ -74,7 +81,9 @@ function ClientNavigation({
           key={id}
           href={`${quoteUrl}?view=${id}`}
           aria-current={
-            view === id || (view === "detail" && id === "quotes")
+            view === id ||
+            (view === "new-request" && id === "requests") ||
+            (view === "detail" && id === "quotes")
               ? "page"
               : undefined
           }
@@ -105,7 +114,7 @@ async function ClientSectionView({
 }) {
   const { quote, total, approved } = quoteView;
   const number = quote.quoteNumber || quote.id.slice(0, 8).toUpperCase();
-  const requestUrl = "https://www.premiumremodel.com/";
+  const requestUrl = `${quoteUrl}?view=new-request`;
 
   if (section === "contact")
     return (
@@ -133,15 +142,18 @@ async function ClientSectionView({
           </span>
           <h2>Get work done</h2>
           <p>Send us a request to fill us in on the details.</p>
-          <a
-            className={styles.outlineAction}
-            href={requestUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a className={styles.outlineAction} href={requestUrl}>
             <Plus size={19} aria-hidden="true" /> New request
           </a>
         </div>
+      </main>
+    );
+
+  if (section === "new-request")
+    return (
+      <main className={styles.sectionPage}>
+        <h1>New request</h1>
+        <ClientNewRequestForm requestsUrl={`${quoteUrl}?view=requests`} />
       </main>
     );
 
@@ -279,6 +291,7 @@ export default async function ClientQuotePage({
   const rawSection = typeof query.view === "string" ? query.view : "";
   const section: PortalView = [
     "requests",
+    "new-request",
     "quotes",
     "invoices",
     "wallet",
@@ -319,12 +332,7 @@ export default async function ClientQuotePage({
           <img src="/images/logo.png" alt="Premium Remodel" />
           <span>Client portal</span>
         </div>
-        <a
-          className={styles.newRequest}
-          href="https://www.premiumremodel.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a className={styles.newRequest} href={`${quoteUrl}?view=new-request`}>
           <Plus size={18} aria-hidden="true" /> New request
         </a>
         <ClientNavigation
@@ -348,9 +356,7 @@ export default async function ClientQuotePage({
           <div className={styles.mobileMenuPanel}>
             <a
               className={styles.mobileNewRequest}
-              href="https://www.premiumremodel.com/"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={`${quoteUrl}?view=new-request`}
             >
               <Plus size={18} aria-hidden="true" /> New request
             </a>
