@@ -383,9 +383,6 @@ export default async function ClientQuotePage({
                 </span>
               </div>
               <div className={styles.toolbarActions}>
-                <a href={contactHref}>
-                  <Mail size={16} aria-hidden="true" /> Ask a question
-                </a>
                 <a
                   className={styles.download}
                   href={`/api/client-quote/${encodeURIComponent(token)}/pdf`}
