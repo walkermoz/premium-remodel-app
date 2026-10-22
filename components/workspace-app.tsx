@@ -1455,6 +1455,7 @@ export default function WorkspaceApp({
               onAccept={accept}
               onDelete={requestDelete}
               onUpload={upload}
+              onSent={refresh}
             />
           ) : projectId ? (
             <Empty

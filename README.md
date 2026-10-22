@@ -77,6 +77,7 @@ Link the workspace to the existing `servicebuddy-ui` project. Set these producti
 - `APP_URL=https://servicebuddy-ui.vercel.app`
 - `OPENROUTER_API_KEY` (server-only Secret, for Generate)
 - `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` (server-only Google OAuth web client)
+- `GOOGLE_GMAIL_CLIENT_ID` and `GOOGLE_GMAIL_CLIENT_SECRET` (optional separate server-only OAuth web client for company email; defaults to the Calendar client)
 - `GOOGLE_TOKEN_ENCRYPTION_KEY` (server-only Secret containing 32 random base64url bytes)
 
 Then deploy:
@@ -95,6 +96,12 @@ Enable the Google Calendar API in a Google Cloud project, configure the OAuth co
 - `http://localhost:3000/api/google-calendar/callback`
 
 The app requests `openid`, `email`, and Google Calendar’s narrow `calendar.app.created` scope. That scope allows Premium Remodel to create and manage its own secondary calendar without reading or changing the user’s existing personal or company calendars. During Google’s testing phase, add each Premium Remodel teammate who will connect as an OAuth test user. Publish or verify the consent screen before wider use if Google requires it.
+
+### Company email
+
+The dashboard can email a quote PDF from `contact@premiumremodel.com`. Apply `supabase/migrations/202610220001_google_mail.sql`, enable the Gmail API in a Google Cloud project, and configure an OAuth consent app with `openid`, `email`, and `https://www.googleapis.com/auth/gmail.send` (send-only). Create an OAuth **Web application** client and allow `https://servicebuddy-ui.vercel.app/api/google-mail/callback` as a redirect URI; add `http://localhost:3000/api/google-mail/callback` only for local development. Store the client ID and secret in `GOOGLE_GMAIL_CLIENT_ID` and `GOOGLE_GMAIL_CLIENT_SECRET`, or add the Gmail callback URI to the existing Calendar OAuth client and reuse its credentials. `GOOGLE_TOKEN_ENCRYPTION_KEY` is required for encrypted refresh-token storage. Never expose the client secret or token to browser code.
+
+An administrator opens **Settings → Company email → Connect Gmail**, signs in as `contact@premiumremodel.com`, and grants the send-only permission. The connected mailbox is shared by the company workspace; administrators can disconnect it. From a quote with a saved client email, **Email quote** lets a teammate review the recipient, subject, and message, then sends the generated PDF as an attachment. A unique request ID and delivery log prevent accidental repeat submission; if Gmail's response is uncertain, check the mailbox's Sent folder before trying again. **Mark as sent** remains a manual status control and does not send email.
 
 Store the OAuth client ID, client secret, and encryption key only in `.env.local` and Vercel’s server-side environment. Refresh tokens are encrypted with AES-256-GCM before storage; access tokens stay in server memory and are never returned to the browser. Disconnecting clears the stored token and asks Google to revoke it, while leaving the generated calendar and its existing entries in the user’s account.
 

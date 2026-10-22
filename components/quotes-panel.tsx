@@ -225,6 +225,7 @@ export function QuoteDetail({
   onAccept,
   onDelete,
   onUpload,
+  onSent,
 }: {
   quote: Quote;
   workspace: Workspace;
@@ -241,9 +242,14 @@ export function QuoteDetail({
   onAccept: (quote: Quote) => Promise<void>;
   onDelete: (kind: EntityKind, entity: Entity) => void;
   onUpload: (file: File, projectId: string) => Promise<Attachment>;
+  onSent: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [sendRequestId, setSendRequestId] = useState("");
   const items = workspace.scope.filter((item) => item.projectId === quote.id);
   const files = workspace.attachments.filter(
     (file) => file.projectId === quote.id,
@@ -260,6 +266,53 @@ export function QuoteDetail({
       );
     } finally {
       setBusy(false);
+    }
+  }
+  async function openEmail() {
+    setError("");
+    try {
+      const response = await fetch("/api/google-mail", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not check company email.");
+      if (!data.connected)
+        throw new Error("Connect contact@premiumremodel.com in Settings before sending a quote.");
+      setSendRequestId(crypto.randomUUID());
+      setSendError("");
+      setSendOpen(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not check company email.");
+    }
+  }
+  async function sendEmail(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (sendBusy) return;
+    setSendBusy(true);
+    setSendError("");
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await fetch(`/api/quotes/${encodeURIComponent(quote.id)}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: sendRequestId,
+          recipientEmail: quote.clientEmail,
+          subject: String(form.get("subject") || ""),
+          message: String(form.get("message") || ""),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not send quote.");
+      setSendOpen(false);
+      try {
+        await onSent();
+      } catch {
+        setError("Gmail sent the quote, but the workspace could not refresh. Reload to see the updated status.");
+      }
+      if (data.warning) setError(data.warning);
+    } catch (caught) {
+      setSendError(caught instanceof Error ? caught.message : "Could not send quote.");
+    } finally {
+      setSendBusy(false);
     }
   }
   return (
@@ -279,6 +332,11 @@ export function QuoteDetail({
           </div>
         </div>
         <div className="project-actions">
+          {!demo && quote.clientEmail && (
+            <button className="button primary" disabled={busy || sendBusy} onClick={() => void openEmail()}>
+              <Mail size={15} /> Email quote
+            </button>
+          )}
           <a
             className="button secondary"
             href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
@@ -308,6 +366,30 @@ export function QuoteDetail({
       {error && (
         <div className="alert" role="alert">
           {error}
+        </div>
+      )}
+      {sendOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !sendBusy) setSendOpen(false);
+        }}>
+          <form className="modal" onSubmit={(event) => void sendEmail(event)} aria-label="Email quote">
+            <header>
+              <div>
+                <h2>Email quote</h2>
+                <p>The generated PDF will be attached from contact@premiumremodel.com.</p>
+              </div>
+            </header>
+            <div className="form-fields">
+              <label>To<input type="email" value={quote.clientEmail} readOnly /></label>
+              <label>Subject<input name="subject" defaultValue={`Your Premium Remodel quote${quote.quoteNumber ? ` #${quote.quoteNumber}` : ""}`} required maxLength={180} /></label>
+              <label>Message<textarea name="message" defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your Premium Remodel quote. Please review it and reply to this email with any questions.\n\nThank you,\nPremium Remodel`} required rows={7} maxLength={5000} /></label>
+              {sendError && <div className="alert" role="alert">{sendError}</div>}
+            </div>
+            <footer className="modal-footer">
+              <button type="button" className="button secondary" disabled={sendBusy} onClick={() => setSendOpen(false)}>Cancel</button>
+              <button type="submit" className="button primary" disabled={sendBusy}>{sendBusy ? "Sending…" : "Send quote PDF"}</button>
+            </footer>
+          </form>
         </div>
       )}
       <div className="quote-status-line">

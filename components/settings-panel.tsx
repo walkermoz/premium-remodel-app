@@ -10,6 +10,7 @@ import TwilioSettings from "./twilio-settings";
 import WorkspaceAlertSettings from "./workspace-alert-settings";
 import WorkspaceHistorySettings from "./workspace-history-settings";
 import GoogleCalendarSettings from "./google-calendar-settings";
+import GoogleMailSettings from "./google-mail-settings";
 import ApiKeysSettings from "./api-keys-settings";
 import type { WorkspaceAlert } from "@/lib/types";
 export default function SettingsPanel({
@@ -45,6 +46,7 @@ export default function SettingsPanel({
       <AppearanceSettings />
       <InstallAppPanel />
       <GoogleCalendarSettings demo={demo} />
+      <GoogleMailSettings demo={demo} />
       {user.role === "admin" && (
         <WorkspaceAlertSettings
           alerts={alerts}
