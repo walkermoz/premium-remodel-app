@@ -1,4 +1,9 @@
 .page {
+  color-scheme: light;
+  --ink: #202c36;
+  --surface: #fff;
+  --theme-link: #495660;
+  --theme-border: #dce1e6;
   --blue: #2e87c7;
   --navy: #30363d;
   --muted: #6b7a8f;
@@ -249,26 +254,6 @@
   background: #fff;
 }
 
-.requestFormHeading {
-  text-align: center;
-}
-
-.requestFormHeading p {
-  margin: 0 0 8px;
-  color: #317bc2;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.requestFormHeading h2 {
-  margin: 0;
-  color: #102f42;
-  font-size: 26px;
-  line-height: 1.2;
-}
-
 .requestProgress {
   display: grid;
   gap: 8px;
@@ -406,6 +391,7 @@
 
 .requestDescriptionLabel {
   display: block;
+  color: #102f42;
   font-size: 12px;
   font-weight: 600;
 }
@@ -546,10 +532,6 @@
 @media (max-width: 520px) {
   .requestForm {
     padding: 22px 16px;
-  }
-
-  .requestFormHeading h2 {
-    font-size: 22px;
   }
 
   .requestFields {

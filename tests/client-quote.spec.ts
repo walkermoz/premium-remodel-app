@@ -307,12 +307,27 @@ cloudTest(
     ).toBeVisible();
     await clientPage.getByRole("link", { name: "New request" }).first().click();
     await expect(
-      clientPage.getByRole("heading", {
-        name: "Get Your Free In-Home Estimate",
-      }),
+      clientPage.getByRole("heading", { name: "New request" }),
     ).toBeVisible();
+    await expect(clientPage.getByText("Free Consultation")).toHaveCount(0);
     await clientPage.getByRole("button", { name: "Bathroom Remodel" }).click();
     await clientPage.getByRole("button", { name: "Continue" }).click();
+    await clientPage.evaluate(() => {
+      document.documentElement.dataset.theme = "dark";
+    });
+    const descriptionLabel = clientPage.getByText("Job description", {
+      exact: false,
+    });
+    expect(
+      await descriptionLabel.evaluate(
+        (element) => getComputedStyle(element).color,
+      ),
+    ).toBe("rgb(16, 47, 66)");
+    expect(
+      await descriptionLabel.evaluate(
+        (element) => getComputedStyle(element).colorScheme,
+      ),
+    ).toBe("light");
     await clientPage
       .getByRole("textbox", { name: "Full name" })
       .fill("New Client");

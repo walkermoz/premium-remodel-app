@@ -145,10 +145,6 @@ export default function ClientNewRequestForm({
 
   return (
     <form className={styles.requestForm} onSubmit={submit}>
-      <div className={styles.requestFormHeading}>
-        <p>Free Consultation</p>
-        <h2>Get Your Free In-Home Estimate</h2>
-      </div>
       <div className={styles.requestProgress} aria-label={`Step ${step} of 2`}>
         <div>
           <span>Step {step} of 2</span>
