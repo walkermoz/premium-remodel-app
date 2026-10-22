@@ -389,7 +389,7 @@ export function QuoteDetail({
             <div className="form-fields">
               <label>To<input type="email" value={quote.clientEmail} readOnly /></label>
               <label>Subject<input name="subject" defaultValue={`Premium Remodel Quote${quote.quoteNumber ? ` #${quote.quoteNumber}` : ""}`} required maxLength={180} /></label>
-              <label>Message<textarea name="message" defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your Premium Remodel quote. Please review it and reply to this email with any questions.\n\nThank you,\nPremium Remodel`} required rows={7} maxLength={5000} /></label>
+              <label>Message<textarea name="message" defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your Premium Remodel quote. Please review it and reply to this email with any questions.\n\nThanks,\nPremium Remodel Team`} required rows={7} maxLength={5000} /></label>
               {sendError && <div className="alert" role="alert">{sendError}</div>}
             </div>
             <footer className="modal-footer">

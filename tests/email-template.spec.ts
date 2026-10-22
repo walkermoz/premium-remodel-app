@@ -22,8 +22,9 @@ test("quote message remains readable in both formats and escapes customer text",
   expect(email.text).toContain("Please review <the scope> & reply.");
   expect(email.html).not.toContain("Attached for your review");
   expect(email.html).not.toContain("Quote 130.pdf");
-  expect(email.html).not.toContain("premiumremodel.com");
-  expect(email.text).not.toContain("premiumremodel.com");
+  expect(email.html).toContain('href="tel:+19194544012"');
+  expect(email.html).toContain('href="mailto:contact@premiumremodel.com"');
+  expect(email.text).toContain("(919) 454-4012");
 });
 
 test("lead acknowledgement uses the same remodel wording for every lead", () => {
@@ -34,4 +35,6 @@ test("lead acknowledgement uses the same remodel wording for every lead", () => 
   expect(email.html).toContain("We received your remodel request");
   expect(email.text).not.toContain("bathroom remodel request");
   expect(email.text).not.toContain("undefined");
+  expect(email.text).toContain("Thanks,\nPremium Remodel Team");
+  expect(email.text).toContain("contact@premiumremodel.com");
 });
