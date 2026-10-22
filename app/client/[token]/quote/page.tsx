@@ -384,7 +384,7 @@ export default async function ClientQuotePage({
               <div className={styles.toolbarActions}>
                 <a
                   className={styles.download}
-                  href={`/api/client-quote/${encodeURIComponent(token)}/pdf`}
+                  href={`/api/client-quote/${encodeURIComponent(token)}/pdf${view.acceptance ? `?signed=${encodeURIComponent(view.acceptance.signedAt)}` : ""}`}
                 >
                   <Download size={16} aria-hidden="true" /> Download PDF
                 </a>

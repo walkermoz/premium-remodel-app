@@ -79,7 +79,12 @@ cloudTest(
       data: {
         signedName: "Walker Portal Test",
         quoteUpdatedAt: quote.updatedAt,
-        signatureStrokes: [[[0.1, 0.1], [0.3, 0.3]]],
+        signatureStrokes: [
+          [
+            [0.1, 0.1],
+            [0.3, 0.3],
+          ],
+        ],
       },
     });
     expect(missingConsent.status()).toBe(400);
@@ -142,7 +147,39 @@ cloudTest(
     const pdf = await client.request.get(pdfEndpoint);
     expect(pdf.status()).toBe(200);
     expect(pdf.headers()["content-type"]).toBe("application/pdf");
+    expect(pdf.headers()["cache-control"]).toContain("no-store");
+    expect(pdf.headers()["content-disposition"]).toContain(" - Signed.pdf");
     expect(await pdf.body()).not.toEqual(await unsignedPdf.body());
+    const { getDocument, OPS } =
+      await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const unsignedDocument = await getDocument({
+      data: new Uint8Array(await unsignedPdf.body()),
+    }).promise;
+    const signedDocument = await getDocument({
+      data: new Uint8Array(await pdf.body()),
+    }).promise;
+    try {
+      const unsignedPage = await unsignedDocument.getPage(
+        unsignedDocument.numPages,
+      );
+      const signedPage = await signedDocument.getPage(signedDocument.numPages);
+      const text = (await signedPage.getTextContent()).items
+        .filter((item): item is typeof item & { str: string } => "str" in item)
+        .map((item) => item.str)
+        .join(" ");
+      expect(text).toContain("Walker Portal Test");
+      expect(text).toContain("Date:");
+      const unsignedPaths = (
+        await unsignedPage.getOperatorList()
+      ).fnArray.filter((operator) => operator === OPS.constructPath).length;
+      const signedPaths = (await signedPage.getOperatorList()).fnArray.filter(
+        (operator) => operator === OPS.constructPath,
+      ).length;
+      expect(signedPaths).toBeGreaterThan(unsignedPaths);
+    } finally {
+      await unsignedDocument.destroy();
+      await signedDocument.destroy();
+    }
     await client.close();
   },
 );

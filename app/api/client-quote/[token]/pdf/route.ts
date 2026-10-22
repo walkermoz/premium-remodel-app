@@ -17,7 +17,11 @@ export async function GET(
     path.join(process.cwd(), "public", "images", "logo.png"),
   );
   const pdf = await buildQuotePdf(source.pdfQuote, source.pdfItems, logo);
-  const fileName = quotePdfFileName(source.pdfQuote).replace(/["\\]/g, "");
+  const fileName = (
+    source.view.acceptance
+      ? quotePdfFileName(source.pdfQuote).replace(/\.pdf$/i, " - Signed.pdf")
+      : quotePdfFileName(source.pdfQuote)
+  ).replace(/["\\]/g, "");
   return new Response(Buffer.from(pdf), {
     headers: {
       "Cache-Control": "private, no-store",
