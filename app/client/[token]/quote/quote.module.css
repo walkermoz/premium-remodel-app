@@ -413,6 +413,7 @@
 }
 
 .requestDescriptionLabel {
+  display: block;
   font-size: 12px;
   font-weight: 600;
 }
@@ -436,9 +437,12 @@
   min-height: 44px;
   display: flex;
   align-items: flex-start;
+  flex-direction: row;
   gap: 12px;
   padding: 8px 0;
+  color: #102f42;
   font-size: 14px;
+  font-weight: 400;
   line-height: 1.4;
   cursor: pointer;
 }
@@ -446,8 +450,10 @@
 .requestSmsChoices input {
   width: 16px;
   height: 16px;
+  min-height: 0;
   margin: 2px 0 0;
   flex: 0 0 auto;
+  padding: 0;
   accent-color: #317bc2;
 }
 
