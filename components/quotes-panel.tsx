@@ -387,7 +387,7 @@ export function QuoteDetail({
             </div>
             <footer className="modal-footer">
               <button type="button" className="button secondary" disabled={sendBusy} onClick={() => setSendOpen(false)}>Cancel</button>
-              <button type="submit" className="button primary" disabled={sendBusy}>{sendBusy ? "Sending…" : "Send quote PDF"}</button>
+              <button type="submit" className="button primary" disabled={sendBusy}>{sendBusy ? "Sending…" : "Email quote"}</button>
             </footer>
           </form>
         </div>
