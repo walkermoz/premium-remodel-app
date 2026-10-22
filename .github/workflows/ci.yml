@@ -40,6 +40,8 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -119,6 +121,8 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
@@ -154,3 +158,26 @@ jobs:
           echo "Production URL: $url"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+  discord-build-update:
+    name: Discord build update
+    if: ${{ always() && !cancelled() }}
+    needs: [quality, vercel-preview, vercel-production]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      DISCORD_BUILD_WEBHOOK: ${{ secrets.DISCORD_BUILD_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post build result
+        if: env.DISCORD_BUILD_WEBHOOK != ''
+        continue-on-error: true
+        run: node .github/scripts/notify-build.mjs
+        env:
+          BUILD_REF: ${{ github.head_ref || github.ref_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          PREVIEW_RESULT: ${{ needs.vercel-preview.result }}
+          PREVIEW_URL: ${{ needs.vercel-preview.outputs.url }}
+          PRODUCTION_RESULT: ${{ needs.vercel-production.result }}
+          PRODUCTION_URL: ${{ needs.vercel-production.outputs.url }}
