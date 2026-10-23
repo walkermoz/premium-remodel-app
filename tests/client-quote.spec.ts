@@ -127,6 +127,10 @@ cloudTest(
       .single();
     expect(record.error).toBeNull();
     expect(record.data?.kind).toBe("project");
+    expect(record.data?.data.contractPrice).toBe(1850);
+    expect(record.data?.data.acceptedQuoteScope).toEqual(
+      expect.arrayContaining([expect.objectContaining({ amount: 1850 })]),
+    );
     expect(record.data?.data.quoteAcceptance.signedName).toBe(
       "Walker Portal Test",
     );

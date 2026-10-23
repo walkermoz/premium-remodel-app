@@ -41,6 +41,7 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { validateStoredFile } from "@/lib/validate-file";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
+import { stripeClient } from "@/lib/stripe-payments";
 import { after } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -400,6 +401,28 @@ async function save(request: Request, editing: boolean) {
               ),
           ),
         );
+      }
+      if (
+        kind === "activity" &&
+        data.activityType === "Payment received" &&
+        data.paymentMethod === "Check" &&
+        process.env.STRIPE_SECRET_KEY
+      ) {
+        after(async () => {
+          try {
+            const project = (await findRecord(
+              user,
+              String(data.projectId),
+              "project",
+            )) as Project | null;
+            const sessionId = project?.msaAgreement?.depositCheckout?.sessionId;
+            if (sessionId)
+              await stripeClient().checkout.sessions.expire(sessionId);
+          } catch {
+            // A recorded check remains valid; an already-completed or expired
+            // checkout session cannot be expired again.
+          }
+        });
       }
       const task = entity as Task;
       const relatedActivity =

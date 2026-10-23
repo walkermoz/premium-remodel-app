@@ -12,12 +12,25 @@ import {
   Plus,
   ReceiptText,
 } from "lucide-react";
-import { readClientQuote, type ClientQuoteView } from "@/lib/client-quote";
+import {
+  readClientQuoteSource,
+  type ClientQuoteView,
+} from "@/lib/client-quote";
 import { createClientWalletFormToken } from "@/lib/client-portal";
+import {
+  cancellationDeadline,
+  easternDate,
+  msaPaymentRows,
+} from "@/lib/msa-contract";
+import { stripeClient } from "@/lib/stripe-payments";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import type { Activity } from "@/lib/types";
+import MsaDocument from "@/components/msa-document";
 import { savedPaymentMethods } from "@/lib/client-wallet";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import ClientNewRequestForm from "./client-new-request-form";
 import CustomerAcceptance from "./customer-acceptance";
+import MsaAcceptance from "./msa-acceptance";
 import styles from "./quote.module.css";
 
 export const dynamic = "force-dynamic";
@@ -57,20 +70,26 @@ type PortalView =
   | "quotes"
   | "invoices"
   | "wallet"
-  | "contact";
+  | "contact"
+  | "msa";
 
 function ClientNavigation({
   quoteUrl,
   view,
   className,
+  hasMsa,
 }: {
   quoteUrl: string;
   view: PortalView;
   className: string;
+  hasMsa: boolean;
 }) {
   const links = [
     { id: "requests", label: "Requests", icon: Inbox },
     { id: "quotes", label: "Quotes", icon: FileText },
+    ...(hasMsa
+      ? [{ id: "msa" as const, label: "Agreement", icon: FileText }]
+      : []),
     { id: "invoices", label: "Invoices", icon: ReceiptText },
     { id: "wallet", label: "Wallet", icon: CreditCard },
     { id: "contact", label: "Contact us", icon: Phone },
@@ -104,6 +123,7 @@ async function ClientSectionView({
   contactHref,
   token,
   result,
+  organizationId,
 }: {
   section: Exclude<PortalView, "detail">;
   quoteUrl: string;
@@ -112,10 +132,141 @@ async function ClientSectionView({
   contactHref: string;
   token: string;
   result: string;
+  organizationId: string;
 }) {
   const { quote, total, approved } = quoteView;
   const number = quote.quoteNumber || quote.id.slice(0, 8).toUpperCase();
   const requestUrl = `${quoteUrl}?view=new-request`;
+
+  if (section === "msa") {
+    const agreement = quoteView.msa;
+    if (!agreement)
+      return (
+        <main className={styles.sectionPage}>
+          <h1>Agreement unavailable</h1>
+        </main>
+      );
+    const today = easternDate(new Date());
+    const displayedAgreement =
+      agreement.status === "sent"
+        ? {
+            ...agreement,
+            transactionDate: today,
+            cancellationDeadline: cancellationDeadline(today),
+          }
+        : agreement;
+    let paidCents = 0;
+    let cardAvailable = Boolean(
+      process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET,
+    );
+    if (agreement.status === "signed") {
+      const { data: payments, error } = await supabaseAdmin()
+        .from("remodel_records")
+        .select("data")
+        .eq("organization_id", organizationId)
+        .eq("project_id", quote.id)
+        .eq("kind", "activity")
+        .limit(1000);
+      if (error) throw error;
+      paidCents = payments.reduce((sum, row) => {
+        const payment = row.data as Activity;
+        return payment.activityType === "Payment received"
+          ? sum + Math.round((payment.amount || 0) * 100)
+          : sum;
+      }, 0);
+      if (cardAvailable) {
+        try {
+          cardAvailable =
+            (await stripeClient().accounts.retrieve(null)).payouts_enabled ===
+            true;
+        } catch {
+          cardAvailable = false;
+        }
+      }
+    }
+    const depositCents = Math.round(msaPaymentRows(agreement)[0].amount * 100);
+    const dueCents = Math.max(0, depositCents - paidCents);
+    return (
+      <main className={styles.sectionPage}>
+        <h1>Master Services Agreement</h1>
+        <p className={styles.sectionIntro}>
+          {agreement.status === "signed"
+            ? "Your signed agreement and deposit options are below."
+            : "Review the full agreement before signing."}
+        </p>
+        <MsaDocument agreement={displayedAgreement} />
+        {agreement.status === "sent" && (
+          <MsaAcceptance token={token} agreement={displayedAgreement} />
+        )}
+        {agreement.status === "signed" && (
+          <div
+            className={styles.walletCard}
+            style={{ maxWidth: 850, margin: "24px auto" }}
+          >
+            <h2>Signed agreement</h2>
+            <a
+              className={styles.outlineAction}
+              href={`/api/client-quote/${encodeURIComponent(token)}/msa/pdf`}
+            >
+              <Download size={18} /> Download signed PDF
+            </a>
+            <h2>Deposit</h2>
+            <p>
+              {dueCents > 0
+                ? `${money(dueCents / 100)} remaining toward the ${money(depositCents / 100)} deposit.`
+                : "Deposit recorded. Thank you."}{" "}
+              Work begins after the deposit is received.
+            </p>
+            {dueCents > 0 && (
+              <>
+                {cardAvailable ? (
+                  <form
+                    method="post"
+                    action={`/api/client-quote/${encodeURIComponent(token)}/msa/deposit`}
+                  >
+                    <input
+                      type="hidden"
+                      name="authenticity"
+                      value={createClientWalletFormToken(token)}
+                    />
+                    <button type="submit" className={styles.outlineAction}>
+                      <CreditCard size={18} /> Pay deposit online
+                    </button>
+                  </form>
+                ) : (
+                  <p>Online card payment is temporarily unavailable.</p>
+                )}
+                <h3>Pay by check</h3>
+                <p>
+                  Make the check payable to Premium Living Home Improvement LLC
+                  d/b/a Premium Remodel. Contact us to arrange delivery, or mail
+                  it to 309 Amiable Loop, Cary, North Carolina 27519. We will
+                  record it when received.
+                </p>
+              </>
+            )}
+            {result === "payment-return" && (
+              <p role="status">
+                If you completed checkout, your payment may take a moment to
+                appear. Refresh this page to check.
+              </p>
+            )}
+            {result === "unavailable" && (
+              <p role="alert">
+                Online payment could not be started. Please try again later or
+                contact us.
+              </p>
+            )}
+            {result === "expired" && (
+              <p role="alert">
+                This payment form expired. Refresh and try again.
+              </p>
+            )}
+          </div>
+        )}
+      </main>
+    );
+  }
 
   if (section === "contact")
     return (
@@ -286,8 +437,9 @@ export default async function ClientQuotePage({
   }>;
 }) {
   const [{ token }, query] = await Promise.all([params, searchParams]);
-  const view = await readClientQuote(token);
-  if (!view) notFound();
+  const source = await readClientQuoteSource(token);
+  if (!source) notFound();
+  const view = source.view;
 
   const rawSection = typeof query.view === "string" ? query.view : "";
   const section: PortalView = [
@@ -297,6 +449,7 @@ export default async function ClientQuotePage({
     "invoices",
     "wallet",
     "contact",
+    "msa",
   ].includes(rawSection)
     ? (rawSection as PortalView)
     : "detail";
@@ -339,6 +492,7 @@ export default async function ClientQuotePage({
           quoteUrl={quoteUrl}
           view={section}
           className={styles.sidebarNav}
+          hasMsa={Boolean(view.msa)}
         />
         <div className={styles.sidebarContact}>
           <span>Need help with your quote?</span>
@@ -364,6 +518,7 @@ export default async function ClientQuotePage({
               quoteUrl={quoteUrl}
               view={section}
               className={styles.mobileNav}
+              hasMsa={Boolean(view.msa)}
             />
           </div>
         </details>
@@ -518,6 +673,7 @@ export default async function ClientQuotePage({
             contactHref={contactHref}
             token={token}
             result={typeof query.result === "string" ? query.result : ""}
+            organizationId={source.organizationId}
           />
         )}
       </div>

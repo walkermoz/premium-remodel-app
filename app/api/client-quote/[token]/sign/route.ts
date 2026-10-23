@@ -7,6 +7,7 @@ import { parseClientPortalToken } from "@/lib/client-portal";
 import { signatureStrokesSchema } from "@/lib/quote-signature";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import { acceptedQuote } from "@/lib/quotes";
+import { acceptedScopeSnapshot } from "@/lib/msa-draft";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { QuoteAcceptance } from "@/lib/types";
 
@@ -93,6 +94,11 @@ export async function POST(
     };
     const project = {
       ...acceptedQuote(source.pdfQuote, `client-link:${linkId}`, now),
+      contractPrice: source.view.total,
+      acceptedQuoteScope: acceptedScopeSnapshot(
+        source.view.items,
+        source.pdfQuote.category,
+      ),
       quoteAcceptance: acceptance,
     };
     const { data, error } = await supabaseAdmin()

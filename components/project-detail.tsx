@@ -45,6 +45,7 @@ import UpcomingPanel from "./upcoming-panel";
 import { workType, type UpcomingView } from "@/lib/work";
 import { contractClock } from "@/lib/project-timing";
 import ClientLinkDialog from "./client-link-dialog";
+import MsaDraftPanel from "./msa-draft-panel";
 
 export const projectTabs = [
   "Overview",
@@ -492,6 +493,17 @@ export default function ProjectDetail({
         </div>
         {tab === "Overview" && (
           <>
+            {project.quoteAcceptedAt && (
+              <MsaDraftPanel
+                key={`${project.id}:${JSON.stringify(project.msaPaymentSchedule)}:${project.msaPermitResponsibility || ""}:${JSON.stringify(project.msaContractTerms)}`}
+                project={project}
+                items={items}
+                signer={user}
+                onSaveTerms={(terms) =>
+                  onSave("project", { ...project, ...terms }, project)
+                }
+              />
+            )}
             <ProjectPayments
               project={project}
               workspace={workspace}

@@ -233,6 +233,41 @@ export const schemas = {
   project: z
     .object({
       ...projectFields,
+      msaPaymentSchedule: z
+        .array(
+          z.object({
+            id: z.string().trim().min(1).max(64),
+            milestone: z.string().trim().min(2).max(200),
+            percent: z.number().finite().gt(0).lte(100),
+          }),
+        )
+        .min(1)
+        .max(12)
+        .refine(
+          (steps) =>
+            new Set(steps.map((step) => step.id)).size === steps.length &&
+            Math.abs(steps.reduce((sum, step) => sum + step.percent, 0) - 100) <
+              0.001,
+          "Payment milestones must have unique IDs and total 100%.",
+        )
+        .optional(),
+      msaPermitResponsibility: z
+        .enum([
+          "Owner obtains and pays",
+          "Premium Remodel obtains; owner pays fees",
+          "Premium Remodel obtains and pays",
+        ])
+        .optional(),
+      msaContractTerms: z
+        .object({
+          exclusions: text.min(1),
+          allowances: text.min(1),
+          retainage: text.min(1),
+          buildersRisk: text.min(1),
+          siteAccess: text.min(1),
+          plans: text.min(1),
+        })
+        .optional(),
       completedDate: date.default(""),
       status: z.enum(["Planning", "In progress", "On hold", "Completed"]),
     })

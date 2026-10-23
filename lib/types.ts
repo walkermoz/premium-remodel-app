@@ -38,6 +38,64 @@ export interface QuoteAcceptance {
   ip?: string;
   userAgent?: string;
 }
+export interface MsaPaymentStep {
+  id: string;
+  milestone: string;
+  percent: number;
+}
+export interface AcceptedScopeItem {
+  section: string;
+  title: string;
+  details: string;
+  amount: number;
+}
+export interface MsaContractTerms {
+  exclusions: string;
+  allowances: string;
+  retainage: string;
+  buildersRisk: string;
+  siteAccess: string;
+  plans: string;
+}
+export type MsaPermitResponsibility =
+  | "Owner obtains and pays"
+  | "Premium Remodel obtains; owner pays fees"
+  | "Premium Remodel obtains and pays";
+export interface MsaSignature {
+  name: string;
+  title?: string;
+  signedAt: string;
+  signatureStrokes: SignatureStroke[];
+  ip?: string;
+  userAgent?: string;
+}
+export interface MsaAgreement {
+  version: 1;
+  status: "prepared" | "sent" | "signed";
+  owner: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  projectName: string;
+  address: string;
+  quoteNumber: string;
+  price: number;
+  scope: AcceptedScopeItem[];
+  paymentSchedule: MsaPaymentStep[];
+  permitResponsibility: MsaPermitResponsibility;
+  terms: MsaContractTerms;
+  generalTerms: Array<{ style: string; text: string }>;
+  estimatedStart: string;
+  estimatedCompletion: string;
+  termsSha256: string;
+  staffUserId: string;
+  staffSignature: MsaSignature;
+  sentAt?: string;
+  sendMessageId?: string;
+  customerSignature?: MsaSignature;
+  transactionDate?: string;
+  cancellationDeadline?: string;
+  depositCheckout?: { sessionId: string; url: string; expiresAt: string };
+}
 export interface Project extends Base {
   name: string;
   address: string;
@@ -50,6 +108,12 @@ export interface Project extends Base {
   quoteAcceptedAt?: string;
   quoteAcceptedBy?: string;
   quoteAcceptance?: QuoteAcceptance;
+  quoteNumber?: string;
+  acceptedQuoteScope?: AcceptedScopeItem[];
+  msaPaymentSchedule?: MsaPaymentStep[];
+  msaPermitResponsibility?: MsaPermitResponsibility;
+  msaContractTerms?: MsaContractTerms;
+  msaAgreement?: MsaAgreement;
   startDate: string;
   endDate: string;
   // Actual completion, separate from the target end date. Older jobs may omit it.

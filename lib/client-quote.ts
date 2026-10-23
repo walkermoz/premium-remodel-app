@@ -4,7 +4,7 @@ import { z } from "zod";
 import { parseClientPortalToken } from "./client-portal";
 import { quoteAcceptanceSchema } from "./quote-signature";
 import { supabaseAdmin } from "./supabase/server";
-import type { Quote, ScopeItem } from "./types";
+import type { MsaAgreement, Quote, ScopeItem } from "./types";
 
 const quoteSchema = z.object({
   id: z.uuid(),
@@ -80,6 +80,7 @@ export type ClientQuoteView = {
     z.infer<typeof quoteAcceptanceSchema>,
     "signedName" | "signedAt" | "signatureStrokes"
   >;
+  msa?: MsaAgreement;
 };
 
 export function isValidClientQuoteSnapshot(value: unknown) {
@@ -157,6 +158,17 @@ export async function readClientQuoteSource(token: string) {
           signatureStrokes: acceptance.signatureStrokes,
         }
       : undefined,
+    msa:
+      approved &&
+      record.data &&
+      typeof record.data === "object" &&
+      "msaAgreement" in record.data &&
+      ["sent", "signed"].includes(
+        (record.data as { msaAgreement?: MsaAgreement }).msaAgreement?.status ||
+          "",
+      )
+        ? (record.data as { msaAgreement: MsaAgreement }).msaAgreement
+        : undefined,
   };
 
   await admin.rpc("remodel_note_client_portal_view", { target_link: id });

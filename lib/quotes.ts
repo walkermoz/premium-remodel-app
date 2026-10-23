@@ -23,6 +23,8 @@ export function preserveProjectHistory(
   const result = { ...data };
   for (const key of [
     "contractPrice",
+    "acceptedQuoteScope",
+    "msaAgreement",
     "quoteSentAt",
     "quoteAcceptedAt",
     "quoteAcceptedBy",
@@ -49,6 +51,12 @@ export function preserveProjectHistory(
   }
   if (current && !("coverAttachmentId" in data))
     result.coverAttachmentId = current.coverAttachmentId;
+  if (current && !("msaPaymentSchedule" in data))
+    result.msaPaymentSchedule = current.msaPaymentSchedule;
+  if (current && !("msaPermitResponsibility" in data))
+    result.msaPermitResponsibility = current.msaPermitResponsibility;
+  if (current && !("msaContractTerms" in data))
+    result.msaContractTerms = current.msaContractTerms;
   return result;
 }
 
