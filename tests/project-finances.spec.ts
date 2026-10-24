@@ -359,6 +359,33 @@ test("quotes carry their contact, scope and files into a planning project", asyn
   await expect(page.locator(".quote-row")).toHaveCount(0);
 });
 
+test("per-unit quote rates calculate and persist the line total", async ({
+  page,
+}) => {
+  await page.goto("/demo?view=Quotes");
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Quote name").fill("Hourly labor test");
+  await dialog.getByLabel("Client name").fill("Test Homeowner");
+  await dialog.getByRole("button", { name: "Create quote" }).click();
+
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const row = page.locator(".scope-new-row");
+  await row
+    .getByRole("textbox", { name: "New work item", exact: true })
+    .fill("Labor");
+  await row.getByLabel("Unit for Labor").selectOption("hours");
+  await row.getByLabel("Quantity for Labor").fill("2.5");
+  await row.getByLabel("Rate per hour for Labor").fill("80");
+  await expect(row.locator(".scope-line-total")).toHaveText("Total $200");
+  await row.getByRole("button", { name: "Save Labor" }).click();
+  await expect(row).toHaveCount(0);
+  await expect(page.locator(".scope-table tfoot")).toContainText("$200");
+  await page.reload();
+  await expect(page.getByLabel("Rate per hour for Labor")).toHaveValue("80");
+  await expect(page.locator(".scope-table tfoot")).toContainText("$200");
+});
+
 test("bathroom questionnaire turns detailed selections into editable quote rows", async ({
   page,
 }) => {

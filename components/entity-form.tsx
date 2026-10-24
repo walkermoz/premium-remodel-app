@@ -15,6 +15,13 @@ import ContractorFields from "./contractor-fields";
 import AddressInput from "./address-input";
 import { workTypes, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
+import { projectMoney } from "@/lib/project-finances";
+import {
+  lineTotal,
+  pricingBases,
+  rateFromTotal,
+  rateLabel,
+} from "@/lib/scope-pricing";
 export type FormKind = "project" | "quote" | "task" | "contractor" | "scope";
 export interface Editor {
   kind: FormKind;
@@ -57,6 +64,17 @@ export function EntityForm({
   const sub = entity as Contractor | undefined;
   const item = entity as ScopeItem | undefined;
   const [scopeUnit, setScopeUnit] = useState(item?.unit || "job");
+  const [scopeQuantity, setScopeQuantity] = useState(
+    String(item?.quantity ?? 1),
+  );
+  const [scopePrice, setScopePrice] = useState(String(item?.estimate ?? 0));
+  const [scopeRate, setScopeRate] = useState(
+    String(rateFromTotal(item?.estimate ?? 0, item?.quantity ?? 1)),
+  );
+  const scopeLineTotal =
+    scopeUnit === "job"
+      ? Number(scopePrice)
+      : lineTotal(Number(scopeQuantity), Number(scopeRate));
   const [contractorId, setContractorId] = useState(
     entity && "contractorId" in entity ? entity.contractorId : "",
   );
@@ -142,6 +160,8 @@ export function EntityForm({
     if (kind === "quote") data.status = projectValues.status || "Draft";
     for (const key of ["quantity", "estimate", "subCost", "materialCost"])
       if (key in data) data[key] = Number(data[key]);
+    if (kind === "scope" && scopeUnit !== "job")
+      data.estimate = lineTotal(Number(data.quantity), Number(data.estimate));
     try {
       await onSave(kind, data, entity);
       onClose();
@@ -183,7 +203,7 @@ export function EntityForm({
         addingContractor
           ? "Save their contact details, then return to your work."
           : kind === "scope"
-            ? "Choose flat pricing or a measured quantity, then enter the item totals."
+            ? "Use a flat price or enter a quantity and rate to calculate the item total."
             : kind === "quote" && editor.initialValues?.leadId
               ? "Lead and contact details are filled in. Review them, then create the quote."
               : "Keep the details your team needs in one place."
@@ -511,7 +531,8 @@ export function EntityForm({
                       min="0"
                       max="1000000000"
                       step="0.01"
-                      defaultValue={item?.quantity ?? 1}
+                      value={scopeQuantity}
+                      onChange={(event) => setScopeQuantity(event.target.value)}
                       required
                     />
                   </label>
@@ -521,28 +542,49 @@ export function EntityForm({
                   <select
                     name="unit"
                     value={scopeUnit}
-                    onChange={(event) => setScopeUnit(event.target.value)}
+                    onChange={(event) => {
+                      const nextUnit = event.target.value;
+                      if (nextUnit === "job") {
+                        setScopePrice(String(scopeLineTotal));
+                        setScopeQuantity("1");
+                      } else if (scopeUnit === "job") {
+                        setScopeRate(String(Number(scopePrice)));
+                      }
+                      setScopeUnit(nextUnit);
+                    }}
                   >
-                    <option value="job">Flat price</option>
-                    <option value="sq ft">sq ft</option>
-                    <option value="linear ft">linear ft</option>
-                    <option value="each">each</option>
-                    <option value="hours">hours</option>
+                    {pricingBases.map((basis) => (
+                      <option key={basis.value} value={basis.value}>
+                        {basis.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
               <div className="form-grid">
                 <label>
-                  Price · total ($)
+                  {scopeUnit === "job"
+                    ? "Price · total ($)"
+                    : `${rateLabel(scopeUnit)} ($)`}
                   <input
                     name="estimate"
                     type="number"
                     min="0"
                     max="1000000000"
-                    step="0.01"
-                    defaultValue={item?.estimate ?? 0}
+                    step={scopeUnit === "job" ? "0.01" : "any"}
+                    value={scopeUnit === "job" ? scopePrice : scopeRate}
+                    onChange={(event) =>
+                      scopeUnit === "job"
+                        ? setScopePrice(event.target.value)
+                        : setScopeRate(event.target.value)
+                    }
                     required
                   />
+                  {scopeUnit !== "job" && (
+                    <small className="scope-rate-total">
+                      Line total: {projectMoney(scopeLineTotal)}
+                    </small>
+                  )}
                 </label>
                 <label>
                   Subcontractor cost · total ($)

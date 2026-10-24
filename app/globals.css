@@ -3052,6 +3052,12 @@ small {
   width: calc(100% - 12px);
   text-align: right;
 }
+.scope-table .scope-line-total {
+  margin: 4px 0 0 10px;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 9px;
+  white-space: nowrap;
+}
 .scope-cell-input[type="number"]::-webkit-inner-spin-button,
 .scope-cell-input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
@@ -4870,6 +4876,13 @@ small {
 }
 .form-grid.scope-pricing-basis-grid {
   grid-template-columns: 1fr;
+}
+.scope-rate-total {
+  display: block;
+  margin-top: 6px;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .form-fields label {
   font-size: 11px;

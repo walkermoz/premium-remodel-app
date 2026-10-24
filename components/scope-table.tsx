@@ -22,16 +22,15 @@ import {
   scopeCosts,
   scopeDifference,
 } from "@/lib/project-finances";
+import {
+  lineTotal,
+  pricingBases,
+  rateFromTotal,
+  rateLabel,
+} from "@/lib/scope-pricing";
 import { Badge, Empty, Modal } from "./ui";
 import BathroomQuestionnaire from "./bathroom-questionnaire";
 
-const units = [
-  { value: "job", label: "Flat price" },
-  { value: "sq ft", label: "sq ft" },
-  { value: "linear ft", label: "linear ft" },
-  { value: "each", label: "each" },
-  { value: "hours", label: "hours" },
-];
 const statuses: TaskStatus[] = ["To do", "In progress", "Done"];
 
 function detailRowCount(value: string) {
@@ -49,6 +48,7 @@ interface ScopeDraft {
   quantity: string;
   unit: string;
   estimate: string;
+  rate: string;
   subCost: string;
   materialCost: string;
   contractorId: string;
@@ -62,6 +62,7 @@ function draftFrom(item?: ScopeItem): ScopeDraft {
     quantity: String(item?.quantity ?? 1),
     unit: item?.unit || "job",
     estimate: String(item?.estimate ?? 0),
+    rate: String(rateFromTotal(item?.estimate ?? 0, item?.quantity ?? 1)),
     subCost: String(item?.subCost ?? 0),
     materialCost: String(item?.materialCost ?? 0),
     contractorId: item?.contractorId || "",
@@ -286,6 +287,7 @@ export default function ScopeTable({
             quantity: String(values.quantity),
             unit: values.unit,
             estimate: String(values.estimate),
+            rate: draft.rate,
             subCost: String(values.subCost),
             materialCost: String(values.materialCost),
             contractorId: values.contractorId,
@@ -416,7 +418,7 @@ export default function ScopeTable({
             <tr>
               <th>Work item / contractor</th>
               <th>Pricing basis</th>
-              <th>Price</th>
+              <th>Price / rate</th>
               <th>Sub cost</th>
               <th>Material cost</th>
               <th>Difference</th>
@@ -730,7 +732,15 @@ function EditableRow({
               step="0.01"
               value={draft.quantity}
               disabled={saving}
-              onChange={(event) => onChange({ quantity: event.target.value })}
+              onChange={(event) => {
+                const quantity = event.target.value;
+                onChange({
+                  quantity,
+                  estimate: String(
+                    lineTotal(Number(quantity), Number(draft.rate)),
+                  ),
+                });
+              }}
             />
           )}
           <select
@@ -738,14 +748,19 @@ function EditableRow({
             aria-label={`Unit for ${draft.title || "new work item"}`}
             value={draft.unit}
             disabled={saving}
-            onChange={(event) =>
+            onChange={(event) => {
+              const unit = event.target.value;
               onChange({
-                unit: event.target.value,
-                ...(event.target.value === "job" ? { quantity: "1" } : {}),
-              })
-            }
+                unit,
+                ...(unit === "job"
+                  ? { quantity: "1", rate: draft.estimate }
+                  : draft.unit === "job"
+                    ? { rate: draft.estimate }
+                    : {}),
+              });
+            }}
           >
-            {units.map((unit) => (
+            {pricingBases.map((unit) => (
               <option key={unit.value} value={unit.value}>
                 {unit.label}
               </option>
@@ -754,10 +769,27 @@ function EditableRow({
         </div>
       </td>
       <MoneyCell
-        label={`Price for ${draft.title || "new work item"}`}
-        value={draft.estimate}
+        label={`${draft.unit === "job" ? "Price" : rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+        value={draft.unit === "job" ? draft.estimate : draft.rate}
+        hint={
+          draft.unit === "job"
+            ? undefined
+            : `Total ${money(draftNumber(draft.estimate))}`
+        }
+        step={draft.unit === "job" ? "0.01" : "any"}
         disabled={saving}
-        onChange={(estimate) => onChange({ estimate })}
+        onChange={(value) =>
+          onChange(
+            draft.unit === "job"
+              ? { estimate: value, rate: value }
+              : {
+                  rate: value,
+                  estimate: String(
+                    lineTotal(Number(draft.quantity), Number(value)),
+                  ),
+                },
+          )
+        }
       />
       <MoneyCell
         label={`Subcontractor cost for ${draft.title || "new work item"}`}
@@ -835,11 +867,15 @@ function EditableRow({
 function MoneyCell({
   label,
   value,
+  hint,
+  step = "0.01",
   disabled,
   onChange,
 }: {
   label: string;
   value: string;
+  hint?: string;
+  step?: string;
   disabled: boolean;
   onChange: (value: string) => void;
 }) {
@@ -852,11 +888,12 @@ function MoneyCell({
         type="number"
         min="0"
         max="1000000000"
-        step="0.01"
+        step={step}
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
+      {hint ? <small className="scope-line-total">{hint}</small> : null}
     </td>
   );
 }

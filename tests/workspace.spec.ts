@@ -90,7 +90,20 @@ cloudTest(
       } else {
         await dialog.getByLabel("Quantity", { exact: true }).fill(item.qty);
       }
-      await dialog.getByLabel("Price · total ($)").fill(item.estimate);
+      if (item.unit === "job") {
+        await dialog.getByLabel("Price · total ($)").fill(item.estimate);
+      } else {
+        await dialog
+          .getByLabel("Rate per sq ft ($)")
+          .fill(String(Number(item.estimate) / Number(item.qty)));
+        await expect(dialog.getByText("Line total:")).toContainText(
+          new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+            maximumFractionDigits: 2,
+          }).format(Number(item.estimate)),
+        );
+      }
       await dialog.getByLabel("Subcontractor cost · total ($)").fill(item.sub);
       await dialog
         .getByLabel("Subcontractor for cost estimate")
