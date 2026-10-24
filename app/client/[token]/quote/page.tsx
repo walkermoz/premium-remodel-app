@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import {
   CalendarDays,
   CreditCard,
@@ -16,7 +17,15 @@ import {
   readClientQuoteSource,
   type ClientQuoteView,
 } from "@/lib/client-quote";
-import { createClientWalletFormToken } from "@/lib/client-portal";
+import {
+  createClientWalletFormToken,
+  isExpiredClientEmailToken,
+  parseClientPortalAccess,
+} from "@/lib/client-portal";
+import {
+  clientQuotesForEmail,
+  type ClientEmailQuote,
+} from "@/lib/client-access";
 import {
   cancellationDeadline,
   easternDate,
@@ -124,6 +133,7 @@ async function ClientSectionView({
   token,
   result,
   organizationId,
+  emailQuotes,
 }: {
   section: Exclude<PortalView, "detail">;
   quoteUrl: string;
@@ -133,9 +143,9 @@ async function ClientSectionView({
   token: string;
   result: string;
   organizationId: string;
+  emailQuotes: ClientEmailQuote[];
 }) {
-  const { quote, total, approved } = quoteView;
-  const number = quote.quoteNumber || quote.id.slice(0, 8).toUpperCase();
+  const { quote, total } = quoteView;
   const requestUrl = `${quoteUrl}?view=new-request`;
 
   if (section === "msa") {
@@ -330,27 +340,48 @@ async function ClientSectionView({
     return (
       <main className={styles.sectionPage}>
         <h1>Your quotes</h1>
-        <h2
-          className={`${styles.quoteGroup} ${approved ? styles.approved : ""}`}
-        >
-          {approved ? "Approved" : "Awaiting response"}
-        </h2>
-        <a className={styles.quoteCard} href={quoteUrl}>
-          <strong>Quote #{number}</strong>
-          <span>
-            <CalendarDays size={20} aria-hidden="true" />{" "}
-            {approved ? "Approved" : "Sent"}{" "}
-            {date(approved ? quote.quoteAcceptedAt : quote.quoteSentAt) ||
-              date(quote.revisedDate || quote.updatedAt)}
-          </span>
-          <span className={styles.quoteAddress}>
-            {quote.address || "Project address to be confirmed"}
-          </span>
-          <span className={styles.quoteCardTotal}>
-            <small>Total</small>
-            <b>{money(total)}</b>
-          </span>
-        </a>
+        {(emailQuotes.length
+          ? emailQuotes
+          : [{ id: quote.id, quote, items: [], url: quoteUrl }]
+        ).map((entry) => {
+          const entryApproved = Boolean(entry.quote.quoteAcceptedAt);
+          const entryTotal =
+            entry.quote.id === quote.id
+              ? total
+              : entry.items.reduce((sum, item) => sum + item.estimate, 0);
+          return (
+            <div key={entry.id}>
+              <h2
+                className={`${styles.quoteGroup} ${entryApproved ? styles.approved : ""}`}
+              >
+                {entryApproved ? "Approved" : "Awaiting response"}
+              </h2>
+              <a className={styles.quoteCard} href={entry.url}>
+                <strong>
+                  Quote #
+                  {entry.quote.quoteNumber ||
+                    entry.quote.id.slice(0, 8).toUpperCase()}
+                </strong>
+                <span>
+                  <CalendarDays size={20} aria-hidden="true" />{" "}
+                  {entryApproved ? "Approved" : "Sent"}{" "}
+                  {date(
+                    entryApproved
+                      ? entry.quote.quoteAcceptedAt
+                      : entry.quote.quoteSentAt,
+                  ) || date(entry.quote.revisedDate || entry.quote.updatedAt)}
+                </span>
+                <span className={styles.quoteAddress}>
+                  {entry.quote.address || "Project address to be confirmed"}
+                </span>
+                <span className={styles.quoteCardTotal}>
+                  <small>Total</small>
+                  <b>{money(entryTotal)}</b>
+                </span>
+              </a>
+            </div>
+          );
+        })}
       </main>
     );
 
@@ -438,7 +469,10 @@ export default async function ClientQuotePage({
 }) {
   const [{ token }, query] = await Promise.all([params, searchParams]);
   const source = await readClientQuoteSource(token);
-  if (!source) notFound();
+  if (!source) {
+    if (isExpiredClientEmailToken(token)) redirect("/client/sign-in?expired=1");
+    notFound();
+  }
   const view = source.view;
 
   const rawSection = typeof query.view === "string" ? query.view : "";
@@ -456,6 +490,19 @@ export default async function ClientQuotePage({
   const { quote, items, total, approved } = view;
   const number = quote.quoteNumber || quote.id.slice(0, 8).toUpperCase();
   const quoteUrl = `/client/${encodeURIComponent(token)}/quote`;
+  const access = parseClientPortalAccess(token);
+  const emailQuotes =
+    section === "quotes" &&
+    access?.emailTag &&
+    access.expiresAt &&
+    quote.clientEmail
+      ? await clientQuotesForEmail(
+          source.organizationId,
+          quote.clientEmail,
+          "",
+          (access.expiresAt - 30 * 24 * 60 * 60) * 1000,
+        )
+      : [];
   const contactHref = `mailto:contact@premiumremodel.com?subject=${encodeURIComponent(`Question about Premium Remodel Quote #${number}`)}`;
   const contactPhone = quote.preparedByPhone || "(919) 413-9782";
   const sectionTotals = new Map<string, number>();
@@ -502,6 +549,7 @@ export default async function ClientQuotePage({
           <a href="mailto:contact@premiumremodel.com">
             <Mail size={15} aria-hidden="true" /> Email us
           </a>
+          <Link href="/client/sign-in">Sign in on another device</Link>
         </div>
         <details className={styles.mobileMenu}>
           <summary>
@@ -674,6 +722,7 @@ export default async function ClientQuotePage({
             token={token}
             result={typeof query.result === "string" ? query.result : ""}
             organizationId={source.organizationId}
+            emailQuotes={emailQuotes}
           />
         )}
       </div>

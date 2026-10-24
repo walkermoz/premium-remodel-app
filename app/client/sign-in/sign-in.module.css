@@ -1,0 +1,141 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background: #f6f5f1;
+  color: #183244;
+}
+
+.shell {
+  width: min(100%, 480px);
+  background: #fff;
+  border: 1px solid #dce4e8;
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgb(24 50 68 / 9%);
+  overflow: hidden;
+}
+
+.header {
+  padding: 22px 30px;
+  border-bottom: 3px solid #e2e7e9;
+}
+
+.header img {
+  display: block;
+  width: 200px;
+  max-width: 100%;
+  height: auto;
+}
+
+.body {
+  padding: 34px 30px 38px;
+}
+.eyebrow {
+  margin: 0 0 9px;
+  color: #367dc0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.body h1 {
+  margin: 0 0 12px;
+  font-size: clamp(27px, 6vw, 34px);
+  line-height: 1.16;
+  letter-spacing: -0.03em;
+}
+.intro,
+.help {
+  color: #536a78;
+  line-height: 1.6;
+}
+.intro {
+  margin: 0 0 28px;
+}
+.help {
+  margin: 26px 0 0;
+  font-size: 13px;
+}
+.help a,
+.again {
+  color: #286fae;
+}
+.form {
+  display: grid;
+  gap: 10px;
+}
+.form label {
+  font-size: 14px;
+  font-weight: 700;
+}
+.form input {
+  width: 100%;
+  border: 1px solid #c7d4dd;
+  border-radius: 7px;
+  padding: 13px 14px;
+  color: #183244;
+  background: #fff;
+  font: inherit;
+}
+.form input:focus {
+  outline: 2px solid #7bb3e5;
+  outline-offset: 1px;
+}
+.form button[type="submit"] {
+  margin-top: 8px;
+  border: 0;
+  border-radius: 7px;
+  padding: 14px 18px;
+  background: #2f7cc7;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.form button[type="submit"]:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.error {
+  margin: 0;
+  color: #a83b3b;
+  font-size: 13px;
+}
+.expired {
+  margin: 0 0 20px;
+  border-radius: 6px;
+  padding: 11px 13px;
+  color: #735010;
+  background: #fff7e2;
+  font-size: 13px;
+}
+.sent {
+  border-radius: 8px;
+  padding: 20px;
+  background: #edf6fc;
+}
+.sent strong {
+  display: block;
+  font-size: 19px;
+}
+.sent p {
+  margin: 9px 0 16px;
+  line-height: 1.6;
+}
+.again {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 20px 24px;
+  }
+  .body {
+    padding: 28px 24px 32px;
+  }
+}

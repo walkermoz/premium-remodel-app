@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { parseClientPortalToken } from "./client-portal";
+import { clientPortalEmailTag, parseClientPortalAccess } from "./client-portal";
 import { quoteAcceptanceSchema } from "./quote-signature";
 import { supabaseAdmin } from "./supabase/server";
 import type { MsaAgreement, Quote, ScopeItem } from "./types";
@@ -10,6 +10,7 @@ const quoteSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   client: z.string(),
+  clientEmail: z.union([z.email(), z.literal("")]).optional(),
   address: z.string(),
   category: z.string(),
   status: z.string(),
@@ -89,8 +90,9 @@ export function isValidClientQuoteSnapshot(value: unknown) {
 
 /** The shared token only grants access to this one quote and its public scope. */
 export async function readClientQuoteSource(token: string) {
-  const id = parseClientPortalToken(token);
-  if (!id) return null;
+  const access = parseClientPortalAccess(token);
+  if (!access || access.expired) return null;
+  const id = access.id;
 
   const admin = supabaseAdmin();
   const { data: link, error: linkError } = await admin
@@ -113,11 +115,23 @@ export async function readClientQuoteSource(token: string) {
 
   const record = quoteResult.data;
   const snapshot = snapshotSchema.safeParse(link.quote_snapshot);
+  const currentEmail =
+    record?.data &&
+    typeof record.data === "object" &&
+    "clientEmail" in record.data &&
+    typeof record.data.clientEmail === "string"
+      ? record.data.clientEmail
+      : "";
   if (
     !record ||
     !snapshot.success ||
     snapshot.data.quote.id !== link.project_id ||
-    snapshot.data.quote.status !== "Sent"
+    snapshot.data.quote.status !== "Sent" ||
+    (access.emailTag !== null &&
+      (!snapshot.data.quote.clientEmail ||
+        clientPortalEmailTag(snapshot.data.quote.clientEmail) !==
+          access.emailTag ||
+        clientPortalEmailTag(currentEmail) !== access.emailTag))
   )
     return null;
   if (snapshot.data.items.some((item) => item.projectId !== link.project_id))

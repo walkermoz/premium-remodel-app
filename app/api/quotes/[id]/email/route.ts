@@ -1,4 +1,10 @@
-import { apiError, checkOrigin, limitAttempts, requireUser } from "@/lib/auth";
+import {
+  apiError,
+  appOrigin,
+  checkOrigin,
+  limitAttempts,
+  requireUser,
+} from "@/lib/auth";
 import { sendQuoteEmail, sendQuoteInput } from "@/lib/quote-email";
 import { GoogleMailError } from "@/lib/google-mail";
 
@@ -15,7 +21,9 @@ export async function POST(
     await limitAttempts(`quote-email:${user.id}`, 30);
     const input = sendQuoteInput.parse(await request.json());
     const { id } = await context.params;
-    return Response.json(await sendQuoteEmail(user, id, input));
+    return Response.json(
+      await sendQuoteEmail(user, id, input, appOrigin(request)),
+    );
   } catch (error) {
     if (error instanceof GoogleMailError)
       return Response.json({ error: error.message }, { status: error.status });

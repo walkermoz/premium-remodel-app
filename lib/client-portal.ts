@@ -1,11 +1,18 @@
 import "server-only";
 
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { supabaseAdmin } from "./supabase/server";
-
-const linkId = z.uuid();
-const linkSignature = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+import { parseClientPortalToken } from "./client-portal-token";
+export {
+  clientPortalEmailTag,
+  createClientEmailToken,
+  createClientPortalToken,
+  createClientWalletFormToken,
+  isExpiredClientEmailToken,
+  parseClientPortalAccess,
+  parseClientPortalToken,
+  validClientWalletFormToken,
+} from "./client-portal-token";
 const projectSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1).max(250),
@@ -54,78 +61,6 @@ export interface ClientPortalData {
   upcoming: ClientPortalTask[];
   progress: number;
   latestUpdate: string;
-}
-
-function clientPortalSecret() {
-  const value = process.env.CLIENT_PORTAL_SECRET?.trim();
-  if (!value || value.length < 32)
-    throw new Error("Client portal signing is not configured.");
-  return value;
-}
-
-function signatureFor(id: string) {
-  return createHmac("sha256", clientPortalSecret())
-    .update(`premium-remodel-client:${id}`)
-    .digest("base64url");
-}
-
-export function createClientPortalToken(id: string = randomUUID()) {
-  return `${id}.${signatureFor(id)}`;
-}
-
-export function parseClientPortalToken(value: string) {
-  const [rawId, rawSignature, extra] = value.split(".");
-  const id = linkId.safeParse(rawId);
-  const signature = linkSignature.safeParse(rawSignature);
-  if (!id.success || !signature.success || extra !== undefined) return null;
-  const expected = Buffer.from(signatureFor(id.data), "base64url");
-  const received = Buffer.from(signature.data, "base64url");
-  if (
-    expected.length !== received.length ||
-    !timingSafeEqual(expected, received)
-  )
-    return null;
-  return id.data;
-}
-
-const walletFormLifetimeSeconds = 2 * 60 * 60;
-
-function walletFormSignature(id: string, issuedAt: number) {
-  return createHmac("sha256", clientPortalSecret())
-    .update(`premium-remodel-wallet-form:${id}:${issuedAt}`)
-    .digest("base64url");
-}
-
-/** A short-lived CSRF token for a form rendered within one private quote link. */
-export function createClientWalletFormToken(portalToken: string) {
-  const id = parseClientPortalToken(portalToken);
-  if (!id) throw new Error("Invalid client portal link.");
-  const issuedAt = Math.floor(Date.now() / 1000);
-  return `${issuedAt}.${walletFormSignature(id, issuedAt)}`;
-}
-
-export function validClientWalletFormToken(
-  portalToken: string,
-  formToken: unknown,
-) {
-  const id = parseClientPortalToken(portalToken);
-  if (!id || typeof formToken !== "string") return false;
-  const [rawTime, rawSignature, extra] = formToken.split(".");
-  if (
-    extra !== undefined ||
-    !/^\d{10}$/.test(rawTime || "") ||
-    !/^[A-Za-z0-9_-]{43}$/.test(rawSignature || "")
-  )
-    return false;
-  const issuedAt = Number(rawTime);
-  const now = Math.floor(Date.now() / 1000);
-  if (issuedAt > now + 60 || issuedAt < now - walletFormLifetimeSeconds)
-    return false;
-  const expected = Buffer.from(walletFormSignature(id, issuedAt), "base64url");
-  const received = Buffer.from(rawSignature, "base64url");
-  return (
-    expected.length === received.length && timingSafeEqual(expected, received)
-  );
 }
 
 export async function readClientPortal(token: string) {

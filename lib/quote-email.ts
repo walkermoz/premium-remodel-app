@@ -8,6 +8,8 @@ import { HttpError, type WorkspaceUser } from "./auth";
 import { recordAuditEvent } from "./audit-server";
 import { gmailAccessToken, googleMailAddress } from "./google-mail";
 import { renderQuoteEmail } from "./email-template";
+import { createClientEmailToken } from "./client-portal";
+import { ensureEmailedQuoteLink } from "./client-quote-link";
 import { buildQuotePdf, quotePdfFileName } from "./quote-pdf";
 import { findRecord, getWorkspace, updateRecord } from "./repository";
 import { supabaseAdmin } from "./supabase/server";
@@ -42,6 +44,7 @@ export function quoteEmailRaw(
   pdf: Uint8Array,
   filename: string,
   logo: Uint8Array,
+  portalUrl: string,
 ) {
   const boundary = `premium-remodel-${randomUUID()}`;
   const relatedBoundary = `premium-remodel-related-${randomUUID()}`;
@@ -53,6 +56,7 @@ export function quoteEmailRaw(
   const safeRecipient = header(input.recipientEmail);
   const email = renderQuoteEmail({
     message: input.message,
+    portalUrl,
   });
   const lines = [
     `From: Premium Remodel <${googleMailAddress}>`,
@@ -115,6 +119,7 @@ export async function sendQuoteEmail(
   user: WorkspaceUser,
   quoteId: string,
   input: SendInput,
+  origin: string,
   fetcher: typeof fetch = fetch,
 ) {
   if (user.group === "doorknocker")
@@ -181,7 +186,20 @@ export async function sendQuoteEmail(
     const pdf = await buildQuotePdf(quote, workspace.scope, logo);
     if (pdf.length > 20 * 1024 * 1024)
       throw new HttpError(413, "This quote PDF is too large to email.");
-    const raw = quoteEmailRaw(input, pdf, quotePdfFileName(quote), logo);
+    const linkId = await ensureEmailedQuoteLink(
+      user,
+      quote,
+      workspace.scope,
+      new Date().toISOString(),
+    );
+    const portalUrl = `${origin}/client/${createClientEmailToken(linkId, input.recipientEmail)}/quote`;
+    const raw = quoteEmailRaw(
+      input,
+      pdf,
+      quotePdfFileName(quote),
+      logo,
+      portalUrl,
+    );
     attempted = true;
     const response = await fetcher(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",

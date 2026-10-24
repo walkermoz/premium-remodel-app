@@ -8,6 +8,7 @@ test("quote message remains readable in both formats and escapes customer text",
   const email = renderQuoteEmail({
     message:
       'Hi Alex,\n\nPlease review <the scope> & reply. <script>alert("x")</script>',
+    portalUrl: "https://servicebuddy-ui.vercel.app/client/private-link/quote",
   });
 
   expect(email.html).toContain("Please review &lt;the scope&gt; &amp; reply.");
@@ -20,6 +21,14 @@ test("quote message remains readable in both formats and escapes customer text",
     "background:#ffffff;border-bottom:3px solid #e2e7e9",
   );
   expect(email.text).toContain("Please review <the scope> & reply.");
+  expect(email.html).toContain("Open your quote");
+  expect(email.html).toContain(
+    'href="https://servicebuddy-ui.vercel.app/client/private-link/quote"',
+  );
+  expect(email.text).toContain("This private email link is valid for 30 days");
+  expect(email.html).toContain(
+    'href="https://servicebuddy-ui.vercel.app/client/sign-in"',
+  );
   expect(email.html).not.toContain("Attached for your review");
   expect(email.html).not.toContain("Quote 130.pdf");
   expect(email.html).toContain('href="tel:+19194544012"');
