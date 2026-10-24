@@ -283,7 +283,7 @@ test("project overview logs checks and updates the balance, preserving the price
   ).toBe(true);
 });
 
-test("quotes carry their contact, scope and files into a planning project", async ({
+test("a sent quote keeps its contact, scope and files in Quotes", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
@@ -343,20 +343,22 @@ test("quotes carry their contact, scope and files into a planning project", asyn
     .getByRole("button", { name: /Jason’s garage quote Jason/ })
     .click();
   const quoteId = new URL(page.url()).searchParams.get("project");
-  await page.getByRole("button", { name: "Accept quote", exact: true }).click();
-  await expect(page.getByLabel("Project status")).toHaveValue("Planning");
+  await expect(page.getByRole("button", { name: "Accept quote" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByLabel("Quote status")).toHaveValue("Sent");
   expect(new URL(page.url()).searchParams.get("project")).toBe(quoteId);
-  await expect(page.locator(".scope-metrics")).toContainText("$5,100.15");
-  await expect(page.locator(".scope-price-warning")).toHaveCount(0);
-  await expect(page.locator(".scope-table")).toContainText("Garage framing");
-  await expect(page.locator(".scope-table tfoot")).toContainText("$750.15");
-  await expect(page.locator(".scope-table tfoot")).toContainText("$2,350");
-  await page.getByRole("tab", { name: /Photos & files/ }).click();
+  await expect(
+    page.locator('.scope-table input[value="Garage framing"]'),
+  ).toBeVisible();
+  await expect(page.locator(".scope-table tfoot")).toContainText("$5,100.15");
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
   await page.reload();
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
   await page.getByRole("button", { name: "Quotes", exact: true }).click();
-  await expect(page.locator(".quote-row")).toHaveCount(0);
+  await expect(page.locator(".quote-row")).toContainText(
+    "Jason’s garage quote",
+  );
 });
 
 test("per-unit quote rates calculate and persist the line total", async ({
