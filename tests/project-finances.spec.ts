@@ -301,6 +301,14 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await expect(
     page.getByRole("heading", { name: "Jason’s garage quote", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".quote-header-contact")).toContainText("Jason");
+  await expect(
+    page.locator('.quote-header-contact a[href="mailto:jason@example.com"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator('.quote-header-contact a[href="tel:9195550100"]'),
+  ).toBeVisible();
+  await expect(page.locator(".quote-overview .quote-contact")).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Download PDF" }),
   ).toHaveAttribute("href", /\/api\/quotes\/[0-9a-f-]+\/pdf$/);

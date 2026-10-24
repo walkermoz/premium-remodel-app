@@ -335,9 +335,32 @@
 .quote-detail > .footnote {
   margin: 10px 0 24px;
 }
+.quote-header-contact {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 18px;
+  margin-top: 12px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.quote-header-contact strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+.quote-header-contact a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue);
+}
+.quote-header-contact a svg {
+  flex-shrink: 0;
+}
+.quote-header-contact span {
+  color: var(--muted);
+}
 .quote-overview {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -345,8 +368,7 @@
   margin: 20px 0 30px;
   gap: 24px;
 }
-.quote-price,
-.quote-contact {
+.quote-price {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -360,29 +382,9 @@
   letter-spacing: -0.8px;
 }
 .quote-price span,
-.quote-price small,
-.quote-contact span {
+.quote-price small {
   font-size: 12px;
   color: var(--muted);
-}
-.quote-contact {
-  border-left: 1px solid var(--line);
-  padding-left: 24px;
-  overflow-wrap: anywhere;
-}
-.quote-contact strong {
-  font-size: 14px;
-  font-weight: 600;
-}
-.quote-contact a {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--blue);
-}
-.quote-contact svg {
-  flex-shrink: 0;
 }
 @media (max-width: 760px) {
   .quote-row {
@@ -434,13 +436,7 @@
     font-size: 23px;
   }
   .quote-overview {
-    grid-template-columns: 1fr;
     padding: 20px;
-  }
-  .quote-contact {
-    padding: 20px 0 0;
-    border-left: 0;
-    border-top: 1px solid var(--line);
   }
 }
 @media (prefers-reduced-motion: reduce) {

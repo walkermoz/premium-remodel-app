@@ -406,8 +406,24 @@ export function QuoteDetail({
           <div className="project-address">
             <MapPin size={15} />
             {quote.address || "No address added"}
-            <span className="address-divider">·</span>
-            {quote.client || "No client added"}
+          </div>
+          <div className="quote-header-contact">
+            <strong>{quote.client || "No client added"}</strong>
+            {quote.clientEmail && (
+              <a href={`mailto:${quote.clientEmail}`}>
+                <Mail size={14} />
+                {quote.clientEmail}
+              </a>
+            )}
+            {quote.clientPhone && (
+              <a href={`tel:${quote.clientPhone.replace(/[^+\d]/g, "")}`}>
+                <Phone size={14} />
+                {quote.clientPhone}
+              </a>
+            )}
+            {!quote.clientPhone && !quote.clientEmail && (
+              <span>Add client contact details in Edit quote.</span>
+            )}
           </div>
         </div>
         <div className="project-actions">
@@ -564,24 +580,6 @@ export function QuoteDetail({
           <span>Scope total · quote price</span>
           <strong>{projectMoney(scopeTotal(items))}</strong>
           <small>{items.length} scope items</small>
-        </div>
-        <div className="quote-contact">
-          <strong>{quote.client || "Client details"}</strong>
-          {quote.clientEmail && (
-            <a href={`mailto:${quote.clientEmail}`}>
-              <Mail size={14} />
-              {quote.clientEmail}
-            </a>
-          )}
-          {quote.clientPhone && (
-            <a href={`tel:${quote.clientPhone.replace(/[^+\d]/g, "")}`}>
-              <Phone size={14} />
-              {quote.clientPhone}
-            </a>
-          )}
-          {!quote.clientPhone && !quote.clientEmail && (
-            <span>Add client contact details in Edit quote.</span>
-          )}
         </div>
       </div>
       {quote.description && (
