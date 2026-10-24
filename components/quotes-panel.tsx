@@ -437,29 +437,26 @@ export function QuoteDetail({
             </button>
           )}
           <div className="quote-header-status">
-            <label>
-              Quote status
-              <select
-                aria-label="Quote status"
-                value={quote.status}
-                disabled={busy || signedScope}
-                onChange={(event) =>
-                  void change(() =>
-                    onSave(
-                      "quote",
-                      { ...quote, status: event.target.value },
-                      quote,
-                    ),
-                  )
-                }
-              >
-                {quoteStatuses
-                  .filter((status) => status !== "Accepted" || signedScope)
-                  .map((status) => (
-                    <option key={status}>{status}</option>
-                  ))}
-              </select>
-            </label>
+            <select
+              aria-label="Quote status"
+              value={quote.status}
+              disabled={busy || signedScope}
+              onChange={(event) =>
+                void change(() =>
+                  onSave(
+                    "quote",
+                    { ...quote, status: event.target.value },
+                    quote,
+                  ),
+                )
+              }
+            >
+              {quoteStatuses
+                .filter((status) => status !== "Accepted" || signedScope)
+                .map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+            </select>
             {quote.quoteSentAt && (
               <small>Last sent {dateLabel(quote.quoteSentAt)}</small>
             )}

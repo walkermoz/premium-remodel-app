@@ -318,16 +318,9 @@
   justify-content: flex-end;
 }
 .quote-header-status {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.quote-header-status label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
-  color: var(--muted);
 }
 .quote-header-status select {
   padding: 8px 28px 8px 10px;
@@ -336,11 +329,12 @@
   background: var(--surface);
   color: var(--ink);
   font: inherit;
+  font-size: 11px;
 }
 .quote-header-status small {
   color: var(--muted);
   font-size: 10px;
-  text-align: right;
+  white-space: nowrap;
 }
 .quote-detail > .footnote {
   margin: 10px 0 24px;

@@ -312,6 +312,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await expect(
     page.locator(".quote-header-actions").getByLabel("Quote status"),
   ).toBeVisible();
+  await expect(page.getByText("Quote status", { exact: true })).toHaveCount(0);
   await expect(page.locator(".quote-detail .badge-category")).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Download PDF" }),
