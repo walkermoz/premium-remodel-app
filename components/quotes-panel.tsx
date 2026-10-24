@@ -559,80 +559,6 @@ export function QuoteDetail({
           </span>
         )}
       </div>
-      <section className="content-section" aria-label="Project readiness">
-        <div className="section-heading">
-          <h2>Before this becomes a project</h2>
-        </div>
-        <p>
-          {signedScope ? "✓" : "○"} Customer signed the quote and scope of work
-        </p>
-        <p>
-          {signedMsa ? "✓" : "○"} Customer signed the Master Services Agreement
-        </p>
-        <p>
-          {depositCents > 0 && dueCents === 0 ? "✓" : "○"} Deposit received
-          {depositCents > 0
-            ? ` · ${projectMoney(paidCents / 100)} of ${projectMoney(depositCents / 100)}`
-            : ""}
-        </p>
-        {!signedScope && (
-          <p className="muted">
-            Email the quote so the customer can review and sign it in their
-            portal.
-          </p>
-        )}
-        {signedMsa && dueCents > 0 && user.role === "admin" && !demo && (
-          <form
-            className="form-fields"
-            onSubmit={(event) => void recordCheck(event)}
-          >
-            <p>
-              Record a check only after you have received it. The customer can
-              also pay online from the signed agreement.
-            </p>
-            <div className="form-grid">
-              <label>
-                Check amount ($)
-                <input
-                  name="amount"
-                  type="number"
-                  min="0.01"
-                  max={(dueCents / 100).toFixed(2)}
-                  step="0.01"
-                  placeholder={(dueCents / 100).toFixed(2)}
-                  required
-                  disabled={checkBusy}
-                />
-              </label>
-              <label>
-                Check number (optional)
-                <input
-                  name="checkReference"
-                  maxLength={100}
-                  disabled={checkBusy}
-                />
-              </label>
-            </div>
-            {checkError && (
-              <p role="alert" className="alert">
-                {checkError}
-              </p>
-            )}
-            <button
-              type="submit"
-              className="button primary"
-              disabled={checkBusy}
-            >
-              {checkBusy ? "Recording…" : "Record received check"}
-            </button>
-          </form>
-        )}
-        {readyForProjects && (
-          <p role="status">
-            All requirements are complete. This quote is ready for Projects.
-          </p>
-        )}
-      </section>
       <div className="quote-overview">
         <div className="quote-price">
           <span>Scope total · quote price</span>
@@ -754,6 +680,57 @@ export function QuoteDetail({
             await onSent();
           }}
         />
+      )}
+      {signedMsa && dueCents > 0 && user.role === "admin" && !demo && (
+        <section className="content-section" aria-label="Check deposit">
+          <div className="section-heading">
+            <h2>Check deposit</h2>
+          </div>
+          <form
+            className="form-fields"
+            onSubmit={(event) => void recordCheck(event)}
+          >
+            <p>
+              Record a check only after you have received it. The customer can
+              also pay online from the signed agreement.
+            </p>
+            <div className="form-grid">
+              <label>
+                Check amount ($)
+                <input
+                  name="amount"
+                  type="number"
+                  min="0.01"
+                  max={(dueCents / 100).toFixed(2)}
+                  step="0.01"
+                  placeholder={(dueCents / 100).toFixed(2)}
+                  required
+                  disabled={checkBusy}
+                />
+              </label>
+              <label>
+                Check number (optional)
+                <input
+                  name="checkReference"
+                  maxLength={100}
+                  disabled={checkBusy}
+                />
+              </label>
+            </div>
+            {checkError && (
+              <p role="alert" className="alert">
+                {checkError}
+              </p>
+            )}
+            <button
+              type="submit"
+              className="button primary"
+              disabled={checkBusy}
+            >
+              {checkBusy ? "Recording…" : "Record received check"}
+            </button>
+          </form>
+        </section>
       )}
       <section className="content-section">
         <div className="section-heading">

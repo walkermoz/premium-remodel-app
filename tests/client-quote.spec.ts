@@ -155,8 +155,8 @@ cloudTest(
       page.getByRole("heading", { name: "Bathroom remodel" }),
     ).toBeVisible();
     await expect(
-      page.getByText("Customer signed the quote and scope of work"),
-    ).toBeVisible();
+      page.getByRole("heading", { name: "Before this becomes a project" }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "Master services agreement" }),
     ).toBeVisible();
