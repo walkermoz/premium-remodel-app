@@ -6,6 +6,10 @@ import {
   type PDFPage,
 } from "pdf-lib";
 import type { Quote, ScopeItem } from "./types";
+import {
+  DEFAULT_QUOTE_PROJECT_NAME,
+  UNGROUPED_SCOPE_PROJECT_ID,
+} from "./scope-projects";
 
 const PAGE_WIDTH = 612;
 const PAGE_HEIGHT = 792;
@@ -245,7 +249,7 @@ export async function buildQuotePdf(
     const key = quoteSectionKey(item);
     const current = sectionTotals.get(key);
     sectionTotals.set(key, {
-      name: quoteSectionName(item, quote.category || "General scope"),
+      name: quoteSectionName(item, DEFAULT_QUOTE_PROJECT_NAME),
       total: (current?.total || 0) + item.estimate,
     });
   }
@@ -330,7 +334,9 @@ export async function buildQuotePdf(
     const item = items[itemIndex];
     const sectionKey = quoteSectionKey(item);
     const section = sectionTotals.get(sectionKey);
-    let needsSectionHeader = sectionKey !== lastSectionKey;
+    let needsSectionHeader =
+      item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID &&
+      sectionKey !== lastSectionKey;
     const titleLines = wrap(item.title, regular, 9, 390);
     const allDetailLines = item.details
       ? wrap(item.details, regular, 7.2, 425)
@@ -351,7 +357,7 @@ export async function buildQuotePdf(
       tableTop = 92;
       drawTableHeader(page, bold, tableTop);
       rowTop = tableTop + 23;
-      needsSectionHeader = true;
+      needsSectionHeader = item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID;
     }
     if (needsSectionHeader && section) {
       page.drawRectangle({

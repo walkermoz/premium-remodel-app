@@ -386,6 +386,58 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
 });
 
+test("quote projects can be renamed or ungrouped without losing rows", async ({
+  page,
+}) => {
+  await page.goto("/demo?view=Quotes");
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Quote name").fill("Grouped quote test");
+  await dialog.getByLabel("Client name").fill("Test Homeowner");
+  await dialog.getByRole("button", { name: "Create quote" }).click();
+
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const row = page.locator(".scope-new-row");
+  await row
+    .getByRole("textbox", { name: "New work item", exact: true })
+    .fill("Demo work");
+  await row.getByLabel("Price for Demo work").fill("250");
+  await row.getByRole("button", { name: "Save Demo work" }).click();
+  await expect(page.locator(".scope-section-row")).toContainText("Project #1");
+
+  await page.getByRole("button", { name: "Rename project Project #1" }).click();
+  await page.getByLabel("Project name for Project #1").fill("Kitchen phase");
+  await page.getByRole("button", { name: "Save project name" }).click();
+  await expect(page.locator(".scope-section-row")).toContainText(
+    "Kitchen phase",
+  );
+  await page.reload();
+  await expect(page.locator(".scope-section-row")).toContainText(
+    "Kitchen phase",
+  );
+
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const secondRow = page.locator(".scope-new-row");
+  await secondRow
+    .getByRole("textbox", { name: "New work item", exact: true })
+    .fill("Finish work");
+  await secondRow.getByLabel("Price for Finish work").fill("50");
+  await secondRow.getByRole("button", { name: "Save Finish work" }).click();
+  await expect(page.locator(".scope-section-row")).toHaveCount(1);
+  await expect(page.locator(".scope-section-row")).toContainText("2 items");
+
+  await page
+    .getByRole("button", { name: "Remove project Kitchen phase" })
+    .click();
+  await expect(page.locator(".scope-section-row")).toHaveCount(0);
+  await expect(page.getByLabel("Work item Demo work")).toBeVisible();
+  await expect(page.getByLabel("Work item Finish work")).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".scope-section-row")).toHaveCount(0);
+  await expect(page.getByLabel("Work item Demo work")).toBeVisible();
+  await expect(page.getByLabel("Work item Finish work")).toBeVisible();
+});
+
 test("bathroom questionnaire turns detailed selections into editable quote rows", async ({
   page,
 }) => {
@@ -396,12 +448,15 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
   await createDialog.getByLabel("Client name").fill("Taylor Homeowner");
   await createDialog.getByRole("button", { name: "Create quote" }).click();
 
-  await page.getByRole("button", { name: "Add project" }).click();
+  await page.getByRole("button", { name: "Use Project Template" }).click();
   const templateDialog = page.getByRole("dialog", {
     name: "Bathroom questionnaire",
   });
   await expect(templateDialog.getByLabel("Customer name")).toHaveValue(
     "Taylor Homeowner",
+  );
+  await expect(templateDialog.getByLabel("Project name")).toHaveValue(
+    "Project #1",
   );
   await templateDialog.getByLabel("Project name").fill("Primary Bathroom");
   await templateDialog.getByLabel("Room length").fill("10 ft");
@@ -549,10 +604,13 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
     .click();
   await expect(table.locator("tfoot")).toContainText("$4,250");
 
-  await page.getByRole("button", { name: "Add project" }).click();
+  await page.getByRole("button", { name: "Use Project Template" }).click();
   const secondProject = page.getByRole("dialog", {
     name: "Bathroom questionnaire",
   });
+  await expect(secondProject.getByLabel("Project name")).toHaveValue(
+    "Project #2",
+  );
   await secondProject.getByLabel("Project name").fill("Guest Bathroom");
   await secondProject.getByRole("button", { name: "Continue" }).click();
   await secondProject.getByRole("button", { name: "Continue" }).click();

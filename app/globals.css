@@ -2946,6 +2946,7 @@ small {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  flex-wrap: wrap;
 }
 .scope-section-heading > div {
   display: flex;
@@ -2969,6 +2970,27 @@ small {
   color: var(--theme-text-muted, #8796a2);
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+}
+.scope-section-heading .scope-section-tools,
+.scope-section-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scope-section-edit input {
+  width: min(220px, 40vw);
+  padding: 5px 7px;
+  border: 1px solid var(--theme-border, #cbd6df);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+.scope-table .scope-section-error {
+  display: block;
+  margin-top: 6px;
+  color: var(--theme-danger, #b5474c);
 }
 .scope-cell-input,
 .scope-cell-select,

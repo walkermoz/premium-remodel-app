@@ -37,6 +37,10 @@ import type { Activity } from "@/lib/types";
 import MsaDocument from "@/components/msa-document";
 import { savedPaymentMethods } from "@/lib/client-wallet";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
+import {
+  DEFAULT_QUOTE_PROJECT_NAME,
+  UNGROUPED_SCOPE_PROJECT_ID,
+} from "@/lib/scope-projects";
 import ClientNewRequestForm from "./client-new-request-form";
 import CustomerAcceptance from "./customer-acceptance";
 import MsaAcceptance from "./msa-acceptance";
@@ -512,7 +516,7 @@ export default async function ClientQuotePage({
     items: Array<{ item: (typeof items)[number]; striped: boolean }>;
   }> = [];
   items.forEach((item, index) => {
-    const name = item.sectionName?.trim() || quote.category || "General scope";
+    const name = item.sectionName?.trim() || DEFAULT_QUOTE_PROJECT_NAME;
     const key = item.sectionId?.trim()
       ? `id:${item.sectionId.trim()}`
       : item.sectionName?.trim()
@@ -648,13 +652,15 @@ export default async function ClientQuotePage({
                 </div>
                 {sections.map((section, index) => (
                   <div key={`${section.key}-${index}`}>
-                    <div className={styles.sectionHeader}>
-                      <h3>Project&nbsp; | &nbsp;{section.name}</h3>
-                      <span>
-                        Section total&nbsp;{" "}
-                        {money(sectionTotals.get(section.key) || 0)}
-                      </span>
-                    </div>
+                    {section.key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}` && (
+                      <div className={styles.sectionHeader}>
+                        <h3>Project&nbsp; | &nbsp;{section.name}</h3>
+                        <span>
+                          Section total&nbsp;{" "}
+                          {money(sectionTotals.get(section.key) || 0)}
+                        </span>
+                      </div>
+                    )}
                     {section.items.map(({ item, striped }) => (
                       <div
                         className={`${styles.item} ${striped ? styles.striped : ""}`}

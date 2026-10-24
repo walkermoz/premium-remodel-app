@@ -3,6 +3,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
 import { buildQuotePdf, quotePdfFileName } from "../lib/quote-pdf";
+import { UNGROUPED_SCOPE_PROJECT_ID } from "../lib/scope-projects";
 import type { Quote, ScopeItem } from "../lib/types";
 
 const timestamp = "2026-09-28T14:44:39.000Z";
@@ -78,4 +79,36 @@ test("long scopes continue onto additional pages", async () => {
     logo,
   );
   expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
+});
+
+test("quote PDF omits a removed project heading but retains its work item", async () => {
+  const logo = await readFile(
+    path.join(process.cwd(), "public", "images", "logo.png"),
+  );
+  const bytes = await buildQuotePdf(
+    quote,
+    [
+      scopeItem(0),
+      {
+        ...scopeItem(1),
+        sectionId: UNGROUPED_SCOPE_PROJECT_ID,
+        sectionName: "",
+      },
+    ],
+    logo,
+  );
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const document = await getDocument({ data: bytes }).promise;
+  try {
+    const page = await document.getPage(1);
+    const text = (await page.getTextContent()).items
+      .filter((item): item is typeof item & { str: string } => "str" in item)
+      .map((item) => item.str)
+      .join(" ");
+    expect(text).toContain("PROJECT | PROJECT #1");
+    expect(text).toContain("Scope item 2");
+    expect(text).not.toContain("PROJECT | SCOPE ITEMS");
+  } finally {
+    await document.destroy();
+  }
 });

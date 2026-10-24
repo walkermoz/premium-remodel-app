@@ -24,6 +24,7 @@ import {
   type Workspace,
 } from "@/lib/types";
 import { projectMoney, scopeTotal } from "@/lib/project-finances";
+import { DEFAULT_QUOTE_PROJECT_NAME } from "@/lib/scope-projects";
 import { dateLabel } from "@/lib/utils";
 import { Empty } from "./ui";
 import type { Editor } from "./entity-form";
@@ -548,9 +549,9 @@ export function QuoteDetail({
           inline
           showStatus={false}
           projectId={quote.id}
-          defaultSectionName={quote.category || "General scope"}
+          defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
           templateProject={{
-            projectName: "Bathroom",
+            projectName: "",
             customerName: quote.client,
             customerPhone: quote.clientPhone || "",
             customerEmail: quote.clientEmail || "",

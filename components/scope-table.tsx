@@ -30,6 +30,10 @@ import {
 } from "@/lib/scope-pricing";
 import { Badge, Empty, Modal } from "./ui";
 import BathroomQuestionnaire from "./bathroom-questionnaire";
+import {
+  DEFAULT_QUOTE_PROJECT_NAME,
+  UNGROUPED_SCOPE_PROJECT_ID,
+} from "@/lib/scope-projects";
 
 const statuses: TaskStatus[] = ["To do", "In progress", "Done"];
 
@@ -43,6 +47,8 @@ function detailRowCount(value: string) {
 }
 
 interface ScopeDraft {
+  sectionId: string;
+  sectionName: string;
   title: string;
   details: string;
   quantity: string;
@@ -57,6 +63,8 @@ interface ScopeDraft {
 
 function draftFrom(item?: ScopeItem): ScopeDraft {
   return {
+    sectionId: item?.sectionId || "",
+    sectionName: item?.sectionName || "",
     title: item?.title || "",
     details: item?.details || "",
     quantity: String(item?.quantity ?? 1),
@@ -81,6 +89,8 @@ function draftValues(draft: ScopeDraft) {
   const title = draft.title.trim();
   if (!title) throw new Error("Add a work item name before saving this row.");
   return {
+    sectionId: draft.sectionId,
+    sectionName: draft.sectionName,
     title,
     details: draft.details.trim(),
     quantity:
@@ -151,7 +161,7 @@ export default function ScopeTable({
   onSaveMany,
   templateProject,
   onSaveTemplateProject,
-  defaultSectionName = "General scope",
+  defaultSectionName = DEFAULT_QUOTE_PROJECT_NAME,
 }: {
   items: ScopeItem[];
   workspace: Workspace;
@@ -183,6 +193,7 @@ export default function ScopeTable({
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateError, setTemplateError] = useState("");
+  const [sectionSaving, setSectionSaving] = useState(false);
   const newTitle = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -226,6 +237,17 @@ export default function ScopeTable({
   }
   const nextPosition =
     Math.max(-1, ...items.map((item) => item.position ?? -1)) + 1;
+  const projectSections = [...sectionStats.entries()].filter(
+    ([key]) => key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}`,
+  );
+  let nextProjectNumber = projectSections.length + 1;
+  while (
+    projectSections.some(
+      ([, section]) => section.name === `Project #${nextProjectNumber}`,
+    )
+  )
+    nextProjectNumber++;
+  const nextProjectName = `Project #${nextProjectNumber}`;
 
   function updateDraft(
     id: string,
@@ -242,6 +264,8 @@ export default function ScopeTable({
     const draft = drafts[item.id] || draftFrom(item);
     return (
       draft.title !== item.title ||
+      draft.sectionId !== (item.sectionId || "") ||
+      draft.sectionName !== (item.sectionName || "") ||
       draft.details !== (item.details || "") ||
       draft.quantity !== String(item.quantity) ||
       draft.unit !== item.unit ||
@@ -283,6 +307,8 @@ export default function ScopeTable({
           ...current,
           [item.id]: {
             title: values.title,
+            sectionId: values.sectionId,
+            sectionName: values.sectionName,
             details: values.details,
             quantity: String(values.quantity),
             unit: values.unit,
@@ -352,6 +378,43 @@ export default function ScopeTable({
     setTemplateError("");
   }
 
+  async function updateProjectGrouping(
+    sectionKey: string,
+    name: string | null,
+  ) {
+    if (!inline || !onSave || sectionSaving) return;
+    const sectionItems = orderedItems.filter(
+      (item) => scopeSectionKey(item) === sectionKey,
+    );
+    if (!sectionItems.length) return;
+    const nextName = name?.trim();
+    if (name !== null && (!nextName || nextName.length > 250))
+      throw new Error("Enter a project name of up to 250 characters.");
+    const sectionId =
+      name === null
+        ? UNGROUPED_SCOPE_PROJECT_ID
+        : sectionItems[0].sectionId || crypto.randomUUID();
+    const sectionName = name === null ? "" : nextName!;
+    setSectionSaving(true);
+    setError("");
+    try {
+      for (const item of sectionItems) {
+        await onSave({ ...item, sectionId, sectionName }, item);
+      }
+      const ids = new Set(sectionItems.map((item) => item.id));
+      setDrafts((current) =>
+        Object.fromEntries(
+          Object.entries(current).map(([id, draft]) => [
+            id,
+            ids.has(id) ? { ...draft, sectionId, sectionName } : draft,
+          ]),
+        ),
+      );
+    } finally {
+      setSectionSaving(false);
+    }
+  }
+
   async function addBathroomProject(
     answers: BathroomQuestionnaireAnswers,
     rows: GeneratedBathroomScopeRow[],
@@ -365,7 +428,7 @@ export default function ScopeTable({
     setTemplateError("");
     try {
       const sectionId = crypto.randomUUID();
-      const sectionName = answers.projectName.trim() || "Bathroom";
+      const sectionName = answers.projectName.trim() || nextProjectName;
       await onSaveTemplateProject?.({
         projectName: sectionName,
         customerName: answers.customerName,
@@ -442,14 +505,22 @@ export default function ScopeTable({
               const section = sectionStats.get(sectionKey);
               return (
                 <Fragment key={item.id}>
-                  {startsSection && section && (
-                    <ScopeSectionRow
-                      name={section.name}
-                      count={section.count}
-                      total={section.total}
-                      colSpan={showStatus ? 8 : 7}
-                    />
-                  )}
+                  {startsSection &&
+                    section &&
+                    item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID && (
+                      <ScopeSectionRow
+                        name={section.name}
+                        count={section.count}
+                        total={section.total}
+                        colSpan={showStatus ? 8 : 7}
+                        editable={inline && Boolean(onSave)}
+                        busy={sectionSaving}
+                        onRename={(name) =>
+                          updateProjectGrouping(sectionKey, name)
+                        }
+                        onRemove={() => updateProjectGrouping(sectionKey, null)}
+                      />
+                    )}
                   {inline ? (
                     <EditableRow
                       draft={draft}
@@ -563,6 +634,18 @@ export default function ScopeTable({
                       className="scope-add-row-button"
                       onClick={() => {
                         setError("");
+                        const lastItem = orderedItems.at(-1);
+                        setNewDraft({
+                          ...draftFrom(),
+                          sectionId:
+                            lastItem?.sectionId === UNGROUPED_SCOPE_PROJECT_ID
+                              ? ""
+                              : lastItem?.sectionId || "",
+                          sectionName:
+                            lastItem?.sectionId === UNGROUPED_SCOPE_PROJECT_ID
+                              ? defaultSectionName
+                              : lastItem?.sectionName || defaultSectionName,
+                        });
                         setAdding(true);
                       }}
                     >
@@ -578,7 +661,7 @@ export default function ScopeTable({
                       }}
                     >
                       <FolderPlus size={15} />
-                      Add project
+                      Use Project Template
                     </button>
                   </div>
                 </td>
@@ -606,7 +689,7 @@ export default function ScopeTable({
           }}
         >
           <BathroomQuestionnaire
-            project={templateProject}
+            project={{ ...templateProject, projectName: nextProjectName }}
             busy={templateSaving}
             error={templateError}
             onCancel={resetTemplate}
@@ -623,24 +706,140 @@ function ScopeSectionRow({
   count,
   total,
   colSpan,
+  editable = false,
+  busy = false,
+  onRename,
+  onRemove,
 }: {
   name: string;
   count: number;
   total: number;
   colSpan: number;
+  editable?: boolean;
+  busy?: boolean;
+  onRename?: (name: string) => Promise<void>;
+  onRemove?: () => Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [error, setError] = useState("");
+
+  async function rename(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!onRename || busy) return;
+    if (draft.trim() === name) {
+      setEditing(false);
+      return;
+    }
+    setError("");
+    try {
+      await onRename(draft);
+      setEditing(false);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Could not rename project.",
+      );
+    }
+  }
+
+  async function remove() {
+    if (!onRemove || busy) return;
+    setError("");
+    try {
+      await onRemove();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not remove project grouping.",
+      );
+    }
+  }
+
   return (
     <tr className="scope-section-row">
       <td colSpan={colSpan}>
         <div className="scope-section-heading">
-          <div>
+          <div className="scope-section-title">
             <span>Project</span>
-            <strong>{name}</strong>
+            {editing ? (
+              <form
+                className="scope-section-edit"
+                onSubmit={(event) => void rename(event)}
+              >
+                <input
+                  aria-label={`Project name for ${name}`}
+                  value={draft}
+                  maxLength={250}
+                  disabled={busy}
+                  onChange={(event) => setDraft(event.target.value)}
+                  autoFocus
+                  required
+                />
+                <button
+                  type="submit"
+                  className="icon-button"
+                  aria-label="Save project name"
+                  disabled={busy}
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Cancel project rename"
+                  disabled={busy}
+                  onClick={() => {
+                    setDraft(name);
+                    setEditing(false);
+                    setError("");
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </form>
+            ) : (
+              <strong>{name}</strong>
+            )}
           </div>
-          <small>
-            {count} {count === 1 ? "item" : "items"} · {money(total)}
-          </small>
+          <div className="scope-section-tools">
+            <small>
+              {count} {count === 1 ? "item" : "items"} · {money(total)}
+            </small>
+            {editable && !editing && (
+              <>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={`Rename project ${name}`}
+                  title="Rename project"
+                  disabled={busy}
+                  onClick={() => {
+                    setDraft(name);
+                    setEditing(true);
+                  }}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button delete-action"
+                  aria-label={`Remove project ${name}`}
+                  title="Remove project grouping; keep quote rows"
+                  disabled={busy}
+                  onClick={() => void remove()}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
+        {error && (
+          <small className="scope-section-error" role="alert">
+            {error}
+          </small>
+        )}
       </td>
     </tr>
   );
