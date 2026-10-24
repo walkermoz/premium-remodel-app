@@ -12,7 +12,6 @@ import {
   Phone,
   Plus,
   FileUp,
-  Link2,
 } from "lucide-react";
 import {
   quoteStatuses,
@@ -31,7 +30,6 @@ import type { Editor } from "./entity-form";
 import ScopeTable from "./scope-table";
 import FilesPanel from "./files-panel";
 import QuoteImportDialog from "./quote-import-dialog";
-import ClientLinkDialog from "./client-link-dialog";
 import type { ImportedQuote } from "@/lib/quote-import";
 
 export default function QuotesPanel({
@@ -252,7 +250,6 @@ export function QuoteDetail({
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState("");
   const [sendRequestId, setSendRequestId] = useState("");
-  const [clientLinkOpen, setClientLinkOpen] = useState(false);
   const items = workspace.scope.filter((item) => item.projectId === quote.id);
   const files = workspace.attachments.filter(
     (file) => file.projectId === quote.id,
@@ -356,14 +353,6 @@ export function QuoteDetail({
           </div>
         </div>
         <div className="project-actions">
-          {!demo && user.role === "admin" && (
-            <button
-              className="button secondary"
-              onClick={() => setClientLinkOpen(true)}
-            >
-              <Link2 size={15} /> Client view
-            </button>
-          )}
           {!demo && quote.clientEmail && (
             <button
               className="button primary"
@@ -403,13 +392,6 @@ export function QuoteDetail({
         <div className="alert" role="alert">
           {error}
         </div>
-      )}
-      {clientLinkOpen && (
-        <ClientLinkDialog
-          project={quote}
-          kind="quote"
-          onClose={() => setClientLinkOpen(false)}
-        />
       )}
       {sendOpen && (
         <div
