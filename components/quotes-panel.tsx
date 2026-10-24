@@ -426,7 +426,7 @@ export function QuoteDetail({
             )}
           </div>
         </div>
-        <div className="project-actions">
+        <div className="project-actions quote-header-actions">
           {!demo && quote.clientEmail && !signedScope && (
             <button
               className="button primary"
@@ -436,6 +436,34 @@ export function QuoteDetail({
               <Mail size={15} /> Email quote
             </button>
           )}
+          <div className="quote-header-status">
+            <label>
+              Quote status
+              <select
+                aria-label="Quote status"
+                value={quote.status}
+                disabled={busy || signedScope}
+                onChange={(event) =>
+                  void change(() =>
+                    onSave(
+                      "quote",
+                      { ...quote, status: event.target.value },
+                      quote,
+                    ),
+                  )
+                }
+              >
+                {quoteStatuses
+                  .filter((status) => status !== "Accepted" || signedScope)
+                  .map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+              </select>
+            </label>
+            {quote.quoteSentAt && (
+              <small>Last sent {dateLabel(quote.quoteSentAt)}</small>
+            )}
+          </div>
           <a
             className="button secondary"
             href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
@@ -542,39 +570,6 @@ export function QuoteDetail({
           </form>
         </div>
       )}
-      <div className="quote-status-line">
-        <span className="badge badge-category">
-          {quote.category || "Remodel"}
-        </span>
-        <label>
-          Quote status
-          <select
-            aria-label="Quote status"
-            value={quote.status}
-            disabled={busy || signedScope}
-            onChange={(event) =>
-              void change(() =>
-                onSave(
-                  "quote",
-                  { ...quote, status: event.target.value },
-                  quote,
-                ),
-              )
-            }
-          >
-            {quoteStatuses
-              .filter((status) => status !== "Accepted" || signedScope)
-              .map((status) => (
-                <option key={status}>{status}</option>
-              ))}
-          </select>
-        </label>
-        {quote.quoteSentAt && (
-          <span className="muted">
-            Last sent {dateLabel(quote.quoteSentAt)}
-          </span>
-        )}
-      </div>
       <div className="quote-overview">
         <div className="quote-price">
           <span>Scope total · quote price</span>

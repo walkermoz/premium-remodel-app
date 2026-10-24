@@ -310,27 +310,37 @@
   color: var(--red);
   background: var(--theme-surface-soft, #fcebea);
 }
-.quote-status-line {
+.quote-detail .quote-header-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin: 22px 0 0;
+  flex-direction: row;
+  justify-content: flex-end;
 }
-.quote-status-line label {
+.quote-header-status {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.quote-header-status label {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
 }
-.quote-status-line select {
+.quote-header-status select {
   padding: 8px 28px 8px 10px;
   border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--surface);
   color: var(--ink);
   font: inherit;
+}
+.quote-header-status small {
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
 }
 .quote-detail > .footnote {
   margin: 10px 0 24px;
@@ -405,6 +415,9 @@
   }
 }
 @media (max-width: 600px) {
+  .quote-detail .quote-header-actions {
+    justify-content: flex-start;
+  }
   .detail-metrics.scope-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 0;
