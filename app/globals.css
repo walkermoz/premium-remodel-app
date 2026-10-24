@@ -2977,9 +2977,9 @@ small {
   min-width: 0;
   height: 32px;
   padding: 6px 7px;
-  border: 1px solid transparent;
+  border: 1px solid var(--theme-border, #cbd6df);
   border-radius: 4px;
-  background: transparent;
+  background: var(--surface);
   color: var(--ink);
   font: inherit;
   outline: 0;
@@ -2987,7 +2987,7 @@ small {
 .scope-cell-input:hover,
 .scope-cell-select:hover,
 .scope-status-select:hover {
-  border-color: var(--line);
+  border-color: var(--blue);
 }
 .scope-cell-input:focus,
 .scope-cell-select:focus,
@@ -3060,6 +3060,13 @@ small {
 .scope-calculated {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+.scope-calculated-value {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: flex-end;
+  white-space: nowrap;
 }
 .scope-status-select {
   height: 29px;

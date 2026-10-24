@@ -776,7 +776,7 @@ function EditableRow({
           difference < 0 ? "is-overdue scope-calculated" : "scope-calculated"
         }
       >
-        {money(difference)}
+        <output className="scope-calculated-value">{money(difference)}</output>
       </td>
       {showStatus && (
         <td>
