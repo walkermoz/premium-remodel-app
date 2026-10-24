@@ -8,12 +8,8 @@ import {
   type Entity,
   type EntityKind,
   type Workspace,
-  type Quote,
-  type ScopeItem,
   type WorkspaceAlert,
 } from "./types";
-import { acceptedQuote } from "./quotes";
-import { acceptedScopeSnapshot } from "./msa-draft";
 export async function getWorkspace(user: WorkspaceUser): Promise<Workspace> {
   const result = structuredClone(emptyWorkspace);
   const supabase = await supabaseServer();
@@ -203,59 +199,4 @@ export async function deleteRecord(user: WorkspaceUser, id: string) {
   });
   if (error) throw error;
   if (!data) throw new HttpError(404, "Record not found.");
-}
-
-export async function acceptQuote(
-  user: WorkspaceUser,
-  quote: Quote,
-  expectedVersion: string,
-) {
-  const scopeResult = await supabaseAdmin()
-    .from("remodel_records")
-    .select("data")
-    .eq("organization_id", user.organizationId)
-    .eq("project_id", quote.id)
-    .eq("kind", "scope");
-  if (scopeResult.error) throw scopeResult.error;
-  let contractPrice = 0;
-  const acceptedItems: ScopeItem[] = [];
-  for (const row of scopeResult.data) {
-    const item = row.data as ScopeItem;
-    const estimate = item?.estimate;
-    if (typeof estimate !== "number" || !Number.isFinite(estimate))
-      throw new HttpError(
-        409,
-        "A scope price is invalid. Review the quote before accepting it.",
-      );
-    contractPrice += estimate;
-    acceptedItems.push(item);
-  }
-  const now = new Date(
-    Math.max(Date.now(), Date.parse(quote.updatedAt) + 1),
-  ).toISOString();
-  const project = {
-    ...acceptedQuote(quote, user.id, now),
-    contractPrice,
-    acceptedQuoteScope: acceptedScopeSnapshot(acceptedItems, quote.category),
-  };
-  const { data, error } = await supabaseAdmin()
-    .from("remodel_records")
-    .update({
-      kind: "project",
-      data: project,
-      updated_at: now,
-      updated_by: user.id,
-    })
-    .eq("organization_id", user.organizationId)
-    .eq("id", quote.id)
-    .eq("kind", "quote")
-    .eq("updated_at", expectedVersion)
-    .select("id");
-  if (error) throw error;
-  if (!data.length)
-    throw new HttpError(
-      409,
-      "This quote changed. Refresh the workspace before accepting it.",
-    );
-  return project;
 }

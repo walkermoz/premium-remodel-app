@@ -1,5 +1,15 @@
 import { test, expect, password } from "./supabase-fixture";
 import { createHmac } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import {
+  cancellationDeadline,
+  easternDate,
+  prepareMsa,
+} from "@/lib/msa-contract";
+import {
+  defaultMsaContractTerms,
+  defaultMsaPaymentSchedule,
+} from "@/lib/msa-draft";
 
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
@@ -59,6 +69,7 @@ cloudTest(
       },
     });
     expect(scope.status()).toBe(201);
+    const scopeItem = await scope.json();
     const linkResponse = await api.post("/api/client-links", {
       headers: origin,
       data: { projectId: quote.id, kind: "quote" },
@@ -126,7 +137,8 @@ cloudTest(
       .eq("id", quote.id)
       .single();
     expect(record.error).toBeNull();
-    expect(record.data?.kind).toBe("project");
+    expect(record.data?.kind).toBe("quote");
+    expect(record.data?.data.status).toBe("Accepted");
     expect(record.data?.data.contractPrice).toBe(1850);
     expect(record.data?.data.acceptedQuoteScope).toEqual(
       expect.arrayContaining([expect.objectContaining({ amount: 1850 })]),
@@ -138,6 +150,34 @@ cloudTest(
       record.data?.data.quoteAcceptance.signatureStrokes.length,
     ).toBeGreaterThan(0);
     expect(record.data?.data.quoteAcceptance.ip).toBeDefined();
+    await page.goto(`/?view=Quotes&project=${quote.id}`);
+    await expect(
+      page.getByRole("heading", { name: "Bathroom remodel" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Customer signed the quote and scope of work"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Master services agreement" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Accept quote" }),
+    ).toHaveCount(0);
+    const premature = await api.post("/api/quotes/accept", {
+      headers: origin,
+      data: { id: quote.id, updatedAt: record.data?.data.updatedAt },
+    });
+    expect(premature.status()).toBe(409);
+    const scopeChange = await api.patch("/api/workspace", {
+      headers: origin,
+      data: {
+        kind: "scope",
+        id: scopeItem.id,
+        updatedAt: scopeItem.updatedAt,
+        data: { ...scopeItem, estimate: 1 },
+      },
+    });
+    expect(scopeChange.status()).toBe(409);
     const replay = await client.request.post(signEndpoint, {
       headers: origin,
       data: {
@@ -184,6 +224,135 @@ cloudTest(
       await unsignedDocument.destroy();
       await signedDocument.destroy();
     }
+    const acceptedQuote = record.data!.data;
+    const paymentSchedule = defaultMsaPaymentSchedule(acceptedQuote);
+    const msaContractTerms = defaultMsaContractTerms(
+      acceptedQuote,
+      acceptedQuote.acceptedQuoteScope,
+    );
+    const terms = await api.post(`/api/msa/${quote.id}/terms`, {
+      headers: origin,
+      data: {
+        updatedAt: acceptedQuote.updatedAt,
+        msaPaymentSchedule: paymentSchedule,
+        msaPermitResponsibility: "Owner obtains and pays",
+        msaContractTerms,
+      },
+    });
+    expect(terms.status()).toBe(200);
+    const quoteWithTerms = await terms.json();
+    const signer = await company.admin
+      .from("profiles")
+      .select("id,full_name")
+      .eq("organization_id", company.organizationId)
+      .single();
+    expect(signer.error).toBeNull();
+    const strokes = [
+      [
+        [0.1, 0.1],
+        [0.3, 0.3],
+      ],
+    ] as Array<Array<[number, number]>>;
+    const prepared = prepareMsa(
+      quoteWithTerms,
+      [scopeItem],
+      {
+        owner: "Walker Portal Test",
+        ownerEmail: "client@example.com",
+        signerTitle: "Owner",
+        signatureStrokes: strokes,
+      },
+      { id: signer.data!.id, name: signer.data!.full_name },
+      new Date().toISOString(),
+    );
+    const signedAt = new Date().toISOString();
+    const transactionDate = easternDate(signedAt);
+    const agreement = {
+      ...prepared,
+      status: "signed" as const,
+      transactionDate,
+      cancellationDeadline: cancellationDeadline(transactionDate),
+      customerSignature: {
+        name: "Walker Portal Test",
+        signedAt,
+        signatureStrokes: strokes,
+      },
+    };
+    const seededAt = new Date(Date.now() + 1000).toISOString();
+    const seeded = await company.admin
+      .from("remodel_records")
+      .update({
+        data: {
+          ...quoteWithTerms,
+          msaAgreement: agreement,
+          updatedAt: seededAt,
+        },
+        updated_at: seededAt,
+      })
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .eq("kind", "quote");
+    expect(seeded.error).toBeNull();
+    expect(
+      (
+        await api.post("/api/quotes/accept", {
+          headers: origin,
+          data: { id: quote.id, updatedAt: seededAt },
+        })
+      ).status(),
+    ).toBe(409);
+    const firstCheck = await api.post(`/api/quotes/${quote.id}/check-deposit`, {
+      headers: origin,
+      data: {
+        requestId: randomUUID(),
+        amount: "100",
+        checkReference: "test-1",
+      },
+    });
+    expect(firstCheck.status()).toBe(200);
+    expect((await firstCheck.json()).projectReady).toBe(false);
+    const interim = await company.admin
+      .from("remodel_records")
+      .select("kind")
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .single();
+    expect(interim.data?.kind).toBe("quote");
+    const finalRequestId = randomUUID();
+    const finalCheck = await api.post(`/api/quotes/${quote.id}/check-deposit`, {
+      headers: origin,
+      data: {
+        requestId: finalRequestId,
+        amount: "825",
+        checkReference: "test-2",
+      },
+    });
+    expect(finalCheck.status()).toBe(200);
+    expect((await finalCheck.json()).projectReady).toBe(true);
+    const promoted = await company.admin
+      .from("remodel_records")
+      .select("kind,data")
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .single();
+    expect(promoted.data?.kind).toBe("project");
+    expect(promoted.data?.data.status).toBe("Planning");
+    expect(promoted.data?.data.quoteAcceptedAt).toBe(
+      acceptedQuote.quoteAcceptedAt,
+    );
+    expect(promoted.data?.data.msaAgreement.status).toBe("signed");
+    expect(
+      (
+        await api.post(`/api/quotes/${quote.id}/check-deposit`, {
+          headers: origin,
+          data: {
+            requestId: finalRequestId,
+            amount: "825",
+            checkReference: "test-2",
+          },
+        })
+      ).status(),
+    ).toBe(200);
     await client.close();
   },
 );
@@ -394,20 +563,14 @@ cloudTest(
       headers: origin,
       data: { id: quote.id, updatedAt: quote.updatedAt },
     });
-    expect(accepted.status()).toBe(200);
+    expect(accepted.status()).toBe(409);
     await clientPage.reload();
-    await expect(
-      clientPage.getByText("Approved", { exact: true }).first(),
-    ).toBeVisible();
+    await expect(clientPage.getByText("$4,100.00").first()).toBeVisible();
     const projectLink = await api.post("/api/client-links", {
       headers: origin,
       data: { projectId: quote.id, kind: "project" },
     });
-    expect(projectLink.status()).toBe(201);
-    const projectUrl = (await projectLink.json()).url as string;
-    expect((await client.request.get(`${projectUrl}/quote`)).status()).toBe(
-      404,
-    );
+    expect(projectLink.status()).toBe(404);
 
     const rotated = await api.post("/api/client-links", {
       headers: origin,

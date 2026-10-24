@@ -126,6 +126,11 @@ export async function sendQuoteEmail(
     throw new HttpError(403, "This account cannot send quotes.");
   const quote = (await findRecord(user, quoteId, "quote")) as Quote | null;
   if (!quote) throw new HttpError(404, "Quote not found.");
+  if (quote.status === "Accepted" || quote.quoteAcceptedAt)
+    throw new HttpError(
+      409,
+      "The customer has signed this quote. Its scope is locked.",
+    );
   if (
     !quote.clientEmail ||
     quote.clientEmail.toLowerCase() !== input.recipientEmail.toLowerCase()

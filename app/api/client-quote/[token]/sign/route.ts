@@ -6,7 +6,6 @@ import { syncLeadStageFromClientAcceptance } from "@/lib/lead-records";
 import { parseClientPortalToken } from "@/lib/client-portal";
 import { signatureStrokesSchema } from "@/lib/quote-signature";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
-import { acceptedQuote } from "@/lib/quotes";
 import { acceptedScopeSnapshot } from "@/lib/msa-draft";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { QuoteAcceptance } from "@/lib/types";
@@ -92,8 +91,12 @@ export async function POST(
       ip,
       userAgent: (request.headers.get("user-agent") || "").slice(0, 300),
     };
-    const project = {
-      ...acceptedQuote(source.pdfQuote, `client-link:${linkId}`, now),
+    const acceptedQuote = {
+      ...source.pdfQuote,
+      status: "Accepted" as const,
+      quoteAcceptedAt: now,
+      quoteAcceptedBy: `client-link:${linkId}`,
+      updatedAt: now,
       contractPrice: source.view.total,
       acceptedQuoteScope: acceptedScopeSnapshot(
         source.view.items,
@@ -104,8 +107,7 @@ export async function POST(
     const { data, error } = await supabaseAdmin()
       .from("remodel_records")
       .update({
-        kind: "project",
-        data: project,
+        data: acceptedQuote,
         updated_at: now,
         updated_by: null,
       })

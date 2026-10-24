@@ -24,6 +24,7 @@ import {
   type Workspace,
 } from "@/lib/types";
 import { projectMoney, scopeTotal } from "@/lib/project-finances";
+import { msaPaymentRows } from "@/lib/msa-contract";
 import { DEFAULT_QUOTE_PROJECT_NAME } from "@/lib/scope-projects";
 import { dateLabel } from "@/lib/utils";
 import { Empty } from "./ui";
@@ -31,6 +32,7 @@ import type { Editor } from "./entity-form";
 import ScopeTable from "./scope-table";
 import FilesPanel from "./files-panel";
 import QuoteImportDialog from "./quote-import-dialog";
+import MsaDraftPanel from "./msa-draft-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
 
 export default function QuotesPanel({
@@ -65,9 +67,9 @@ export default function QuotesPanel({
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const sent = quotes.filter((quote) => quote.status === "Sent");
   const sentCount = quotes.filter((quote) => Boolean(quote.quoteSentAt)).length;
-  const wonCount = workspace.projects.filter((project) =>
-    Boolean(project.quoteAcceptedAt),
-  ).length;
+  const wonCount =
+    workspace.projects.filter((project) => Boolean(project.quoteAcceptedAt))
+      .length + quotes.filter((quote) => quote.status === "Accepted").length;
   const closeRate =
     sentCount > 0 ? Math.round((wonCount / sentCount) * 1000) / 10 : 0;
   return (
@@ -79,8 +81,8 @@ export default function QuotesPanel({
             Quotes<span className="heading-dot">.</span>
           </h1>
           <p>
-            Track leads and sent quotes. Accept a quote to move it into
-            Projects.
+            Track quotes through customer approval, agreement signing, and the
+            deposit before work moves into Projects.
           </p>
         </div>
         <div className="project-actions">
@@ -227,6 +229,7 @@ export function QuoteDetail({
   onDelete,
   onUpload,
   onSent,
+  onProjectReady,
 }: {
   quote: Quote;
   workspace: Workspace;
@@ -244,6 +247,7 @@ export function QuoteDetail({
   onDelete: (kind: EntityKind, entity: Entity) => void;
   onUpload: (file: File, projectId: string) => Promise<Attachment>;
   onSent: () => Promise<void>;
+  onProjectReady: (id: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -251,10 +255,63 @@ export function QuoteDetail({
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState("");
   const [sendRequestId, setSendRequestId] = useState("");
+  const [checkBusy, setCheckBusy] = useState(false);
+  const [checkError, setCheckError] = useState("");
+  const [checkRequestId, setCheckRequestId] = useState(() =>
+    crypto.randomUUID(),
+  );
   const items = workspace.scope.filter((item) => item.projectId === quote.id);
   const files = workspace.attachments.filter(
     (file) => file.projectId === quote.id,
   );
+  const signedScope =
+    quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
+  const signedMsa = quote.msaAgreement?.status === "signed";
+  const depositCents = signedMsa
+    ? Math.round(msaPaymentRows(quote.msaAgreement!)[0]?.amount * 100)
+    : 0;
+  const paidCents = (workspace.activities || [])
+    .filter(
+      (item) =>
+        item.projectId === quote.id && item.activityType === "Payment received",
+    )
+    .reduce((sum, item) => sum + Math.round((item.amount || 0) * 100), 0);
+  const dueCents = Math.max(0, depositCents - paidCents);
+  const readyForProjects =
+    signedScope && signedMsa && depositCents > 0 && dueCents === 0;
+  async function recordCheck(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (checkBusy) return;
+    setCheckBusy(true);
+    setCheckError("");
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/check-deposit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: checkRequestId,
+            amount: String(form.get("amount") || ""),
+            checkReference: String(form.get("checkReference") || ""),
+          }),
+        },
+      );
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not record the check.");
+      if (result.projectReady) onProjectReady(quote.id);
+      await onSent();
+      setCheckRequestId(crypto.randomUUID());
+    } catch (cause) {
+      setCheckError(
+        cause instanceof Error ? cause.message : "Could not record the check.",
+      );
+    } finally {
+      setCheckBusy(false);
+    }
+  }
   async function change(action: () => Promise<unknown>) {
     if (busy) return;
     setBusy(true);
@@ -354,7 +411,7 @@ export function QuoteDetail({
           </div>
         </div>
         <div className="project-actions">
-          {!demo && quote.clientEmail && (
+          {!demo && quote.clientEmail && !signedScope && (
             <button
               className="button primary"
               disabled={busy || sendBusy}
@@ -371,22 +428,24 @@ export function QuoteDetail({
             <Download size={15} />
             Download PDF
           </a>
-          <button
-            className="button secondary"
-            disabled={busy}
-            onClick={() => onEdit({ kind: "quote", entity: quote })}
-          >
-            <Pencil size={15} />
-            Edit quote
-          </button>
-          <button
-            className="button primary"
-            disabled={busy}
-            onClick={() => void change(() => onAccept(quote))}
-          >
-            <Check size={16} />
-            {busy ? "Saving…" : "Accept quote"}
-          </button>
+          {!signedScope && (
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => onEdit({ kind: "quote", entity: quote })}
+            >
+              <Pencil size={15} /> Edit quote
+            </button>
+          )}
+          {readyForProjects && !demo && (
+            <button
+              className="button primary"
+              disabled={busy}
+              onClick={() => void change(() => onAccept(quote))}
+            >
+              <Check size={16} /> {busy ? "Saving…" : "Move to Projects"}
+            </button>
+          )}
         </div>
       </div>
       {error && (
@@ -476,7 +535,7 @@ export function QuoteDetail({
           <select
             aria-label="Quote status"
             value={quote.status}
-            disabled={busy}
+            disabled={busy || signedScope}
             onChange={(event) =>
               void change(() =>
                 onSave(
@@ -487,9 +546,11 @@ export function QuoteDetail({
               )
             }
           >
-            {quoteStatuses.map((status) => (
-              <option key={status}>{status}</option>
-            ))}
+            {quoteStatuses
+              .filter((status) => status !== "Accepted" || signedScope)
+              .map((status) => (
+                <option key={status}>{status}</option>
+              ))}
           </select>
         </label>
         {quote.quoteSentAt && (
@@ -498,9 +559,80 @@ export function QuoteDetail({
           </span>
         )}
       </div>
-      <p className="footnote">
-        Accept quote moves this scope and its files into a new planning project.
-      </p>
+      <section className="content-section" aria-label="Project readiness">
+        <div className="section-heading">
+          <h2>Before this becomes a project</h2>
+        </div>
+        <p>
+          {signedScope ? "✓" : "○"} Customer signed the quote and scope of work
+        </p>
+        <p>
+          {signedMsa ? "✓" : "○"} Customer signed the Master Services Agreement
+        </p>
+        <p>
+          {depositCents > 0 && dueCents === 0 ? "✓" : "○"} Deposit received
+          {depositCents > 0
+            ? ` · ${projectMoney(paidCents / 100)} of ${projectMoney(depositCents / 100)}`
+            : ""}
+        </p>
+        {!signedScope && (
+          <p className="muted">
+            Email the quote so the customer can review and sign it in their
+            portal.
+          </p>
+        )}
+        {signedMsa && dueCents > 0 && user.role === "admin" && !demo && (
+          <form
+            className="form-fields"
+            onSubmit={(event) => void recordCheck(event)}
+          >
+            <p>
+              Record a check only after you have received it. The customer can
+              also pay online from the signed agreement.
+            </p>
+            <div className="form-grid">
+              <label>
+                Check amount ($)
+                <input
+                  name="amount"
+                  type="number"
+                  min="0.01"
+                  max={(dueCents / 100).toFixed(2)}
+                  step="0.01"
+                  placeholder={(dueCents / 100).toFixed(2)}
+                  required
+                  disabled={checkBusy}
+                />
+              </label>
+              <label>
+                Check number (optional)
+                <input
+                  name="checkReference"
+                  maxLength={100}
+                  disabled={checkBusy}
+                />
+              </label>
+            </div>
+            {checkError && (
+              <p role="alert" className="alert">
+                {checkError}
+              </p>
+            )}
+            <button
+              type="submit"
+              className="button primary"
+              disabled={checkBusy}
+            >
+              {checkBusy ? "Recording…" : "Record received check"}
+            </button>
+          </form>
+        )}
+        {readyForProjects && (
+          <p role="status">
+            All requirements are complete. This quote is ready for Projects.
+          </p>
+        )}
+      </section>
       <div className="quote-overview">
         <div className="quote-price">
           <span>Scope total · quote price</span>
@@ -539,44 +671,90 @@ export function QuoteDetail({
           <div>
             <h2>Scope & pricing</h2>
             <p>
-              Edit any cell. Each row saves when you leave it or press Enter.
+              {signedScope
+                ? "Signed scope is locked."
+                : "Edit any cell. Each row saves when you leave it or press Enter."}
             </p>
           </div>
         </div>
-        <ScopeTable
-          items={items}
-          workspace={workspace}
-          inline
-          showStatus={false}
-          projectId={quote.id}
-          defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
-          templateProject={{
-            projectName: "",
-            customerName: quote.client,
-            customerPhone: quote.clientPhone || "",
-            customerEmail: quote.clientEmail || "",
-            address: quote.address,
-            preferredStartDate: quote.startDate,
-          }}
-          onSaveTemplateProject={(project) =>
-            onSave(
-              "quote",
-              {
-                ...quote,
-                client: project.customerName,
-                clientPhone: project.customerPhone,
-                clientEmail: project.customerEmail,
-                address: project.address,
-                startDate: project.preferredStartDate,
-              },
-              quote,
-            )
-          }
-          onSave={(data, item) => onSave("scope", data, item)}
-          onSaveMany={onSaveScopeBatch}
-          onDelete={(item) => onDelete("scope", item)}
-        />
+        {signedScope ? (
+          <table className="scope-table" aria-label="Signed quote scope">
+            <thead>
+              <tr>
+                <th>Work item</th>
+                <th>Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <strong>{item.title}</strong>
+                    {item.details && <small>{item.details}</small>}
+                  </td>
+                  <td>{projectMoney(item.estimate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <ScopeTable
+            items={items}
+            workspace={workspace}
+            inline
+            showStatus={false}
+            projectId={quote.id}
+            defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
+            templateProject={{
+              projectName: "",
+              customerName: quote.client,
+              customerPhone: quote.clientPhone || "",
+              customerEmail: quote.clientEmail || "",
+              address: quote.address,
+              preferredStartDate: quote.startDate,
+            }}
+            onSaveTemplateProject={(project) =>
+              onSave(
+                "quote",
+                {
+                  ...quote,
+                  client: project.customerName,
+                  clientPhone: project.customerPhone,
+                  clientEmail: project.customerEmail,
+                  address: project.address,
+                  startDate: project.preferredStartDate,
+                },
+                quote,
+              )
+            }
+            onSave={(data, item) => onSave("scope", data, item)}
+            onSaveMany={onSaveScopeBatch}
+            onDelete={(item) => onDelete("scope", item)}
+          />
+        )}
       </section>
+      {signedScope && (
+        <MsaDraftPanel
+          key={`${quote.id}:${JSON.stringify(quote.msaPaymentSchedule)}:${quote.msaPermitResponsibility || ""}:${JSON.stringify(quote.msaContractTerms)}`}
+          project={quote}
+          items={items}
+          signer={user}
+          onSaveTerms={async (terms) => {
+            const response = await fetch(
+              `/api/msa/${encodeURIComponent(quote.id)}/terms`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ updatedAt: quote.updatedAt, ...terms }),
+              },
+            );
+            const result = await response.json();
+            if (!response.ok)
+              throw new Error(result.error || "Could not save MSA terms.");
+            await onSent();
+          }}
+        />
+      )}
       <section className="content-section">
         <div className="section-heading">
           <div>

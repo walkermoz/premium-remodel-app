@@ -13,6 +13,7 @@ import type {
   MsaPaymentStep,
   MsaPermitResponsibility,
   Project,
+  Quote,
   ScopeItem,
 } from "@/lib/types";
 import { dateLabel } from "@/lib/utils";
@@ -27,7 +28,7 @@ export default function MsaDraftPanel({
   onSaveTerms,
   signer,
 }: {
-  project: Project;
+  project: Project | Quote;
   items: ScopeItem[];
   onSaveTerms: (terms: {
     msaPaymentSchedule: MsaPaymentStep[];
@@ -426,9 +427,7 @@ export default function MsaDraftPanel({
           <FileSignature size={21} aria-hidden="true" />
           <div>
             <h2>Master services agreement</h2>
-            <p>
-              Draft information pulled from this accepted quote and project.
-            </p>
+            <p>Draft information pulled from this accepted quote.</p>
           </div>
         </div>
         <button

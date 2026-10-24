@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { stripeClient } from "@/lib/stripe-payments";
 import { stripePaymentId } from "@/lib/stripe-payment-utils";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { promotePaidQuote } from "@/lib/quote-promotion";
 
 export const runtime = "nodejs";
 
@@ -62,13 +63,23 @@ export async function POST(request: Request) {
   const admin = supabaseAdmin();
   const { data: project, error: projectError } = await admin
     .from("remodel_records")
-    .select("data")
+    .select("kind,data")
     .eq("organization_id", meta.organizationId)
     .eq("id", meta.projectId)
-    .eq("kind", "project")
+    .in("kind", ["project", "quote"])
     .maybeSingle();
   if (projectError || !project)
     return Response.json({ error: "Project is unavailable." }, { status: 500 });
+  if (
+    project.kind === "quote" &&
+    (project.data?.status !== "Accepted" ||
+      project.data?.msaAgreement?.status !== "signed" ||
+      !project.data?.quoteAcceptance)
+  )
+    return Response.json(
+      { error: "Quote is not ready for payment." },
+      { status: 409 },
+    );
 
   const id = stripePaymentId(session.id);
   const now = new Date().toISOString();
@@ -116,6 +127,20 @@ export async function POST(request: Request) {
       { error: "Could not record payment." },
       { status: 500 },
     );
+  }
+  if (project.kind === "quote") {
+    try {
+      await promotePaidQuote(meta.organizationId, meta.projectId);
+    } catch (cause) {
+      console.error(
+        "Paid quote could not be moved to Projects",
+        cause instanceof Error ? cause.message : "PromotionError",
+      );
+      return Response.json(
+        { error: "Payment recorded; project creation is pending." },
+        { status: 500 },
+      );
+    }
   }
   return Response.json({ received: true });
 }

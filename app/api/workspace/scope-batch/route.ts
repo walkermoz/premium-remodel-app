@@ -1,6 +1,7 @@
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { findRecord, insertRecords } from "@/lib/repository";
 import { schemas } from "@/lib/schemas";
+import type { Quote } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,6 +30,8 @@ export async function POST(request: Request) {
       (await findRecord(user, projectId, "project")) ||
       (await findRecord(user, projectId, "quote"));
     if (!parent) throw new HttpError(404, "Project not found.");
+    if ((parent as Quote).status === "Accepted")
+      throw new HttpError(409, "The signed quote scope cannot be changed.");
 
     const rawItems = body.items as unknown[];
     const items = rawItems.map((item) => {

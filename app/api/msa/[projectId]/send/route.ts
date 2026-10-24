@@ -15,7 +15,7 @@ import { signatureStrokesSchema } from "@/lib/quote-signature";
 import { sendMsaEmail } from "@/lib/msa-email";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAuditEvent } from "@/lib/audit-server";
-import type { Project, ScopeItem } from "@/lib/types";
+import type { Project, Quote, ScopeItem } from "@/lib/types";
 
 export const runtime = "nodejs";
 const inputSchema = z.object({
@@ -89,14 +89,22 @@ export async function POST(
     const admin = supabaseAdmin();
     const { data: row, error } = await admin
       .from("remodel_records")
-      .select("data,updated_at")
+      .select("kind,data,updated_at")
       .eq("organization_id", user.organizationId)
       .eq("id", projectId)
-      .eq("kind", "project")
+      .in("kind", ["project", "quote"])
       .maybeSingle();
     if (error) throw error;
     if (!row) throw new HttpError(404, "Project not found.");
-    const project = row.data as Project;
+    const project = row.data as Project | Quote;
+    if (
+      row.kind === "quote" &&
+      (project.status !== "Accepted" || !project.quoteAcceptance)
+    )
+      throw new HttpError(
+        409,
+        "The customer must sign the quote scope before the MSA can be sent.",
+      );
     const { data: link, error: linkError } = await admin
       .from("remodel_client_links")
       .select("id,quote_snapshot")
@@ -210,7 +218,7 @@ export async function POST(
         })
         .eq("organization_id", user.organizationId)
         .eq("id", projectId)
-        .eq("kind", "project")
+        .eq("kind", row.kind)
         .eq("updated_at", row.updated_at)
         .select("id");
       if (updateError) throw updateError;
@@ -232,13 +240,14 @@ export async function POST(
     for (let attempt = 0; attempt < 3 && !recorded; attempt++) {
       const { data: fresh, error: freshError } = await admin
         .from("remodel_records")
-        .select("data,updated_at")
+        .select("kind,data,updated_at")
         .eq("organization_id", user.organizationId)
         .eq("id", projectId)
-        .eq("kind", "project")
+        .eq("kind", row.kind)
         .maybeSingle();
       if (freshError) throw freshError;
-      const currentMsa = (fresh?.data as Project | undefined)?.msaAgreement;
+      const currentMsa = (fresh?.data as Project | Quote | undefined)
+        ?.msaAgreement;
       if (!fresh || currentMsa?.termsSha256 !== agreement.termsSha256)
         throw new HttpError(
           409,
@@ -269,7 +278,7 @@ export async function POST(
         })
         .eq("organization_id", user.organizationId)
         .eq("id", projectId)
-        .eq("kind", "project")
+        .eq("kind", row.kind)
         .eq("updated_at", fresh.updated_at)
         .select("id");
       if (sentError) throw sentError;

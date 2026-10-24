@@ -66,11 +66,7 @@ import {
   projectMoney as money,
   preserveScopeCosts,
 } from "@/lib/project-finances";
-import {
-  acceptedQuote,
-  nextQuoteNumber,
-  preserveProjectHistory,
-} from "@/lib/quotes";
+import { nextQuoteNumber, preserveProjectHistory } from "@/lib/quotes";
 import {
   leadDisposition,
   leadPatchFromQuote,
@@ -756,19 +752,16 @@ export default function WorkspaceApp({
     pending.current.add(quote.id);
     syncVersion.current++;
     try {
-      let project: Project;
       if (demo)
-        project = acceptedQuote(quote, user.id, new Date().toISOString());
-      else {
-        const response = await fetch("/api/quotes/accept", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: quote.id, updatedAt: quote.updatedAt }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error);
-        project = result;
-      }
+        throw new Error("The signed agreement and deposit are required to move this quote to Projects.");
+      const response = await fetch("/api/quotes/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: quote.id, updatedAt: quote.updatedAt }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      const project = result as Project;
       const current = workspaceRef.current;
       commit(
         {
@@ -1456,6 +1449,7 @@ export default function WorkspaceApp({
               onDelete={requestDelete}
               onUpload={upload}
               onSent={refresh}
+              onProjectReady={(id) => navigate("Projects", id)}
             />
           ) : projectId ? (
             <Empty

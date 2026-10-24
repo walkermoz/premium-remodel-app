@@ -5,9 +5,9 @@ import {
   HttpError,
   requireUser,
 } from "@/lib/auth";
-import { acceptQuote, findRecord } from "@/lib/repository";
-import { syncLeadStageFromQuote } from "@/lib/lead-records";
-import type { Project, Quote } from "@/lib/types";
+import { findRecord } from "@/lib/repository";
+import { promotePaidQuote } from "@/lib/quote-promotion";
+import type { Project } from "@/lib/types";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { after } from "next/server";
 export const runtime = "nodejs";
@@ -18,28 +18,33 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     const body = await request.json();
-    const quote = (await findRecord(
-      user,
-      String(body.id),
-      "quote",
-    )) as Quote | null;
+    const id = String(body.id || "");
+    if (!/^[0-9a-f-]{36}$/i.test(id))
+      throw new HttpError(400, "Choose a valid quote.");
+    const quote = await findRecord(user, id, "quote");
     if (!quote) {
       // A retry after a lost response returns the same project, never a duplicate.
-      const project = (await findRecord(
-        user,
-        String(body.id),
-        "project",
-      )) as Project | null;
+      const project = (await findRecord(user, id, "project")) as Project | null;
       if (project?.quoteAcceptedAt) return Response.json(project);
       throw new HttpError(404, "Quote not found.");
     }
-    const project = await acceptQuote(
-      user,
-      quote,
-      String(body.updatedAt || ""),
-    );
-    if (quote.leadId) {
-      await syncLeadStageFromQuote(user, quote.leadId, { status: "Won" });
+    if (quote.updatedAt !== body.updatedAt)
+      throw new HttpError(
+        409,
+        "Quote changed. Refresh before moving it to Projects.",
+      );
+    let project: Project;
+    try {
+      const ready = await promotePaidQuote(user.organizationId, id);
+      if (!ready) throw new Error("The deposit has not been fully received.");
+      project = ready;
+    } catch (cause) {
+      throw new HttpError(
+        409,
+        cause instanceof Error
+          ? cause.message
+          : "Quote is not ready for Projects.",
+      );
     }
     const origin = appOrigin(request);
     after(() =>

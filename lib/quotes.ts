@@ -59,14 +59,3 @@ export function preserveProjectHistory(
     result.msaContractTerms = current.msaContractTerms;
   return result;
 }
-
-export function acceptedQuote(quote: Quote, byId: string, at: string): Project {
-  return {
-    ...quote,
-    status: "Planning",
-    completedDate: "",
-    quoteAcceptedAt: at,
-    quoteAcceptedBy: byId,
-    updatedAt: at,
-  };
-}

@@ -3,7 +3,7 @@ import { z } from "zod";
 import source from "./msa-general-terms.json" with { type: "json" };
 import { msaPaymentAmounts, msaPrefill } from "./msa-draft";
 import { signatureStrokesSchema } from "./quote-signature";
-import type { MsaAgreement, Project, ScopeItem } from "./types";
+import type { MsaAgreement, Project, Quote, ScopeItem } from "./types";
 
 export const msaCompanyName =
   "Premium Living Home Improvement LLC d/b/a Premium Remodel";
@@ -83,7 +83,7 @@ export function cancellationDeadline(transactionDate: string) {
 }
 
 export function prepareMsa(
-  project: Project,
+  project: Project | Quote,
   items: ScopeItem[],
   input: z.infer<typeof staffMsaInput>,
   signer: { id: string; name: string },

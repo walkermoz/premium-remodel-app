@@ -124,9 +124,15 @@ export interface Project extends Base {
   cover: string;
   coverAttachmentId?: string;
 }
-export const quoteStatuses = ["Draft", "Sent", "Declined", "Expired"] as const;
+export const quoteStatuses = [
+  "Draft",
+  "Sent",
+  "Accepted",
+  "Declined",
+  "Expired",
+] as const;
 export type QuoteStatus = (typeof quoteStatuses)[number];
-export interface Quote extends Omit<Project, "status" | "contractPrice"> {
+export interface Quote extends Omit<Project, "status"> {
   status: QuoteStatus;
   /** Original filename for a PDF-imported quote; the PDF itself stays on the user's device. */
   importedFrom?: string;

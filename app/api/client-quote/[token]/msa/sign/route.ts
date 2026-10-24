@@ -9,7 +9,7 @@ import {
 import { sendMsaEmail } from "@/lib/msa-email";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import type { MsaAgreement, Project } from "@/lib/types";
+import type { MsaAgreement, Project, Quote } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -33,14 +33,19 @@ export async function POST(
     const admin = supabaseAdmin();
     const { data: row, error } = await admin
       .from("remodel_records")
-      .select("data,updated_at")
+      .select("kind,data,updated_at")
       .eq("organization_id", source.organizationId)
       .eq("id", source.pdfQuote.id)
-      .eq("kind", "project")
+      .in("kind", ["project", "quote"])
       .maybeSingle();
     if (error) throw error;
     if (!row) throw new HttpError(404, "Project not found.");
-    const project = row.data as Project;
+    const project = row.data as Project | Quote;
+    if (
+      row.kind === "quote" &&
+      (project.status !== "Accepted" || !project.quoteAcceptance)
+    )
+      throw new HttpError(409, "The signed quote scope is required.");
     const agreement = project.msaAgreement;
     if (!agreement) throw new HttpError(404, "Agreement not found.");
     if (agreement.status === "signed")
@@ -102,7 +107,7 @@ export async function POST(
       })
       .eq("organization_id", source.organizationId)
       .eq("id", project.id)
-      .eq("kind", "project")
+      .eq("kind", row.kind)
       .eq("updated_at", row.updated_at)
       .select("id");
     if (updateError) throw updateError;

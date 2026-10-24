@@ -139,15 +139,20 @@ export async function readClientQuoteSource(token: string) {
   const acceptedAt = z
     .object({ quoteAcceptedAt: z.string() })
     .safeParse(record.data);
-  const approved = record.kind === "project" && acceptedAt.success;
   const parsedAcceptance = quoteAcceptanceSchema.safeParse(
     z.object({ quoteAcceptance: z.unknown() }).safeParse(record.data).data
       ?.quoteAcceptance,
   );
+  const approved =
+    acceptedAt.success &&
+    (record.kind === "project" ||
+      (record.kind === "quote" &&
+        (record.data as { status?: string }).status === "Accepted" &&
+        parsedAcceptance.success));
   const acceptance =
     approved && parsedAcceptance.success ? parsedAcceptance.data : undefined;
   if (record.kind !== "quote" && !approved) return null;
-  if (record.kind === "quote") {
+  if (record.kind === "quote" && !approved) {
     const liveStatus = z
       .object({ status: z.literal("Sent") })
       .safeParse(record.data);

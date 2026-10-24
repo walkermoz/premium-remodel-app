@@ -5,7 +5,7 @@ const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const headers = { Origin: "http://localhost:3100" };
 
 cloudTest(
-  "quote acceptance is scoped, atomic and retry safe, retaining scope, files and historical prices",
+  "staff cannot move an unsigned or unpaid quote into Projects",
   async ({ company, page, request }) => {
     const api = page.request;
     expect(
@@ -228,43 +228,13 @@ cloudTest(
         })
       ).status(),
     ).toBe(404);
-    const attempts = await Promise.all([
-      api.post("/api/quotes/accept", { headers, data: acceptBody }),
-      api.post("/api/quotes/accept", { headers, data: acceptBody }),
-    ]);
-    expect(attempts.some((response) => response.status() === 200)).toBe(true);
-    expect(
-      attempts.every((response) => [200, 409].includes(response.status())),
-    ).toBe(true);
-    const retry = await api.post("/api/quotes/accept", {
+    const premature = await api.post("/api/quotes/accept", {
       headers,
       data: acceptBody,
     });
-    expect(retry.status()).toBe(200);
-    const project = await retry.json();
-    expect(project).toMatchObject({
-      id: quote.id,
-      status: "Planning",
-      clientEmail: quoteData.clientEmail,
-      quoteSentAt: sent.quoteSentAt,
-    });
-    expect(project.quoteAcceptedAt).toMatch(/^\d{4}-/);
-    let workspace = await (await api.get("/api/workspace")).json();
-    expect(workspace.quotes).toHaveLength(0);
-    expect(workspace.projects).toHaveLength(1);
-    expect(workspace.scope[0]).toMatchObject({
-      id: scope.id,
-      projectId: project.id,
-      estimate: 5000.15,
-      materialCost: 1234.56,
-    });
-    expect(workspace.attachments[0]).toMatchObject({
-      id: file.id,
-      projectId: project.id,
-      path: file.path,
-    });
-    expect(await (await api.get(`/api/files?id=${file.id}`)).text()).toBe(
-      "Sent quote test",
+    expect(premature.status()).toBe(409);
+    expect((await premature.json()).error).toMatch(
+      /signed quote scope and MSA/i,
     );
     expect(
       (
@@ -274,40 +244,28 @@ cloudTest(
             kind: "quote",
             id: sent.id,
             updatedAt: sent.updatedAt,
-            data: sent,
+            data: { ...sent, status: "Accepted" },
           },
         })
       ).status(),
-    ).toBe(404);
-    // Simulate a record saved by the old app without changing any production records.
-    const historical = { ...project, contractPrice: 7000 };
-    const seeded = await company.admin
-      .from("remodel_records")
-      .update({ data: historical })
-      .eq("id", project.id)
-      .eq("organization_id", company.organizationId);
-    expect(seeded.error).toBeNull();
-    const edited = await api.patch("/api/workspace", {
-      headers,
-      data: {
-        kind: "project",
-        id: project.id,
-        updatedAt: project.updatedAt,
-        data: {
-          ...project,
-          contractPrice: 1,
-          quoteAcceptedAt: "forged",
-          name: "Accepted garage",
-        },
-      },
+    ).toBe(409);
+    const workspace = await (await api.get("/api/workspace")).json();
+    expect(workspace.quotes).toHaveLength(1);
+    expect(workspace.projects).toHaveLength(0);
+    expect(workspace.scope[0]).toMatchObject({
+      id: scope.id,
+      projectId: quote.id,
+      estimate: 5000.15,
+      materialCost: 1234.56,
     });
-    expect(edited.status()).toBe(200);
-    expect(await edited.json()).toMatchObject({
-      contractPrice: 7000,
-      quoteAcceptedAt: project.quoteAcceptedAt,
+    expect(workspace.attachments[0]).toMatchObject({
+      id: file.id,
+      projectId: quote.id,
+      path: file.path,
     });
-    workspace = await (await api.get("/api/workspace")).json();
-    expect(workspace.projects[0].contractPrice).toBe(7000);
+    expect(await (await api.get(`/api/files?id=${file.id}`)).text()).toBe(
+      "Sent quote test",
+    );
     const cleared = await api.patch("/api/workspace", {
       headers,
       data: {

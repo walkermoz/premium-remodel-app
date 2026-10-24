@@ -1,7 +1,7 @@
 import { apiError, requireUser } from "@/lib/auth";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 import { findRecord } from "@/lib/repository";
-import type { Project } from "@/lib/types";
+import type { Project, Quote } from "@/lib/types";
 
 export const runtime = "nodejs";
 export async function GET(
@@ -13,11 +13,8 @@ export async function GET(
     if (user.group === "doorknocker")
       return new Response(null, { status: 403 });
     const { projectId } = await params;
-    const project = (await findRecord(
-      user,
-      projectId,
-      "project",
-    )) as Project | null;
+    const project = (await findRecord(user, projectId)) as
+      Project | Quote | null;
     const agreement = project?.msaAgreement;
     if (!agreement || agreement.status !== "signed")
       return new Response(null, { status: 404 });

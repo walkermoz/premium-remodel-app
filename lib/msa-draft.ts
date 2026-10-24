@@ -4,6 +4,7 @@ import type {
   MsaPaymentStep,
   MsaPermitResponsibility,
   Project,
+  Quote,
   ScopeItem,
 } from "./types";
 
@@ -45,7 +46,7 @@ export const msaCancellationAddress =
   "Premium Living Home Improvement LLC d/b/a Premium Remodel, 309 Amiable Loop, Cary, North Carolina 27519";
 
 export function defaultMsaContractTerms(
-  project: Project,
+  project: Project | Quote,
   scope: AcceptedScopeItem[],
 ): MsaContractTerms {
   const quoteText = [
@@ -143,7 +144,10 @@ export type MsaPrefill = {
 };
 
 /** Suggestions for staff review, never a completed or signable agreement. */
-export function msaPrefill(project: Project, items: ScopeItem[]): MsaPrefill {
+export function msaPrefill(
+  project: Project | Quote,
+  items: ScopeItem[],
+): MsaPrefill {
   const currentItems = items.filter((item) => item.projectId === project.id);
   const hasAcceptedScope = Boolean(project.acceptedQuoteScope?.length);
   const scope = hasAcceptedScope

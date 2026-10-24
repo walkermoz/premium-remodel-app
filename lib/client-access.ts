@@ -74,7 +74,8 @@ export async function clientQuotesForEmail(
       const current = record.data as Quote;
       if (
         current.clientEmail?.trim().toLowerCase() === normalized &&
-        ((record.kind === "quote" && current.status === "Sent") ||
+        ((record.kind === "quote" &&
+          (current.status === "Sent" || current.status === "Accepted")) ||
           (record.kind === "project" && Boolean(current.quoteAcceptedAt)))
       )
         validRecords.set(record.id, current);

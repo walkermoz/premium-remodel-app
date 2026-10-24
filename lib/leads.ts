@@ -103,6 +103,7 @@ export function stageForQuoteStatus(
 ): LeadStage | null {
   if (status === "Draft") return stageForNewQuote(current);
   if (status === "Sent") return "Quote sent";
+  if (status === "Accepted") return "Won";
   if (status === "Declined") return "Lost";
   if (status === "Expired") return "Stale";
   return null;

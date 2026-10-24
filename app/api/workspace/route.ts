@@ -131,6 +131,25 @@ async function save(request: Request, editing: boolean) {
       ? await findRecord(user, String(body.id), kind)
       : null;
     if (editing && !current) throw new HttpError(404, "Record not found.");
+    if (kind === "quote" && (current as Quote | null)?.status === "Accepted")
+      throw new HttpError(
+        409,
+        "The signed quote is locked. MSA terms can be edited in the agreement section.",
+      );
+    if (kind === "scope") {
+      const parentId = String(
+        (body.data as { projectId?: unknown } | undefined)?.projectId ||
+          (current as ScopeItem | null)?.projectId ||
+          "",
+      );
+      const parentQuote = (await findRecord(
+        user,
+        parentId,
+        "quote",
+      )) as Quote | null;
+      if (parentQuote?.status === "Accepted")
+        throw new HttpError(409, "The signed quote scope cannot be changed.");
+    }
     if (kind === "alert") {
       if (user.role !== "admin")
         throw new HttpError(403, "Only administrators can manage alerts.");
@@ -162,6 +181,11 @@ async function save(request: Request, editing: boolean) {
     if (!parsed.success)
       throw new HttpError(400, parsed.error.issues[0].message);
     let data = parsed.data as Record<string, unknown>;
+    if (kind === "quote" && data.status === "Accepted")
+      throw new HttpError(
+        409,
+        "Only a customer signature can accept the quote scope.",
+      );
     if (kind === "lead" && current) {
       const currentLead = current as Lead;
       for (const key of [
@@ -475,6 +499,15 @@ export async function DELETE(request: Request) {
       );
     const current = await findRecord(user, String(body.id), kind);
     if (!current) throw new HttpError(404, "Record not found.");
+    if (kind === "scope") {
+      const parentQuote = (await findRecord(
+        user,
+        (current as ScopeItem).projectId,
+        "quote",
+      )) as Quote | null;
+      if (parentQuote?.status === "Accepted")
+        throw new HttpError(409, "The signed quote scope cannot be changed.");
+    }
     if (kind === "activity" && "stripeSessionId" in current)
       throw new HttpError(
         403,
