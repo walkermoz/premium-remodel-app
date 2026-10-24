@@ -332,7 +332,10 @@ test("quotes carry their contact, scope and files into a planning project", asyn
     buffer: Buffer.from("Test sent quote"),
   });
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
-  await page.getByRole("button", { name: "Mark as sent", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Mark as sent", exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel("Quote status").selectOption("Sent");
   await expect(page.getByLabel("Quote status")).toHaveValue("Sent");
   await page.getByRole("button", { name: "All quotes", exact: true }).click();
   await expect(page.locator(".quote-summary")).toContainText("$5,100.15");

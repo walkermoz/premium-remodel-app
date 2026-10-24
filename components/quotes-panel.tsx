@@ -509,19 +509,6 @@ export function QuoteDetail({
             ))}
           </select>
         </label>
-        {quote.status !== "Sent" && (
-          <button
-            className="button secondary small-button"
-            disabled={busy}
-            onClick={() =>
-              void change(() =>
-                onSave("quote", { ...quote, status: "Sent" }, quote),
-              )
-            }
-          >
-            Mark as sent
-          </button>
-        )}
         {quote.quoteSentAt && (
           <span className="muted">
             Last sent {dateLabel(quote.quoteSentAt)}
@@ -529,8 +516,7 @@ export function QuoteDetail({
         )}
       </div>
       <p className="footnote">
-        Mark as sent after sharing the quote with the client. Accept quote moves
-        this scope and its files into a new planning project.
+        Accept quote moves this scope and its files into a new planning project.
       </p>
       <div className="quote-overview">
         <div className="quote-price">
