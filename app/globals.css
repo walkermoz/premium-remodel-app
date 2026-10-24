@@ -2965,6 +2965,24 @@ small {
   font-size: 12px;
   font-weight: 650;
 }
+.scope-section-name {
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  cursor: text;
+}
+.scope-section-name:hover,
+.scope-section-name:focus-visible {
+  background: color-mix(in srgb, var(--blue) 13%, var(--surface));
+  outline: 1px solid color-mix(in srgb, var(--blue) 48%, transparent);
+}
 .scope-table .scope-section-heading small {
   margin: 0;
   color: var(--theme-text-muted, #8796a2);

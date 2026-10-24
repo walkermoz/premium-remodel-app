@@ -409,13 +409,29 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
 
   await page.getByRole("button", { name: "Rename project Project #1" }).click();
   await page.getByLabel("Project name for Project #1").fill("Kitchen phase");
-  await page.getByRole("button", { name: "Save project name" }).click();
+  await page.getByLabel("Project name for Project #1").press("Enter");
   await expect(page.locator(".scope-section-row")).toContainText(
     "Kitchen phase",
   );
   await page.reload();
   await expect(page.locator(".scope-section-row")).toContainText(
     "Kitchen phase",
+  );
+  await page
+    .getByRole("button", { name: "Rename project Kitchen phase" })
+    .click();
+  await page.getByLabel("Project name for Kitchen phase").fill("Kitchen prep");
+  await page.getByRole("heading", { name: "Scope & pricing" }).click();
+  await expect(page.locator(".scope-section-row")).toContainText(
+    "Kitchen prep",
+  );
+  await page
+    .getByRole("button", { name: "Rename project Kitchen prep" })
+    .click();
+  await page.getByLabel("Project name for Kitchen prep").fill("Not saved");
+  await page.getByLabel("Project name for Kitchen prep").press("Escape");
+  await expect(page.locator(".scope-section-row")).toContainText(
+    "Kitchen prep",
   );
 
   await page.getByRole("button", { name: "Add row", exact: true }).click();
@@ -429,7 +445,7 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await expect(page.locator(".scope-section-row")).toContainText("2 items");
 
   await page
-    .getByRole("button", { name: "Remove project Kitchen phase" })
+    .getByRole("button", { name: "Remove project Kitchen prep" })
     .click();
   await expect(page.locator(".scope-section-row")).toHaveCount(0);
   await expect(page.getByLabel("Work item Demo work")).toBeVisible();

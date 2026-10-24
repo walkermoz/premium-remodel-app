@@ -723,14 +723,17 @@ function ScopeSectionRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
+  const cancelRef = useRef(false);
 
-  async function rename(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!onRename || busy) return;
+  async function rename() {
+    if (!onRename || busy || savingRef.current || cancelRef.current) return;
     if (draft.trim() === name) {
       setEditing(false);
       return;
     }
+    savingRef.current = true;
     setError("");
     try {
       await onRename(draft);
@@ -739,7 +742,17 @@ function ScopeSectionRow({
       setError(
         caught instanceof Error ? caught.message : "Could not rename project.",
       );
+      requestAnimationFrame(() => inputRef.current?.focus());
+    } finally {
+      savingRef.current = false;
     }
+  }
+
+  function cancelRename() {
+    cancelRef.current = true;
+    setDraft(name);
+    setEditing(false);
+    setError("");
   }
 
   async function remove() {
@@ -765,41 +778,46 @@ function ScopeSectionRow({
             {editing ? (
               <form
                 className="scope-section-edit"
-                onSubmit={(event) => void rename(event)}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void rename();
+                }}
               >
                 <input
+                  ref={inputRef}
                   aria-label={`Project name for ${name}`}
                   value={draft}
                   maxLength={250}
                   disabled={busy}
                   onChange={(event) => setDraft(event.target.value)}
+                  onBlur={() => void rename()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      cancelRename();
+                    }
+                  }}
                   autoFocus
                   required
                 />
-                <button
-                  type="submit"
-                  className="icon-button"
-                  aria-label="Save project name"
-                  disabled={busy}
-                >
-                  <Check size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Cancel project rename"
-                  disabled={busy}
-                  onClick={() => {
-                    setDraft(name);
-                    setEditing(false);
-                    setError("");
-                  }}
-                >
-                  <X size={14} />
-                </button>
               </form>
             ) : (
-              <strong>{name}</strong>
+              <button
+                type="button"
+                className="scope-section-name"
+                aria-label={`Rename project ${name}`}
+                title="Click to rename project"
+                disabled={busy}
+                onClick={() => {
+                  cancelRef.current = false;
+                  setDraft(name);
+                  setError("");
+                  setEditing(true);
+                }}
+              >
+                {name}
+              </button>
             )}
           </div>
           <div className="scope-section-tools">
@@ -808,19 +826,6 @@ function ScopeSectionRow({
             </small>
             {editable && !editing && (
               <>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={`Rename project ${name}`}
-                  title="Rename project"
-                  disabled={busy}
-                  onClick={() => {
-                    setDraft(name);
-                    setEditing(true);
-                  }}
-                >
-                  <Pencil size={14} />
-                </button>
                 <button
                   type="button"
                   className="icon-button delete-action"
