@@ -3031,7 +3031,15 @@ small {
   --scope-project-accent: #00cec9;
 }
 .scope-table-compact tbody .scope-project-accent > td:first-child {
-  border-left: 5px solid var(--scope-project-accent);
+  border-left: 1px solid var(--scope-project-accent);
+  box-shadow: inset 4px 0 var(--scope-project-accent);
+}
+.scope-table-compact tbody .scope-section-row.scope-project-accent > td:first-child {
+  padding-left: 19px;
+}
+.scope-table-compact tbody .scope-edit-row.scope-project-accent > td:first-child,
+.scope-table-compact tbody .scope-row-detail-editor.scope-project-accent > td:first-child {
+  padding-left: 19px;
 }
 .scope-section-heading {
   display: flex;
