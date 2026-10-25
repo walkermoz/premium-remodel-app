@@ -2977,6 +2977,10 @@ small {
   border-top: 0;
   background: color-mix(in srgb, var(--blue) 5%, var(--surface));
 }
+.scope-table-compact tbody .scope-edit-row.scope-item-alternate td,
+.scope-table-compact .scope-row-detail-editor.scope-item-alternate td {
+  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+}
 .scope-row-detail-fields {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);

@@ -549,6 +549,7 @@ export default function ScopeTable({
                       draft={draft}
                       workspace={workspace}
                       difference={difference}
+                      alternateShade={index % 2 === 1}
                       saving={saving.has(item.id)}
                       dirty={dirty(item)}
                       compact={compactQuoteRows}
@@ -632,6 +633,7 @@ export default function ScopeTable({
                   draftNumber(newDraft.subCost) -
                   draftNumber(newDraft.materialCost)
                 }
+                alternateShade={orderedItems.length % 2 === 1}
                 saving={saving.has("new")}
                 dirty
                 compact={compactQuoteRows}
@@ -881,6 +883,7 @@ function EditableRow({
   draft,
   workspace,
   difference,
+  alternateShade,
   saving,
   dirty,
   compact,
@@ -897,6 +900,7 @@ function EditableRow({
   draft: ScopeDraft;
   workspace: Workspace;
   difference: number;
+  alternateShade: boolean;
   saving: boolean;
   dirty: boolean;
   compact: boolean;
@@ -912,7 +916,7 @@ function EditableRow({
 }) {
   const mainRow = (
     <tr
-      className={`${newRow ? "scope-new-row " : ""}${compact ? "scope-edit-row" : ""}`}
+      className={`${newRow ? "scope-new-row " : ""}${compact ? "scope-edit-row" : ""}${compact && alternateShade ? " scope-item-alternate" : ""}`}
       data-scope-editor-id={editorId}
       aria-busy={saving}
       onBlur={onBlur}
@@ -1110,7 +1114,7 @@ function EditableRow({
       {mainRow}
       {compact && (
         <tr
-          className="scope-row-detail-editor"
+          className={`scope-row-detail-editor${alternateShade ? " scope-item-alternate" : ""}`}
           data-scope-editor-id={editorId}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
