@@ -27,6 +27,40 @@ import AddressInput from "./address-input";
 import { Modal } from "./ui";
 
 type LeadFilter = "Active" | "Future" | "Archive" | "Junk";
+type LeadTouch = NonNullable<Lead["leadAttribution"]>["lastTouch"];
+
+function leadSourceName(touch: LeadTouch) {
+  const source = touch.source.trim();
+  const medium = touch.medium?.trim().toLowerCase() || "";
+  const normalizedSource = source.toLowerCase();
+
+  if (
+    normalizedSource === "google ads" ||
+    (normalizedSource === "google" && /^(cpc|ppc|paid|paid search)$/.test(medium)) ||
+    touch.gclid ||
+    touch.gbraid ||
+    touch.wbraid
+  ) {
+    return "Google Ads";
+  }
+  if (normalizedSource === "google" && medium.includes("organic")) {
+    return "Google Search";
+  }
+  if (normalizedSource === "direct") return "Direct visit";
+  return source;
+}
+
+function leadSourceType(touch: LeadTouch) {
+  const medium = touch.medium?.trim() || "";
+  if (leadSourceName(touch) === "Google Ads") return "Paid search";
+  if (leadSourceName(touch) === "Google Search") return "Organic";
+  return medium && medium.toLowerCase() !== "none" ? medium : "";
+}
+
+function referrerHost(value: string) {
+  const safeUrl = safeReferrerUrl(value);
+  return safeUrl ? new URL(safeUrl).hostname.replace(/^www\./, "") : "";
+}
 
 function safeReferrerUrl(value: string) {
   try {
@@ -215,7 +249,7 @@ export default function LeadsPanel({
                     <small>
                       {disposition !== "Active" ? `${disposition} · ` : ""}
                       {lead.leadAttribution?.lastTouch.source
-                        ? `${lead.leadAttribution.lastTouch.source} · `
+                        ? `${leadSourceName(lead.leadAttribution.lastTouch)} · `
                         : ""}
                       {new Date(lead.submittedAt).toLocaleString("en-US", {
                         month: "short",
@@ -434,46 +468,82 @@ export default function LeadsPanel({
                   </dl>
                 </section>
               )}
-              <section className="lead-project-brief">
+              <section className="lead-project-brief lead-source-section">
                 <span>HOW THEY FOUND US</span>
-                <dl className="lead-other-fields">
-                  <div>
-                    <dt>Submitted through</dt>
-                    <dd>{selected.source}</dd>
-                  </div>
-                  {selected.leadAttribution &&
-                    ([
-                      ["First visit", selected.leadAttribution.firstTouch],
-                      ["Latest tracked visit", selected.leadAttribution.lastTouch],
-                    ] as const).map(([label, touch]) => (
-                      <div key={label}>
-                        <dt>{label}</dt>
-                        <dd>
-                          {touch.source}
-                          {touch.medium ? ` / ${touch.medium}` : ""}
-                          {touch.campaign ? ` · ${touch.campaign}` : ""}
-                          {touch.landingPath ? ` · ${touch.landingPath}` : ""}
-                          {touch.referrer && (
-                            <>
-                              <br />
-                              Referrer:{" "}
-                              {safeReferrerUrl(touch.referrer) ? (
-                                <a
-                                  href={safeReferrerUrl(touch.referrer)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {touch.referrer}
-                                </a>
-                              ) : (
-                                touch.referrer
-                              )}
-                            </>
-                          )}
-                        </dd>
+                {selected.leadAttribution ? (
+                  <>
+                    <div className="lead-source-headline">
+                      <strong>{leadSourceName(selected.leadAttribution.lastTouch)}</strong>
+                      {leadSourceType(selected.leadAttribution.lastTouch) && (
+                        <span>{leadSourceType(selected.leadAttribution.lastTouch)}</span>
+                      )}
+                    </div>
+                    {selected.leadAttribution.lastTouch.referrer &&
+                      referrerHost(selected.leadAttribution.lastTouch.referrer) && (
+                        <div className="lead-source-context">
+                          Came from {referrerHost(selected.leadAttribution.lastTouch.referrer)}
+                        </div>
+                      )}
+                    {(selected.leadAttribution.firstTouch.source !==
+                      selected.leadAttribution.lastTouch.source ||
+                      selected.leadAttribution.firstTouch.medium !==
+                        selected.leadAttribution.lastTouch.medium) && (
+                      <div className="lead-source-context">
+                        First recorded visit: {leadSourceName(selected.leadAttribution.firstTouch)}
+                        {leadSourceType(selected.leadAttribution.firstTouch)
+                          ? ` · ${leadSourceType(selected.leadAttribution.firstTouch)}`
+                          : ""}
                       </div>
-                    ))}
-                </dl>
+                    )}
+                    <details className="lead-source-details">
+                      <summary>View tracking details</summary>
+                      <dl className="lead-other-fields">
+                        <div>
+                          <dt>Submitted through</dt>
+                          <dd>{selected.source}</dd>
+                        </div>
+                        {([
+                          ["First visit", selected.leadAttribution.firstTouch],
+                          ["Latest visit", selected.leadAttribution.lastTouch],
+                        ] as const).map(([label, touch]) => (
+                          <div key={label}>
+                            <dt>{label}</dt>
+                            <dd>
+                              {touch.source}
+                              {touch.medium ? ` / ${touch.medium}` : ""}
+                              {touch.campaign ? ` · ${touch.campaign}` : ""}
+                              {touch.landingPath ? ` · ${touch.landingPath}` : ""}
+                              {touch.referrer && (
+                                <>
+                                  <br />
+                                  Referrer:{" "}
+                                  {safeReferrerUrl(touch.referrer) ? (
+                                    <a
+                                      href={safeReferrerUrl(touch.referrer)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {touch.referrer}
+                                    </a>
+                                  ) : (
+                                    touch.referrer
+                                  )}
+                                </>
+                              )}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </details>
+                  </>
+                ) : (
+                  <>
+                    <div className="lead-source-headline">
+                      <strong>{selected.source}</strong>
+                    </div>
+                    <div className="lead-source-context">Visit source was not recorded.</div>
+                  </>
+                )}
               </section>
               {selected.quoteDate && (
                 <section className="lead-quote-appointment">
