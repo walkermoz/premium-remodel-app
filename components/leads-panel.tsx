@@ -434,11 +434,15 @@ export default function LeadsPanel({
                   </dl>
                 </section>
               )}
-              {selected.leadAttribution && (
-                <section className="lead-project-brief">
-                  <span>HOW THEY FOUND US</span>
-                  <dl className="lead-other-fields">
-                    {([
+              <section className="lead-project-brief">
+                <span>HOW THEY FOUND US</span>
+                <dl className="lead-other-fields">
+                  <div>
+                    <dt>Submitted through</dt>
+                    <dd>{selected.source}</dd>
+                  </div>
+                  {selected.leadAttribution &&
+                    ([
                       ["First visit", selected.leadAttribution.firstTouch],
                       ["Latest tracked visit", selected.leadAttribution.lastTouch],
                     ] as const).map(([label, touch]) => (
@@ -469,9 +473,8 @@ export default function LeadsPanel({
                         </dd>
                       </div>
                     ))}
-                  </dl>
-                </section>
-              )}
+                </dl>
+              </section>
               {selected.quoteDate && (
                 <section className="lead-quote-appointment">
                   <CalendarClock size={18} aria-hidden="true" />
@@ -544,10 +547,6 @@ export default function LeadsPanel({
                   </p>
                 )}
               </section>
-              <footer className="lead-source">
-                <span>Source</span>
-                <strong>{selected.source}</strong>
-              </footer>
             </article>
           )}
         </div>
