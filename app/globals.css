@@ -4549,6 +4549,45 @@ small {
 .lead-other-fields dt {
   color: var(--theme-text-muted, #8b9ca8);
 }
+.lead-source-headline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.lead-source-headline strong {
+  color: var(--theme-heading, #173b52);
+  font-size: 17px;
+  line-height: 1.3;
+}
+.lead-source-headline span {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--theme-text-muted, #8b9ca8);
+  font-size: 10px;
+  line-height: 1.3;
+}
+.lead-project-brief .lead-source-context {
+  margin-top: 5px;
+  color: var(--theme-text-muted, #8b9ca8);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.lead-source-details {
+  margin-top: 12px;
+}
+.lead-source-details summary {
+  width: fit-content;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+.lead-source-details .lead-other-fields {
+  padding-top: 12px;
+}
 .lead-contact-card {
   padding: 22px 0;
 }
