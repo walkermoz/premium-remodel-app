@@ -189,6 +189,7 @@ export default function ScopeTable({
     Object.fromEntries(orderedItems.map((item) => [item.id, draftFrom(item)])),
   );
   const [adding, setAdding] = useState(false);
+  const [addingProject, setAddingProject] = useState(false);
   const [newDraft, setNewDraft] = useState<ScopeDraft>(() => draftFrom());
   const [saving, setSaving] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
@@ -197,10 +198,12 @@ export default function ScopeTable({
   const [templateError, setTemplateError] = useState("");
   const [sectionSaving, setSectionSaving] = useState(false);
   const newTitle = useRef<HTMLInputElement>(null);
+  const newProjectName = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (adding) newTitle.current?.focus();
-  }, [adding]);
+    if (adding)
+      (addingProject ? newProjectName : newTitle).current?.focus();
+  }, [adding, addingProject]);
 
   if (!inline && !items.length)
     return (
@@ -248,6 +251,15 @@ export default function ScopeTable({
       `scope-project-accent scope-project-accent-${index % 6}`,
     ]),
   );
+  const newProjectAccentClass = `scope-project-accent scope-project-accent-${projectSections.length % 6}`;
+  const lastItem = orderedItems.at(-1);
+  const newRowAccentClass = compactQuoteRows
+    ? addingProject
+      ? newProjectAccentClass
+      : lastItem
+        ? projectAccentClasses.get(scopeSectionKey(lastItem))
+        : undefined
+    : undefined;
   let nextProjectNumber = projectSections.length + 1;
   while (
     projectSections.some(
@@ -256,6 +268,13 @@ export default function ScopeTable({
   )
     nextProjectNumber++;
   const nextProjectName = `Project #${nextProjectNumber}`;
+
+  function cancelAdding() {
+    setAdding(false);
+    setAddingProject(false);
+    setNewDraft(draftFrom());
+    setError("");
+  }
 
   function updateDraft(
     id: string,
@@ -291,14 +310,19 @@ export default function ScopeTable({
     if (saving.has(id)) return;
     const draft = item ? drafts[item.id] || draftFrom(item) : newDraft;
     if (!item && !draft.title.trim()) {
-      setAdding(false);
-      setNewDraft(draftFrom());
+      cancelAdding();
       return;
     }
     if (item && !dirty(item)) return;
     setError("");
     try {
       const values = draftValues(draft);
+      if (!item && addingProject) {
+        const projectName = draft.sectionName.trim();
+        if (!projectName)
+          throw new Error("Enter a project name before saving its first item.");
+        values.sectionName = projectName;
+      }
       setSaving((current) => new Set(current).add(id));
       await onSave(
         {
@@ -329,8 +353,7 @@ export default function ScopeTable({
           },
         }));
       } else {
-        setAdding(false);
-        setNewDraft(draftFrom());
+        cancelAdding();
       }
     } catch (saveError) {
       setError(
@@ -364,6 +387,13 @@ export default function ScopeTable({
         event.currentTarget.getAttribute("data-scope-editor-id")
     )
       return;
+    if (
+      !item &&
+      addingProject &&
+      event.relatedTarget instanceof Element &&
+      event.relatedTarget.closest(".scope-new-project-row")
+    )
+      return;
     void saveRow(item);
   }
 
@@ -393,8 +423,7 @@ export default function ScopeTable({
           [item.id]: draftFrom(item),
         }));
       else {
-        setAdding(false);
-        setNewDraft(draftFrom());
+        cancelAdding();
       }
       setError("");
     }
@@ -640,6 +669,49 @@ export default function ScopeTable({
                 </Fragment>
               );
             })}
+            {inline && adding && addingProject && (
+              <tr className={`scope-section-row scope-new-project-row ${newProjectAccentClass}`}>
+                <td colSpan={showStatus ? 8 : 7}>
+                  <div className="scope-section-heading">
+                    <div className="scope-section-title">
+                      <span>Project</span>
+                      <div className="scope-section-edit">
+                        <input
+                          ref={newProjectName}
+                          aria-label="New project name"
+                          value={newDraft.sectionName}
+                          maxLength={250}
+                          disabled={saving.has("new")}
+                          onChange={(event) =>
+                            setNewDraft((current) => ({
+                              ...current,
+                              sectionName: event.target.value,
+                            }))
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              newTitle.current?.focus();
+                            }
+                            if (event.key === "Escape") cancelAdding();
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="scope-section-tools">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label="Cancel new project"
+                        onClick={cancelAdding}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            )}
             {inline && adding && (
               <EditableRow
                 draft={newDraft}
@@ -650,6 +722,7 @@ export default function ScopeTable({
                   draftNumber(newDraft.materialCost)
                 }
                 alternateShade={orderedItems.length % 2 === 1}
+                accentClassName={newRowAccentClass}
                 saving={saving.has("new")}
                 dirty
                 compact={compactQuoteRows}
@@ -661,11 +734,7 @@ export default function ScopeTable({
                   setNewDraft((current) => ({ ...current, ...patch }))
                 }
                 onSave={() => void saveRow()}
-                onDelete={() => {
-                  setAdding(false);
-                  setNewDraft(draftFrom());
-                  setError("");
-                }}
+                onDelete={cancelAdding}
                 onBlur={(event) => rowBlur(event)}
                 onKeyDown={(event) => rowKeyDown(event)}
               />
@@ -679,7 +748,7 @@ export default function ScopeTable({
                       className="scope-add-row-button"
                       onClick={() => {
                         setError("");
-                        const lastItem = orderedItems.at(-1);
+                        setAddingProject(false);
                         setNewDraft({
                           ...draftFrom(),
                           sectionId:
@@ -697,6 +766,25 @@ export default function ScopeTable({
                       <Plus size={15} />
                       Add row
                     </button>
+                    {compactQuoteRows && (
+                      <button
+                        type="button"
+                        className="scope-add-row-button scope-add-project-button"
+                        onClick={() => {
+                          setError("");
+                          setNewDraft({
+                            ...draftFrom(),
+                            sectionId: crypto.randomUUID(),
+                            sectionName: nextProjectName,
+                          });
+                          setAddingProject(true);
+                          setAdding(true);
+                        }}
+                      >
+                        <FolderPlus size={15} />
+                        Add project
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="scope-add-row-button scope-add-project-button"
