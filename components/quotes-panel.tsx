@@ -618,6 +618,7 @@ export function QuoteDetail({
             items={items}
             workspace={workspace}
             inline
+            compactQuoteRows
             showStatus={false}
             projectId={quote.id}
             defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}

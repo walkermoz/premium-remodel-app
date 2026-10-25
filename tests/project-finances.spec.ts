@@ -595,29 +595,55 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
   await expect(
     table.getByLabel("Unit for Shower wall tile installation"),
   ).toHaveValue("sq ft");
-  await expect(
-    table.getByLabel("Details for Shower base & waterproofing"),
-  ).toHaveValue(/Base: Curbless/);
+  await table
+    .getByRole("button", {
+      name: "Edit scope details for Shower base & waterproofing",
+    })
+    .click();
+  const showerBaseDetails = table.locator(
+    'textarea[aria-label="Details for Shower base & waterproofing"]',
+  );
+  await expect(showerBaseDetails).toBeVisible();
+  await expect(showerBaseDetails).toHaveValue(/Base: Curbless/);
   await expect
     .poll(() =>
-      table
-        .getByLabel("Details for Shower base & waterproofing")
-        .evaluate(
-          (element) => element.scrollHeight <= element.clientHeight + 1,
-        ),
+      showerBaseDetails.evaluate(
+        (element) => element.scrollHeight <= element.clientHeight + 1,
+      ),
     )
     .toBe(true);
+  await table
+    .getByRole("button", {
+      name: "Edit scope details for Shower wall tile installation",
+    })
+    .click();
   await expect(
-    table.getByLabel("Details for Shower wall tile installation"),
+    table.locator(
+      'textarea[aria-label="Details for Shower wall tile installation"]',
+    ),
   ).toHaveValue(/Large warm-white porcelain/);
   await expect(table.getByLabel("Work item Toilet installation")).toHaveCount(
     0,
   );
+  await table
+    .getByRole("button", {
+      name: "Edit scope details for Demolition & site protection",
+    })
+    .click();
   await expect(
-    table.getByLabel("Details for Demolition & site protection"),
+    table.locator(
+      'textarea[aria-label="Details for Demolition & site protection"]',
+    ),
   ).toHaveValue(/Room: 10 ft x 8 ft/);
+  await table
+    .getByRole("button", {
+      name: "Edit scope details for Paint, finish carpentry & final cleanup",
+    })
+    .click();
   await expect(
-    table.getByLabel("Details for Paint, finish carpentry & final cleanup"),
+    table.locator(
+      'textarea[aria-label="Details for Paint, finish carpentry & final cleanup"]',
+    ),
   ).toHaveValue(/Prioritize an easy-to-clean shower and accessible storage/);
   await table
     .getByRole("button", { name: "Delete Demolition & site protection" })

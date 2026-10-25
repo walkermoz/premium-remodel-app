@@ -155,6 +155,7 @@ export default function ScopeTable({
   onEdit,
   onDelete,
   inline = false,
+  compactQuoteRows = false,
   showStatus = true,
   projectId,
   onSave,
@@ -169,6 +170,7 @@ export default function ScopeTable({
   onEdit?: (item: ScopeItem) => void;
   onDelete: (item: ScopeItem) => void;
   inline?: boolean;
+  compactQuoteRows?: boolean;
   showStatus?: boolean;
   projectId?: string;
   onSave?: (
@@ -348,6 +350,14 @@ export default function ScopeTable({
       event.currentTarget.contains(event.relatedTarget)
     )
       return;
+    if (
+      event.relatedTarget instanceof Element &&
+      event.relatedTarget
+        .closest("tr[data-scope-editor-id]")
+        ?.getAttribute("data-scope-editor-id") ===
+        event.currentTarget.getAttribute("data-scope-editor-id")
+    )
+      return;
     void saveRow(item);
   }
 
@@ -356,6 +366,17 @@ export default function ScopeTable({
     item?: ScopeItem,
   ) {
     if (event.key === "Enter") {
+      if (
+        event.target instanceof HTMLButtonElement ||
+        event.target instanceof HTMLSelectElement
+      )
+        return;
+      if (
+        event.target instanceof HTMLTextAreaElement &&
+        !event.ctrlKey &&
+        !event.metaKey
+      )
+        return;
       event.preventDefault();
       void saveRow(item);
     }
@@ -475,11 +496,13 @@ export default function ScopeTable({
       )}
       <div className="table-scroll">
         <table
-          className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}`}
+          className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}${compactQuoteRows ? " scope-table-compact" : ""}`}
         >
           <thead>
             <tr>
-              <th>Work item / contractor</th>
+              <th>
+                {compactQuoteRows ? "Work item" : "Work item / contractor"}
+              </th>
               <th>Pricing basis</th>
               <th>Price / rate</th>
               <th>Sub cost</th>
@@ -528,6 +551,8 @@ export default function ScopeTable({
                       difference={difference}
                       saving={saving.has(item.id)}
                       dirty={dirty(item)}
+                      compact={compactQuoteRows}
+                      editorId={item.id}
                       showStatus={showStatus}
                       onChange={(patch) => updateDraft(item.id, patch, item)}
                       onSave={() => void saveRow(item)}
@@ -609,6 +634,8 @@ export default function ScopeTable({
                 }
                 saving={saving.has("new")}
                 dirty
+                compact={compactQuoteRows}
+                editorId="new"
                 showStatus={showStatus}
                 newRow
                 titleRef={newTitle}
@@ -856,6 +883,8 @@ function EditableRow({
   difference,
   saving,
   dirty,
+  compact,
+  editorId,
   showStatus,
   newRow = false,
   titleRef,
@@ -870,6 +899,8 @@ function EditableRow({
   difference: number;
   saving: boolean;
   dirty: boolean;
+  compact: boolean;
+  editorId: string;
   showStatus: boolean;
   newRow?: boolean;
   titleRef?: React.RefObject<HTMLInputElement | null>;
@@ -879,9 +910,15 @@ function EditableRow({
   onBlur: (event: React.FocusEvent<HTMLTableRowElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => void;
 }) {
-  return (
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const contractor = workspace.contractors.find(
+    (candidate) => candidate.id === draft.contractorId,
+  );
+
+  const mainRow = (
     <tr
-      className={newRow ? "scope-new-row" : undefined}
+      className={`${newRow ? "scope-new-row " : ""}${compact ? "scope-edit-row" : ""}`}
+      data-scope-editor-id={editorId}
       aria-busy={saving}
       onBlur={onBlur}
       onKeyDown={onKeyDown}
@@ -897,30 +934,36 @@ function EditableRow({
           disabled={saving}
           onChange={(event) => onChange({ title: event.target.value })}
         />
-        <textarea
-          className="scope-cell-input scope-details-input"
-          aria-label={`Details for ${draft.title || "new work item"}`}
-          placeholder="Scope details"
-          rows={detailRowCount(draft.details)}
-          maxLength={15000}
-          value={draft.details}
-          disabled={saving}
-          onChange={(event) => onChange({ details: event.target.value })}
-        />
-        <select
-          className="scope-cell-select scope-contractor-select"
-          aria-label={`Contractor for ${draft.title || "new work item"}`}
-          value={draft.contractorId}
-          disabled={saving}
-          onChange={(event) => onChange({ contractorId: event.target.value })}
-        >
-          <option value="">Unassigned</option>
-          {workspace.contractors.map((contractor) => (
-            <option key={contractor.id} value={contractor.id}>
-              {contractor.name} · {contractor.trade || contractor.company}
-            </option>
-          ))}
-        </select>
+        {!compact && (
+          <>
+            <textarea
+              className="scope-cell-input scope-details-input"
+              aria-label={`Details for ${draft.title || "new work item"}`}
+              placeholder="Scope details"
+              rows={detailRowCount(draft.details)}
+              maxLength={15000}
+              value={draft.details}
+              disabled={saving}
+              onChange={(event) => onChange({ details: event.target.value })}
+            />
+            <select
+              className="scope-cell-select scope-contractor-select"
+              aria-label={`Contractor for ${draft.title || "new work item"}`}
+              value={draft.contractorId}
+              disabled={saving}
+              onChange={(event) =>
+                onChange({ contractorId: event.target.value })
+              }
+            >
+              <option value="">Unassigned</option>
+              {workspace.contractors.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name} · {candidate.trade || candidate.company}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
       </td>
       <td>
         <div
@@ -1035,6 +1078,21 @@ function EditableRow({
       )}
       <td>
         <div className="row-actions scope-row-actions">
+          {compact && (
+            <button
+              type="button"
+              className="scope-details-toggle"
+              aria-expanded={detailsOpen}
+              aria-controls={`scope-detail-editor-${editorId}`}
+              aria-label={`${detailsOpen ? "Close" : "Edit"} scope details for ${draft.title || "new work item"}`}
+              onClick={() => {
+                if (detailsOpen && dirty) onSave();
+                setDetailsOpen((open) => !open);
+              }}
+            >
+              {detailsOpen ? "Close" : "Scope"}
+            </button>
+          )}
           {saving ? (
             <span className="scope-row-saving" aria-label="Saving row">
               <LoaderCircle size={14} className="spin" />
@@ -1065,6 +1123,79 @@ function EditableRow({
         </div>
       </td>
     </tr>
+  );
+
+  return (
+    <Fragment>
+      {mainRow}
+      {compact && (
+        <tr
+          className="scope-row-meta"
+          data-scope-editor-id={editorId}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+        >
+          <td colSpan={showStatus ? 8 : 7}>
+            <div className="scope-row-meta-content">
+              <span>
+                <strong>Scope details:</strong>{" "}
+                {draft.details.trim() || "No details added"}
+              </span>
+              <span>
+                <strong>Contractor:</strong> {contractor?.name || "Unassigned"}
+              </span>
+            </div>
+          </td>
+        </tr>
+      )}
+      {compact && (
+        <tr
+          id={`scope-detail-editor-${editorId}`}
+          className="scope-row-detail-editor"
+          hidden={!detailsOpen}
+          data-scope-editor-id={editorId}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+        >
+          <td colSpan={showStatus ? 8 : 7}>
+            <div className="scope-row-detail-fields">
+              <label>
+                <span>Scope details</span>
+                <textarea
+                  className="scope-cell-input scope-details-input"
+                  aria-label={`Details for ${draft.title || "new work item"}`}
+                  rows={Math.max(3, detailRowCount(draft.details))}
+                  maxLength={15000}
+                  value={draft.details}
+                  disabled={saving}
+                  onChange={(event) =>
+                    onChange({ details: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                <span>Contractor</span>
+                <select
+                  className="scope-cell-select"
+                  value={draft.contractorId}
+                  disabled={saving}
+                  onChange={(event) =>
+                    onChange({ contractorId: event.target.value })
+                  }
+                >
+                  <option value="">Unassigned</option>
+                  {workspace.contractors.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name} · {candidate.trade || candidate.company}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 

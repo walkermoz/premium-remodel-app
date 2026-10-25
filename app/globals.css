@@ -2916,6 +2916,26 @@ small {
 .scope-table-editable.scope-table-no-status th:nth-child(7) {
   width: 7%;
 }
+.scope-table-compact.scope-table-no-status {
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.scope-table-compact.scope-table-no-status th:nth-child(1) {
+  width: 26%;
+}
+.scope-table-compact.scope-table-no-status th:nth-child(2) {
+  width: 14%;
+}
+.scope-table-compact.scope-table-no-status th:nth-child(3),
+.scope-table-compact.scope-table-no-status th:nth-child(4),
+.scope-table-compact.scope-table-no-status th:nth-child(5),
+.scope-table-compact.scope-table-no-status th:nth-child(6) {
+  width: 12%;
+}
+.scope-table-compact.scope-table-no-status th:nth-child(7) {
+  width: 12%;
+}
 .scope-table-editable tbody tr:not(.scope-add-row):not(.scope-section-row) {
   transition: background 120ms ease;
 }
@@ -2931,6 +2951,91 @@ small {
 }
 .scope-table-editable td:first-child {
   min-width: 0;
+}
+.scope-table-compact tbody .scope-edit-row td {
+  padding: 9px 8px;
+  vertical-align: middle;
+  background: color-mix(in srgb, var(--blue) 5%, var(--surface));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.scope-table-compact tbody .scope-edit-row td:first-child {
+  border-left: 1px solid var(--line);
+  border-radius: 6px 0 0 6px;
+}
+.scope-table-compact tbody .scope-edit-row td:last-child {
+  border-right: 1px solid var(--line);
+  border-radius: 0 6px 6px 0;
+}
+.scope-table-compact .scope-edit-row .scope-title-input {
+  font-size: 11px;
+}
+.scope-table-compact .scope-edit-row .scope-row-actions {
+  gap: 3px;
+  white-space: nowrap;
+}
+.scope-details-toggle {
+  border: 0;
+  padding: 5px 3px;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-size: 10px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.scope-details-toggle:hover,
+.scope-details-toggle:focus-visible {
+  color: var(--theme-link, #476c8d);
+}
+.scope-table-compact .scope-row-meta td {
+  padding: 8px 10px 15px;
+  border-bottom: 0;
+}
+.scope-row-meta-content {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  color: var(--theme-text-secondary, #657786);
+  font-size: 10px;
+}
+.scope-row-meta-content span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scope-row-meta-content span:last-child {
+  flex: none;
+}
+.scope-row-meta-content strong {
+  color: var(--theme-text-muted, #96a2ad);
+  font-weight: 500;
+}
+.scope-table-compact .scope-row-detail-editor td {
+  padding: 0 10px 16px;
+  border-bottom: 0;
+}
+.scope-row-detail-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--blue) 5%, var(--surface));
+}
+.scope-row-detail-fields label > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--theme-text-muted, #96a2ad);
+  font-size: 10px;
+}
+.scope-row-detail-fields .scope-details-input {
+  min-height: 68px;
+  margin-top: 0;
+  font-size: 11px;
 }
 .scope-table .scope-section-row td {
   padding: 11px 15px;
