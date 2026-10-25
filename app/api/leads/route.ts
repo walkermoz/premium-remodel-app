@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     if (!organizationId || !z.uuid().safeParse(organizationId).success)
       throw new Error("Lead intake organization is not configured.");
 
-    const { data, otherSubmittedFields } = parseWebsiteLead(
+    const { data, otherSubmittedFields, leadAttribution } = parseWebsiteLead(
       await request.json(),
     );
     const firstName =
@@ -141,6 +141,7 @@ export async function POST(request: Request) {
             smsAppointmentOptIn: data.sms_appointment_opt_in,
             smsMarketingOptIn: data.sms_marketing_opt_in,
             otherSubmittedFields,
+            ...(leadAttribution ? { leadAttribution } : {}),
             discordNotification: notification,
             emailAcknowledgement,
             disposition: "Active",

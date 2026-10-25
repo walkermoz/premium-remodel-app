@@ -1,3 +1,5 @@
+import type { LeadAttribution } from "./lead-attribution";
+
 export type ProjectStatus =
   "Planning" | "In progress" | "On hold" | "Completed";
 export type TaskStatus = "To do" | "In progress" | "Done";
@@ -320,6 +322,7 @@ export interface Lead extends Base {
   smsMarketingOptIn?: boolean;
   /** Bounded, inert values from unrecognized website form fields. */
   otherSubmittedFields?: Record<string, string>;
+  leadAttribution?: LeadAttribution;
   /** Delivery result for the transactional website lead acknowledgement. */
   emailAcknowledgement?: {
     status: "sent" | "failed" | "unknown" | "not_configured" | "skipped";

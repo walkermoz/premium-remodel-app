@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { leadAttributionSchema } from "./lead-attribution";
 
 function optionalField<T extends z.ZodType>(schema: T) {
   return z.preprocess(
@@ -49,6 +50,7 @@ const leadInput = z
       .unknown()
       .optional()
       .transform((value) => value === true),
+    lead_attribution: z.unknown().optional(),
   })
   .refine(
     (data) =>
@@ -66,6 +68,8 @@ const knownFields = new Set(Object.keys(leadInput.shape));
 
 export function parseWebsiteLead(input: unknown) {
   const data = leadInput.parse(input);
+  // Ignore malformed attribution without discarding a usable customer inquiry.
+  const attribution = leadAttributionSchema.safeParse(data.lead_attribution);
   const otherSubmittedFields: Record<string, string> = {};
   if (input && typeof input === "object" && !Array.isArray(input)) {
     let savedFields = 0;
@@ -90,5 +94,9 @@ export function parseWebsiteLead(input: unknown) {
       }
     }
   }
-  return { data, otherSubmittedFields };
+  return {
+    data,
+    otherSubmittedFields,
+    leadAttribution: attribution.success ? attribution.data : undefined,
+  };
 }

@@ -11,6 +11,7 @@ import {
 } from "./types";
 import { isPayment, paymentMethods } from "./activity";
 import { workToday } from "./work";
+import { leadAttributionSchema } from "./lead-attribution";
 const short = z.string().trim().max(250);
 const text = z.string().trim().max(15000);
 const date = z
@@ -71,6 +72,7 @@ export const schemas = {
       otherSubmittedFields: z
         .record(z.string().max(80), z.string().max(1000))
         .optional(),
+      leadAttribution: leadAttributionSchema.optional(),
       emailAcknowledgement: z
         .object({
           status: z.enum([

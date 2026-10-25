@@ -16,6 +16,7 @@ function serializeLead(lead: Lead, contact: Contact | null) {
     smsAppointmentOptIn: lead.smsAppointmentOptIn === true,
     smsMarketingOptIn: lead.smsMarketingOptIn === true,
     otherSubmittedFields: lead.otherSubmittedFields || {},
+    leadAttribution: lead.leadAttribution || null,
     status: lead.status,
     disposition: leadDisposition(lead),
     notes: lead.notes || "",

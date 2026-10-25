@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { test, expect, password } from "./supabase-fixture";
 import { buildDiscordLeadMessage } from "@/lib/discord-leads";
+import { parseWebsiteLead } from "@/lib/website-lead-input";
 
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const websiteOrigin = "https://www.premiumremodel.com";
@@ -15,6 +16,29 @@ const payload = {
   project_description:
     "We would like new cabinets, countertops, lighting, and flooring while keeping the current layout.",
 };
+
+test("website lead intake keeps validated attribution separate from unknown fields", () => {
+  const lead_attribution = {
+    firstTouch: {
+      source: "Google Ads",
+      medium: "paid",
+      gbraid: "google-ad-id",
+      landingPath: "/bathroom",
+      capturedAt: "2026-10-25T12:00:00.000Z",
+    },
+    lastTouch: {
+      source: "houzz.com",
+      medium: "referral",
+      referrer: "https://www.houzz.com/pro/remodeler",
+      landingPath: "/contact",
+      capturedAt: "2026-10-25T13:00:00.000Z",
+    },
+  };
+  const parsed = parseWebsiteLead({ ...payload, lead_attribution, custom_field: "value" });
+  expect(parsed.leadAttribution).toEqual(lead_attribution);
+  expect(parsed.otherSubmittedFields).toEqual({ custom_field: "value" });
+  expect(parseWebsiteLead({ ...payload, lead_attribution: { invalid: true } }).leadAttribution).toBeUndefined();
+});
 
 test("Discord lead notification preserves the form details safely", () => {
   const message = buildDiscordLeadMessage(

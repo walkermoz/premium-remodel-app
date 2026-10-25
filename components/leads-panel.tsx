@@ -28,6 +28,17 @@ import { Modal } from "./ui";
 
 type LeadFilter = "Active" | "Future" | "Archive" | "Junk";
 
+function safeReferrerUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export default function LeadsPanel({
   leads,
   contacts,
@@ -65,7 +76,7 @@ export default function LeadsPanel({
           const disposition = leadDisposition(lead);
           if (disposition !== filter) return false;
           const contact = contacts.find((item) => item.id === lead.contactId);
-          return `${lead.name} ${lead.project} ${lead.projectDescription} ${lead.status} ${disposition} ${contact?.email || ""} ${contact?.phone || ""} ${contact?.address || ""}`
+          return `${lead.name} ${lead.project} ${lead.projectDescription} ${lead.status} ${disposition} ${lead.leadAttribution?.firstTouch.source || ""} ${lead.leadAttribution?.lastTouch.source || ""} ${lead.leadAttribution?.lastTouch.referrer || ""} ${contact?.email || ""} ${contact?.phone || ""} ${contact?.address || ""}`
             .toLowerCase()
             .includes(search.trim().toLowerCase());
         })
@@ -203,6 +214,9 @@ export default function LeadsPanel({
                     <span>{lead.project}</span>
                     <small>
                       {disposition !== "Active" ? `${disposition} · ` : ""}
+                      {lead.leadAttribution?.lastTouch.source
+                        ? `${lead.leadAttribution.lastTouch.source} · `
+                        : ""}
                       {new Date(lead.submittedAt).toLocaleString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -417,6 +431,44 @@ export default function LeadsPanel({
                         </div>
                       ),
                     )}
+                  </dl>
+                </section>
+              )}
+              {selected.leadAttribution && (
+                <section className="lead-project-brief">
+                  <span>HOW THEY FOUND US</span>
+                  <dl className="lead-other-fields">
+                    {([
+                      ["First visit", selected.leadAttribution.firstTouch],
+                      ["Latest tracked visit", selected.leadAttribution.lastTouch],
+                    ] as const).map(([label, touch]) => (
+                      <div key={label}>
+                        <dt>{label}</dt>
+                        <dd>
+                          {touch.source}
+                          {touch.medium ? ` / ${touch.medium}` : ""}
+                          {touch.campaign ? ` · ${touch.campaign}` : ""}
+                          {touch.landingPath ? ` · ${touch.landingPath}` : ""}
+                          {touch.referrer && (
+                            <>
+                              <br />
+                              Referrer:{" "}
+                              {safeReferrerUrl(touch.referrer) ? (
+                                <a
+                                  href={safeReferrerUrl(touch.referrer)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {touch.referrer}
+                                </a>
+                              ) : (
+                                touch.referrer
+                              )}
+                            </>
+                          )}
+                        </dd>
+                      </div>
+                    ))}
                   </dl>
                 </section>
               )}

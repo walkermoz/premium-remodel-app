@@ -44,6 +44,7 @@ function serializeLead(lead: Lead, contact: Contact | null) {
     approvalState: lead.approvalState || "none",
     dispositionHistory: lead.dispositionHistory || [],
     source: lead.source,
+    leadAttribution: lead.leadAttribution || null,
     submittedAt: lead.submittedAt,
     updatedAt: lead.updatedAt,
     contact: contact
