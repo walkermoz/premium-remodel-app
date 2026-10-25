@@ -2921,20 +2921,38 @@ small {
   border-collapse: separate;
   border-spacing: 0;
 }
-.scope-table-compact.scope-table-no-status th:nth-child(1) {
+.scope-table-compact.scope-table-no-status col:nth-child(1) {
   width: 30%;
 }
-.scope-table-compact.scope-table-no-status th:nth-child(2) {
+.scope-table-compact.scope-table-no-status col:nth-child(2) {
   width: 15%;
 }
-.scope-table-compact.scope-table-no-status th:nth-child(3),
-.scope-table-compact.scope-table-no-status th:nth-child(4),
-.scope-table-compact.scope-table-no-status th:nth-child(5),
-.scope-table-compact.scope-table-no-status th:nth-child(6) {
+.scope-table-compact.scope-table-no-status col:nth-child(3),
+.scope-table-compact.scope-table-no-status col:nth-child(4),
+.scope-table-compact.scope-table-no-status col:nth-child(5),
+.scope-table-compact.scope-table-no-status col:nth-child(6) {
   width: 12%;
 }
-.scope-table-compact.scope-table-no-status th:nth-child(7) {
+.scope-table-compact.scope-table-no-status col:nth-child(7) {
   width: 7%;
+}
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(1) {
+  width: 27%;
+}
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(2) {
+  width: 14%;
+}
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(3),
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(4),
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(5),
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(6) {
+  width: 11%;
+}
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(7) {
+  width: 10%;
+}
+.scope-table-compact:not(.scope-table-no-status) col:nth-child(8) {
+  width: 5%;
 }
 .scope-table-editable tbody tr:not(.scope-add-row):not(.scope-section-row) {
   transition: background 120ms ease;
@@ -2954,7 +2972,7 @@ small {
 }
 .scope-table-compact tbody .scope-edit-row td {
   padding: 9px 8px;
-  vertical-align: middle;
+  vertical-align: top;
   background: color-mix(in srgb, var(--blue) 5%, var(--surface));
   border-bottom: 0;
 }
@@ -2969,6 +2987,7 @@ small {
 }
 .scope-table-compact .scope-edit-row .scope-row-actions {
   gap: 3px;
+  padding-top: 18px;
   white-space: nowrap;
 }
 .scope-table-compact .scope-row-detail-editor td {
@@ -2988,6 +3007,7 @@ small {
   padding: 10px 0 4px;
   border-top: 1px solid var(--line);
 }
+.scope-field-label,
 .scope-row-detail-fields label > span {
   display: block;
   margin-bottom: 5px;
@@ -3183,7 +3203,7 @@ small {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.scope-money-cell > span {
+.scope-money-cell > .scope-currency-symbol {
   display: inline-block;
   width: 10px;
   color: var(--theme-text-muted, #91a0ab);
