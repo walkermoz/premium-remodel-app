@@ -2985,7 +2985,7 @@ small {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
   gap: 12px;
-  padding: 10px 6px 4px;
+  padding: 10px 0 4px;
   border-top: 1px solid var(--line);
 }
 .scope-row-detail-fields label > span {
