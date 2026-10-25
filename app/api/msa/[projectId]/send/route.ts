@@ -7,7 +7,7 @@ import {
   limitAttempts,
   requireUser,
 } from "@/lib/auth";
-import { createClientPortalToken } from "@/lib/client-portal";
+import { createClientEmailToken } from "@/lib/client-portal";
 import { isValidClientQuoteSnapshot } from "@/lib/client-quote";
 import { acceptedScopeSnapshot } from "@/lib/msa-draft";
 import { prepareMsa, staffMsaInput } from "@/lib/msa-contract";
@@ -228,7 +228,7 @@ export async function POST(
           "Project changed. Refresh before signing the MSA.",
         );
     }
-    const url = `${appOrigin(request)}/client/${createClientPortalToken(link.id)}/quote?view=msa`;
+    const url = `${appOrigin(request)}/client/${createClientEmailToken(link.id, agreement.ownerEmail)}/quote?view=msa`;
     const message = `Hello ${agreement.owner},\n\nPlease review and sign the Master Services Agreement for ${agreement.projectName}. You can read the full agreement and sign securely here:\n\n${url}\n\nAfter you sign, the deposit can be paid online or by check. Work begins after the deposit is received.\n\nPremium Remodel`;
     const messageId = await sendMsaEmail({
       organizationId: user.organizationId,

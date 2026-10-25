@@ -196,12 +196,16 @@ cloudTest(
     expect(await pdf.body()).not.toEqual(await unsignedPdf.body());
     const { getDocument, OPS } =
       await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const unsignedDocument = await getDocument({
+    const unsignedTask = getDocument({
       data: new Uint8Array(await unsignedPdf.body()),
-    }).promise;
-    const signedDocument = await getDocument({
+    });
+    const signedTask = getDocument({
       data: new Uint8Array(await pdf.body()),
-    }).promise;
+    });
+    const [unsignedDocument, signedDocument] = await Promise.all([
+      unsignedTask.promise,
+      signedTask.promise,
+    ]);
     try {
       const unsignedPage = await unsignedDocument.getPage(
         unsignedDocument.numPages,
@@ -221,8 +225,8 @@ cloudTest(
       ).length;
       expect(signedPaths).toBeGreaterThan(unsignedPaths);
     } finally {
-      await unsignedDocument.destroy();
-      await signedDocument.destroy();
+      await unsignedTask.destroy();
+      await signedTask.destroy();
     }
     const acceptedQuote = record.data!.data;
     const paymentSchedule = defaultMsaPaymentSchedule(acceptedQuote);

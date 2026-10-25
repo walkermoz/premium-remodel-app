@@ -19,7 +19,7 @@ import {
 } from "@/lib/client-quote";
 import {
   createClientWalletFormToken,
-  isExpiredClientEmailToken,
+  isExpiredClientPortalToken,
   parseClientPortalAccess,
 } from "@/lib/client-portal";
 import {
@@ -474,7 +474,8 @@ export default async function ClientQuotePage({
   const [{ token }, query] = await Promise.all([params, searchParams]);
   const source = await readClientQuoteSource(token);
   if (!source) {
-    if (isExpiredClientEmailToken(token)) redirect("/client/sign-in?expired=1");
+    if (isExpiredClientPortalToken(token))
+      redirect("/client/sign-in?expired=1");
     notFound();
   }
   const view = source.view;

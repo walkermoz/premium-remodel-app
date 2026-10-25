@@ -8,7 +8,10 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/audit-server";
-import { createClientPortalToken } from "@/lib/client-portal";
+import {
+  createClientEmailToken,
+  createClientPortalToken,
+} from "@/lib/client-portal";
 import { isValidClientQuoteSnapshot } from "@/lib/client-quote";
 import { findRecord } from "@/lib/repository";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -56,6 +59,7 @@ async function findLinkTarget(
 function portalResponse(
   request: Request,
   kind: "project" | "quote",
+  clientEmail: string | undefined,
   link: {
     id: string;
     created_at: string;
@@ -65,10 +69,15 @@ function portalResponse(
   },
 ) {
   const active = !link.revoked_at;
+  const token = active
+    ? kind === "quote" && clientEmail
+      ? createClientEmailToken(link.id, clientEmail)
+      : createClientPortalToken(link.id)
+    : null;
   return {
     active,
     url: active
-      ? `${appOrigin(request)}/client/${createClientPortalToken(link.id)}${kind === "quote" ? "/quote" : ""}`
+      ? `${appOrigin(request)}/client/${token}${kind === "quote" ? "/quote" : ""}`
       : null,
     createdAt: link.created_at,
     lastViewedAt: link.last_viewed_at,
@@ -82,7 +91,8 @@ export async function GET(request: Request) {
     requireAdministrator(user);
     const kind = linkKind(new URL(request.url).searchParams.get("kind"));
     const projectId = projectIdFrom(request);
-    if (!(await findLinkTarget(user, projectId, kind)))
+    const record = await findLinkTarget(user, projectId, kind);
+    if (!record)
       throw new HttpError(
         404,
         `${kind === "quote" ? "Quote" : "Project"} not found.`,
@@ -97,7 +107,7 @@ export async function GET(request: Request) {
     if (error) throw error;
     return Response.json(
       data
-        ? portalResponse(request, kind, data)
+        ? portalResponse(request, kind, record.clientEmail, data)
         : {
             active: false,
             url: null,
@@ -150,9 +160,12 @@ export async function POST(request: Request) {
     if (currentError) throw currentError;
     const rotate = body.rotate === true;
     if (current && !current.revoked_at && !rotate)
-      return Response.json(portalResponse(request, kind, current), {
-        headers: { "Cache-Control": "private, no-store" },
-      });
+      return Response.json(
+        portalResponse(request, kind, record.clientEmail, current),
+        {
+          headers: { "Cache-Control": "private, no-store" },
+        },
+      );
 
     let quoteSnapshot: { quote: Project | Quote; items: unknown[] } | null =
       null;
@@ -209,10 +222,13 @@ export async function POST(request: Request) {
       subject: record.name,
       afterData: { active: true },
     });
-    return Response.json(portalResponse(request, kind, data), {
-      status: current ? 200 : 201,
-      headers: { "Cache-Control": "private, no-store" },
-    });
+    return Response.json(
+      portalResponse(request, kind, record.clientEmail, data),
+      {
+        status: current ? 200 : 201,
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
   } catch (error) {
     return apiError(error);
   }

@@ -11,8 +11,6 @@ concurrency:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 jobs:
   quality:
@@ -26,6 +24,16 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
+      - name: Audit production web dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - run: npm ci --prefix credits-site
+      - name: Audit credits site dependencies
+        run: npm audit --omit=dev --audit-level=high --prefix credits-site
+      - run: npm run build --prefix credits-site
+      - run: npm ci --prefix mobile
+      - name: Audit mobile dependencies
+        run: node scripts/audit-mobile.mjs
+      - run: npm run typecheck --prefix mobile
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
@@ -40,6 +48,9 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
     outputs:
       url: ${{ steps.deploy.outputs.url }}
     env:

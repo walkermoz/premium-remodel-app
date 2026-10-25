@@ -8,7 +8,7 @@ export {
   createClientEmailToken,
   createClientPortalToken,
   createClientWalletFormToken,
-  isExpiredClientEmailToken,
+  isExpiredClientPortalToken,
   parseClientPortalAccess,
   parseClientPortalToken,
   validClientWalletFormToken,

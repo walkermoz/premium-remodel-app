@@ -98,7 +98,8 @@ test("quote PDF omits a removed project heading but retains its work item", asyn
     logo,
   );
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const document = await getDocument({ data: bytes }).promise;
+  const loadingTask = getDocument({ data: bytes });
+  const document = await loadingTask.promise;
   try {
     const page = await document.getPage(1);
     const text = (await page.getTextContent()).items
@@ -109,6 +110,6 @@ test("quote PDF omits a removed project heading but retains its work item", asyn
     expect(text).toContain("Scope item 2");
     expect(text).not.toContain("PROJECT | SCOPE ITEMS");
   } finally {
-    await document.destroy();
+    await loadingTask.destroy();
   }
 });
