@@ -242,6 +242,12 @@ export default function ScopeTable({
   const projectSections = [...sectionStats.entries()].filter(
     ([key]) => key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}`,
   );
+  const projectAccentClasses = new Map(
+    projectSections.map(([key], index) => [
+      key,
+      `scope-project-accent scope-project-accent-${index % 6}`,
+    ]),
+  );
   let nextProjectNumber = projectSections.length + 1;
   while (
     projectSections.some(
@@ -535,6 +541,11 @@ export default function ScopeTable({
                         name={section.name}
                         count={section.count}
                         total={section.total}
+                        accentClassName={
+                          compactQuoteRows
+                            ? projectAccentClasses.get(sectionKey)
+                            : undefined
+                        }
                         colSpan={showStatus ? 8 : 7}
                         editable={inline && Boolean(onSave)}
                         busy={sectionSaving}
@@ -550,6 +561,11 @@ export default function ScopeTable({
                       workspace={workspace}
                       difference={difference}
                       alternateShade={index % 2 === 1}
+                      accentClassName={
+                        compactQuoteRows
+                          ? projectAccentClasses.get(sectionKey)
+                          : undefined
+                      }
                       saving={saving.has(item.id)}
                       dirty={dirty(item)}
                       compact={compactQuoteRows}
@@ -734,6 +750,7 @@ function ScopeSectionRow({
   name,
   count,
   total,
+  accentClassName,
   colSpan,
   editable = false,
   busy = false,
@@ -743,6 +760,7 @@ function ScopeSectionRow({
   name: string;
   count: number;
   total: number;
+  accentClassName?: string;
   colSpan: number;
   editable?: boolean;
   busy?: boolean;
@@ -799,7 +817,7 @@ function ScopeSectionRow({
   }
 
   return (
-    <tr className="scope-section-row">
+    <tr className={`scope-section-row${accentClassName ? ` ${accentClassName}` : ""}`}>
       <td colSpan={colSpan}>
         <div className="scope-section-heading">
           <div className="scope-section-title">
@@ -884,6 +902,7 @@ function EditableRow({
   workspace,
   difference,
   alternateShade,
+  accentClassName,
   saving,
   dirty,
   compact,
@@ -901,6 +920,7 @@ function EditableRow({
   workspace: Workspace;
   difference: number;
   alternateShade: boolean;
+  accentClassName?: string;
   saving: boolean;
   dirty: boolean;
   compact: boolean;
@@ -916,7 +936,7 @@ function EditableRow({
 }) {
   const mainRow = (
     <tr
-      className={`${newRow ? "scope-new-row " : ""}${compact ? "scope-edit-row" : ""}${compact && alternateShade ? " scope-item-alternate" : ""}`}
+      className={`${newRow ? "scope-new-row " : ""}${compact ? "scope-edit-row" : ""}${compact && alternateShade ? " scope-item-alternate" : ""}${accentClassName ? ` ${accentClassName}` : ""}`}
       data-scope-editor-id={editorId}
       aria-busy={saving}
       onBlur={onBlur}
@@ -1114,7 +1134,7 @@ function EditableRow({
       {mainRow}
       {compact && (
         <tr
-          className={`scope-row-detail-editor${alternateShade ? " scope-item-alternate" : ""}`}
+          className={`scope-row-detail-editor${alternateShade ? " scope-item-alternate" : ""}${accentClassName ? ` ${accentClassName}` : ""}`}
           data-scope-editor-id={editorId}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
