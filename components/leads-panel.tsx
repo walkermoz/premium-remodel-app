@@ -480,20 +480,20 @@ export default function LeadsPanel({
                     </div>
                     {selected.leadAttribution.lastTouch.referrer &&
                       referrerHost(selected.leadAttribution.lastTouch.referrer) && (
-                        <p className="lead-source-context">
+                        <div className="lead-source-context">
                           Came from {referrerHost(selected.leadAttribution.lastTouch.referrer)}
-                        </p>
+                        </div>
                       )}
                     {(selected.leadAttribution.firstTouch.source !==
                       selected.leadAttribution.lastTouch.source ||
                       selected.leadAttribution.firstTouch.medium !==
                         selected.leadAttribution.lastTouch.medium) && (
-                      <p className="lead-source-context">
+                      <div className="lead-source-context">
                         First recorded visit: {leadSourceName(selected.leadAttribution.firstTouch)}
                         {leadSourceType(selected.leadAttribution.firstTouch)
                           ? ` · ${leadSourceType(selected.leadAttribution.firstTouch)}`
                           : ""}
-                      </p>
+                      </div>
                     )}
                     <details className="lead-source-details">
                       <summary>View tracking details</summary>
@@ -541,7 +541,7 @@ export default function LeadsPanel({
                     <div className="lead-source-headline">
                       <strong>{selected.source}</strong>
                     </div>
-                    <p className="lead-source-context">Visit source was not recorded.</p>
+                    <div className="lead-source-context">Visit source was not recorded.</div>
                   </>
                 )}
               </section>
