@@ -3011,6 +3011,28 @@ small {
 .scope-table-compact tbody .scope-row-detail-editor + .scope-section-row td {
   border-top: 0;
 }
+/* Flat UI Colors American palette: one accent stays with each project. */
+.scope-table-compact tbody .scope-project-accent-0 {
+  --scope-project-accent: #0984e3;
+}
+.scope-table-compact tbody .scope-project-accent-1 {
+  --scope-project-accent: #00b894;
+}
+.scope-table-compact tbody .scope-project-accent-2 {
+  --scope-project-accent: #6c5ce7;
+}
+.scope-table-compact tbody .scope-project-accent-3 {
+  --scope-project-accent: #e17055;
+}
+.scope-table-compact tbody .scope-project-accent-4 {
+  --scope-project-accent: #e84393;
+}
+.scope-table-compact tbody .scope-project-accent-5 {
+  --scope-project-accent: #00cec9;
+}
+.scope-table-compact tbody .scope-project-accent > td:first-child {
+  border-left: 5px solid var(--scope-project-accent);
+}
 .scope-section-heading {
   display: flex;
   align-items: center;
