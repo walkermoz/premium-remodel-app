@@ -910,11 +910,6 @@ function EditableRow({
   onBlur: (event: React.FocusEvent<HTMLTableRowElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => void;
 }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const contractor = workspace.contractors.find(
-    (candidate) => candidate.id === draft.contractorId,
-  );
-
   const mainRow = (
     <tr
       className={`${newRow ? "scope-new-row " : ""}${compact ? "scope-edit-row" : ""}`}
@@ -1078,21 +1073,6 @@ function EditableRow({
       )}
       <td>
         <div className="row-actions scope-row-actions">
-          {compact && (
-            <button
-              type="button"
-              className="scope-details-toggle"
-              aria-expanded={detailsOpen}
-              aria-controls={`scope-detail-editor-${editorId}`}
-              aria-label={`${detailsOpen ? "Close" : "Edit"} scope details for ${draft.title || "new work item"}`}
-              onClick={() => {
-                if (detailsOpen && dirty) onSave();
-                setDetailsOpen((open) => !open);
-              }}
-            >
-              {detailsOpen ? "Close" : "Scope"}
-            </button>
-          )}
           {saving ? (
             <span className="scope-row-saving" aria-label="Saving row">
               <LoaderCircle size={14} className="spin" />
@@ -1130,29 +1110,7 @@ function EditableRow({
       {mainRow}
       {compact && (
         <tr
-          className="scope-row-meta"
-          data-scope-editor-id={editorId}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-        >
-          <td colSpan={showStatus ? 8 : 7}>
-            <div className="scope-row-meta-content">
-              <span>
-                <strong>Scope details:</strong>{" "}
-                {draft.details.trim() || "No details added"}
-              </span>
-              <span>
-                <strong>Contractor:</strong> {contractor?.name || "Unassigned"}
-              </span>
-            </div>
-          </td>
-        </tr>
-      )}
-      {compact && (
-        <tr
-          id={`scope-detail-editor-${editorId}`}
           className="scope-row-detail-editor"
-          hidden={!detailsOpen}
           data-scope-editor-id={editorId}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
