@@ -36,9 +36,10 @@ test("email portal links are fresh, recipient-bound, and expire after 30 days", 
         issuedAt,
       ),
     ).toBeNull();
+    // The final base64url character has unused bits; change the penultimate one.
     expect(
       parseClientPortalAccess(
-        `${first.slice(0, -1)}${first.endsWith("A") ? "B" : "A"}`,
+        `${first.slice(0, -2)}${first.at(-2) === "A" ? "B" : "A"}${first.slice(-1)}`,
         issuedAt,
       ),
     ).toBeNull();
