@@ -16,14 +16,21 @@ function clientPortalSecret() {
   return value;
 }
 
-function signatureFor(id: string) {
+function portalLinkSignature(id: string, expiresAt: number, nonce: string) {
   return createHmac("sha256", clientPortalSecret())
-    .update(`premium-remodel-client:${id}`)
+    .update(`premium-remodel-client-link:${id}:${expiresAt}:${nonce}`)
     .digest("base64url");
 }
 
-export function createClientPortalToken(id: string = randomUUID()) {
-  return `${id}.${signatureFor(id)}`;
+/** A shareable client link that expires 30 days after it is issued. */
+export function createClientPortalToken(
+  id: string = randomUUID(),
+  issuedAt = Date.now(),
+) {
+  const parsedId = linkId.parse(id);
+  const expiresAt = Math.floor(issuedAt / 1000) + emailLinkLifetimeSeconds;
+  const nonce = randomBytes(16).toString("base64url");
+  return `${parsedId}.${expiresAt}.${nonce}.${portalLinkSignature(parsedId, expiresAt, nonce)}`;
 }
 
 export function clientPortalEmailTag(email: string) {
@@ -62,17 +69,29 @@ export function parseClientPortalAccess(value: string, now = Date.now()) {
   const [rawId, second, third, fourth, fifth, extra] = value.split(".");
   const id = linkId.safeParse(rawId);
   if (!id.success || extra !== undefined) return null;
-  if (third === undefined && fourth === undefined && fifth === undefined) {
-    const signature = linkSignature.safeParse(second);
-    if (!signature.success) return null;
-    const expected = Buffer.from(signatureFor(id.data), "base64url");
-    const received = Buffer.from(signature.data, "base64url");
+  if (
+    /^\d{10}$/.test(second || "") &&
+    /^[A-Za-z0-9_-]{22}$/.test(third || "") &&
+    linkSignature.safeParse(fourth).success &&
+    fifth === undefined
+  ) {
+    const expiresAt = Number(second);
+    const expected = Buffer.from(
+      portalLinkSignature(id.data, expiresAt, third!),
+      "base64url",
+    );
+    const received = Buffer.from(fourth!, "base64url");
     if (
       expected.length !== received.length ||
       !timingSafeEqual(expected, received)
     )
       return null;
-    return { id: id.data, emailTag: null, expiresAt: null, expired: false };
+    return {
+      id: id.data,
+      emailTag: null,
+      expiresAt,
+      expired: expiresAt * 1000 <= now,
+    };
   }
   if (
     !/^\d{10}$/.test(second || "") ||
@@ -105,9 +124,9 @@ export function parseClientPortalToken(value: string) {
   return access && !access.expired ? access.id : null;
 }
 
-export function isExpiredClientEmailToken(value: string) {
+export function isExpiredClientPortalToken(value: string) {
   const access = parseClientPortalAccess(value);
-  return Boolean(access?.emailTag && access.expired);
+  return Boolean(access?.expired);
 }
 
 const walletFormLifetimeSeconds = 2 * 60 * 60;

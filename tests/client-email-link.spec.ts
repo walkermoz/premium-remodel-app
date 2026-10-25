@@ -4,7 +4,6 @@ import {
   clientPortalEmailTag,
   createClientEmailToken,
   createClientPortalToken,
-  isExpiredClientEmailToken,
   parseClientPortalAccess,
   parseClientPortalToken,
 } from "@/lib/client-portal-token";
@@ -43,9 +42,18 @@ test("email portal links are fresh, recipient-bound, and expire after 30 days", 
         issuedAt,
       ),
     ).toBeNull();
-    const legacy = createClientPortalToken(id);
-    expect(parseClientPortalToken(legacy)).toBe(id);
-    expect(isExpiredClientEmailToken(legacy)).toBe(false);
+    const shared = createClientPortalToken(id);
+    expect(createClientPortalToken(id)).not.toBe(shared);
+    expect(parseClientPortalToken(shared)).toBe(id);
+    expect(parseClientPortalAccess(shared)?.emailTag).toBeNull();
+    expect(
+      parseClientPortalAccess(shared, Date.now() + 30 * 24 * 60 * 60 * 1000)
+        ?.expired,
+    ).toBe(true);
+    const extended = shared.split(".");
+    extended[1] = String(Number(extended[1]) + 60);
+    expect(parseClientPortalAccess(extended.join("."))).toBeNull();
+    expect(parseClientPortalAccess(`${id}.${"A".repeat(43)}`)).toBeNull();
   } finally {
     if (previous === undefined) delete process.env.CLIENT_PORTAL_SECRET;
     else process.env.CLIENT_PORTAL_SECRET = previous;

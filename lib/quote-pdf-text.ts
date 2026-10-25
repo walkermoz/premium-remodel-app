@@ -18,7 +18,8 @@ export async function readQuotePdf(file: File): Promise<string[]> {
     "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
     import.meta.url,
   ).toString();
-  const document = await pdfjs.getDocument({ data }).promise;
+  const loadingTask = pdfjs.getDocument({ data });
+  const document = await loadingTask.promise;
   try {
     if (document.numPages > 25)
       throw new Error("Choose a proposal of 25 pages or fewer.");
@@ -59,6 +60,6 @@ export async function readQuotePdf(file: File): Promise<string[]> {
       );
     return pages;
   } finally {
-    await document.destroy();
+    await loadingTask.destroy();
   }
 }
