@@ -2957,15 +2957,15 @@ small {
   vertical-align: middle;
   background: color-mix(in srgb, var(--blue) 5%, var(--surface));
   border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 0;
 }
 .scope-table-compact tbody .scope-edit-row td:first-child {
   border-left: 1px solid var(--line);
-  border-radius: 6px 0 0 6px;
+  border-radius: 6px 0 0 0;
 }
 .scope-table-compact tbody .scope-edit-row td:last-child {
   border-right: 1px solid var(--line);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 6px 0 0;
 }
 .scope-table-compact .scope-edit-row .scope-title-input {
   font-size: 11px;
@@ -2975,17 +2975,18 @@ small {
   white-space: nowrap;
 }
 .scope-table-compact .scope-row-detail-editor td {
-  padding: 0 10px 16px;
-  border-bottom: 0;
+  padding: 0 8px 10px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+  background: color-mix(in srgb, var(--blue) 5%, var(--surface));
 }
 .scope-row-detail-fields {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
   gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--blue) 5%, var(--surface));
+  padding: 10px 6px 4px;
+  border-top: 1px solid var(--line);
 }
 .scope-row-detail-fields label > span {
   display: block;
