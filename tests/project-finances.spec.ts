@@ -469,6 +469,44 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await expect(page.getByLabel("Work item Finish work")).toBeVisible();
 });
 
+test("a quote can start a named project with its first work item", async ({
+  page,
+}) => {
+  await page.goto("/demo?view=Quotes");
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Quote name").fill("New project test");
+  await dialog.getByLabel("Client name").fill("Test Homeowner");
+  await dialog.getByRole("button", { name: "Create quote" }).click();
+
+  await page.getByRole("button", { name: "Add project", exact: true }).click();
+  const projectName = page.getByLabel("New project name");
+  await expect(projectName).toHaveValue("Project #1");
+  await projectName.fill("Kitchen phase");
+  await projectName.press("Enter");
+  const firstItem = page.locator(".scope-new-row");
+  await firstItem.getByLabel("New work item", { exact: true }).fill("Cabinets");
+  await firstItem.getByLabel("Price for Cabinets").fill("500");
+  await firstItem.getByRole("button", { name: "Save Cabinets" }).click();
+  await expect(firstItem).toHaveCount(0);
+  await expect(page.locator(".scope-section-row")).toContainText(
+    "Kitchen phase",
+  );
+  await expect(page.getByLabel("Work item Cabinets")).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator(".scope-section-row")).toContainText(
+    "Kitchen phase",
+  );
+  await expect(page.getByLabel("Work item Cabinets")).toBeVisible();
+
+  await page.getByRole("button", { name: "Add project", exact: true }).click();
+  await expect(page.getByLabel("New project name")).toHaveValue("Project #2");
+  await page.getByRole("button", { name: "Cancel new project" }).click();
+  await expect(page.getByLabel("New project name")).toHaveCount(0);
+  await expect(page.locator(".scope-section-row")).toHaveCount(1);
+});
+
 test("bathroom questionnaire turns detailed selections into editable quote rows", async ({
   page,
 }) => {
