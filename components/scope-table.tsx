@@ -1122,7 +1122,7 @@ function EditableRow({
                 <textarea
                   className="scope-cell-input scope-details-input"
                   aria-label={`Details for ${draft.title || "new work item"}`}
-                  rows={Math.max(3, detailRowCount(draft.details))}
+                  rows={1}
                   maxLength={15000}
                   value={draft.details}
                   disabled={saving}
