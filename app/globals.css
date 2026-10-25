@@ -4558,8 +4558,7 @@ small {
   padding: 22px 0;
   border-bottom: 1px solid var(--line);
 }
-.lead-project-brief > span,
-.lead-source > span {
+.lead-project-brief > span {
   color: var(--theme-text-muted, #8b9ca8);
   font-size: 8px;
   font-weight: 700;
@@ -4642,18 +4641,6 @@ small {
   margin-top: 3px;
   color: var(--theme-text-muted, #8294a2);
   font-size: 9px;
-}
-.lead-source {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 15px;
-  border-top: 1px solid var(--line);
-}
-.lead-source strong {
-  color: var(--theme-link, #4b687f);
-  font-size: 10px;
 }
 .leads-empty {
   margin-top: 24px;
