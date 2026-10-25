@@ -2961,11 +2961,9 @@ small {
 }
 .scope-table-compact tbody .scope-edit-row td:first-child {
   border-left: 1px solid var(--line);
-  border-radius: 6px 0 0 0;
 }
 .scope-table-compact tbody .scope-edit-row td:last-child {
   border-right: 1px solid var(--line);
-  border-radius: 0 6px 0 0;
 }
 .scope-table-compact .scope-edit-row .scope-title-input {
   font-size: 11px;
@@ -2978,7 +2976,6 @@ small {
   padding: 0 8px 10px;
   border: 1px solid var(--line);
   border-top: 0;
-  border-radius: 0 0 6px 6px;
   background: color-mix(in srgb, var(--blue) 5%, var(--surface));
 }
 .scope-row-detail-fields {
