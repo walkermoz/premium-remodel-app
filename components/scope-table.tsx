@@ -532,23 +532,30 @@ export default function ScopeTable({
       <div className="table-scroll">
         <table
           className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}${compactQuoteRows ? " scope-table-compact" : ""}`}
+          aria-label={compactQuoteRows ? "Quote scope and pricing" : undefined}
         >
-          <thead>
-            <tr>
-              <th>
-                {compactQuoteRows ? "Work item" : "Work item / contractor"}
-              </th>
-              <th>Pricing basis</th>
-              <th>Price / rate</th>
-              <th>Sub cost</th>
-              <th>Material cost</th>
-              <th>Difference</th>
-              {showStatus && <th>Status</th>}
-              <th>
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
+          {compactQuoteRows ? (
+            <colgroup>
+              {Array.from({ length: showStatus ? 8 : 7 }, (_, index) => (
+                <col key={index} />
+              ))}
+            </colgroup>
+          ) : (
+            <thead>
+              <tr>
+                <th>Work item / contractor</th>
+                <th>Pricing basis</th>
+                <th>Price / rate</th>
+                <th>Sub cost</th>
+                <th>Material cost</th>
+                <th>Difference</th>
+                {showStatus && <th>Status</th>}
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+          )}
           <tbody>
             {orderedItems.map((item, index) => {
               const draft = drafts[item.id] || draftFrom(item);
@@ -1031,6 +1038,7 @@ function EditableRow({
       onKeyDown={onKeyDown}
     >
       <td>
+        {compact && <span className="scope-field-label">Work item</span>}
         <input
           ref={titleRef}
           className="scope-cell-input scope-title-input"
@@ -1073,6 +1081,7 @@ function EditableRow({
         )}
       </td>
       <td>
+        {compact && <span className="scope-field-label">Pricing basis</span>}
         <div
           className={`scope-quantity-cell${draft.unit === "job" ? " is-flat" : ""}`}
         >
@@ -1123,6 +1132,7 @@ function EditableRow({
         </div>
       </td>
       <MoneyCell
+        heading={compact ? "Price / rate" : undefined}
         label={`${draft.unit === "job" ? "Price" : rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
         value={draft.unit === "job" ? draft.estimate : draft.rate}
         hint={
@@ -1146,12 +1156,14 @@ function EditableRow({
         }
       />
       <MoneyCell
+        heading={compact ? "Sub cost" : undefined}
         label={`Subcontractor cost for ${draft.title || "new work item"}`}
         value={draft.subCost}
         disabled={saving}
         onChange={(subCost) => onChange({ subCost })}
       />
       <MoneyCell
+        heading={compact ? "Material cost" : undefined}
         label={`Material cost for ${draft.title || "new work item"}`}
         value={draft.materialCost}
         disabled={saving}
@@ -1162,10 +1174,17 @@ function EditableRow({
           difference < 0 ? "is-overdue scope-calculated" : "scope-calculated"
         }
       >
-        <output className="scope-calculated-value">{money(difference)}</output>
+        {compact && <span className="scope-field-label">Difference</span>}
+        <output
+          className="scope-calculated-value"
+          aria-label={`Difference for ${draft.title || "new work item"}`}
+        >
+          {money(difference)}
+        </output>
       </td>
       {showStatus && (
         <td>
+          {compact && <span className="scope-field-label">Status</span>}
           <select
             className={`scope-status-select scope-status-${draft.status
               .toLowerCase()
@@ -1270,6 +1289,7 @@ function EditableRow({
 }
 
 function MoneyCell({
+  heading,
   label,
   value,
   hint,
@@ -1277,6 +1297,7 @@ function MoneyCell({
   disabled,
   onChange,
 }: {
+  heading?: string;
   label: string;
   value: string;
   hint?: string;
@@ -1286,7 +1307,8 @@ function MoneyCell({
 }) {
   return (
     <td className="scope-money-cell">
-      <span aria-hidden="true">$</span>
+      {heading && <span className="scope-field-label">{heading}</span>}
+      <span className="scope-currency-symbol" aria-hidden="true">$</span>
       <input
         className="scope-cell-input scope-money-input"
         aria-label={label}
