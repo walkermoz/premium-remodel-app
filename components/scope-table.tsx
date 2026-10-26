@@ -1841,7 +1841,7 @@ function QuoteCostGroup({
       <span className="scope-inspector-group-title">{heading}</span>
       <div className="scope-inspector-basis-row">
         <label>
-          <span>Qty</span>
+          <span>{unit === "job" ? "Fixed qty" : quantityLabel(unit)}</span>
           {unit === "job" ? (
             <span
               className="scope-cell-input scope-fixed-quantity"
@@ -1852,7 +1852,7 @@ function QuoteCostGroup({
           ) : (
             <input
               className="scope-cell-input scope-number-input"
-              aria-label={`${label} quantity for ${itemName}`}
+              aria-label={`${quantityLabel(unit)} for ${label.toLowerCase()} of ${itemName}`}
               type="number"
               min="0"
               max="1000000000"
@@ -2023,7 +2023,7 @@ function CostCell({
         >
           {unit === "job" && compact && (
             <span className="scope-field-stack scope-fixed-quantity">
-              <span className="scope-field-label">Qty</span>
+              <span className="scope-field-label">Fixed qty</span>
               <span
                 className="scope-cell-input"
                 aria-label={`${label} fixed quantity for ${itemName}`}
@@ -2034,10 +2034,12 @@ function CostCell({
           )}
           {unit !== "job" && (
             <label className="scope-field-stack">
-              {compact && <span className="scope-field-label">Qty</span>}
+              {compact && (
+                <span className="scope-field-label">{quantityLabel(unit)}</span>
+              )}
               <input
                 className="scope-cell-input scope-number-input"
-                aria-label={`${label} quantity for ${itemName}`}
+                aria-label={`${quantityLabel(unit)} for ${label.toLowerCase()} of ${itemName}`}
                 type="number"
                 min="0"
                 max="1000000000"
