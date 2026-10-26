@@ -59,6 +59,23 @@ test("quote photos can be selected, labeled, and removed without losing the uplo
       }),
     )
     .toBe("Warm tile inspiration");
+  await page.locator('.files-panel input[type="file"]').setInputFiles({
+    name: "kitchen-before.jpg",
+    mimeType: "image/jpeg",
+    buffer: image,
+  });
+  const secondPhoto = gallery.locator(".quote-photo-item").filter({
+    hasText: "kitchen-before.jpg",
+  });
+  await expect(
+    secondPhoto.getByLabel("Photo type for kitchen-before.jpg"),
+  ).toHaveValue("before");
+  await secondPhoto.getByRole("button", { name: "Include in quote" }).click();
+  await expect(gallery.getByText("2 of 8 selected")).toBeVisible();
+  const overviewPhotos = page.locator(".quote-overview-photos");
+  await expect(overviewPhotos.locator("img")).toHaveCount(2);
+  await expect(overviewPhotos).toContainText("Before");
+  await expect(overviewPhotos).toContainText("Example");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({
     path: "test-results/quote-photos-review.png",
@@ -71,15 +88,27 @@ test("quote photos can be selected, labeled, and removed without losing the uplo
     fullPage: true,
     animations: "disabled",
   });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
   await page.reload();
-  await expect(gallery.getByText("1 of 8 selected")).toBeVisible();
+  await expect(gallery.getByText("2 of 8 selected")).toBeVisible();
   await expect(
     gallery.getByLabel("Photo type for before-bath.jpg"),
   ).toHaveValue("example");
   await expect(gallery.getByLabel("Caption for before-bath.jpg")).toHaveValue(
     "Warm tile inspiration",
   );
-  await gallery.getByRole("button", { name: "Remove from quote" }).click();
+  await gallery
+    .locator(".quote-photo-item")
+    .filter({ hasText: "before-bath.jpg" })
+    .getByRole("button", { name: "Remove from quote" })
+    .click();
+  await expect(overviewPhotos.locator("img")).toHaveCount(1);
+  await secondPhoto.getByRole("button", { name: "Remove from quote" }).click();
   await expect(gallery.getByText("0 of 8 selected")).toBeVisible();
   await expect(gallery.getByText("before-bath.jpg")).toBeVisible();
   await expect(

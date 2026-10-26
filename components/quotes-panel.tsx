@@ -23,7 +23,11 @@ import {
   type User,
   type Workspace,
 } from "@/lib/types";
-import { projectMoney, scopeTotal } from "@/lib/project-finances";
+import {
+  projectFinances,
+  projectMoney,
+  scopeTotal,
+} from "@/lib/project-finances";
 import { msaPaymentRows } from "@/lib/msa-contract";
 import { DEFAULT_QUOTE_PROJECT_NAME } from "@/lib/scope-projects";
 import { dateLabel } from "@/lib/utils";
@@ -265,6 +269,15 @@ export function QuoteDetail({
   const files = workspace.attachments.filter(
     (file) => file.projectId === quote.id,
   );
+  const finances = projectFinances(quote, items);
+  const overviewPhotos = (quote.quotePhotos || [])
+    .flatMap((photo) => {
+      const file = files.find(
+        (candidate) => candidate.id === photo.attachmentId,
+      );
+      return file ? [{ photo, file }] : [];
+    })
+    .slice(0, 2);
   const signedScope =
     quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
   const signedMsa = quote.msaAgreement?.status === "signed";
@@ -569,11 +582,52 @@ export function QuoteDetail({
         </div>
       )}
       <div className="quote-overview">
-        <div className="quote-price">
-          <span>Scope total · quote price</span>
-          <strong>{projectMoney(scopeTotal(items))}</strong>
-          <small>{items.length} scope items</small>
+        <div className="quote-overview-metrics">
+          <div className="quote-overview-metric quote-price">
+            <span>Scope total · quote price</span>
+            <strong>{projectMoney(finances.total)}</strong>
+            <small>{items.length} scope items</small>
+          </div>
+          <div className="quote-overview-metric">
+            <span>Total costs</span>
+            <strong>{projectMoney(finances.costs)}</strong>
+          </div>
+          <div className="quote-overview-metric">
+            <span>Profit</span>
+            <strong className={finances.margin < 0 ? "is-negative" : undefined}>
+              {projectMoney(finances.margin)}
+            </strong>
+          </div>
         </div>
+        {overviewPhotos.length > 0 && (
+          <div
+            className="quote-overview-photos"
+            aria-label="Selected quote photos"
+          >
+            {overviewPhotos.map(({ photo, file }) => {
+              const label =
+                photo.kind === "before"
+                  ? "Before"
+                  : photo.kind === "concept"
+                    ? "AI concept"
+                    : "Example";
+              return (
+                <figure key={file.id}>
+                  <img
+                    src={
+                      demo
+                        ? file.path
+                        : `/api/files?id=${encodeURIComponent(file.id)}`
+                    }
+                    alt={photo.caption || `${label} photo`}
+                    title={photo.caption || file.name}
+                  />
+                  <figcaption>{label}</figcaption>
+                </figure>
+              );
+            })}
+          </div>
+        )}
       </div>
       {quote.description && (
         <section className="content-section">
