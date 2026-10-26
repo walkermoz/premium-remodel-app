@@ -22,6 +22,16 @@ const quoteSchema = z.object({
   quoteSentAt: z.string().optional(),
   quoteAcceptedAt: z.string().optional(),
   quoteNotes: z.string().optional(),
+  quotePhotos: z
+    .array(
+      z.object({
+        attachmentId: z.uuid(),
+        kind: z.enum(["before", "example", "concept"]),
+        caption: z.string().max(120),
+      }),
+    )
+    .max(8)
+    .optional(),
   updatedAt: z.string(),
 });
 
@@ -89,7 +99,10 @@ export function isValidClientQuoteSnapshot(value: unknown) {
 }
 
 /** The shared token only grants access to this one quote and its public scope. */
-export async function readClientQuoteSource(token: string) {
+export async function readClientQuoteSource(
+  token: string,
+  options: { recordView?: boolean } = {},
+) {
   const access = parseClientPortalAccess(token);
   if (!access || access.expired) return null;
   const id = access.id;
@@ -190,7 +203,8 @@ export async function readClientQuoteSource(token: string) {
         : undefined,
   };
 
-  await admin.rpc("remodel_note_client_portal_view", { target_link: id });
+  if (options.recordView !== false)
+    await admin.rpc("remodel_note_client_portal_view", { target_link: id });
   return {
     view,
     organizationId: link.organization_id as string,

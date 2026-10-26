@@ -25,6 +25,7 @@ export default function FilesPanel({
   onSetCover,
   admin,
   demo,
+  hideEmpty = false,
 }: {
   files: Attachment[];
   onUpload: (file: File) => Promise<void>;
@@ -33,6 +34,7 @@ export default function FilesPanel({
   onSetCover?: (file: Attachment) => Promise<void>;
   admin: boolean;
   demo: boolean;
+  hideEmpty?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -194,7 +196,7 @@ export default function FilesPanel({
           </div>
         ))}
       </div>
-      {!files.length && (
+      {!files.length && !hideEmpty && (
         <div className="file-empty">
           <ImageIcon size={18} />
           Progress photos, plans, and documents will appear here.

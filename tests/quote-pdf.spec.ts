@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
+import sharp from "sharp";
 import { buildQuotePdf, quotePdfFileName } from "../lib/quote-pdf";
 import { UNGROUPED_SCOPE_PROJECT_ID } from "../lib/scope-projects";
 import type { Quote, ScopeItem } from "../lib/types";
@@ -79,6 +80,44 @@ test("long scopes continue onto additional pages", async () => {
     logo,
   );
   expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
+});
+
+test("selected before and concept photos are included on a labeled quote page", async () => {
+  const logo = await readFile(
+    path.join(process.cwd(), "public", "images", "logo.png"),
+  );
+  const image = await sharp({
+    create: { width: 320, height: 240, channels: 3, background: "#86a6b8" },
+  })
+    .jpeg()
+    .toBuffer();
+  const bytes = await buildQuotePdf(quote, [scopeItem(0)], logo, [
+    {
+      attachmentId: crypto.randomUUID(),
+      kind: "before",
+      caption: "Existing bath",
+      bytes: image,
+    },
+    {
+      attachmentId: crypto.randomUUID(),
+      kind: "concept",
+      caption: "Warm spa concept",
+      bytes: image,
+    },
+  ]);
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const document = await getDocument({ data: bytes }).promise;
+  expect(document.numPages).toBe(2);
+  const page = await document.getPage(2);
+  const content = await page.getTextContent();
+  const text = content.items
+    .map((item) => ("str" in item ? item.str : ""))
+    .join(" ");
+  expect(text).toContain("QUOTE PHOTOS");
+  expect(text).toContain("BEFORE");
+  expect(text).toContain("Existing bath");
+  expect(text).toContain("AI CONCEPT - VISUAL EXAMPLE");
+  expect(text).toContain("Warm spa concept");
 });
 
 test("quote PDF omits a removed project heading but retains its work item", async () => {

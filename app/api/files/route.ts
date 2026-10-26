@@ -119,6 +119,36 @@ export async function DELETE(request: Request) {
     )) as Attachment | null;
     if (!file || !file.path.startsWith(`${user.organizationId}/`))
       throw new HttpError(404, "File not found.");
+    const quote = (await findRecord(user, file.projectId, "quote")) as {
+      quotePhotos?: { attachmentId: string }[];
+    } | null;
+    if (quote?.quotePhotos?.some((photo) => photo.attachmentId === file.id))
+      throw new HttpError(
+        409,
+        "Remove this photo from the quote before deleting it.",
+      );
+    const { data: links, error: linkError } = await supabaseAdmin()
+      .from("remodel_client_links")
+      .select("quote_snapshot")
+      .eq("organization_id", user.organizationId)
+      .eq("project_id", file.projectId)
+      .eq("kind", "quote")
+      .is("revoked_at", null);
+    if (linkError) throw linkError;
+    if (
+      links?.some((link) => {
+        const snapshot = link.quote_snapshot as {
+          quote?: { quotePhotos?: { attachmentId: string }[] };
+        } | null;
+        return snapshot?.quote?.quotePhotos?.some(
+          (photo) => photo.attachmentId === file.id,
+        );
+      })
+    )
+      throw new HttpError(
+        409,
+        "This photo is in a sent quote. Resend the quote without it before deleting.",
+      );
     const project = (await findRecord(
       user,
       file.projectId,
