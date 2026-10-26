@@ -3069,6 +3069,9 @@ small {
   outline: 2px solid color-mix(in srgb, var(--blue) 45%, transparent);
   outline-offset: -2px;
 }
+.scope-summary-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+}
 .scope-summary-button > span {
   min-width: 0;
   font-size: 11px;
@@ -3092,6 +3095,150 @@ small {
 .scope-summary-button > span:nth-last-child(-n + 3) {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.scope-table-compact tbody .scope-inspector-row > td {
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.scope-table-compact tbody .scope-inspector-row.scope-item-alternate > td {
+  background: color-mix(in srgb, var(--blue) 4%, var(--surface));
+}
+.scope-inspector {
+  padding: 16px 20px 0;
+  color: var(--ink);
+}
+.scope-inspector-header {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 240px) auto;
+  align-items: end;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.scope-inspector-header:has(.scope-inspector-status) {
+  grid-template-columns:
+    minmax(260px, 1fr) minmax(180px, 240px) minmax(120px, 160px)
+    auto;
+}
+.scope-inspector-header label > span,
+.scope-inspector-scope > span,
+.scope-inspector-basis-row label > span,
+.scope-inspector-rate > span:first-child {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 10px;
+}
+.scope-inspector-title .scope-title-input {
+  height: 36px;
+  font-size: 13px;
+}
+.scope-inspector-header .scope-cell-select,
+.scope-inspector-header .scope-status-select,
+.scope-inspector-price-group .scope-cell-input,
+.scope-inspector-price-group .scope-cell-select {
+  height: 36px;
+  font-size: 11px;
+}
+.scope-inspector-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 36px;
+}
+.scope-inspector-body {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.28fr) minmax(0, 0.72fr);
+  gap: 24px;
+  padding: 18px 0;
+}
+.scope-inspector-scope .scope-details-input {
+  min-height: 128px;
+  margin: 0;
+  padding: 10px;
+  font-size: 11px;
+}
+.scope-inspector-pricing-title {
+  margin-bottom: 13px;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.scope-inspector-price-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.scope-inspector-price-group {
+  min-width: 0;
+  padding: 0 16px;
+  border-left: 1px solid var(--line);
+}
+.scope-inspector-price-group:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.scope-inspector-price-group:last-child {
+  padding-right: 0;
+}
+.scope-inspector-group-title {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.scope-inspector-basis-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.8fr) minmax(108px, 1.2fr);
+  gap: 8px;
+}
+.scope-inspector-basis-row label {
+  min-width: 0;
+}
+.scope-inspector-basis-row .scope-fixed-quantity {
+  display: flex;
+  align-items: center;
+  color: var(--theme-text-muted, #8796a2);
+}
+.scope-inspector-rate {
+  display: block;
+  margin-top: 12px;
+}
+.scope-inspector-totals {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  margin: 0 -20px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--blue) 4%, var(--surface));
+}
+.scope-inspector-totals > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 160px;
+  padding: 0 18px;
+  border-left: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.scope-inspector-totals > span:first-child {
+  border-left: 0;
+}
+.scope-inspector-totals small {
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 10px;
+}
+.scope-inspector-totals strong {
+  font-size: 13px;
+}
+.scope-inspector-profit strong:not(.is-overdue) {
+  color: var(--green);
 }
 .scope-row-detail-fields {
   display: grid;
