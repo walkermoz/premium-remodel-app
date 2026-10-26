@@ -2917,7 +2917,7 @@ small {
   width: 7%;
 }
 .scope-table-compact.scope-table-no-status {
-  min-width: 1400px;
+  min-width: 1250px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -2988,6 +2988,32 @@ small {
 }
 .scope-table-compact .scope-edit-row .scope-title-input {
   font-size: 11px;
+}
+.scope-table-compact .scope-edit-row .scope-pricing-heading {
+  margin-bottom: 7px;
+  color: var(--theme-text-secondary, #698094);
+  font-weight: 650;
+}
+.scope-table-compact .scope-pricing-controls {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.8fr) minmax(108px, 1.15fr) minmax(
+      92px,
+      1fr
+    );
+  align-items: end;
+  gap: 6px;
+}
+.scope-table-compact .scope-pricing-controls .scope-field-label,
+.scope-table-compact .scope-cost-controls .scope-field-label {
+  margin-bottom: 4px;
+  font-size: 9px;
+}
+.scope-table-compact .scope-pricing-total {
+  display: block;
+  margin-top: 5px;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 9px;
+  white-space: nowrap;
 }
 .scope-table-compact .scope-edit-row .scope-row-actions {
   gap: 3px;
@@ -3299,11 +3325,8 @@ small {
       68px,
       0.9fr
     );
-  align-items: center;
+  align-items: end;
   gap: 4px;
-}
-.scope-table-compact .scope-cost-controls.is-flat {
-  grid-template-columns: minmax(88px, 1.1fr) minmax(68px, 0.9fr);
 }
 .scope-table-compact .scope-cost-controls .scope-quantity-cell {
   display: contents;
@@ -3311,20 +3334,30 @@ small {
 .scope-table-compact .scope-cost-rate {
   min-width: 0;
 }
+.scope-fixed-quantity > .scope-cell-input {
+  display: flex;
+  align-items: center;
+  color: var(--theme-text-muted, #8796a2);
+}
 .scope-cost-cell .scope-cell-select {
   font-size: 10px;
 }
 .scope-cost-rate {
+  min-width: 0;
+}
+.scope-pricing-rate {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0;
 }
-.scope-cost-rate > span {
+.scope-pricing-rate > span:first-child {
   color: var(--theme-text-muted, #91a0ab);
 }
-.scope-cost-rate .scope-money-input {
+.scope-pricing-rate .scope-money-input {
   flex: 1;
   width: 100%;
+  min-width: 0;
 }
 .scope-cost-cell .scope-line-total {
   margin-left: 0;

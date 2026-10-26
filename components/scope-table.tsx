@@ -1186,8 +1186,22 @@ function EditableRow({
           </>
         )}
       </td>
-      <td>
-        <div className="scope-quantity-cell scope-sale-basis">
+      <td
+        colSpan={compact ? 2 : undefined}
+        className={compact ? "scope-pricing-cell" : undefined}
+      >
+        {compact && (
+          <span className="scope-field-label scope-pricing-heading">
+            Customer price
+          </span>
+        )}
+        <div
+          className={
+            compact
+              ? "scope-pricing-controls"
+              : "scope-quantity-cell scope-sale-basis"
+          }
+        >
           <label className="scope-field-stack">
             {compact && (
               <span className="scope-field-label">
@@ -1239,24 +1253,60 @@ function EditableRow({
               ))}
             </select>
           </label>
+          {compact && (
+            <label className="scope-field-stack">
+              <span className="scope-field-label">{rateLabel(draft.unit)}</span>
+              <span className="scope-pricing-rate">
+                <span aria-hidden="true">$</span>
+                <input
+                  className="scope-cell-input scope-money-input"
+                  aria-label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+                  type="number"
+                  min="0"
+                  max="1000000000"
+                  step="any"
+                  value={draft.rate}
+                  disabled={saving}
+                  onChange={(event) => {
+                    const rate = event.target.value;
+                    onChange({
+                      rate,
+                      estimate: String(
+                        lineTotal(Number(draft.quantity), Number(rate)),
+                      ),
+                    });
+                  }}
+                />
+              </span>
+            </label>
+          )}
         </div>
+        {compact && (
+          <small className="scope-pricing-total">
+            Total {money(draftNumber(draft.estimate))}
+          </small>
+        )}
       </td>
-      <MoneyCell
-        heading={compact ? rateLabel(draft.unit) : undefined}
-        label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
-        value={draft.rate}
-        hint={`Line total ${money(draftNumber(draft.estimate))}`}
-        step="any"
-        disabled={saving}
-        onChange={(value) =>
-          onChange({
-            rate: value,
-            estimate: String(lineTotal(Number(draft.quantity), Number(value))),
-          })
-        }
-      />
+      {!compact && (
+        <MoneyCell
+          label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+          value={draft.rate}
+          hint={`Line total ${money(draftNumber(draft.estimate))}`}
+          step="any"
+          disabled={saving}
+          onChange={(value) =>
+            onChange({
+              rate: value,
+              estimate: String(
+                lineTotal(Number(draft.quantity), Number(value)),
+              ),
+            })
+          }
+        />
+      )}
       <CostCell
         heading="Sub cost"
+        compact={compact}
         label="Subcontractor cost"
         itemName={draft.title || "new work item"}
         unit={draft.subCostUnit}
@@ -1277,6 +1327,7 @@ function EditableRow({
       />
       <CostCell
         heading="Material cost"
+        compact={compact}
         label="Material cost"
         itemName={draft.title || "new work item"}
         unit={draft.materialCostUnit}
@@ -1455,6 +1506,7 @@ function MoneyCell({
 
 function CostCell({
   heading,
+  compact,
   label,
   itemName,
   unit,
@@ -1467,6 +1519,7 @@ function CostCell({
   onChange,
 }: {
   heading: string;
+  compact: boolean;
   label: string;
   itemName: string;
   unit: string;
@@ -1484,94 +1537,122 @@ function CostCell({
   }) => void;
 }) {
   return (
-    <td className="scope-cost-cell">
-      <span className="scope-field-label">{heading}</span>
+    <td className={`scope-cost-cell${compact ? " scope-pricing-cell" : ""}`}>
+      <span
+        className={`scope-field-label${compact ? " scope-pricing-heading" : ""}`}
+      >
+        {heading}
+      </span>
       <div className={`scope-cost-controls${unit === "job" ? " is-flat" : ""}`}>
         <div
           className={`scope-quantity-cell${unit === "job" ? " is-flat" : ""}`}
         >
+          {unit === "job" && compact && (
+            <span className="scope-field-stack scope-fixed-quantity">
+              <span className="scope-field-label">Qty</span>
+              <span
+                className="scope-cell-input"
+                aria-label={`${label} fixed quantity for ${itemName}`}
+              >
+                1
+              </span>
+            </span>
+          )}
           {unit !== "job" && (
+            <label className="scope-field-stack">
+              {compact && <span className="scope-field-label">Qty</span>}
+              <input
+                className="scope-cell-input scope-number-input"
+                aria-label={`${label} quantity for ${itemName}`}
+                type="number"
+                min="0"
+                max="1000000000"
+                step="0.01"
+                value={quantity}
+                disabled={disabled}
+                onChange={(event) =>
+                  onChange({
+                    unit,
+                    quantity: event.target.value,
+                    rate,
+                    total: String(
+                      lineTotal(Number(event.target.value), Number(rate)),
+                    ),
+                  })
+                }
+              />
+            </label>
+          )}
+          <label className="scope-field-stack">
+            {compact && <span className="scope-field-label">Cost by</span>}
+            <select
+              className="scope-cell-select scope-unit-select"
+              aria-label={`${label} basis for ${itemName}`}
+              value={unit}
+              disabled={disabled}
+              onChange={(event) => {
+                const nextUnit = event.target.value;
+                const nextQuantity =
+                  nextUnit === "job"
+                    ? 1
+                    : nextUnit === saleUnit
+                      ? Math.max(1, Number(saleQuantity) || 1)
+                      : 1;
+                onChange({
+                  unit: nextUnit,
+                  quantity: String(nextQuantity),
+                  rate: String(rateFromTotal(Number(total), nextQuantity)),
+                  total,
+                });
+              }}
+            >
+              {pricingBases.map((basis) => (
+                <option key={basis.value} value={basis.value}>
+                  {basis.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="scope-cost-rate">
+          {compact && (
+            <span className="scope-field-label">
+              {unit === "job" ? "Amount" : "Rate"}
+            </span>
+          )}
+          <span className="scope-pricing-rate">
+            <span aria-hidden="true">$</span>
             <input
-              className="scope-cell-input scope-number-input"
-              aria-label={`${label} quantity for ${itemName}`}
+              className="scope-cell-input scope-money-input"
+              aria-label={
+                unit === "job"
+                  ? `${label} for ${itemName}`
+                  : `${label} rate for ${itemName}`
+              }
               type="number"
               min="0"
               max="1000000000"
-              step="0.01"
-              value={quantity}
+              step={unit === "job" ? "0.01" : "any"}
+              value={unit === "job" ? total : rate}
               disabled={disabled}
-              onChange={(event) =>
+              onChange={(event) => {
+                const nextRate = event.target.value;
                 onChange({
                   unit,
-                  quantity: event.target.value,
-                  rate,
-                  total: String(
-                    lineTotal(Number(event.target.value), Number(rate)),
-                  ),
-                })
-              }
+                  quantity,
+                  rate: nextRate,
+                  total:
+                    unit === "job"
+                      ? nextRate
+                      : String(lineTotal(Number(quantity), Number(nextRate))),
+                });
+              }}
             />
-          )}
-          <select
-            className="scope-cell-select scope-unit-select"
-            aria-label={`${label} basis for ${itemName}`}
-            value={unit}
-            disabled={disabled}
-            onChange={(event) => {
-              const nextUnit = event.target.value;
-              const nextQuantity =
-                nextUnit === "job"
-                  ? 1
-                  : nextUnit === saleUnit
-                    ? Math.max(1, Number(saleQuantity) || 1)
-                    : 1;
-              onChange({
-                unit: nextUnit,
-                quantity: String(nextQuantity),
-                rate: String(rateFromTotal(Number(total), nextQuantity)),
-                total,
-              });
-            }}
-          >
-            {pricingBases.map((basis) => (
-              <option key={basis.value} value={basis.value}>
-                {basis.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="scope-cost-rate">
-          <span aria-hidden="true">$</span>
-          <input
-            className="scope-cell-input scope-money-input"
-            aria-label={
-              unit === "job"
-                ? `${label} for ${itemName}`
-                : `${label} rate for ${itemName}`
-            }
-            type="number"
-            min="0"
-            max="1000000000"
-            step={unit === "job" ? "0.01" : "any"}
-            value={unit === "job" ? total : rate}
-            disabled={disabled}
-            onChange={(event) => {
-              const nextRate = event.target.value;
-              onChange({
-                unit,
-                quantity,
-                rate: nextRate,
-                total:
-                  unit === "job"
-                    ? nextRate
-                    : String(lineTotal(Number(quantity), Number(nextRate))),
-              });
-            }}
-          />
+          </span>
         </div>
       </div>
-      {unit !== "job" && (
-        <small className="scope-line-total">
+      {(compact || unit !== "job") && (
+        <small className={compact ? "scope-pricing-total" : "scope-line-total"}>
           Total {money(draftNumber(total))}
         </small>
       )}

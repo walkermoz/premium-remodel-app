@@ -433,20 +433,24 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await expect(row.getByText("Price per job", { exact: true })).toBeVisible();
   await row.getByLabel("Number of jobs for Labor").fill("3");
   await row.getByLabel("Price per job for Labor").fill("200");
-  await expect(row.locator(".scope-line-total")).toHaveText("Line total $600");
+  await expect(row.locator(".scope-pricing-total").first()).toHaveText(
+    "Total $600",
+  );
   await row.getByLabel("Unit for Labor").selectOption("hours");
   await expect(row.getByLabel("Total hours for Labor")).toHaveValue("1");
   await expect(row.getByLabel("Price per hour for Labor")).toHaveValue("600");
   await row.getByLabel("Total hours for Labor").fill("2.5");
   await row.getByLabel("Price per hour for Labor").fill("80");
-  await expect(row.locator(".scope-line-total")).toHaveText("Line total $200");
+  await expect(row.locator(".scope-pricing-total").first()).toHaveText(
+    "Total $200",
+  );
   await row.getByLabel("Unit for Labor").selectOption("sq ft");
   await expect(row.getByText("Total sq ft", { exact: true })).toBeVisible();
   await expect(row.getByText("Price per sq ft", { exact: true })).toBeVisible();
   await row.getByLabel("Total sq ft for Labor").fill("250");
   await row.getByLabel("Price per sq ft for Labor").fill("250");
-  await expect(row.locator(".scope-line-total")).toHaveText(
-    "Line total $62,500",
+  await expect(row.locator(".scope-pricing-total").first()).toHaveText(
+    "Total $62,500",
   );
   await row.getByLabel("Unit for Labor").selectOption("linear ft");
   await expect(row.getByText("Total linear ft", { exact: true })).toBeVisible();
@@ -477,7 +481,9 @@ test("per-unit quote rates calculate and persist the line total", async ({
     .fill("Permit packages");
   await jobs.getByLabel("Number of jobs for Permit packages").fill("2");
   await jobs.getByLabel("Price per job for Permit packages").fill("150");
-  await expect(jobs.locator(".scope-line-total")).toHaveText("Line total $300");
+  await expect(jobs.locator(".scope-pricing-total").first()).toHaveText(
+    "Total $300",
+  );
   await jobs.getByRole("button", { name: "Save Permit packages" }).click();
   await page.reload();
   await page.getByRole("button", { name: "Edit Permit packages" }).click();
