@@ -1641,9 +1641,6 @@ function CompactQuoteEditor({
                 {newRow ? <X size={14} /> : <Trash2 size={14} />}
               </button>
             </div>
-          </div>
-
-          <div className="scope-inspector-body">
             <label className="scope-inspector-scope">
               <span>Scope details</span>
               <textarea
@@ -1657,7 +1654,9 @@ function CompactQuoteEditor({
                 onChange={(event) => onChange({ details: event.target.value })}
               />
             </label>
+          </div>
 
+          <div className="scope-inspector-body">
             <div className="scope-inspector-pricing">
               <div className="scope-inspector-pricing-title">Pricing</div>
               <div className="scope-inspector-price-groups">

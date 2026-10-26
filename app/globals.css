@@ -3148,14 +3148,16 @@ small {
   gap: 6px;
   height: 36px;
 }
+.scope-inspector-scope {
+  grid-column: 1 / -1;
+  display: block;
+  width: min(100%, 740px);
+}
 .scope-inspector-body {
-  display: grid;
-  grid-template-columns: minmax(230px, 0.28fr) minmax(0, 0.72fr);
-  gap: 24px;
   padding: 18px 0;
 }
 .scope-inspector-scope .scope-details-input {
-  min-height: 128px;
+  min-height: 96px;
   margin: 0;
   padding: 10px;
   font-size: 11px;

@@ -561,6 +561,9 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await expect(summary).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator(".scope-inspector-row")).toBeVisible();
   await expect(
+    page.locator(".scope-inspector-header .scope-inspector-scope"),
+  ).toBeVisible();
+  await expect(
     page.getByLabel("Subcontractor cost basis for Tile installation"),
   ).toHaveValue("sq ft");
   await expect(
