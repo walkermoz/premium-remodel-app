@@ -25,6 +25,8 @@ import {
 import {
   lineTotal,
   pricingBases,
+  salePricingBases,
+  quantityLabel,
   rateFromTotal,
   rateLabel,
 } from "@/lib/scope-pricing";
@@ -109,8 +111,7 @@ function draftValues(draft: ScopeDraft) {
     sectionName: draft.sectionName,
     title,
     details: draft.details.trim(),
-    quantity:
-      draft.unit === "job" ? 1 : numberValue(draft.quantity, "Quantity"),
+    quantity: numberValue(draft.quantity, "Quantity"),
     unit: draft.unit,
     estimate: numberValue(draft.estimate, "Price"),
     subCost: numberValue(draft.subCost, "Subcontractor cost"),
@@ -729,14 +730,12 @@ export default function ScopeTable({
                         </small>
                       </td>
                       <td className="nowrap">
-                        {item.unit === "job" ? (
-                          "Flat price"
-                        ) : (
-                          <>
-                            {item.quantity.toLocaleString()}{" "}
-                            <span className="muted">{item.unit}</span>
-                          </>
-                        )}
+                        {item.quantity.toLocaleString()}{" "}
+                        {item.unit === "job"
+                          ? item.quantity === 1
+                            ? "job"
+                            : "jobs"
+                          : item.unit}
                       </td>
                       <td>{money(item.estimate)}</td>
                       <td>{money(item.subCost)}</td>
@@ -1188,18 +1187,45 @@ function EditableRow({
         )}
       </td>
       <td>
-        {compact && <span className="scope-field-label">Pricing basis</span>}
-        <div
-          className={`scope-quantity-cell${draft.unit === "job" ? " is-flat" : ""}`}
-        >
-          {draft.unit !== "job" && (
+        <div className="scope-quantity-cell scope-sale-basis">
+          <label className="scope-field-stack">
+            {compact && <span className="scope-field-label">Price by</span>}
+            <select
+              className="scope-cell-select scope-unit-select"
+              aria-label={`Unit for ${draft.title || "new work item"}`}
+              value={draft.unit}
+              disabled={saving}
+              onChange={(event) => {
+                const unit = event.target.value;
+                onChange({
+                  unit,
+                  quantity: "1",
+                  rate: draft.estimate,
+                });
+              }}
+            >
+              {salePricingBases.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="scope-field-stack">
+            {compact && (
+              <span className="scope-field-label">
+                {quantityLabel(draft.unit)}
+              </span>
+            )}
             <input
               className="scope-cell-input scope-number-input"
-              aria-label={`Quantity for ${draft.title || "new work item"}`}
+              aria-label={`${quantityLabel(draft.unit)} for ${draft.title || "new work item"}`}
               type="number"
               min="0"
               max="1000000000"
-              step="0.01"
+              step={
+                draft.unit === "job" || draft.unit === "each" ? "1" : "0.01"
+              }
               value={draft.quantity}
               disabled={saving}
               onChange={(event) => {
@@ -1212,54 +1238,21 @@ function EditableRow({
                 });
               }}
             />
-          )}
-          <select
-            className="scope-cell-select scope-unit-select"
-            aria-label={`Unit for ${draft.title || "new work item"}`}
-            value={draft.unit}
-            disabled={saving}
-            onChange={(event) => {
-              const unit = event.target.value;
-              onChange({
-                unit,
-                ...(unit === "job"
-                  ? { quantity: "1", rate: draft.estimate }
-                  : draft.unit === "job"
-                    ? { rate: draft.estimate }
-                    : {}),
-              });
-            }}
-          >
-            {pricingBases.map((unit) => (
-              <option key={unit.value} value={unit.value}>
-                {unit.label}
-              </option>
-            ))}
-          </select>
+          </label>
         </div>
       </td>
       <MoneyCell
-        heading={compact ? "Price / rate" : undefined}
-        label={`${draft.unit === "job" ? "Price" : rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
-        value={draft.unit === "job" ? draft.estimate : draft.rate}
-        hint={
-          draft.unit === "job"
-            ? undefined
-            : `Total ${money(draftNumber(draft.estimate))}`
-        }
-        step={draft.unit === "job" ? "0.01" : "any"}
+        heading={compact ? rateLabel(draft.unit) : undefined}
+        label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+        value={draft.rate}
+        hint={`Line total ${money(draftNumber(draft.estimate))}`}
+        step="any"
         disabled={saving}
         onChange={(value) =>
-          onChange(
-            draft.unit === "job"
-              ? { estimate: value, rate: value }
-              : {
-                  rate: value,
-                  estimate: String(
-                    lineTotal(Number(draft.quantity), Number(value)),
-                  ),
-                },
-          )
+          onChange({
+            rate: value,
+            estimate: String(lineTotal(Number(draft.quantity), Number(value))),
+          })
         }
       />
       <CostCell

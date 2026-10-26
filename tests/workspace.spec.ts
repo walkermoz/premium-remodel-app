@@ -81,20 +81,16 @@ cloudTest(
       dialog = page.getByRole("dialog");
       await dialog.getByLabel("Work item", { exact: true }).fill(item.title);
       await dialog
-        .getByRole("combobox", { name: "Pricing basis", exact: true })
+        .getByRole("combobox", { name: "Price by", exact: true })
         .selectOption(item.unit);
+      await dialog
+        .getByLabel(item.unit === "job" ? "Number of jobs" : "Total sq ft")
+        .fill(item.qty);
       if (item.unit === "job") {
-        await expect(
-          dialog.getByLabel("Quantity", { exact: true }),
-        ).toHaveCount(0);
-      } else {
-        await dialog.getByLabel("Quantity", { exact: true }).fill(item.qty);
-      }
-      if (item.unit === "job") {
-        await dialog.getByLabel("Price · total ($)").fill(item.estimate);
+        await dialog.getByLabel("Price per job ($)").fill(item.estimate);
       } else {
         await dialog
-          .getByLabel("Rate per sq ft ($)")
+          .getByLabel("Price per sq ft ($)")
           .fill(String(Number(item.estimate) / Number(item.qty)));
         await expect(dialog.getByText("Line total:")).toContainText(
           new Intl.NumberFormat("en-US", {
