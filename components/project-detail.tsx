@@ -177,7 +177,7 @@ export default function ProjectDetail({
         "Price",
         "Subcontractor cost",
         "Material cost",
-        "Difference",
+        "Profit",
         "Contractor",
         "Status",
       ],
@@ -623,10 +623,9 @@ export default function ProjectDetail({
             </div>
             {scopeTable}
             <p className="footnote">
-              “Difference” is the item’s price less its subcontractor and
-              material costs, before other labor, overhead, or taxes. Material
-              cost excludes materials already included in the subcontractor
-              cost.
+              “Profit” is the item’s price less its subcontractor and material
+              costs, before other labor, overhead, or taxes. Material cost
+              excludes materials already included in the subcontractor cost.
             </p>
           </>
         )}

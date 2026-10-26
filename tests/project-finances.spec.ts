@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { projectFinances, scopeDifference } from "../lib/project-finances";
+import {
+  preserveScopeCosts,
+  projectFinances,
+  scopeDifference,
+} from "../lib/project-finances";
+import { schemas } from "../lib/schemas";
 import { readFile } from "node:fs/promises";
 import {
   emptyWorkspace,
@@ -142,6 +147,39 @@ test("material costs reduce margin without changing customer pricing or collecti
   });
 });
 
+test("cost basis metadata survives validation and older clients cannot erase it", () => {
+  const item = {
+    ...scope,
+    subCost: 300,
+    subCostUnit: "hours",
+    subCostQuantity: 6,
+    materialCost: 80,
+    materialCostUnit: "each",
+    materialCostQuantity: 4,
+  };
+  const legacyEdit = preserveScopeCosts(
+    {
+      ...item,
+      estimate: 700,
+      subCostUnit: undefined,
+      subCostQuantity: undefined,
+      materialCostUnit: undefined,
+      materialCostQuantity: undefined,
+    },
+    item,
+  );
+  const saved = schemas.scope.parse(legacyEdit);
+  expect(saved).toMatchObject({
+    subCost: 300,
+    subCostUnit: "hours",
+    subCostQuantity: 6,
+    materialCost: 80,
+    materialCostUnit: "each",
+    materialCostQuantity: 4,
+  });
+  expect(scopeDifference({ ...item, estimate: saved.estimate })).toBe(320);
+});
+
 test("material costs edit, persist, total and export on existing scope items", async ({
   page,
 }) => {
@@ -209,7 +247,7 @@ test("material costs edit, persist, total and export on existing scope items", a
   const file = await downloaded;
   const csv = await readFile((await file.path())!, "utf8");
   expect(csv).toContain(
-    '"Project section","Work item","Scope details","Quantity","Unit","Price","Subcontractor cost","Material cost","Difference"',
+    '"Project section","Work item","Scope details","Quantity","Unit","Price","Subcontractor cost","Material cost","Profit"',
   );
   expect(csv).toContain(
     '"Flooring","","1","job","600","200","150.25","249.75"',
@@ -333,6 +371,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
     .fill("750.15");
   await newRow.getByRole("button", { name: "Save Garage framing" }).click();
   await expect(newRow).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit Garage framing" }).click();
   const savedRow = page.locator(".scope-table tbody tr").filter({
     has: page.locator('input[value="Garage framing"]'),
   });
@@ -362,7 +401,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await expect(page.getByLabel("Quote status")).toHaveValue("Sent");
   expect(new URL(page.url()).searchParams.get("project")).toBe(quoteId);
   await expect(
-    page.locator('.scope-table input[value="Garage framing"]'),
+    page.getByRole("button", { name: "Edit Garage framing" }),
   ).toBeVisible();
   await expect(page.locator(".scope-table tfoot")).toContainText("$5,100.15");
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
@@ -397,8 +436,68 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await expect(row).toHaveCount(0);
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
   await page.reload();
+  await page.getByRole("button", { name: "Edit Labor" }).click();
   await expect(page.getByLabel("Rate per hour for Labor")).toHaveValue("80");
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
+});
+
+test("quote cost bases save independent quantities and collapse to profit summary", async ({
+  page,
+}) => {
+  await page.goto("/demo?view=Quotes");
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Quote name").fill("Cost basis test");
+  await dialog.getByLabel("Client name").fill("Test Homeowner");
+  await dialog.getByRole("button", { name: "Create quote" }).click();
+
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const row = page.locator(".scope-new-row");
+  await row.getByLabel("New work item").fill("Tile installation");
+  await row.getByLabel("Price for Tile installation").fill("1000");
+  await row
+    .getByLabel("Subcontractor cost basis for Tile installation")
+    .selectOption("sq ft");
+  await row
+    .getByLabel("Subcontractor cost quantity for Tile installation")
+    .fill("100");
+  await row
+    .getByLabel("Subcontractor cost rate for Tile installation")
+    .fill("3");
+  await row
+    .getByLabel("Material cost basis for Tile installation")
+    .selectOption("each");
+  await row
+    .getByLabel("Material cost quantity for Tile installation")
+    .fill("2");
+  await row.getByLabel("Material cost rate for Tile installation").fill("50");
+  await row.getByRole("button", { name: "Save Tile installation" }).click();
+
+  const summary = page.getByRole("button", { name: "Edit Tile installation" });
+  await expect(summary).toContainText("$400");
+  await expect(summary).toContainText("$600");
+  await summary.click();
+  await expect(
+    page.getByLabel("Subcontractor cost basis for Tile installation"),
+  ).toHaveValue("sq ft");
+  await expect(
+    page.getByLabel("Material cost basis for Tile installation"),
+  ).toHaveValue("each");
+  await page
+    .getByLabel("Material cost quantity for Tile installation")
+    .fill("3");
+  await page.getByRole("heading", { name: "Scope & pricing" }).click();
+  await expect(summary).toContainText("$450");
+  await expect(summary).toContainText("$550");
+  await page.reload();
+  await expect(summary).toContainText("$450");
+  await summary.click();
+  await expect(
+    page.getByLabel("Material cost quantity for Tile installation"),
+  ).toHaveValue("3");
+  await expect(
+    page.getByLabel("Material cost rate for Tile installation"),
+  ).toHaveValue("50");
 });
 
 test("quote projects can be renamed or ungrouped without losing rows", async ({
@@ -461,12 +560,20 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
     .getByRole("button", { name: "Remove project Kitchen prep" })
     .click();
   await expect(page.locator(".scope-section-row")).toHaveCount(0);
-  await expect(page.getByLabel("Work item Demo work")).toBeVisible();
-  await expect(page.getByLabel("Work item Finish work")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit Demo work" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit Finish work" }),
+  ).toBeVisible();
   await page.reload();
   await expect(page.locator(".scope-section-row")).toHaveCount(0);
-  await expect(page.getByLabel("Work item Demo work")).toBeVisible();
-  await expect(page.getByLabel("Work item Finish work")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit Demo work" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit Finish work" }),
+  ).toBeVisible();
 });
 
 test("a quote can start a named project with its first work item", async ({
@@ -492,13 +599,17 @@ test("a quote can start a named project with its first work item", async ({
   await expect(page.locator(".scope-section-row")).toContainText(
     "Kitchen phase",
   );
-  await expect(page.getByLabel("Work item Cabinets")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit Cabinets" }),
+  ).toBeVisible();
 
   await page.reload();
   await expect(page.locator(".scope-section-row")).toContainText(
     "Kitchen phase",
   );
-  await expect(page.getByLabel("Work item Cabinets")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit Cabinets" }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(page.getByLabel("New project name")).toHaveValue("Project #2");
@@ -600,7 +711,7 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
 
   const table = page.locator(".scope-table");
   await expect(
-    table.getByLabel("Work item Demolition & site protection"),
+    table.getByRole("button", { name: "Edit Demolition & site protection" }),
   ).toBeVisible();
   await expect(table.locator(".scope-section-row")).toContainText(
     "Primary Bathroom",
@@ -619,20 +730,17 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
   });
   expect(batchRender).toHaveLength(1);
   await expect(
-    table.getByLabel("Work item Shower wall tile installation"),
+    table.getByRole("button", { name: "Edit Shower wall tile installation" }),
   ).toBeVisible();
+  await table
+    .getByRole("button", { name: "Edit Shower base & waterproofing" })
+    .click();
   await expect(
     table.getByLabel("Quantity for Shower base & waterproofing"),
   ).toHaveCount(0);
   await expect(
     table.getByLabel("Unit for Shower base & waterproofing"),
   ).toHaveValue("job");
-  await expect(
-    table.getByLabel("Quantity for Shower wall tile installation"),
-  ).toBeVisible();
-  await expect(
-    table.getByLabel("Unit for Shower wall tile installation"),
-  ).toHaveValue("sq ft");
   const showerBaseDetails = table.locator(
     'textarea[aria-label="Details for Shower base & waterproofing"]',
   );
@@ -645,24 +753,44 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
       ),
     )
     .toBe(true);
+  await table
+    .getByRole("button", { name: "Edit Shower wall tile installation" })
+    .click();
+  await expect(
+    table.getByLabel("Quantity for Shower wall tile installation"),
+  ).toBeVisible();
+  await expect(
+    table.getByLabel("Unit for Shower wall tile installation"),
+  ).toHaveValue("sq ft");
   await expect(
     table.locator(
       'textarea[aria-label="Details for Shower wall tile installation"]',
     ),
   ).toHaveValue(/Large warm-white porcelain/);
-  await expect(table.getByLabel("Work item Toilet installation")).toHaveCount(
-    0,
-  );
+  await expect(
+    table.getByRole("button", { name: "Edit Toilet installation" }),
+  ).toHaveCount(0);
+  await table
+    .getByRole("button", { name: "Edit Demolition & site protection" })
+    .click();
   await expect(
     table.locator(
       'textarea[aria-label="Details for Demolition & site protection"]',
     ),
   ).toHaveValue(/Room: 10 ft x 8 ft/);
+  await table
+    .getByRole("button", {
+      name: "Edit Paint, finish carpentry & final cleanup",
+    })
+    .click();
   await expect(
     table.locator(
       'textarea[aria-label="Details for Paint, finish carpentry & final cleanup"]',
     ),
   ).toHaveValue(/Prioritize an easy-to-clean shower and accessible storage/);
+  await table
+    .getByRole("button", { name: "Edit Demolition & site protection" })
+    .click();
   await table
     .getByRole("button", { name: "Delete Demolition & site protection" })
     .click();
@@ -670,9 +798,12 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
     0,
   );
   await expect(
-    table.getByLabel("Work item Demolition & site protection"),
+    table.getByRole("button", { name: "Edit Demolition & site protection" }),
   ).toHaveCount(0);
 
+  await table
+    .getByRole("button", { name: "Edit Shower base & waterproofing" })
+    .click();
   await table.getByLabel("Price for Shower base & waterproofing").fill("4250");
   await table
     .getByRole("button", { name: "Save Shower base & waterproofing" })

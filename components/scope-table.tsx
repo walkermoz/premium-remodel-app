@@ -56,7 +56,13 @@ interface ScopeDraft {
   estimate: string;
   rate: string;
   subCost: string;
+  subCostUnit: string;
+  subCostQuantity: string;
+  subCostRate: string;
   materialCost: string;
+  materialCostUnit: string;
+  materialCostQuantity: string;
+  materialCostRate: string;
   contractorId: string;
   status: TaskStatus;
 }
@@ -72,7 +78,17 @@ function draftFrom(item?: ScopeItem): ScopeDraft {
     estimate: String(item?.estimate ?? 0),
     rate: String(rateFromTotal(item?.estimate ?? 0, item?.quantity ?? 1)),
     subCost: String(item?.subCost ?? 0),
+    subCostUnit: item?.subCostUnit || "job",
+    subCostQuantity: String(item?.subCostQuantity ?? 1),
+    subCostRate: String(
+      rateFromTotal(item?.subCost ?? 0, item?.subCostQuantity ?? 1),
+    ),
     materialCost: String(item?.materialCost ?? 0),
+    materialCostUnit: item?.materialCostUnit || "job",
+    materialCostQuantity: String(item?.materialCostQuantity ?? 1),
+    materialCostRate: String(
+      rateFromTotal(item?.materialCost ?? 0, item?.materialCostQuantity ?? 1),
+    ),
     contractorId: item?.contractorId || "",
     status: item?.status || "To do",
   };
@@ -98,7 +114,17 @@ function draftValues(draft: ScopeDraft) {
     unit: draft.unit,
     estimate: numberValue(draft.estimate, "Price"),
     subCost: numberValue(draft.subCost, "Subcontractor cost"),
+    subCostUnit: draft.subCostUnit,
+    subCostQuantity:
+      draft.subCostUnit === "job"
+        ? 1
+        : numberValue(draft.subCostQuantity, "Subcontractor quantity"),
     materialCost: numberValue(draft.materialCost, "Material cost"),
+    materialCostUnit: draft.materialCostUnit,
+    materialCostQuantity:
+      draft.materialCostUnit === "job"
+        ? 1
+        : numberValue(draft.materialCostQuantity, "Material quantity"),
     contractorId: draft.contractorId,
     status: draft.status,
   };
@@ -192,6 +218,7 @@ export default function ScopeTable({
   const [addingProject, setAddingProject] = useState(false);
   const [newDraft, setNewDraft] = useState<ScopeDraft>(() => draftFrom());
   const [saving, setSaving] = useState<Set<string>>(() => new Set());
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
@@ -201,8 +228,7 @@ export default function ScopeTable({
   const newProjectName = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (adding)
-      (addingProject ? newProjectName : newTitle).current?.focus();
+    if (adding) (addingProject ? newProjectName : newTitle).current?.focus();
   }, [adding, addingProject]);
 
   if (!inline && !items.length)
@@ -298,7 +324,11 @@ export default function ScopeTable({
       draft.unit !== item.unit ||
       draft.estimate !== String(item.estimate) ||
       draft.subCost !== String(item.subCost) ||
+      draft.subCostUnit !== (item.subCostUnit || "job") ||
+      draft.subCostQuantity !== String(item.subCostQuantity ?? 1) ||
       draft.materialCost !== String(item.materialCost ?? 0) ||
+      draft.materialCostUnit !== (item.materialCostUnit || "job") ||
+      draft.materialCostQuantity !== String(item.materialCostQuantity ?? 1) ||
       draft.contractorId !== item.contractorId ||
       draft.status !== item.status
     );
@@ -347,7 +377,13 @@ export default function ScopeTable({
             estimate: String(values.estimate),
             rate: draft.rate,
             subCost: String(values.subCost),
+            subCostUnit: values.subCostUnit,
+            subCostQuantity: String(values.subCostQuantity),
+            subCostRate: draft.subCostRate,
             materialCost: String(values.materialCost),
+            materialCostUnit: values.materialCostUnit,
+            materialCostQuantity: String(values.materialCostQuantity),
+            materialCostRate: draft.materialCostRate,
             contractorId: values.contractorId,
             status: values.status,
           },
@@ -356,6 +392,7 @@ export default function ScopeTable({
         cancelAdding();
       }
     } catch (saveError) {
+      if (item && compactQuoteRows) setExpandedItemId(item.id);
       setError(
         saveError instanceof Error
           ? saveError.message
@@ -394,6 +431,8 @@ export default function ScopeTable({
       event.relatedTarget.closest(".scope-new-project-row")
     )
       return;
+    if (compactQuoteRows && item)
+      setExpandedItemId((current) => (current === item.id ? null : current));
     void saveRow(item);
   }
 
@@ -548,7 +587,7 @@ export default function ScopeTable({
                 <th>Price / rate</th>
                 <th>Sub cost</th>
                 <th>Material cost</th>
-                <th>Difference</th>
+                <th>Profit</th>
                 {showStatus && <th>Status</th>}
                 <th>
                   <span className="sr-only">Actions</span>
@@ -591,7 +630,60 @@ export default function ScopeTable({
                         onRemove={() => updateProjectGrouping(sectionKey, null)}
                       />
                     )}
-                  {inline ? (
+                  {inline && compactQuoteRows && expandedItemId !== item.id ? (
+                    <tr
+                      className={`scope-summary-row${index % 2 === 1 ? " scope-item-alternate" : ""}${projectAccentClasses.get(sectionKey) ? ` ${projectAccentClasses.get(sectionKey)}` : ""}`}
+                    >
+                      <td colSpan={showStatus ? 8 : 7}>
+                        <button
+                          type="button"
+                          className="scope-summary-button"
+                          aria-label={`Edit ${draft.title}`}
+                          aria-expanded="false"
+                          onClick={() => setExpandedItemId(item.id)}
+                        >
+                          <span>
+                            <small>Work item</small>
+                            <strong>{draft.title}</strong>
+                          </span>
+                          <span>
+                            <small>Scope</small>
+                            <span className="scope-summary-scope">
+                              {draft.details || "No scope details"}
+                            </span>
+                          </span>
+                          <span>
+                            <small>Contractor</small>
+                            <span>
+                              {workspace.contractors.find(
+                                (contractor) =>
+                                  contractor.id === draft.contractorId,
+                              )?.name || "Unassigned"}
+                            </span>
+                          </span>
+                          <span>
+                            <small>Total costs</small>
+                            <span>
+                              {money(
+                                draftNumber(draft.subCost) +
+                                  draftNumber(draft.materialCost),
+                              )}
+                            </span>
+                          </span>
+                          <span>
+                            <small>Profit</small>
+                            <strong
+                              className={
+                                difference < 0 ? "is-overdue" : undefined
+                              }
+                            >
+                              {money(difference)}
+                            </strong>
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                  ) : inline ? (
                     <EditableRow
                       draft={draft}
                       workspace={workspace}
@@ -605,6 +697,9 @@ export default function ScopeTable({
                       saving={saving.has(item.id)}
                       dirty={dirty(item)}
                       compact={compactQuoteRows}
+                      focusTitle={
+                        compactQuoteRows && expandedItemId === item.id
+                      }
                       editorId={item.id}
                       showStatus={showStatus}
                       onChange={(patch) => updateDraft(item.id, patch, item)}
@@ -677,7 +772,9 @@ export default function ScopeTable({
               );
             })}
             {inline && adding && addingProject && (
-              <tr className={`scope-section-row scope-new-project-row ${newProjectAccentClass}`}>
+              <tr
+                className={`scope-section-row scope-new-project-row ${newProjectAccentClass}`}
+              >
                 <td colSpan={showStatus ? 8 : 7}>
                   <div className="scope-section-heading">
                     <div className="scope-section-title">
@@ -912,7 +1009,9 @@ function ScopeSectionRow({
   }
 
   return (
-    <tr className={`scope-section-row${accentClassName ? ` ${accentClassName}` : ""}`}>
+    <tr
+      className={`scope-section-row${accentClassName ? ` ${accentClassName}` : ""}`}
+    >
       <td colSpan={colSpan}>
         <div className="scope-section-heading">
           <div className="scope-section-title">
@@ -1001,6 +1100,7 @@ function EditableRow({
   saving,
   dirty,
   compact,
+  focusTitle = false,
   editorId,
   showStatus,
   newRow = false,
@@ -1019,6 +1119,7 @@ function EditableRow({
   saving: boolean;
   dirty: boolean;
   compact: boolean;
+  focusTitle?: boolean;
   editorId: string;
   showStatus: boolean;
   newRow?: boolean;
@@ -1041,6 +1142,7 @@ function EditableRow({
         {compact && <span className="scope-field-label">Work item</span>}
         <input
           ref={titleRef}
+          autoFocus={focusTitle}
           className="scope-cell-input scope-title-input"
           aria-label={newRow ? "New work item" : `Work item ${draft.title}`}
           placeholder="Work item"
@@ -1155,29 +1257,55 @@ function EditableRow({
           )
         }
       />
-      <MoneyCell
-        heading={compact ? "Sub cost" : undefined}
-        label={`Subcontractor cost for ${draft.title || "new work item"}`}
-        value={draft.subCost}
+      <CostCell
+        heading="Sub cost"
+        label="Subcontractor cost"
+        itemName={draft.title || "new work item"}
+        unit={draft.subCostUnit}
+        quantity={draft.subCostQuantity}
+        rate={draft.subCostRate}
+        total={draft.subCost}
+        saleUnit={draft.unit}
+        saleQuantity={draft.quantity}
         disabled={saving}
-        onChange={(subCost) => onChange({ subCost })}
+        onChange={(cost) =>
+          onChange({
+            subCostUnit: cost.unit,
+            subCostQuantity: cost.quantity,
+            subCostRate: cost.rate,
+            subCost: cost.total,
+          })
+        }
       />
-      <MoneyCell
-        heading={compact ? "Material cost" : undefined}
-        label={`Material cost for ${draft.title || "new work item"}`}
-        value={draft.materialCost}
+      <CostCell
+        heading="Material cost"
+        label="Material cost"
+        itemName={draft.title || "new work item"}
+        unit={draft.materialCostUnit}
+        quantity={draft.materialCostQuantity}
+        rate={draft.materialCostRate}
+        total={draft.materialCost}
+        saleUnit={draft.unit}
+        saleQuantity={draft.quantity}
         disabled={saving}
-        onChange={(materialCost) => onChange({ materialCost })}
+        onChange={(cost) =>
+          onChange({
+            materialCostUnit: cost.unit,
+            materialCostQuantity: cost.quantity,
+            materialCostRate: cost.rate,
+            materialCost: cost.total,
+          })
+        }
       />
       <td
         className={
           difference < 0 ? "is-overdue scope-calculated" : "scope-calculated"
         }
       >
-        {compact && <span className="scope-field-label">Difference</span>}
+        {compact && <span className="scope-field-label">Profit</span>}
         <output
           className="scope-calculated-value"
-          aria-label={`Difference for ${draft.title || "new work item"}`}
+          aria-label={`Profit for ${draft.title || "new work item"}`}
         >
           {money(difference)}
         </output>
@@ -1308,7 +1436,9 @@ function MoneyCell({
   return (
     <td className="scope-money-cell">
       {heading && <span className="scope-field-label">{heading}</span>}
-      <span className="scope-currency-symbol" aria-hidden="true">$</span>
+      <span className="scope-currency-symbol" aria-hidden="true">
+        $
+      </span>
       <input
         className="scope-cell-input scope-money-input"
         aria-label={label}
@@ -1321,6 +1451,128 @@ function MoneyCell({
         onChange={(event) => onChange(event.target.value)}
       />
       {hint ? <small className="scope-line-total">{hint}</small> : null}
+    </td>
+  );
+}
+
+function CostCell({
+  heading,
+  label,
+  itemName,
+  unit,
+  quantity,
+  rate,
+  total,
+  saleUnit,
+  saleQuantity,
+  disabled,
+  onChange,
+}: {
+  heading: string;
+  label: string;
+  itemName: string;
+  unit: string;
+  quantity: string;
+  rate: string;
+  total: string;
+  saleUnit: string;
+  saleQuantity: string;
+  disabled: boolean;
+  onChange: (value: {
+    unit: string;
+    quantity: string;
+    rate: string;
+    total: string;
+  }) => void;
+}) {
+  return (
+    <td className="scope-cost-cell">
+      <span className="scope-field-label">{heading}</span>
+      <div className={`scope-quantity-cell${unit === "job" ? " is-flat" : ""}`}>
+        {unit !== "job" && (
+          <input
+            className="scope-cell-input scope-number-input"
+            aria-label={`${label} quantity for ${itemName}`}
+            type="number"
+            min="0"
+            max="1000000000"
+            step="0.01"
+            value={quantity}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange({
+                unit,
+                quantity: event.target.value,
+                rate,
+                total: String(
+                  lineTotal(Number(event.target.value), Number(rate)),
+                ),
+              })
+            }
+          />
+        )}
+        <select
+          className="scope-cell-select scope-unit-select"
+          aria-label={`${label} basis for ${itemName}`}
+          value={unit}
+          disabled={disabled}
+          onChange={(event) => {
+            const nextUnit = event.target.value;
+            const nextQuantity =
+              nextUnit === "job"
+                ? 1
+                : nextUnit === saleUnit
+                  ? Math.max(1, Number(saleQuantity) || 1)
+                  : 1;
+            onChange({
+              unit: nextUnit,
+              quantity: String(nextQuantity),
+              rate: String(rateFromTotal(Number(total), nextQuantity)),
+              total,
+            });
+          }}
+        >
+          {pricingBases.map((basis) => (
+            <option key={basis.value} value={basis.value}>
+              {basis.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="scope-cost-rate">
+        <span aria-hidden="true">$</span>
+        <input
+          className="scope-cell-input scope-money-input"
+          aria-label={
+            unit === "job"
+              ? `${label} for ${itemName}`
+              : `${label} rate for ${itemName}`
+          }
+          type="number"
+          min="0"
+          max="1000000000"
+          step={unit === "job" ? "0.01" : "any"}
+          value={unit === "job" ? total : rate}
+          disabled={disabled}
+          onChange={(event) => {
+            const nextRate = event.target.value;
+            onChange({
+              unit,
+              quantity,
+              rate: nextRate,
+              total:
+                unit === "job"
+                  ? nextRate
+                  : String(lineTotal(Number(quantity), Number(nextRate))),
+            });
+          }}
+        />
+      </div>
+      {unit !== "job" && (
+        <small className="scope-line-total">
+          Total {money(draftNumber(total))}
+        </small>
+      )}
     </td>
   );
 }
