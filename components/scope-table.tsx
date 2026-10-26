@@ -431,7 +431,12 @@ export default function ScopeTable({
       event.relatedTarget.closest(".scope-new-project-row")
     )
       return;
-    if (compactQuoteRows && item)
+    // Keep the destination button mounted until its click opens the next row.
+    // Collapsing here can remove that button during the pointer sequence.
+    const movingToAnotherSummary =
+      event.relatedTarget instanceof Element &&
+      Boolean(event.relatedTarget.closest(".scope-summary-button"));
+    if (compactQuoteRows && item && !movingToAnotherSummary)
       setExpandedItemId((current) => (current === item.id ? null : current));
     void saveRow(item);
   }

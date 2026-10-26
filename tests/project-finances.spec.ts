@@ -453,7 +453,9 @@ test("quote cost bases save independent quantities and collapse to profit summar
 
   await page.getByRole("button", { name: "Add row", exact: true }).click();
   const row = page.locator(".scope-new-row");
-  await row.getByLabel("New work item").fill("Tile installation");
+  await row
+    .getByLabel("New work item", { exact: true })
+    .fill("Tile installation");
   await row.getByLabel("Price for Tile installation").fill("1000");
   await row
     .getByLabel("Subcontractor cost basis for Tile installation")
