@@ -29,6 +29,12 @@ export function rateLabel(unit: string) {
   return `Price per ${measuredUnits[unit]?.rate || unit}`;
 }
 
+export function costRateLabel(unit: string) {
+  return unit === "job"
+    ? "Total cost"
+    : `Cost per ${measuredUnits[unit]?.rate || unit}`;
+}
+
 /** ScopeItem.estimate remains the full line total throughout the app. */
 export function lineTotal(quantity: number, rate: number) {
   return Math.round((quantity * rate + Number.EPSILON) * 100) / 100;

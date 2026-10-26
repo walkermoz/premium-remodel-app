@@ -364,10 +364,12 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
     .getByLabel("Price per job for Garage framing", { exact: true })
     .fill("5000.15");
   await newRow
-    .getByLabel("Subcontractor cost for Garage framing", { exact: true })
+    .getByLabel("Subcontractor cost: Total cost for Garage framing", {
+      exact: true,
+    })
     .fill("2000");
   await newRow
-    .getByLabel("Material cost for Garage framing", { exact: true })
+    .getByLabel("Material cost: Total cost for Garage framing", { exact: true })
     .fill("750.15");
   await newRow.getByRole("button", { name: "Save Garage framing" }).click();
   await expect(newRow).toHaveCount(0);
@@ -516,8 +518,26 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Total sq ft for subcontractor cost of Tile installation")
     .fill("100");
   await row
-    .getByLabel("Subcontractor cost rate for Tile installation")
+    .getByLabel("Subcontractor cost: Cost per sq ft for Tile installation")
     .fill("3");
+  const subCostGroup = row.locator(".scope-inspector-price-group").nth(1);
+  for (const [basis, costLabel] of [
+    ["linear ft", "Cost per linear ft"],
+    ["each", "Cost per item"],
+    ["hours", "Cost per hour"],
+    ["job", "Total cost"],
+    ["sq ft", "Cost per sq ft"],
+  ] as const) {
+    await row
+      .getByLabel("Subcontractor cost basis for Tile installation")
+      .selectOption(basis);
+    await expect(
+      subCostGroup.getByText(costLabel, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      row.getByLabel(`Subcontractor cost: ${costLabel} for Tile installation`),
+    ).toBeVisible();
+  }
   await row
     .getByLabel("Material cost basis for Tile installation")
     .selectOption("each");
@@ -530,6 +550,12 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await expect(
     row.locator(".scope-inspector-price-group").nth(2).getByText("Total items"),
   ).toBeVisible();
+  await expect(
+    row
+      .locator(".scope-inspector-price-group")
+      .nth(2)
+      .getByText("Cost per item"),
+  ).toBeVisible();
   await row
     .getByLabel("Subcontractor cost basis for Tile installation")
     .selectOption("hours");
@@ -539,7 +565,9 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await row
     .getByLabel("Subcontractor cost basis for Tile installation")
     .selectOption("sq ft");
-  await row.getByLabel("Material cost rate for Tile installation").fill("50");
+  await row
+    .getByLabel("Material cost: Cost per item for Tile installation")
+    .fill("50");
   await page.setViewportSize({ width: 1600, height: 900 });
   for (const labels of [
     [
@@ -552,8 +580,8 @@ test("quote cost bases save independent quantities and collapse to profit summar
     ],
     [
       "Price per job for Tile installation",
-      "Subcontractor cost rate for Tile installation",
-      "Material cost rate for Tile installation",
+      "Subcontractor cost: Cost per sq ft for Tile installation",
+      "Material cost: Cost per item for Tile installation",
     ],
   ]) {
     const positions = await Promise.all(
@@ -599,7 +627,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
     page.getByLabel("Total items for material cost of Tile installation"),
   ).toHaveValue("3");
   await expect(
-    page.getByLabel("Material cost rate for Tile installation"),
+    page.getByLabel("Material cost: Cost per item for Tile installation"),
   ).toHaveValue("50");
   await summary.click();
   await expect(summary).toHaveAttribute("aria-expanded", "false");
