@@ -27,6 +27,9 @@ test("quote photos can be selected, labeled, and removed without losing the uplo
   const gallery = page.locator(".quote-photos-gallery");
   await expect(gallery.getByText("before-bath.jpg")).toBeVisible();
   await expect(gallery.getByText("0 of 8 selected")).toBeVisible();
+  await expect(
+    gallery.getByLabel("Photo type for before-bath.jpg").locator("option"),
+  ).toHaveText(["Before photo", "Example photo"]);
   await gallery.getByRole("button", { name: "Include in quote" }).click();
   await expect(gallery.getByText("1 of 8 selected")).toBeVisible();
   await expect(
@@ -41,7 +44,21 @@ test("quote photos can be selected, labeled, and removed without losing the uplo
   await gallery
     .getByLabel("Caption for before-bath.jpg")
     .fill("Warm tile inspiration");
-  await gallery.getByRole("button", { name: "Save caption" }).click();
+  await expect(
+    gallery.getByRole("button", { name: "Save caption" }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const stored = JSON.parse(
+          localStorage.getItem("premium-remodel-sample-v1") || "{}",
+        );
+        return stored.quotes?.find(
+          (quote: { name: string }) => quote.name === "Photo proposal",
+        )?.quotePhotos?.[0]?.caption;
+      }),
+    )
+    .toBe("Warm tile inspiration");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({
     path: "test-results/quote-photos-review.png",
