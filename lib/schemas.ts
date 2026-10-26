@@ -181,6 +181,22 @@ export const schemas = {
       preparedBy: short.optional(),
       preparedByPhone: short.optional(),
       quoteNotes: text.optional(),
+      quotePhotos: z
+        .array(
+          z.object({
+            attachmentId: z.uuid(),
+            kind: z.enum(["before", "example", "concept"]),
+            caption: short.max(120),
+          }),
+        )
+        .max(8)
+        .refine(
+          (photos) =>
+            new Set(photos.map((photo) => photo.attachmentId)).size ===
+            photos.length,
+          "Choose each quote photo once.",
+        )
+        .optional(),
     })
     .refine((p) => !p.startDate || !p.endDate || p.endDate >= p.startDate, {
       message: "End date must be on or after start date",

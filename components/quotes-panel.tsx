@@ -31,6 +31,7 @@ import { Empty } from "./ui";
 import type { Editor } from "./entity-form";
 import ScopeTable from "./scope-table";
 import FilesPanel from "./files-panel";
+import QuotePhotosPanel from "./quote-photos-panel";
 import QuoteImportDialog from "./quote-import-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
@@ -726,14 +727,32 @@ export function QuoteDetail({
       <section className="content-section">
         <div className="section-heading">
           <div>
-            <h2>Quote documents & photos</h2>
-            <p>Keep the quote you sent and supporting files together.</p>
+            <h2>Quote photos</h2>
+            <p>
+              Choose before and example photos to show your customer, or create
+              a finished concept.
+            </p>
+            {quote.quoteSentAt && (
+              <p>Resend the quote to update photos in the customer copy.</p>
+            )}
           </div>
         </div>
-        <FilesPanel
+        <QuotePhotosPanel
+          quote={quote}
           files={files}
+          demo={demo}
+          onSave={(photos) =>
+            onSave("quote", { ...quote, quotePhotos: photos }, quote)
+          }
+          onUpload={(file) => onUpload(file, quote.id)}
+          onDelete={(file) => onDelete("attachment", file)}
+          admin={user.role === "admin"}
+        />
+        <FilesPanel
+          files={files.filter((file) => !file.mime.startsWith("image/"))}
           admin={user.role === "admin"}
           demo={demo}
+          hideEmpty
           onUpload={async (file) => {
             await onUpload(file, quote.id);
           }}

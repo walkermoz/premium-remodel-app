@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { apiError, HttpError, requireUser } from "@/lib/auth";
 import { buildQuotePdf, quotePdfFileName } from "@/lib/quote-pdf";
+import { loadQuotePhotos } from "@/lib/quote-photos";
 import { findRecord, getWorkspace } from "@/lib/repository";
 import type { Quote } from "@/lib/types";
 
@@ -23,7 +24,8 @@ export async function GET(
     const logo = await readFile(
       path.join(process.cwd(), "public", "images", "logo.png"),
     );
-    const bytes = await buildQuotePdf(quote, workspace.scope, logo);
+    const photos = await loadQuotePhotos(quote, user.organizationId);
+    const bytes = await buildQuotePdf(quote, workspace.scope, logo, photos);
     const fileName = quotePdfFileName(quote).replace(/["\\]/g, "");
 
     return new Response(Buffer.from(bytes), {

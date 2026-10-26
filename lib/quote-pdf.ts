@@ -5,7 +5,7 @@ import {
   type PDFFont,
   type PDFPage,
 } from "pdf-lib";
-import type { Quote, ScopeItem } from "./types";
+import type { Quote, QuotePhoto, ScopeItem } from "./types";
 import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
@@ -227,6 +227,7 @@ export async function buildQuotePdf(
   quote: Quote,
   scope: ScopeItem[],
   logoBytes: Uint8Array,
+  photos: (QuotePhoto & { bytes: Uint8Array })[] = [],
 ) {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
@@ -514,6 +515,57 @@ export async function buildQuotePdf(
       8,
     );
     drawTop(page, "Date: _______________", LEFT, cursor + 19, regular, 8);
+  }
+
+  for (let index = 0; index < photos.length; index++) {
+    if (index % 2 === 0) {
+      page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+      pages.push(page);
+      drawTop(page, "QUOTE PHOTOS", LEFT, 44, bold, 13, colors.blue);
+      drawTop(page, meta, LEFT, 65, regular, 7.5, colors.muted);
+    }
+    const photo = photos[index];
+    const top = index % 2 === 0 ? 96 : 410;
+    const label =
+      photo.kind === "before"
+        ? "BEFORE"
+        : photo.kind === "concept"
+          ? "AI CONCEPT - VISUAL EXAMPLE"
+          : "EXAMPLE PHOTO";
+    drawTop(page, label, LEFT, top, bold, 8, colors.blue);
+    const image = await pdf.embedJpg(photo.bytes);
+    const dimensions = image.scaleToFit(CONTENT_WIDTH, 250);
+    page.drawImage(image, {
+      x: LEFT + (CONTENT_WIDTH - dimensions.width) / 2,
+      y: PAGE_HEIGHT - top - 18 - dimensions.height,
+      width: dimensions.width,
+      height: dimensions.height,
+    });
+    const caption = photo.caption;
+    if (caption)
+      wrap(caption, regular, 8, CONTENT_WIDTH)
+        .slice(0, 2)
+        .forEach((line, lineIndex) =>
+          drawTop(
+            page,
+            line,
+            LEFT,
+            top + 273 + lineIndex * 10,
+            regular,
+            8,
+            colors.muted,
+          ),
+        );
+    if (photo.kind === "concept")
+      drawTop(
+        page,
+        "Illustrative only. Final scope and materials are defined in the quote.",
+        LEFT,
+        top + 298,
+        regular,
+        7.5,
+        colors.muted,
+      );
   }
 
   pages.forEach((current, index) =>

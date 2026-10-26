@@ -136,6 +136,8 @@ export const quoteStatuses = [
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export interface Quote extends Omit<Project, "status"> {
   status: QuoteStatus;
+  /** Selected images shown to the customer in the quote and PDF. */
+  quotePhotos?: QuotePhoto[];
   /** Original filename for a PDF-imported quote; the PDF itself stays on the user's device. */
   importedFrom?: string;
   importedSources?: string[];
@@ -150,6 +152,11 @@ export interface Quote extends Omit<Project, "status"> {
   preparedBy?: string;
   preparedByPhone?: string;
   quoteNotes?: string;
+}
+export interface QuotePhoto {
+  attachmentId: string;
+  kind: "before" | "example" | "concept";
+  caption: string;
 }
 export interface Task extends Base {
   completion?: { id: string; at: string; byId: string; byName: string };

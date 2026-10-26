@@ -357,6 +357,24 @@ async function save(request: Request, editing: boolean) {
           );
       }
     }
+    if (kind === "quote" && data.quotePhotos) {
+      for (const photo of data.quotePhotos as {
+        attachmentId: string;
+      }[]) {
+        const attachment = (await findRecord(
+          user,
+          photo.attachmentId,
+          "attachment",
+        )) as Attachment | null;
+        if (
+          !attachment ||
+          attachment.projectId !== current?.id ||
+          !attachment.mime.startsWith("image/") ||
+          attachment.validationVersion !== FILE_VALIDATION_VERSION
+        )
+          throw new HttpError(400, "Choose photos uploaded to this quote.");
+      }
+    }
     if (kind === "task") {
       const previous = current as Task | null;
       if (data.status === "Done" && previous?.status !== "Done")

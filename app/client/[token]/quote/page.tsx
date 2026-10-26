@@ -682,6 +682,43 @@ export default async function ClientQuotePage({
                 </div>
               </section>
 
+              {!!quote.quotePhotos?.length && (
+                <section
+                  className={styles.quotePhotos}
+                  aria-label="Quote photos"
+                >
+                  <h2>Quote photos</h2>
+                  <div className={styles.quotePhotoGrid}>
+                    {quote.quotePhotos.map((photo) => (
+                      <figure key={photo.attachmentId}>
+                        <img
+                          src={`/api/client-quote/${encodeURIComponent(token)}/photos/${encodeURIComponent(photo.attachmentId)}`}
+                          alt={photo.caption || `${photo.kind} project photo`}
+                        />
+                        <figcaption>
+                          <strong>
+                            {photo.kind === "before"
+                              ? "Before"
+                              : photo.kind === "concept"
+                                ? "AI concept"
+                                : "Example photo"}
+                          </strong>
+                          {photo.caption && <span>{photo.caption}</span>}
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                  {quote.quotePhotos.some(
+                    (photo) => photo.kind === "concept",
+                  ) && (
+                    <p className={styles.quotePhotoNote}>
+                      AI concepts illustrate a possible finished look. The
+                      agreed work and materials are defined in the scope above.
+                    </p>
+                  )}
+                </section>
+              )}
+
               <section className={styles.terms} aria-labelledby="terms-title">
                 <h2 id="terms-title">Notes &amp; payment</h2>
                 {quote.quoteNotes && <p>{quote.quoteNotes}</p>}

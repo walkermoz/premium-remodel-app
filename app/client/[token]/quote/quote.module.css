@@ -1350,3 +1350,51 @@
   color: #347bc3;
   font-weight: 700;
 }
+.quotePhotos {
+  margin: 28px 0 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.quotePhotos h2 {
+  margin: 0 0 16px;
+  color: var(--blue);
+  font-size: 17px;
+}
+
+.quotePhotoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 18px;
+}
+
+.quotePhotoGrid figure {
+  margin: 0;
+}
+
+.quotePhotoGrid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--pale);
+}
+
+.quotePhotoGrid figcaption {
+  display: flex;
+  gap: 6px;
+  flex-direction: column;
+  padding-top: 8px;
+  font-size: 12px;
+}
+
+.quotePhotoGrid figcaption span,
+.quotePhotoNote {
+  color: var(--muted);
+}
+
+.quotePhotoNote {
+  margin: 14px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+}

@@ -11,6 +11,7 @@ import { renderQuoteEmail } from "./email-template";
 import { createClientEmailToken } from "./client-portal";
 import { ensureEmailedQuoteLink } from "./client-quote-link";
 import { buildQuotePdf, quotePdfFileName } from "./quote-pdf";
+import { loadQuotePhotos } from "./quote-photos";
 import { findRecord, getWorkspace, updateRecord } from "./repository";
 import { supabaseAdmin } from "./supabase/server";
 import type { Quote } from "./types";
@@ -188,7 +189,8 @@ export async function sendQuoteEmail(
     const logo = await readFile(
       path.join(process.cwd(), "public", "images", "logo.png"),
     );
-    const pdf = await buildQuotePdf(quote, workspace.scope, logo);
+    const photos = await loadQuotePhotos(quote, user.organizationId);
+    const pdf = await buildQuotePdf(quote, workspace.scope, logo, photos);
     if (pdf.length > 20 * 1024 * 1024)
       throw new HttpError(413, "This quote PDF is too large to email.");
     const linkId = await ensureEmailedQuoteLink(
