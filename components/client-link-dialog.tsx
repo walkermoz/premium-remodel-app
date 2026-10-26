@@ -40,14 +40,12 @@ function linkDate(value: string) {
 
 export default function ClientLinkDialog({
   project,
-  kind = "project",
   onClose,
   notify,
 }: {
   project: Pick<Project | Quote, "id" | "name" | "status"> & {
     quoteAcceptedAt?: string;
   };
-  kind?: "project" | "quote";
   onClose: () => void;
   notify?: (message: string, error?: boolean) => void;
 }) {
@@ -62,7 +60,7 @@ export default function ClientLinkDialog({
     void (async () => {
       try {
         const response = await fetch(
-          `/api/client-links?projectId=${encodeURIComponent(project.id)}&kind=${kind}`,
+          `/api/client-links?projectId=${encodeURIComponent(project.id)}&kind=quote`,
           { cache: "no-store", signal: controller.signal },
         );
         const result = await response.json();
@@ -80,7 +78,7 @@ export default function ClientLinkDialog({
       }
     })();
     return () => controller.abort();
-  }, [project.id, kind]);
+  }, [project.id]);
 
   async function createLink(rotate = false) {
     setSaving(true);
@@ -89,7 +87,7 @@ export default function ClientLinkDialog({
       const response = await fetch("/api/client-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, kind, rotate }),
+        body: JSON.stringify({ projectId: project.id, kind: "quote", rotate }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
@@ -115,7 +113,7 @@ export default function ClientLinkDialog({
       const response = await fetch("/api/client-links", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, kind }),
+        body: JSON.stringify({ projectId: project.id, kind: "quote" }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
@@ -147,12 +145,8 @@ export default function ClientLinkDialog({
 
   return (
     <Modal
-      title={kind === "quote" ? "Client quote link" : "Client project link"}
-      subtitle={
-        kind === "quote"
-          ? "A client-safe quote page with scope, total, and PDF."
-          : "A read-only update page you can send to the client."
-      }
+      title="Client quote link"
+      subtitle="A client-safe quote page with scope, total, and PDF."
       onClose={onClose}
     >
       <div className="client-link-dialog">
@@ -173,9 +167,9 @@ export default function ClientLinkDialog({
               <div>
                 <strong>Client access is active</strong>
                 <p>
-                  {kind === "quote"
-                    ? "The page shows a saved version of the quote. Replace this link to publish later edits. Internal costs and workspace notes are excluded."
-                    : "The page updates whenever project work changes. Internal costs, contractors, notes, and files are excluded."}
+                  The page shows a saved version of the quote. Replace this link
+                  to publish later edits. Internal costs and workspace notes are
+                  excluded.
                 </p>
               </div>
             </div>
@@ -225,15 +219,9 @@ export default function ClientLinkDialog({
             <span>
               <Link2 size={23} />
             </span>
-            <h3>
-              {kind === "quote"
-                ? "Create a private quote page"
-                : "Create a private project update page"}
-            </h3>
+            <h3>Create a private quote page</h3>
             <p>
-              {kind === "quote" &&
-              project.status !== "Sent" &&
-              !project.quoteAcceptedAt
+              {project.status !== "Sent" && !project.quoteAcceptedAt
                 ? "Mark this quote as sent before creating a client link."
                 : "Anyone with the link can view the client-safe summary. You can replace or disable the link at any time."}
             </p>
@@ -280,9 +268,7 @@ export default function ClientLinkDialog({
             disabled={
               saving ||
               loading ||
-              (kind === "quote" &&
-                project.status !== "Sent" &&
-                !project.quoteAcceptedAt)
+              (project.status !== "Sent" && !project.quoteAcceptedAt)
             }
             onClick={() => void createLink()}
           >

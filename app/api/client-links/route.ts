@@ -19,11 +19,12 @@ import type { Project, Quote } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-function linkKind(value: unknown): "project" | "quote" {
-  if (value === undefined || value === null || value === "project")
-    return "project";
+function linkKind(value: unknown): "quote" {
   if (value === "quote") return "quote";
-  throw new HttpError(400, "Choose a valid client link type.");
+  throw new HttpError(
+    400,
+    "Legacy project links are no longer available. Use the quote portal.",
+  );
 }
 
 function projectIdFrom(request: Request) {

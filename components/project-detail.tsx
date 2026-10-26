@@ -101,7 +101,6 @@ export default function ProjectDetail({
   upcomingView: UpcomingView;
   onUpcomingViewChange: (view: UpcomingView) => void;
 }) {
-  const [clientLinkOpen, setClientLinkOpen] = useState(false);
   const [quoteLinkOpen, setQuoteLinkOpen] = useState(false);
   const clock = contractClock(project, contractToday);
   const tabs = useRef<HTMLDivElement>(null);
@@ -315,15 +314,6 @@ export default function ProjectDetail({
               <Share2 size={15} /> Quote link
             </button>
           )}
-          {user.role === "admin" && !demo && (
-            <button
-              className="button secondary"
-              onClick={() => setClientLinkOpen(true)}
-            >
-              <Share2 size={15} />
-              <span>Client link</span>
-            </button>
-          )}
           <button className="button secondary" onClick={exportSheet}>
             <Download size={15} />
             <span>Export sheet</span>
@@ -337,17 +327,9 @@ export default function ProjectDetail({
           </button>
         </div>
       </div>
-      {clientLinkOpen && (
-        <ClientLinkDialog
-          project={project}
-          onClose={() => setClientLinkOpen(false)}
-          notify={notify}
-        />
-      )}
       {quoteLinkOpen && (
         <ClientLinkDialog
           project={project}
-          kind="quote"
           onClose={() => setQuoteLinkOpen(false)}
           notify={notify}
         />

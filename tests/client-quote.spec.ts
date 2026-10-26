@@ -574,7 +574,7 @@ cloudTest(
       headers: origin,
       data: { projectId: quote.id, kind: "project" },
     });
-    expect(projectLink.status()).toBe(404);
+    expect(projectLink.status()).toBe(400);
 
     const rotated = await api.post("/api/client-links", {
       headers: origin,
