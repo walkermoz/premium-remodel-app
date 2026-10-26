@@ -433,21 +433,22 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await expect(row.getByText("Price per job", { exact: true })).toBeVisible();
   await row.getByLabel("Number of jobs for Labor").fill("3");
   await row.getByLabel("Price per job for Labor").fill("200");
-  await expect(row.locator(".scope-line-total")).toHaveText("Line total $600");
+  const quotePrice = row.locator(
+    ".scope-inspector-totals > span:first-child strong",
+  );
+  await expect(quotePrice).toHaveText("$600");
   await row.getByLabel("Unit for Labor").selectOption("hours");
   await expect(row.getByLabel("Total hours for Labor")).toHaveValue("1");
   await expect(row.getByLabel("Price per hour for Labor")).toHaveValue("600");
   await row.getByLabel("Total hours for Labor").fill("2.5");
   await row.getByLabel("Price per hour for Labor").fill("80");
-  await expect(row.locator(".scope-line-total")).toHaveText("Line total $200");
+  await expect(quotePrice).toHaveText("$200");
   await row.getByLabel("Unit for Labor").selectOption("sq ft");
   await expect(row.getByText("Total sq ft", { exact: true })).toBeVisible();
   await expect(row.getByText("Price per sq ft", { exact: true })).toBeVisible();
   await row.getByLabel("Total sq ft for Labor").fill("250");
   await row.getByLabel("Price per sq ft for Labor").fill("250");
-  await expect(row.locator(".scope-line-total")).toHaveText(
-    "Line total $62,500",
-  );
+  await expect(quotePrice).toHaveText("$62,500");
   await row.getByLabel("Unit for Labor").selectOption("linear ft");
   await expect(row.getByText("Total linear ft", { exact: true })).toBeVisible();
   await expect(
@@ -477,7 +478,9 @@ test("per-unit quote rates calculate and persist the line total", async ({
     .fill("Permit packages");
   await jobs.getByLabel("Number of jobs for Permit packages").fill("2");
   await jobs.getByLabel("Price per job for Permit packages").fill("150");
-  await expect(jobs.locator(".scope-line-total")).toHaveText("Line total $300");
+  await expect(
+    jobs.locator(".scope-inspector-totals > span:first-child strong"),
+  ).toHaveText("$300");
   await jobs.getByRole("button", { name: "Save Permit packages" }).click();
   await page.reload();
   await page.getByRole("button", { name: "Edit Permit packages" }).click();
@@ -522,12 +525,44 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Material cost quantity for Tile installation")
     .fill("2");
   await row.getByLabel("Material cost rate for Tile installation").fill("50");
+  await page.setViewportSize({ width: 1600, height: 900 });
+  for (const labels of [
+    [
+      "Number of jobs for Tile installation",
+      "Unit for Tile installation",
+      "Subcontractor cost quantity for Tile installation",
+      "Subcontractor cost basis for Tile installation",
+      "Material cost quantity for Tile installation",
+      "Material cost basis for Tile installation",
+    ],
+    [
+      "Price per job for Tile installation",
+      "Subcontractor cost rate for Tile installation",
+      "Material cost rate for Tile installation",
+    ],
+  ]) {
+    const positions = await Promise.all(
+      labels.map(async (name) => (await row.getByLabel(name).boundingBox())?.y),
+    );
+    expect(positions.every((y) => y !== undefined)).toBe(true);
+    expect(
+      Math.max(...(positions as number[])) -
+        Math.min(...(positions as number[])),
+    ).toBeLessThanOrEqual(2);
+  }
   await row.getByRole("button", { name: "Save Tile installation" }).click();
 
   const summary = page.getByRole("button", { name: "Edit Tile installation" });
+  await expect(summary.getByText("Quote price", { exact: true })).toBeVisible();
+  await expect(summary).toContainText("$1,000");
   await expect(summary).toContainText("$400");
   await expect(summary).toContainText("$600");
   await summary.click();
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".scope-inspector-row")).toBeVisible();
+  await expect(
+    page.locator(".scope-inspector-header .scope-inspector-scope"),
+  ).toBeVisible();
   await expect(
     page.getByLabel("Subcontractor cost basis for Tile installation"),
   ).toHaveValue("sq ft");
@@ -538,6 +573,8 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Material cost quantity for Tile installation")
     .fill("3");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".scope-inspector-row")).toHaveCount(0);
   await expect(summary).toContainText("$450");
   await expect(summary).toContainText("$550");
   await page.reload();
@@ -549,6 +586,9 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await expect(
     page.getByLabel("Material cost rate for Tile installation"),
   ).toHaveValue("50");
+  await summary.click();
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".scope-inspector-row")).toHaveCount(0);
 });
 
 test("quote projects can be renamed or ungrouped without losing rows", async ({

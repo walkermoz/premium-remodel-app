@@ -2922,19 +2922,23 @@ small {
   border-spacing: 0;
 }
 .scope-table-compact.scope-table-no-status col:nth-child(1) {
-  width: 30%;
+  width: 22%;
 }
 .scope-table-compact.scope-table-no-status col:nth-child(2) {
   width: 15%;
 }
-.scope-table-compact.scope-table-no-status col:nth-child(3),
+.scope-table-compact.scope-table-no-status col:nth-child(3) {
+  width: 10%;
+}
 .scope-table-compact.scope-table-no-status col:nth-child(4),
-.scope-table-compact.scope-table-no-status col:nth-child(5),
+.scope-table-compact.scope-table-no-status col:nth-child(5) {
+  width: 20%;
+}
 .scope-table-compact.scope-table-no-status col:nth-child(6) {
-  width: 12%;
+  width: 9%;
 }
 .scope-table-compact.scope-table-no-status col:nth-child(7) {
-  width: 7%;
+  width: 4%;
 }
 .scope-table-compact:not(.scope-table-no-status) col:nth-child(1) {
   width: 27%;
@@ -2971,10 +2975,14 @@ small {
   min-width: 0;
 }
 .scope-table-compact tbody .scope-edit-row td {
-  padding: 9px 8px;
+  padding: 14px 12px 16px;
   vertical-align: top;
   background: color-mix(in srgb, var(--blue) 5%, var(--surface));
+  border-top: 1px solid var(--line);
   border-bottom: 0;
+}
+.scope-table-compact tbody .scope-edit-row td:not(:last-child) {
+  border-right: 1px solid color-mix(in srgb, var(--blue) 14%, var(--line));
 }
 .scope-table-compact tbody .scope-edit-row td:first-child {
   border-left: 1px solid var(--line);
@@ -2984,6 +2992,40 @@ small {
 }
 .scope-table-compact .scope-edit-row .scope-title-input {
   font-size: 11px;
+}
+.scope-table-compact .scope-edit-row .scope-pricing-heading {
+  margin-bottom: 7px;
+}
+.scope-table-compact .scope-edit-row td > .scope-field-label {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+}
+.scope-table-compact .scope-edit-row .scope-calculated-value {
+  justify-content: flex-start;
+  font-size: 14px;
+  font-weight: 700;
+}
+.scope-table-compact .scope-pricing-controls {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.8fr) minmax(108px, 1.2fr);
+  align-items: end;
+  gap: 6px;
+}
+.scope-table-compact .scope-pricing-controls > label:last-child {
+  grid-column: 1 / -1;
+}
+.scope-table-compact .scope-pricing-controls .scope-field-label,
+.scope-table-compact .scope-cost-controls .scope-field-label {
+  margin-bottom: 4px;
+  font-size: 9px;
+}
+.scope-table-compact .scope-pricing-total {
+  display: block;
+  margin-top: 5px;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 9px;
+  white-space: nowrap;
 }
 .scope-table-compact .scope-edit-row .scope-row-actions {
   gap: 3px;
@@ -3010,8 +3052,8 @@ small {
 .scope-summary-button {
   display: grid;
   grid-template-columns:
-    minmax(160px, 1.35fr) minmax(180px, 2fr) minmax(120px, 1fr)
-    minmax(105px, 0.8fr) minmax(105px, 0.8fr);
+    minmax(160px, 1.25fr) minmax(170px, 1.8fr) minmax(115px, 1fr)
+    repeat(3, minmax(100px, 0.8fr));
   gap: 16px;
   width: 100%;
   padding: 12px 18px;
@@ -3026,6 +3068,9 @@ small {
 .scope-summary-button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--blue) 45%, transparent);
   outline-offset: -2px;
+}
+.scope-summary-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--blue) 9%, var(--surface));
 }
 .scope-summary-button > span {
   min-width: 0;
@@ -3047,9 +3092,155 @@ small {
   -webkit-line-clamp: 2;
   white-space: normal;
 }
-.scope-summary-button > span:nth-last-child(-n + 2) {
+.scope-summary-button > span:nth-last-child(-n + 3) {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.scope-table-compact tbody .scope-inspector-row > td {
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.scope-table-compact tbody .scope-inspector-row.scope-item-alternate > td {
+  background: color-mix(in srgb, var(--blue) 4%, var(--surface));
+}
+.scope-inspector {
+  padding: 16px 20px 0;
+  color: var(--ink);
+}
+.scope-inspector-header {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 240px) auto;
+  align-items: end;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.scope-inspector-header:has(.scope-inspector-status) {
+  grid-template-columns:
+    minmax(260px, 1fr) minmax(180px, 240px) minmax(120px, 160px)
+    auto;
+}
+.scope-inspector-header label > span,
+.scope-inspector-scope > span,
+.scope-inspector-basis-row label > span,
+.scope-inspector-rate > span:first-child {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 10px;
+}
+.scope-inspector-title .scope-title-input {
+  height: 36px;
+  font-size: 13px;
+}
+.scope-inspector-header .scope-cell-select,
+.scope-inspector-header .scope-status-select,
+.scope-inspector-price-group .scope-cell-input,
+.scope-inspector-price-group .scope-cell-select {
+  height: 36px;
+  font-size: 11px;
+}
+.scope-inspector-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 36px;
+}
+.scope-inspector-scope {
+  grid-column: 1 / -1;
+  display: block;
+  width: min(100%, 740px);
+}
+.scope-inspector-body {
+  padding: 18px 0;
+}
+.scope-inspector-scope .scope-details-input {
+  min-height: 96px;
+  margin: 0;
+  padding: 10px;
+  font-size: 11px;
+}
+.scope-inspector-pricing-title {
+  margin-bottom: 13px;
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.scope-inspector-price-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.scope-inspector-price-group {
+  min-width: 0;
+  padding: 0 16px;
+  border-left: 1px solid var(--line);
+}
+.scope-inspector-price-group:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.scope-inspector-price-group:last-child {
+  padding-right: 0;
+}
+.scope-inspector-group-title {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.scope-inspector-basis-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.8fr) minmax(108px, 1.2fr);
+  gap: 8px;
+}
+.scope-inspector-basis-row label {
+  min-width: 0;
+}
+.scope-inspector-basis-row .scope-fixed-quantity {
+  display: flex;
+  align-items: center;
+  color: var(--theme-text-muted, #8796a2);
+}
+.scope-inspector-rate {
+  display: block;
+  margin-top: 12px;
+}
+.scope-inspector-totals {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  margin: 0 -20px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--blue) 4%, var(--surface));
+}
+.scope-inspector-totals > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 160px;
+  padding: 0 18px;
+  border-left: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.scope-inspector-totals > span:first-child {
+  border-left: 0;
+}
+.scope-inspector-totals small {
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 10px;
+}
+.scope-inspector-totals strong {
+  font-size: 13px;
+}
+.scope-inspector-profit strong:not(.is-overdue) {
+  color: var(--green);
 }
 .scope-row-detail-fields {
   display: grid;
@@ -3256,8 +3447,8 @@ small {
   grid-template-columns: minmax(96px, 1fr);
 }
 .scope-sale-basis {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
+  grid-template-columns: minmax(72px, 0.85fr) minmax(90px, 1.15fr);
+  gap: 5px;
 }
 .scope-field-stack {
   display: block;
@@ -3289,20 +3480,43 @@ small {
 .scope-cost-cell .scope-quantity-cell {
   margin-bottom: 4px;
 }
+.scope-table-compact .scope-cost-controls {
+  display: grid;
+  grid-template-columns: minmax(60px, 0.8fr) minmax(90px, 1.2fr);
+  align-items: end;
+  gap: 6px;
+}
+.scope-table-compact .scope-cost-controls .scope-quantity-cell {
+  display: contents;
+}
+.scope-table-compact .scope-cost-rate {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.scope-fixed-quantity > .scope-cell-input {
+  display: flex;
+  align-items: center;
+  color: var(--theme-text-muted, #8796a2);
+}
 .scope-cost-cell .scope-cell-select {
   font-size: 10px;
 }
 .scope-cost-rate {
+  min-width: 0;
+}
+.scope-pricing-rate {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0;
 }
-.scope-cost-rate > span {
+.scope-pricing-rate > span:first-child {
   color: var(--theme-text-muted, #91a0ab);
 }
-.scope-cost-rate .scope-money-input {
+.scope-pricing-rate .scope-money-input {
   flex: 1;
   width: 100%;
+  min-width: 0;
 }
 .scope-cost-cell .scope-line-total {
   margin-left: 0;

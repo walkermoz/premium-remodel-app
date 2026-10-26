@@ -636,59 +636,93 @@ export default function ScopeTable({
                         onRemove={() => updateProjectGrouping(sectionKey, null)}
                       />
                     )}
-                  {inline && compactQuoteRows && expandedItemId !== item.id ? (
-                    <tr
-                      className={`scope-summary-row${index % 2 === 1 ? " scope-item-alternate" : ""}${projectAccentClasses.get(sectionKey) ? ` ${projectAccentClasses.get(sectionKey)}` : ""}`}
-                    >
-                      <td colSpan={showStatus ? 8 : 7}>
-                        <button
-                          type="button"
-                          className="scope-summary-button"
-                          aria-label={`Edit ${draft.title}`}
-                          aria-expanded="false"
-                          onClick={() => setExpandedItemId(item.id)}
-                        >
-                          <span>
-                            <small>Work item</small>
-                            <strong>{draft.title}</strong>
-                          </span>
-                          <span>
-                            <small>Scope</small>
-                            <span className="scope-summary-scope">
-                              {draft.details || "No scope details"}
-                            </span>
-                          </span>
-                          <span>
-                            <small>Contractor</small>
+                  {inline && compactQuoteRows ? (
+                    <>
+                      <tr
+                        className={`scope-summary-row${index % 2 === 1 ? " scope-item-alternate" : ""}${projectAccentClasses.get(sectionKey) ? ` ${projectAccentClasses.get(sectionKey)}` : ""}`}
+                      >
+                        <td colSpan={showStatus ? 8 : 7}>
+                          <button
+                            type="button"
+                            className="scope-summary-button"
+                            aria-label={`Edit ${draft.title}`}
+                            aria-expanded={expandedItemId === item.id}
+                            onClick={() =>
+                              setExpandedItemId((current) =>
+                                current === item.id ? null : item.id,
+                              )
+                            }
+                          >
                             <span>
-                              {workspace.contractors.find(
-                                (contractor) =>
-                                  contractor.id === draft.contractorId,
-                              )?.name || "Unassigned"}
+                              <small>Work item</small>
+                              <strong>{draft.title}</strong>
                             </span>
-                          </span>
-                          <span>
-                            <small>Total costs</small>
                             <span>
-                              {money(
-                                draftNumber(draft.subCost) +
-                                  draftNumber(draft.materialCost),
-                              )}
+                              <small>Scope</small>
+                              <span className="scope-summary-scope">
+                                {draft.details || "No scope details"}
+                              </span>
                             </span>
-                          </span>
-                          <span>
-                            <small>Profit</small>
-                            <strong
-                              className={
-                                difference < 0 ? "is-overdue" : undefined
-                              }
-                            >
-                              {money(difference)}
-                            </strong>
-                          </span>
-                        </button>
-                      </td>
-                    </tr>
+                            <span>
+                              <small>Contractor</small>
+                              <span>
+                                {workspace.contractors.find(
+                                  (contractor) =>
+                                    contractor.id === draft.contractorId,
+                                )?.name || "Unassigned"}
+                              </span>
+                            </span>
+                            <span>
+                              <small>Quote price</small>
+                              <strong>
+                                {money(draftNumber(draft.estimate))}
+                              </strong>
+                            </span>
+                            <span>
+                              <small>Total costs</small>
+                              <span>
+                                {money(
+                                  draftNumber(draft.subCost) +
+                                    draftNumber(draft.materialCost),
+                                )}
+                              </span>
+                            </span>
+                            <span>
+                              <small>Profit</small>
+                              <strong
+                                className={
+                                  difference < 0 ? "is-overdue" : undefined
+                                }
+                              >
+                                {money(difference)}
+                              </strong>
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedItemId === item.id && (
+                        <CompactQuoteEditor
+                          draft={draft}
+                          workspace={workspace}
+                          difference={difference}
+                          alternateShade={index % 2 === 1}
+                          accentClassName={projectAccentClasses.get(sectionKey)}
+                          saving={saving.has(item.id)}
+                          dirty={dirty(item)}
+                          compact
+                          focusTitle
+                          editorId={item.id}
+                          showStatus={showStatus}
+                          onChange={(patch) =>
+                            updateDraft(item.id, patch, item)
+                          }
+                          onSave={() => void saveRow(item)}
+                          onDelete={() => onDelete(item)}
+                          onBlur={(event) => rowBlur(event, item)}
+                          onKeyDown={(event) => rowKeyDown(event, item)}
+                        />
+                      )}
+                    </>
                   ) : inline ? (
                     <EditableRow
                       draft={draft}
@@ -820,33 +854,61 @@ export default function ScopeTable({
                 </td>
               </tr>
             )}
-            {inline && adding && (
-              <EditableRow
-                draft={newDraft}
-                workspace={workspace}
-                difference={
-                  draftNumber(newDraft.estimate) -
-                  draftNumber(newDraft.subCost) -
-                  draftNumber(newDraft.materialCost)
-                }
-                alternateShade={orderedItems.length % 2 === 1}
-                accentClassName={newRowAccentClass}
-                saving={saving.has("new")}
-                dirty
-                compact={compactQuoteRows}
-                editorId="new"
-                showStatus={showStatus}
-                newRow
-                titleRef={newTitle}
-                onChange={(patch) =>
-                  setNewDraft((current) => ({ ...current, ...patch }))
-                }
-                onSave={() => void saveRow()}
-                onDelete={cancelAdding}
-                onBlur={(event) => rowBlur(event)}
-                onKeyDown={(event) => rowKeyDown(event)}
-              />
-            )}
+            {inline &&
+              adding &&
+              (compactQuoteRows ? (
+                <CompactQuoteEditor
+                  draft={newDraft}
+                  workspace={workspace}
+                  difference={
+                    draftNumber(newDraft.estimate) -
+                    draftNumber(newDraft.subCost) -
+                    draftNumber(newDraft.materialCost)
+                  }
+                  alternateShade={orderedItems.length % 2 === 1}
+                  accentClassName={newRowAccentClass}
+                  saving={saving.has("new")}
+                  dirty
+                  compact
+                  editorId="new"
+                  showStatus={showStatus}
+                  newRow
+                  titleRef={newTitle}
+                  onChange={(patch) =>
+                    setNewDraft((current) => ({ ...current, ...patch }))
+                  }
+                  onSave={() => void saveRow()}
+                  onDelete={cancelAdding}
+                  onBlur={(event) => rowBlur(event)}
+                  onKeyDown={(event) => rowKeyDown(event)}
+                />
+              ) : (
+                <EditableRow
+                  draft={newDraft}
+                  workspace={workspace}
+                  difference={
+                    draftNumber(newDraft.estimate) -
+                    draftNumber(newDraft.subCost) -
+                    draftNumber(newDraft.materialCost)
+                  }
+                  alternateShade={orderedItems.length % 2 === 1}
+                  accentClassName={newRowAccentClass}
+                  saving={saving.has("new")}
+                  dirty
+                  compact={compactQuoteRows}
+                  editorId="new"
+                  showStatus={showStatus}
+                  newRow
+                  titleRef={newTitle}
+                  onChange={(patch) =>
+                    setNewDraft((current) => ({ ...current, ...patch }))
+                  }
+                  onSave={() => void saveRow()}
+                  onDelete={cancelAdding}
+                  onBlur={(event) => rowBlur(event)}
+                  onKeyDown={(event) => rowKeyDown(event)}
+                />
+              ))}
             {inline && !adding && (
               <tr className="scope-add-row">
                 <td colSpan={showStatus ? 8 : 7}>
@@ -1186,31 +1248,22 @@ function EditableRow({
           </>
         )}
       </td>
-      <td>
-        <div className="scope-quantity-cell scope-sale-basis">
-          <label className="scope-field-stack">
-            {compact && <span className="scope-field-label">Price by</span>}
-            <select
-              className="scope-cell-select scope-unit-select"
-              aria-label={`Unit for ${draft.title || "new work item"}`}
-              value={draft.unit}
-              disabled={saving}
-              onChange={(event) => {
-                const unit = event.target.value;
-                onChange({
-                  unit,
-                  quantity: "1",
-                  rate: draft.estimate,
-                });
-              }}
-            >
-              {salePricingBases.map((unit) => (
-                <option key={unit.value} value={unit.value}>
-                  {unit.label}
-                </option>
-              ))}
-            </select>
-          </label>
+      <td
+        colSpan={compact ? 2 : undefined}
+        className={compact ? "scope-pricing-cell" : undefined}
+      >
+        {compact && (
+          <span className="scope-field-label scope-pricing-heading">
+            Customer price
+          </span>
+        )}
+        <div
+          className={
+            compact
+              ? "scope-pricing-controls"
+              : "scope-quantity-cell scope-sale-basis"
+          }
+        >
           <label className="scope-field-stack">
             {compact && (
               <span className="scope-field-label">
@@ -1239,24 +1292,83 @@ function EditableRow({
               }}
             />
           </label>
+          <label className="scope-field-stack">
+            {compact && <span className="scope-field-label">Price by</span>}
+            <select
+              className="scope-cell-select scope-unit-select"
+              aria-label={`Unit for ${draft.title || "new work item"}`}
+              value={draft.unit}
+              disabled={saving}
+              onChange={(event) => {
+                const unit = event.target.value;
+                onChange({
+                  unit,
+                  quantity: "1",
+                  rate: draft.estimate,
+                });
+              }}
+            >
+              {salePricingBases.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {compact && (
+            <label className="scope-field-stack">
+              <span className="scope-field-label">{rateLabel(draft.unit)}</span>
+              <span className="scope-pricing-rate">
+                <span aria-hidden="true">$</span>
+                <input
+                  className="scope-cell-input scope-money-input"
+                  aria-label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+                  type="number"
+                  min="0"
+                  max="1000000000"
+                  step="any"
+                  value={draft.rate}
+                  disabled={saving}
+                  onChange={(event) => {
+                    const rate = event.target.value;
+                    onChange({
+                      rate,
+                      estimate: String(
+                        lineTotal(Number(draft.quantity), Number(rate)),
+                      ),
+                    });
+                  }}
+                />
+              </span>
+            </label>
+          )}
         </div>
+        {compact && (
+          <small className="scope-pricing-total">
+            Total {money(draftNumber(draft.estimate))}
+          </small>
+        )}
       </td>
-      <MoneyCell
-        heading={compact ? rateLabel(draft.unit) : undefined}
-        label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
-        value={draft.rate}
-        hint={`Line total ${money(draftNumber(draft.estimate))}`}
-        step="any"
-        disabled={saving}
-        onChange={(value) =>
-          onChange({
-            rate: value,
-            estimate: String(lineTotal(Number(draft.quantity), Number(value))),
-          })
-        }
-      />
+      {!compact && (
+        <MoneyCell
+          label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+          value={draft.rate}
+          hint={`Line total ${money(draftNumber(draft.estimate))}`}
+          step="any"
+          disabled={saving}
+          onChange={(value) =>
+            onChange({
+              rate: value,
+              estimate: String(
+                lineTotal(Number(draft.quantity), Number(value)),
+              ),
+            })
+          }
+        />
+      )}
       <CostCell
         heading="Sub cost"
+        compact={compact}
         label="Subcontractor cost"
         itemName={draft.title || "new work item"}
         unit={draft.subCostUnit}
@@ -1277,6 +1389,7 @@ function EditableRow({
       />
       <CostCell
         heading="Material cost"
+        compact={compact}
         label="Material cost"
         itemName={draft.title || "new work item"}
         unit={draft.materialCostUnit}
@@ -1414,6 +1527,418 @@ function EditableRow({
   );
 }
 
+function CompactQuoteEditor({
+  draft,
+  workspace,
+  difference,
+  alternateShade,
+  accentClassName,
+  saving,
+  dirty,
+  focusTitle = false,
+  editorId,
+  showStatus,
+  newRow = false,
+  titleRef,
+  onChange,
+  onSave,
+  onDelete,
+  onBlur,
+  onKeyDown,
+}: Parameters<typeof EditableRow>[0]) {
+  const itemName = draft.title || "new work item";
+  const totalCosts =
+    draftNumber(draft.subCost) + draftNumber(draft.materialCost);
+
+  return (
+    <tr
+      className={`scope-inspector-row${newRow ? " scope-new-row" : ""}${alternateShade ? " scope-item-alternate" : ""}${accentClassName ? ` ${accentClassName}` : ""}`}
+      data-scope-editor-id={editorId}
+      aria-busy={saving}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+    >
+      <td colSpan={showStatus ? 8 : 7}>
+        <div className="scope-inspector">
+          <div className="scope-inspector-header">
+            <label className="scope-inspector-title">
+              <span>Work item</span>
+              <input
+                ref={titleRef}
+                autoFocus={focusTitle}
+                className="scope-cell-input scope-title-input"
+                aria-label={
+                  newRow ? "New work item" : `Work item ${draft.title}`
+                }
+                placeholder="Work item"
+                maxLength={250}
+                value={draft.title}
+                disabled={saving}
+                onChange={(event) => onChange({ title: event.target.value })}
+              />
+            </label>
+            <label className="scope-inspector-contractor">
+              <span>Contractor</span>
+              <select
+                className="scope-cell-select"
+                aria-label={`Contractor for ${itemName}`}
+                value={draft.contractorId}
+                disabled={saving}
+                onChange={(event) =>
+                  onChange({ contractorId: event.target.value })
+                }
+              >
+                <option value="">Unassigned</option>
+                {workspace.contractors.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name} · {candidate.trade || candidate.company}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {showStatus && (
+              <label className="scope-inspector-status">
+                <span>Status</span>
+                <select
+                  className="scope-status-select"
+                  aria-label={`Status for ${itemName}`}
+                  value={draft.status}
+                  disabled={saving}
+                  onChange={(event) =>
+                    onChange({ status: event.target.value as TaskStatus })
+                  }
+                >
+                  {statuses.map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="scope-inspector-actions">
+              {saving ? (
+                <span className="scope-row-saving" aria-label="Saving row">
+                  <LoaderCircle size={14} className="spin" />
+                </span>
+              ) : (
+                dirty && (
+                  <button
+                    type="button"
+                    className="icon-button scope-save-row"
+                    onClick={onSave}
+                    aria-label={`Save ${itemName}`}
+                  >
+                    <Check size={14} />
+                  </button>
+                )
+              )}
+              <button
+                type="button"
+                className={`icon-button${newRow ? "" : " delete-action"}`}
+                disabled={saving}
+                onClick={onDelete}
+                aria-label={newRow ? "Cancel new row" : `Delete ${itemName}`}
+              >
+                {newRow ? <X size={14} /> : <Trash2 size={14} />}
+              </button>
+            </div>
+            <label className="scope-inspector-scope">
+              <span>Scope details</span>
+              <textarea
+                className="scope-cell-input scope-details-input"
+                aria-label={`Details for ${itemName}`}
+                placeholder="Describe the work included"
+                rows={detailRowCount(draft.details)}
+                maxLength={15000}
+                value={draft.details}
+                disabled={saving}
+                onChange={(event) => onChange({ details: event.target.value })}
+              />
+            </label>
+          </div>
+
+          <div className="scope-inspector-body">
+            <div className="scope-inspector-pricing">
+              <div className="scope-inspector-pricing-title">Pricing</div>
+              <div className="scope-inspector-price-groups">
+                <div className="scope-inspector-price-group">
+                  <span className="scope-inspector-group-title">
+                    Customer price
+                  </span>
+                  <div className="scope-inspector-basis-row">
+                    <label>
+                      <span>{quantityLabel(draft.unit)}</span>
+                      <input
+                        className="scope-cell-input scope-number-input"
+                        aria-label={`${quantityLabel(draft.unit)} for ${itemName}`}
+                        type="number"
+                        min="0"
+                        max="1000000000"
+                        step={
+                          draft.unit === "job" || draft.unit === "each"
+                            ? "1"
+                            : "0.01"
+                        }
+                        value={draft.quantity}
+                        disabled={saving}
+                        onChange={(event) => {
+                          const quantity = event.target.value;
+                          onChange({
+                            quantity,
+                            estimate: String(
+                              lineTotal(Number(quantity), Number(draft.rate)),
+                            ),
+                          });
+                        }}
+                      />
+                    </label>
+                    <label>
+                      <span>Price by</span>
+                      <select
+                        className="scope-cell-select"
+                        aria-label={`Unit for ${itemName}`}
+                        value={draft.unit}
+                        disabled={saving}
+                        onChange={(event) =>
+                          onChange({
+                            unit: event.target.value,
+                            quantity: "1",
+                            rate: draft.estimate,
+                          })
+                        }
+                      >
+                        {salePricingBases.map((unit) => (
+                          <option key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <label className="scope-inspector-rate">
+                    <span>{rateLabel(draft.unit)}</span>
+                    <span className="scope-pricing-rate">
+                      <span aria-hidden="true">$</span>
+                      <input
+                        className="scope-cell-input scope-money-input"
+                        aria-label={`${rateLabel(draft.unit)} for ${itemName}`}
+                        type="number"
+                        min="0"
+                        max="1000000000"
+                        step="any"
+                        value={draft.rate}
+                        disabled={saving}
+                        onChange={(event) => {
+                          const rate = event.target.value;
+                          onChange({
+                            rate,
+                            estimate: String(
+                              lineTotal(Number(draft.quantity), Number(rate)),
+                            ),
+                          });
+                        }}
+                      />
+                    </span>
+                  </label>
+                </div>
+                <QuoteCostGroup
+                  heading="Sub cost"
+                  label="Subcontractor cost"
+                  itemName={itemName}
+                  unit={draft.subCostUnit}
+                  quantity={draft.subCostQuantity}
+                  rate={draft.subCostRate}
+                  total={draft.subCost}
+                  saleUnit={draft.unit}
+                  saleQuantity={draft.quantity}
+                  disabled={saving}
+                  onChange={(cost) =>
+                    onChange({
+                      subCostUnit: cost.unit,
+                      subCostQuantity: cost.quantity,
+                      subCostRate: cost.rate,
+                      subCost: cost.total,
+                    })
+                  }
+                />
+                <QuoteCostGroup
+                  heading="Material cost"
+                  label="Material cost"
+                  itemName={itemName}
+                  unit={draft.materialCostUnit}
+                  quantity={draft.materialCostQuantity}
+                  rate={draft.materialCostRate}
+                  total={draft.materialCost}
+                  saleUnit={draft.unit}
+                  saleQuantity={draft.quantity}
+                  disabled={saving}
+                  onChange={(cost) =>
+                    onChange({
+                      materialCostUnit: cost.unit,
+                      materialCostQuantity: cost.quantity,
+                      materialCostRate: cost.rate,
+                      materialCost: cost.total,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="scope-inspector-totals">
+            <span>
+              <small>Quote price</small>
+              <strong>{money(draftNumber(draft.estimate))}</strong>
+            </span>
+            <span>
+              <small>Total costs</small>
+              <strong>{money(totalCosts)}</strong>
+            </span>
+            <span className="scope-inspector-profit">
+              <small>Profit</small>
+              <strong className={difference < 0 ? "is-overdue" : undefined}>
+                {money(difference)}
+              </strong>
+            </span>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function QuoteCostGroup({
+  heading,
+  label,
+  itemName,
+  unit,
+  quantity,
+  rate,
+  total,
+  saleUnit,
+  saleQuantity,
+  disabled,
+  onChange,
+}: {
+  heading: string;
+  label: string;
+  itemName: string;
+  unit: string;
+  quantity: string;
+  rate: string;
+  total: string;
+  saleUnit: string;
+  saleQuantity: string;
+  disabled: boolean;
+  onChange: (value: {
+    unit: string;
+    quantity: string;
+    rate: string;
+    total: string;
+  }) => void;
+}) {
+  return (
+    <div className="scope-inspector-price-group">
+      <span className="scope-inspector-group-title">{heading}</span>
+      <div className="scope-inspector-basis-row">
+        <label>
+          <span>Qty</span>
+          {unit === "job" ? (
+            <span
+              className="scope-cell-input scope-fixed-quantity"
+              aria-label={`${label} fixed quantity for ${itemName}`}
+            >
+              1
+            </span>
+          ) : (
+            <input
+              className="scope-cell-input scope-number-input"
+              aria-label={`${label} quantity for ${itemName}`}
+              type="number"
+              min="0"
+              max="1000000000"
+              step="0.01"
+              value={quantity}
+              disabled={disabled}
+              onChange={(event) =>
+                onChange({
+                  unit,
+                  quantity: event.target.value,
+                  rate,
+                  total: String(
+                    lineTotal(Number(event.target.value), Number(rate)),
+                  ),
+                })
+              }
+            />
+          )}
+        </label>
+        <label>
+          <span>Cost by</span>
+          <select
+            className="scope-cell-select"
+            aria-label={`${label} basis for ${itemName}`}
+            value={unit}
+            disabled={disabled}
+            onChange={(event) => {
+              const nextUnit = event.target.value;
+              const nextQuantity =
+                nextUnit === "job"
+                  ? 1
+                  : nextUnit === saleUnit
+                    ? Math.max(1, Number(saleQuantity) || 1)
+                    : 1;
+              onChange({
+                unit: nextUnit,
+                quantity: String(nextQuantity),
+                rate: String(rateFromTotal(Number(total), nextQuantity)),
+                total,
+              });
+            }}
+          >
+            {pricingBases.map((basis) => (
+              <option key={basis.value} value={basis.value}>
+                {basis.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="scope-inspector-rate">
+        <span>{unit === "job" ? "Amount" : "Rate"}</span>
+        <span className="scope-pricing-rate">
+          <span aria-hidden="true">$</span>
+          <input
+            className="scope-cell-input scope-money-input"
+            aria-label={
+              unit === "job"
+                ? `${label} for ${itemName}`
+                : `${label} rate for ${itemName}`
+            }
+            type="number"
+            min="0"
+            max="1000000000"
+            step={unit === "job" ? "0.01" : "any"}
+            value={unit === "job" ? total : rate}
+            disabled={disabled}
+            onChange={(event) => {
+              const nextRate = event.target.value;
+              onChange({
+                unit,
+                quantity,
+                rate: nextRate,
+                total:
+                  unit === "job"
+                    ? nextRate
+                    : String(lineTotal(Number(quantity), Number(nextRate))),
+              });
+            }}
+          />
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function MoneyCell({
   heading,
   label,
@@ -1455,6 +1980,7 @@ function MoneyCell({
 
 function CostCell({
   heading,
+  compact,
   label,
   itemName,
   unit,
@@ -1467,6 +1993,7 @@ function CostCell({
   onChange,
 }: {
   heading: string;
+  compact: boolean;
   label: string;
   itemName: string;
   unit: string;
@@ -1484,90 +2011,122 @@ function CostCell({
   }) => void;
 }) {
   return (
-    <td className="scope-cost-cell">
-      <span className="scope-field-label">{heading}</span>
-      <div className={`scope-quantity-cell${unit === "job" ? " is-flat" : ""}`}>
-        {unit !== "job" && (
-          <input
-            className="scope-cell-input scope-number-input"
-            aria-label={`${label} quantity for ${itemName}`}
-            type="number"
-            min="0"
-            max="1000000000"
-            step="0.01"
-            value={quantity}
-            disabled={disabled}
-            onChange={(event) =>
-              onChange({
-                unit,
-                quantity: event.target.value,
-                rate,
-                total: String(
-                  lineTotal(Number(event.target.value), Number(rate)),
-                ),
-              })
-            }
-          />
-        )}
-        <select
-          className="scope-cell-select scope-unit-select"
-          aria-label={`${label} basis for ${itemName}`}
-          value={unit}
-          disabled={disabled}
-          onChange={(event) => {
-            const nextUnit = event.target.value;
-            const nextQuantity =
-              nextUnit === "job"
-                ? 1
-                : nextUnit === saleUnit
-                  ? Math.max(1, Number(saleQuantity) || 1)
-                  : 1;
-            onChange({
-              unit: nextUnit,
-              quantity: String(nextQuantity),
-              rate: String(rateFromTotal(Number(total), nextQuantity)),
-              total,
-            });
-          }}
+    <td className={`scope-cost-cell${compact ? " scope-pricing-cell" : ""}`}>
+      <span
+        className={`scope-field-label${compact ? " scope-pricing-heading" : ""}`}
+      >
+        {heading}
+      </span>
+      <div className={`scope-cost-controls${unit === "job" ? " is-flat" : ""}`}>
+        <div
+          className={`scope-quantity-cell${unit === "job" ? " is-flat" : ""}`}
         >
-          {pricingBases.map((basis) => (
-            <option key={basis.value} value={basis.value}>
-              {basis.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="scope-cost-rate">
-        <span aria-hidden="true">$</span>
-        <input
-          className="scope-cell-input scope-money-input"
-          aria-label={
-            unit === "job"
-              ? `${label} for ${itemName}`
-              : `${label} rate for ${itemName}`
-          }
-          type="number"
-          min="0"
-          max="1000000000"
-          step={unit === "job" ? "0.01" : "any"}
-          value={unit === "job" ? total : rate}
-          disabled={disabled}
-          onChange={(event) => {
-            const nextRate = event.target.value;
-            onChange({
-              unit,
-              quantity,
-              rate: nextRate,
-              total:
+          {unit === "job" && compact && (
+            <span className="scope-field-stack scope-fixed-quantity">
+              <span className="scope-field-label">Qty</span>
+              <span
+                className="scope-cell-input"
+                aria-label={`${label} fixed quantity for ${itemName}`}
+              >
+                1
+              </span>
+            </span>
+          )}
+          {unit !== "job" && (
+            <label className="scope-field-stack">
+              {compact && <span className="scope-field-label">Qty</span>}
+              <input
+                className="scope-cell-input scope-number-input"
+                aria-label={`${label} quantity for ${itemName}`}
+                type="number"
+                min="0"
+                max="1000000000"
+                step="0.01"
+                value={quantity}
+                disabled={disabled}
+                onChange={(event) =>
+                  onChange({
+                    unit,
+                    quantity: event.target.value,
+                    rate,
+                    total: String(
+                      lineTotal(Number(event.target.value), Number(rate)),
+                    ),
+                  })
+                }
+              />
+            </label>
+          )}
+          <label className="scope-field-stack">
+            {compact && <span className="scope-field-label">Cost by</span>}
+            <select
+              className="scope-cell-select scope-unit-select"
+              aria-label={`${label} basis for ${itemName}`}
+              value={unit}
+              disabled={disabled}
+              onChange={(event) => {
+                const nextUnit = event.target.value;
+                const nextQuantity =
+                  nextUnit === "job"
+                    ? 1
+                    : nextUnit === saleUnit
+                      ? Math.max(1, Number(saleQuantity) || 1)
+                      : 1;
+                onChange({
+                  unit: nextUnit,
+                  quantity: String(nextQuantity),
+                  rate: String(rateFromTotal(Number(total), nextQuantity)),
+                  total,
+                });
+              }}
+            >
+              {pricingBases.map((basis) => (
+                <option key={basis.value} value={basis.value}>
+                  {basis.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="scope-cost-rate">
+          {compact && (
+            <span className="scope-field-label">
+              {unit === "job" ? "Amount" : "Rate"}
+            </span>
+          )}
+          <span className="scope-pricing-rate">
+            <span aria-hidden="true">$</span>
+            <input
+              className="scope-cell-input scope-money-input"
+              aria-label={
                 unit === "job"
-                  ? nextRate
-                  : String(lineTotal(Number(quantity), Number(nextRate))),
-            });
-          }}
-        />
+                  ? `${label} for ${itemName}`
+                  : `${label} rate for ${itemName}`
+              }
+              type="number"
+              min="0"
+              max="1000000000"
+              step={unit === "job" ? "0.01" : "any"}
+              value={unit === "job" ? total : rate}
+              disabled={disabled}
+              onChange={(event) => {
+                const nextRate = event.target.value;
+                onChange({
+                  unit,
+                  quantity,
+                  rate: nextRate,
+                  total:
+                    unit === "job"
+                      ? nextRate
+                      : String(lineTotal(Number(quantity), Number(nextRate))),
+                });
+              }}
+            />
+          </span>
+        </div>
       </div>
-      {unit !== "job" && (
-        <small className="scope-line-total">
+      {(compact || unit !== "job") && (
+        <small className={compact ? "scope-pricing-total" : "scope-line-total"}>
           Total {money(draftNumber(total))}
         </small>
       )}
