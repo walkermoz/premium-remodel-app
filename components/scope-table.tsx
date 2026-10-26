@@ -27,6 +27,7 @@ import {
   pricingBases,
   salePricingBases,
   quantityLabel,
+  costRateLabel,
   rateFromTotal,
   rateLabel,
 } from "@/lib/scope-pricing";
@@ -1904,16 +1905,12 @@ function QuoteCostGroup({
         </label>
       </div>
       <label className="scope-inspector-rate">
-        <span>{unit === "job" ? "Amount" : "Rate"}</span>
+        <span>{costRateLabel(unit)}</span>
         <span className="scope-pricing-rate">
           <span aria-hidden="true">$</span>
           <input
             className="scope-cell-input scope-money-input"
-            aria-label={
-              unit === "job"
-                ? `${label} for ${itemName}`
-                : `${label} rate for ${itemName}`
-            }
+            aria-label={`${label}: ${costRateLabel(unit)} for ${itemName}`}
             type="number"
             min="0"
             max="1000000000"
@@ -2092,19 +2089,13 @@ function CostCell({
         </div>
         <div className="scope-cost-rate">
           {compact && (
-            <span className="scope-field-label">
-              {unit === "job" ? "Amount" : "Rate"}
-            </span>
+            <span className="scope-field-label">{costRateLabel(unit)}</span>
           )}
           <span className="scope-pricing-rate">
             <span aria-hidden="true">$</span>
             <input
               className="scope-cell-input scope-money-input"
-              aria-label={
-                unit === "job"
-                  ? `${label} for ${itemName}`
-                  : `${label} rate for ${itemName}`
-              }
+              aria-label={`${label}: ${costRateLabel(unit)} for ${itemName}`}
               type="number"
               min="0"
               max="1000000000"
