@@ -2975,10 +2975,20 @@ small {
   min-width: 0;
 }
 .scope-table-compact tbody .scope-edit-row td {
-  padding: 9px 8px;
+  padding: 14px 12px 16px;
   vertical-align: top;
   background: color-mix(in srgb, var(--blue) 5%, var(--surface));
   border-bottom: 0;
+}
+.scope-table-compact tbody .scope-edit-row td:not(:last-child) {
+  position: relative;
+}
+.scope-table-compact tbody .scope-edit-row td:not(:last-child)::after {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid color-mix(in srgb, var(--blue) 18%, var(--line));
+  content: "";
+  pointer-events: none;
 }
 .scope-table-compact tbody .scope-edit-row td:first-child {
   border-left: 1px solid var(--line);
@@ -3084,9 +3094,13 @@ small {
 .scope-row-detail-fields {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
-  gap: 12px;
-  padding: 10px 0 4px;
-  border-top: 1px solid var(--line);
+  gap: 6px;
+  padding: 0 2px 4px;
+}
+.scope-table-compact .scope-row-detail-fields > label {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--blue) 18%, var(--line));
 }
 .scope-field-label,
 .scope-row-detail-fields label > span {
