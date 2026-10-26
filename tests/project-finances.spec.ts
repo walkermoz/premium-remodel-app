@@ -550,6 +550,8 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await row.getByRole("button", { name: "Save Tile installation" }).click();
 
   const summary = page.getByRole("button", { name: "Edit Tile installation" });
+  await expect(summary.getByText("Quote price", { exact: true })).toBeVisible();
+  await expect(summary).toContainText("$1,000");
   await expect(summary).toContainText("$400");
   await expect(summary).toContainText("$600");
   await summary.click();

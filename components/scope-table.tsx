@@ -668,6 +668,12 @@ export default function ScopeTable({
                             </span>
                           </span>
                           <span>
+                            <small>Quote price</small>
+                            <strong>
+                              {money(draftNumber(draft.estimate))}
+                            </strong>
+                          </span>
+                          <span>
                             <small>Total costs</small>
                             <span>
                               {money(

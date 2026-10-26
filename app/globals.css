@@ -3040,8 +3040,8 @@ small {
 .scope-summary-button {
   display: grid;
   grid-template-columns:
-    minmax(160px, 1.35fr) minmax(180px, 2fr) minmax(120px, 1fr)
-    minmax(105px, 0.8fr) minmax(105px, 0.8fr);
+    minmax(160px, 1.25fr) minmax(170px, 1.8fr) minmax(115px, 1fr)
+    repeat(3, minmax(100px, 0.8fr));
   gap: 16px;
   width: 100%;
   padding: 12px 18px;
@@ -3077,7 +3077,7 @@ small {
   -webkit-line-clamp: 2;
   white-space: normal;
 }
-.scope-summary-button > span:nth-last-child(-n + 2) {
+.scope-summary-button > span:nth-last-child(-n + 3) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
