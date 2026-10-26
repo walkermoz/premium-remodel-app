@@ -107,21 +107,17 @@ test("selected before and concept photos are included on a labeled quote page", 
   ]);
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const document = await getDocument({ data: bytes }).promise;
-  try {
-    expect(document.numPages).toBe(2);
-    const page = await document.getPage(2);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
-    expect(text).toContain("QUOTE PHOTOS");
-    expect(text).toContain("BEFORE");
-    expect(text).toContain("Existing bath");
-    expect(text).toContain("AI CONCEPT - VISUAL EXAMPLE");
-    expect(text).toContain("Warm spa concept");
-  } finally {
-    await document.destroy();
-  }
+  expect(document.numPages).toBe(2);
+  const page = await document.getPage(2);
+  const content = await page.getTextContent();
+  const text = content.items
+    .map((item) => ("str" in item ? item.str : ""))
+    .join(" ");
+  expect(text).toContain("QUOTE PHOTOS");
+  expect(text).toContain("BEFORE");
+  expect(text).toContain("Existing bath");
+  expect(text).toContain("AI CONCEPT - VISUAL EXAMPLE");
+  expect(text).toContain("Warm spa concept");
 });
 
 test("quote PDF omits a removed project heading but retains its work item", async () => {
