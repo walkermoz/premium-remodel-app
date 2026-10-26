@@ -340,7 +340,15 @@ export const schemas = {
     unit: short,
     estimate: amount,
     subCost: amount,
+    subCostUnit: z
+      .enum(["job", "sq ft", "linear ft", "each", "hours"])
+      .optional(),
+    subCostQuantity: z.number().min(0).max(1_000_000_000).optional(),
     materialCost: amount.default(0),
+    materialCostUnit: z
+      .enum(["job", "sq ft", "linear ft", "each", "hours"])
+      .optional(),
+    materialCostQuantity: z.number().min(0).max(1_000_000_000).optional(),
     contractorId: short,
     status: taskStatus,
   }),

@@ -48,7 +48,7 @@ export function scopeDifference(item: ScopeItem) {
   );
 }
 
-// A browser opened before material costs were added must not erase saved costs.
+// Older clients must not erase saved cost totals or their pricing bases.
 export function preserveScopeCosts(
   input: Record<string, unknown>,
   current?: ScopeItem | null,
@@ -67,6 +67,22 @@ export function preserveScopeCosts(
       input.materialCost === undefined
         ? (current?.materialCost ?? 0)
         : input.materialCost,
+    subCostUnit:
+      input.subCostUnit === undefined
+        ? current?.subCostUnit
+        : input.subCostUnit,
+    subCostQuantity:
+      input.subCostQuantity === undefined
+        ? current?.subCostQuantity
+        : input.subCostQuantity,
+    materialCostUnit:
+      input.materialCostUnit === undefined
+        ? current?.materialCostUnit
+        : input.materialCostUnit,
+    materialCostQuantity:
+      input.materialCostQuantity === undefined
+        ? current?.materialCostQuantity
+        : input.materialCostQuantity,
   };
 }
 

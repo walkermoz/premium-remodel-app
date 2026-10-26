@@ -187,8 +187,13 @@ export interface ScopeItem extends Base {
   unit: string;
   estimate: number;
   subCost: number;
+  /** Basis and quantity for the subcontractor rate; subCost remains the line total. */
+  subCostUnit?: string;
+  subCostQuantity?: number;
   // Older scope items have no separately recorded material cost.
   materialCost?: number;
+  materialCostUnit?: string;
+  materialCostQuantity?: number;
   contractorId: string;
   status: TaskStatus;
 }
