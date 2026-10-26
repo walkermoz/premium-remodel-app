@@ -1189,29 +1189,6 @@ function EditableRow({
       <td>
         <div className="scope-quantity-cell scope-sale-basis">
           <label className="scope-field-stack">
-            {compact && <span className="scope-field-label">Price by</span>}
-            <select
-              className="scope-cell-select scope-unit-select"
-              aria-label={`Unit for ${draft.title || "new work item"}`}
-              value={draft.unit}
-              disabled={saving}
-              onChange={(event) => {
-                const unit = event.target.value;
-                onChange({
-                  unit,
-                  quantity: "1",
-                  rate: draft.estimate,
-                });
-              }}
-            >
-              {salePricingBases.map((unit) => (
-                <option key={unit.value} value={unit.value}>
-                  {unit.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="scope-field-stack">
             {compact && (
               <span className="scope-field-label">
                 {quantityLabel(draft.unit)}
@@ -1238,6 +1215,29 @@ function EditableRow({
                 });
               }}
             />
+          </label>
+          <label className="scope-field-stack">
+            {compact && <span className="scope-field-label">Price by</span>}
+            <select
+              className="scope-cell-select scope-unit-select"
+              aria-label={`Unit for ${draft.title || "new work item"}`}
+              value={draft.unit}
+              disabled={saving}
+              onChange={(event) => {
+                const unit = event.target.value;
+                onChange({
+                  unit,
+                  quantity: "1",
+                  rate: draft.estimate,
+                });
+              }}
+            >
+              {salePricingBases.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       </td>
@@ -1486,85 +1486,89 @@ function CostCell({
   return (
     <td className="scope-cost-cell">
       <span className="scope-field-label">{heading}</span>
-      <div className={`scope-quantity-cell${unit === "job" ? " is-flat" : ""}`}>
-        {unit !== "job" && (
+      <div className={`scope-cost-controls${unit === "job" ? " is-flat" : ""}`}>
+        <div
+          className={`scope-quantity-cell${unit === "job" ? " is-flat" : ""}`}
+        >
+          {unit !== "job" && (
+            <input
+              className="scope-cell-input scope-number-input"
+              aria-label={`${label} quantity for ${itemName}`}
+              type="number"
+              min="0"
+              max="1000000000"
+              step="0.01"
+              value={quantity}
+              disabled={disabled}
+              onChange={(event) =>
+                onChange({
+                  unit,
+                  quantity: event.target.value,
+                  rate,
+                  total: String(
+                    lineTotal(Number(event.target.value), Number(rate)),
+                  ),
+                })
+              }
+            />
+          )}
+          <select
+            className="scope-cell-select scope-unit-select"
+            aria-label={`${label} basis for ${itemName}`}
+            value={unit}
+            disabled={disabled}
+            onChange={(event) => {
+              const nextUnit = event.target.value;
+              const nextQuantity =
+                nextUnit === "job"
+                  ? 1
+                  : nextUnit === saleUnit
+                    ? Math.max(1, Number(saleQuantity) || 1)
+                    : 1;
+              onChange({
+                unit: nextUnit,
+                quantity: String(nextQuantity),
+                rate: String(rateFromTotal(Number(total), nextQuantity)),
+                total,
+              });
+            }}
+          >
+            {pricingBases.map((basis) => (
+              <option key={basis.value} value={basis.value}>
+                {basis.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="scope-cost-rate">
+          <span aria-hidden="true">$</span>
           <input
-            className="scope-cell-input scope-number-input"
-            aria-label={`${label} quantity for ${itemName}`}
+            className="scope-cell-input scope-money-input"
+            aria-label={
+              unit === "job"
+                ? `${label} for ${itemName}`
+                : `${label} rate for ${itemName}`
+            }
             type="number"
             min="0"
             max="1000000000"
-            step="0.01"
-            value={quantity}
+            step={unit === "job" ? "0.01" : "any"}
+            value={unit === "job" ? total : rate}
             disabled={disabled}
-            onChange={(event) =>
+            onChange={(event) => {
+              const nextRate = event.target.value;
               onChange({
                 unit,
-                quantity: event.target.value,
-                rate,
-                total: String(
-                  lineTotal(Number(event.target.value), Number(rate)),
-                ),
-              })
-            }
+                quantity,
+                rate: nextRate,
+                total:
+                  unit === "job"
+                    ? nextRate
+                    : String(lineTotal(Number(quantity), Number(nextRate))),
+              });
+            }}
           />
-        )}
-        <select
-          className="scope-cell-select scope-unit-select"
-          aria-label={`${label} basis for ${itemName}`}
-          value={unit}
-          disabled={disabled}
-          onChange={(event) => {
-            const nextUnit = event.target.value;
-            const nextQuantity =
-              nextUnit === "job"
-                ? 1
-                : nextUnit === saleUnit
-                  ? Math.max(1, Number(saleQuantity) || 1)
-                  : 1;
-            onChange({
-              unit: nextUnit,
-              quantity: String(nextQuantity),
-              rate: String(rateFromTotal(Number(total), nextQuantity)),
-              total,
-            });
-          }}
-        >
-          {pricingBases.map((basis) => (
-            <option key={basis.value} value={basis.value}>
-              {basis.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="scope-cost-rate">
-        <span aria-hidden="true">$</span>
-        <input
-          className="scope-cell-input scope-money-input"
-          aria-label={
-            unit === "job"
-              ? `${label} for ${itemName}`
-              : `${label} rate for ${itemName}`
-          }
-          type="number"
-          min="0"
-          max="1000000000"
-          step={unit === "job" ? "0.01" : "any"}
-          value={unit === "job" ? total : rate}
-          disabled={disabled}
-          onChange={(event) => {
-            const nextRate = event.target.value;
-            onChange({
-              unit,
-              quantity,
-              rate: nextRate,
-              total:
-                unit === "job"
-                  ? nextRate
-                  : String(lineTotal(Number(quantity), Number(nextRate))),
-            });
-          }}
-        />
+        </div>
       </div>
       {unit !== "job" && (
         <small className="scope-line-total">

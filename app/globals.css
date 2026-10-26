@@ -2917,24 +2917,28 @@ small {
   width: 7%;
 }
 .scope-table-compact.scope-table-no-status {
-  min-width: 1250px;
+  min-width: 1400px;
   border-collapse: separate;
   border-spacing: 0;
 }
 .scope-table-compact.scope-table-no-status col:nth-child(1) {
-  width: 30%;
+  width: 26%;
 }
 .scope-table-compact.scope-table-no-status col:nth-child(2) {
-  width: 15%;
+  width: 16%;
 }
-.scope-table-compact.scope-table-no-status col:nth-child(3),
+.scope-table-compact.scope-table-no-status col:nth-child(3) {
+  width: 11%;
+}
 .scope-table-compact.scope-table-no-status col:nth-child(4),
-.scope-table-compact.scope-table-no-status col:nth-child(5),
+.scope-table-compact.scope-table-no-status col:nth-child(5) {
+  width: 17%;
+}
 .scope-table-compact.scope-table-no-status col:nth-child(6) {
-  width: 12%;
+  width: 8%;
 }
 .scope-table-compact.scope-table-no-status col:nth-child(7) {
-  width: 7%;
+  width: 5%;
 }
 .scope-table-compact:not(.scope-table-no-status) col:nth-child(1) {
   width: 27%;
@@ -3256,8 +3260,8 @@ small {
   grid-template-columns: minmax(96px, 1fr);
 }
 .scope-sale-basis {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
+  grid-template-columns: minmax(72px, 0.85fr) minmax(90px, 1.15fr);
+  gap: 5px;
 }
 .scope-field-stack {
   display: block;
@@ -3288,6 +3292,24 @@ small {
 }
 .scope-cost-cell .scope-quantity-cell {
   margin-bottom: 4px;
+}
+.scope-table-compact .scope-cost-controls {
+  display: grid;
+  grid-template-columns: minmax(42px, 0.6fr) minmax(78px, 1.1fr) minmax(
+      68px,
+      0.9fr
+    );
+  align-items: center;
+  gap: 4px;
+}
+.scope-table-compact .scope-cost-controls.is-flat {
+  grid-template-columns: minmax(88px, 1.1fr) minmax(68px, 0.9fr);
+}
+.scope-table-compact .scope-cost-controls .scope-quantity-cell {
+  display: contents;
+}
+.scope-table-compact .scope-cost-rate {
+  min-width: 0;
 }
 .scope-cost-cell .scope-cell-select {
   font-size: 10px;

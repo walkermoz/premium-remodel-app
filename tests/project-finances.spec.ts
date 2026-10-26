@@ -522,6 +522,25 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Material cost quantity for Tile installation")
     .fill("2");
   await row.getByLabel("Material cost rate for Tile installation").fill("50");
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const alignedInputs = await Promise.all(
+    [
+      "Number of jobs for Tile installation",
+      "Unit for Tile installation",
+      "Price per job for Tile installation",
+      "Subcontractor cost quantity for Tile installation",
+      "Subcontractor cost basis for Tile installation",
+      "Subcontractor cost rate for Tile installation",
+      "Material cost quantity for Tile installation",
+      "Material cost basis for Tile installation",
+      "Material cost rate for Tile installation",
+    ].map(async (name) => (await row.getByLabel(name).boundingBox())?.y),
+  );
+  expect(alignedInputs.every((y) => y !== undefined)).toBe(true);
+  expect(
+    Math.max(...(alignedInputs as number[])) -
+      Math.min(...(alignedInputs as number[])),
+  ).toBeLessThanOrEqual(2);
   await row.getByRole("button", { name: "Save Tile installation" }).click();
 
   const summary = page.getByRole("button", { name: "Edit Tile installation" });
