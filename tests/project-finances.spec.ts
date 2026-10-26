@@ -380,6 +380,16 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await savedRow.getByLabel("Price per job for Garage framing").fill("5100.15");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
   await expect(page.locator(".scope-table tfoot")).toContainText("$5,100.15");
+  const overview = page.locator(".quote-overview");
+  await expect(overview.locator(".quote-overview-metric").nth(0)).toContainText(
+    "$5,100.15",
+  );
+  await expect(overview.locator(".quote-overview-metric").nth(1)).toContainText(
+    "$2,750.15",
+  );
+  await expect(overview.locator(".quote-overview-metric").nth(2)).toContainText(
+    "$2,350",
+  );
   await page.locator('.files-panel input[type="file"]').setInputFiles({
     name: "quote.txt",
     mimeType: "text/plain",
