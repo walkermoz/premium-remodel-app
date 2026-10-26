@@ -429,15 +429,27 @@ test("per-unit quote rates calculate and persist the line total", async ({
     .getByRole("textbox", { name: "New work item", exact: true })
     .fill("Labor");
   await row.getByLabel("Unit for Labor").selectOption("hours");
-  await row.getByLabel("Quantity for Labor").fill("2.5");
-  await row.getByLabel("Rate per hour for Labor").fill("80");
-  await expect(row.locator(".scope-line-total")).toHaveText("Total $200");
+  await row.getByLabel("Total hours for Labor").fill("2.5");
+  await row.getByLabel("$/hour for Labor").fill("80");
+  await expect(row.locator(".scope-line-total")).toHaveText("Line total $200");
+  await row.getByLabel("Unit for Labor").selectOption("sq ft");
+  await expect(row.getByText("Total sq ft", { exact: true })).toBeVisible();
+  await expect(row.getByText("$/sq ft", { exact: true })).toBeVisible();
+  await row.getByLabel("Unit for Labor").selectOption("linear ft");
+  await expect(row.getByText("Total linear ft", { exact: true })).toBeVisible();
+  await expect(row.getByText("$/linear ft", { exact: true })).toBeVisible();
+  await row.getByLabel("Unit for Labor").selectOption("each");
+  await expect(row.getByText("Total items", { exact: true })).toBeVisible();
+  await expect(row.getByText("$/item", { exact: true })).toBeVisible();
+  await row.getByLabel("Unit for Labor").selectOption("hours");
+  await expect(row.getByText("Total hours", { exact: true })).toBeVisible();
+  await expect(row.getByText("$/hour", { exact: true })).toBeVisible();
   await row.getByRole("button", { name: "Save Labor" }).click();
   await expect(row).toHaveCount(0);
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
   await page.reload();
   await page.getByRole("button", { name: "Edit Labor" }).click();
-  await expect(page.getByLabel("Rate per hour for Labor")).toHaveValue("80");
+  await expect(page.getByLabel("$/hour for Labor")).toHaveValue("80");
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
 });
 
@@ -738,7 +750,7 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
     .getByRole("button", { name: "Edit Shower base & waterproofing" })
     .click();
   await expect(
-    table.getByLabel("Quantity for Shower base & waterproofing"),
+    table.getByLabel("Total sq ft for Shower base & waterproofing"),
   ).toHaveCount(0);
   await expect(
     table.getByLabel("Unit for Shower base & waterproofing"),
@@ -759,7 +771,7 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
     .getByRole("button", { name: "Edit Shower wall tile installation" })
     .click();
   await expect(
-    table.getByLabel("Quantity for Shower wall tile installation"),
+    table.getByLabel("Total sq ft for Shower wall tile installation"),
   ).toBeVisible();
   await expect(
     table.getByLabel("Unit for Shower wall tile installation"),

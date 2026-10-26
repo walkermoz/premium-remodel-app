@@ -3009,10 +3009,9 @@ small {
 }
 .scope-summary-button {
   display: grid;
-  grid-template-columns: minmax(160px, 1.35fr) minmax(180px, 2fr) minmax(
-      120px,
-      1fr
-    ) minmax(105px, 0.8fr) minmax(105px, 0.8fr);
+  grid-template-columns:
+    minmax(160px, 1.35fr) minmax(180px, 2fr) minmax(120px, 1fr)
+    minmax(105px, 0.8fr) minmax(105px, 0.8fr);
   gap: 16px;
   width: 100%;
   padding: 12px 18px;
@@ -3255,6 +3254,13 @@ small {
 }
 .scope-quantity-cell.is-flat {
   grid-template-columns: minmax(96px, 1fr);
+}
+.scope-field-stack {
+  display: block;
+  min-width: 0;
+}
+.scope-quantity-cell .scope-field-label {
+  white-space: nowrap;
 }
 .scope-number-input,
 .scope-money-input {

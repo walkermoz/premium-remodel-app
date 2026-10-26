@@ -25,6 +25,7 @@ import {
 import {
   lineTotal,
   pricingBases,
+  quantityLabel,
   rateFromTotal,
   rateLabel,
 } from "@/lib/scope-pricing";
@@ -1188,64 +1189,75 @@ function EditableRow({
         )}
       </td>
       <td>
-        {compact && <span className="scope-field-label">Pricing basis</span>}
         <div
           className={`scope-quantity-cell${draft.unit === "job" ? " is-flat" : ""}`}
         >
           {draft.unit !== "job" && (
-            <input
-              className="scope-cell-input scope-number-input"
-              aria-label={`Quantity for ${draft.title || "new work item"}`}
-              type="number"
-              min="0"
-              max="1000000000"
-              step="0.01"
-              value={draft.quantity}
+            <label className="scope-field-stack">
+              {compact && (
+                <span className="scope-field-label">
+                  {quantityLabel(draft.unit)}
+                </span>
+              )}
+              <input
+                className="scope-cell-input scope-number-input"
+                aria-label={`${quantityLabel(draft.unit)} for ${draft.title || "new work item"}`}
+                type="number"
+                min="0"
+                max="1000000000"
+                step="0.01"
+                value={draft.quantity}
+                disabled={saving}
+                onChange={(event) => {
+                  const quantity = event.target.value;
+                  onChange({
+                    quantity,
+                    estimate: String(
+                      lineTotal(Number(quantity), Number(draft.rate)),
+                    ),
+                  });
+                }}
+              />
+            </label>
+          )}
+          <label className="scope-field-stack">
+            {compact && (
+              <span className="scope-field-label">Pricing basis</span>
+            )}
+            <select
+              className="scope-cell-select scope-unit-select"
+              aria-label={`Unit for ${draft.title || "new work item"}`}
+              value={draft.unit}
               disabled={saving}
               onChange={(event) => {
-                const quantity = event.target.value;
+                const unit = event.target.value;
                 onChange({
-                  quantity,
-                  estimate: String(
-                    lineTotal(Number(quantity), Number(draft.rate)),
-                  ),
+                  unit,
+                  ...(unit === "job"
+                    ? { quantity: "1", rate: draft.estimate }
+                    : draft.unit === "job"
+                      ? { rate: draft.estimate }
+                      : {}),
                 });
               }}
-            />
-          )}
-          <select
-            className="scope-cell-select scope-unit-select"
-            aria-label={`Unit for ${draft.title || "new work item"}`}
-            value={draft.unit}
-            disabled={saving}
-            onChange={(event) => {
-              const unit = event.target.value;
-              onChange({
-                unit,
-                ...(unit === "job"
-                  ? { quantity: "1", rate: draft.estimate }
-                  : draft.unit === "job"
-                    ? { rate: draft.estimate }
-                    : {}),
-              });
-            }}
-          >
-            {pricingBases.map((unit) => (
-              <option key={unit.value} value={unit.value}>
-                {unit.label}
-              </option>
-            ))}
-          </select>
+            >
+              {pricingBases.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </td>
       <MoneyCell
-        heading={compact ? "Price / rate" : undefined}
-        label={`${draft.unit === "job" ? "Price" : rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+        heading={compact ? rateLabel(draft.unit) : undefined}
+        label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
         value={draft.unit === "job" ? draft.estimate : draft.rate}
         hint={
           draft.unit === "job"
             ? undefined
-            : `Total ${money(draftNumber(draft.estimate))}`
+            : `Line total ${money(draftNumber(draft.estimate))}`
         }
         step={draft.unit === "job" ? "0.01" : "any"}
         disabled={saving}

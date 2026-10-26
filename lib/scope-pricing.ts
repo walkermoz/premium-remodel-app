@@ -7,9 +7,19 @@ export const pricingBases = [
   { value: "hours", label: "Per hour" },
 ];
 
+const measuredUnits: Record<string, { quantity: string; rate: string }> = {
+  "sq ft": { quantity: "sq ft", rate: "sq ft" },
+  "linear ft": { quantity: "linear ft", rate: "linear ft" },
+  each: { quantity: "items", rate: "item" },
+  hours: { quantity: "hours", rate: "hour" },
+};
+
+export function quantityLabel(unit: string) {
+  return `Total ${measuredUnits[unit]?.quantity || unit}`;
+}
+
 export function rateLabel(unit: string) {
-  const basis = pricingBases.find((entry) => entry.value === unit);
-  return `Rate ${basis?.label.toLowerCase() || `per ${unit}`}`;
+  return unit === "job" ? "Price" : `$/${measuredUnits[unit]?.rate || unit}`;
 }
 
 /** ScopeItem.estimate remains the full line total throughout the app. */
