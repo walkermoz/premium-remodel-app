@@ -208,17 +208,17 @@ test("material costs edit, persist, total and export on existing scope items", a
       .locator("xpath=ancestor::tr")
       .locator("td")
       .nth(1),
-  ).toHaveText("Flat price");
+  ).toHaveText("1 job");
   await table
     .getByRole("button", { name: "Edit Flooring", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel("Pricing basis")).toHaveValue("job");
-  await expect(dialog.getByLabel("Quantity", { exact: true })).toHaveCount(0);
-  await dialog.getByLabel("Pricing basis").selectOption("sq ft");
-  await expect(dialog.getByLabel("Quantity", { exact: true })).toBeVisible();
-  await dialog.getByLabel("Pricing basis").selectOption("job");
-  await expect(dialog.getByLabel("Quantity", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByLabel("Price by")).toHaveValue("job");
+  await expect(dialog.getByLabel("Number of jobs")).toHaveValue("1");
+  await dialog.getByLabel("Price by").selectOption("sq ft");
+  await expect(dialog.getByLabel("Total sq ft")).toBeVisible();
+  await dialog.getByLabel("Price by").selectOption("job");
+  await expect(dialog.getByLabel("Number of jobs")).toBeVisible();
   await expect(dialog.getByLabel("Material cost · total ($)")).toHaveValue("0");
   await dialog.getByLabel("Material cost · total ($)").fill("150.25");
   await dialog.getByRole("button", { name: "Save changes" }).click();
@@ -361,7 +361,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
     .getByRole("textbox", { name: "New work item", exact: true })
     .fill("Garage framing");
   await newRow
-    .getByLabel("Price for Garage framing", { exact: true })
+    .getByLabel("Price per job for Garage framing", { exact: true })
     .fill("5000.15");
   await newRow
     .getByLabel("Subcontractor cost for Garage framing", { exact: true })
@@ -375,7 +375,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   const savedRow = page.locator(".scope-table tbody tr").filter({
     has: page.locator('input[value="Garage framing"]'),
   });
-  await savedRow.getByLabel("Price for Garage framing").fill("5100.15");
+  await savedRow.getByLabel("Price per job for Garage framing").fill("5100.15");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
   await expect(page.locator(".scope-table tfoot")).toContainText("$5,100.15");
   await page.locator('.files-panel input[type="file"]').setInputFiles({
@@ -428,29 +428,66 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await row
     .getByRole("textbox", { name: "New work item", exact: true })
     .fill("Labor");
+  await expect(row.getByText("Price by", { exact: true })).toBeVisible();
+  await expect(row.getByText("Number of jobs", { exact: true })).toBeVisible();
+  await expect(row.getByText("Price per job", { exact: true })).toBeVisible();
+  await row.getByLabel("Number of jobs for Labor").fill("3");
+  await row.getByLabel("Price per job for Labor").fill("200");
+  await expect(row.locator(".scope-line-total")).toHaveText("Line total $600");
   await row.getByLabel("Unit for Labor").selectOption("hours");
+  await expect(row.getByLabel("Total hours for Labor")).toHaveValue("1");
+  await expect(row.getByLabel("Price per hour for Labor")).toHaveValue("600");
   await row.getByLabel("Total hours for Labor").fill("2.5");
-  await row.getByLabel("$/hour for Labor").fill("80");
+  await row.getByLabel("Price per hour for Labor").fill("80");
   await expect(row.locator(".scope-line-total")).toHaveText("Line total $200");
   await row.getByLabel("Unit for Labor").selectOption("sq ft");
   await expect(row.getByText("Total sq ft", { exact: true })).toBeVisible();
-  await expect(row.getByText("$/sq ft", { exact: true })).toBeVisible();
+  await expect(row.getByText("Price per sq ft", { exact: true })).toBeVisible();
+  await row.getByLabel("Total sq ft for Labor").fill("250");
+  await row.getByLabel("Price per sq ft for Labor").fill("250");
+  await expect(row.locator(".scope-line-total")).toHaveText(
+    "Line total $62,500",
+  );
   await row.getByLabel("Unit for Labor").selectOption("linear ft");
   await expect(row.getByText("Total linear ft", { exact: true })).toBeVisible();
-  await expect(row.getByText("$/linear ft", { exact: true })).toBeVisible();
+  await expect(
+    row.getByText("Price per linear ft", { exact: true }),
+  ).toBeVisible();
   await row.getByLabel("Unit for Labor").selectOption("each");
   await expect(row.getByText("Total items", { exact: true })).toBeVisible();
-  await expect(row.getByText("$/item", { exact: true })).toBeVisible();
+  await expect(row.getByText("Price per item", { exact: true })).toBeVisible();
   await row.getByLabel("Unit for Labor").selectOption("hours");
   await expect(row.getByText("Total hours", { exact: true })).toBeVisible();
-  await expect(row.getByText("$/hour", { exact: true })).toBeVisible();
+  await expect(row.getByText("Price per hour", { exact: true })).toBeVisible();
+  await row.getByLabel("Total hours for Labor").fill("2.5");
+  await row.getByLabel("Price per hour for Labor").fill("80");
   await row.getByRole("button", { name: "Save Labor" }).click();
   await expect(row).toHaveCount(0);
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
   await page.reload();
   await page.getByRole("button", { name: "Edit Labor" }).click();
-  await expect(page.getByLabel("$/hour for Labor")).toHaveValue("80");
+  await expect(page.getByLabel("Price per hour for Labor")).toHaveValue("80");
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
+  await page.getByRole("heading", { name: "Scope & pricing" }).click();
+
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const jobs = page.locator(".scope-new-row");
+  await jobs
+    .getByLabel("New work item", { exact: true })
+    .fill("Permit packages");
+  await jobs.getByLabel("Number of jobs for Permit packages").fill("2");
+  await jobs.getByLabel("Price per job for Permit packages").fill("150");
+  await expect(jobs.locator(".scope-line-total")).toHaveText("Line total $300");
+  await jobs.getByRole("button", { name: "Save Permit packages" }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "Edit Permit packages" }).click();
+  await expect(
+    page.getByLabel("Number of jobs for Permit packages"),
+  ).toHaveValue("2");
+  await expect(
+    page.getByLabel("Price per job for Permit packages"),
+  ).toHaveValue("150");
+  await expect(page.locator(".scope-table tfoot")).toContainText("$500");
 });
 
 test("quote cost bases save independent quantities and collapse to profit summary", async ({
@@ -468,7 +505,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await row
     .getByLabel("New work item", { exact: true })
     .fill("Tile installation");
-  await row.getByLabel("Price for Tile installation").fill("1000");
+  await row.getByLabel("Price per job for Tile installation").fill("1000");
   await row
     .getByLabel("Subcontractor cost basis for Tile installation")
     .selectOption("sq ft");
@@ -529,7 +566,7 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await row
     .getByRole("textbox", { name: "New work item", exact: true })
     .fill("Demo work");
-  await row.getByLabel("Price for Demo work").fill("250");
+  await row.getByLabel("Price per job for Demo work").fill("250");
   await row.getByRole("button", { name: "Save Demo work" }).click();
   await expect(page.locator(".scope-section-row")).toContainText("Project #1");
 
@@ -565,7 +602,7 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await secondRow
     .getByRole("textbox", { name: "New work item", exact: true })
     .fill("Finish work");
-  await secondRow.getByLabel("Price for Finish work").fill("50");
+  await secondRow.getByLabel("Price per job for Finish work").fill("50");
   await secondRow.getByRole("button", { name: "Save Finish work" }).click();
   await expect(page.locator(".scope-section-row")).toHaveCount(1);
   await expect(page.locator(".scope-section-row")).toContainText("2 items");
@@ -607,7 +644,7 @@ test("a quote can start a named project with its first work item", async ({
   await projectName.press("Enter");
   const firstItem = page.locator(".scope-new-row");
   await firstItem.getByLabel("New work item", { exact: true }).fill("Cabinets");
-  await firstItem.getByLabel("Price for Cabinets").fill("500");
+  await firstItem.getByLabel("Price per job for Cabinets").fill("500");
   await firstItem.getByRole("button", { name: "Save Cabinets" }).click();
   await expect(firstItem).toHaveCount(0);
   await expect(page.locator(".scope-section-row")).toContainText(
@@ -818,7 +855,9 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
   await table
     .getByRole("button", { name: "Edit Shower base & waterproofing" })
     .click();
-  await table.getByLabel("Price for Shower base & waterproofing").fill("4250");
+  await table
+    .getByLabel("Price per job for Shower base & waterproofing")
+    .fill("4250");
   await table
     .getByRole("button", { name: "Save Shower base & waterproofing" })
     .click();

@@ -3255,6 +3255,10 @@ small {
 .scope-quantity-cell.is-flat {
   grid-template-columns: minmax(96px, 1fr);
 }
+.scope-sale-basis {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
 .scope-field-stack {
   display: block;
   min-width: 0;
@@ -5150,9 +5154,6 @@ small {
 }
 .form-grid > * {
   min-width: 0;
-}
-.form-grid.scope-pricing-basis-grid {
-  grid-template-columns: 1fr;
 }
 .scope-rate-total {
   display: block;
