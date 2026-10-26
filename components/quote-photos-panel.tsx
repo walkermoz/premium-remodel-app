@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Download,
   ImagePlus,
@@ -13,11 +13,11 @@ import { generationProjectTypes, stylesForProject } from "@/lib/generation";
 import { prepareGenerationFile } from "@/lib/generation-client";
 import { useGenerationConfig } from "./use-generation-config";
 
-const roles: { value: QuotePhoto["kind"]; label: string }[] = [
+const roles: { value: "before" | "example"; label: string }[] = [
   { value: "before", label: "Before photo" },
   { value: "example", label: "Example photo" },
-  { value: "concept", label: "AI concept" },
 ];
+const noPhotos: QuotePhoto[] = [];
 
 export default function QuotePhotosPanel({
   quote,
@@ -40,9 +40,11 @@ export default function QuotePhotosPanel({
     ["image/jpeg", "image/png", "image/webp"].includes(file.mime),
   );
   const [rolesById, setRolesById] = useState<
-    Record<string, QuotePhoto["kind"]>
+    Record<string, "before" | "example" | undefined>
   >({});
   const [captions, setCaptions] = useState<Record<string, string>>({});
+  const captionDrafts = useRef<Record<string, string>>({});
+  const captionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sourceId, setSourceId] = useState("");
   const [projectType, setProjectType] = useState("bathroom");
   const [style, setStyle] = useState("modern");
@@ -63,7 +65,11 @@ export default function QuotePhotosPanel({
   const selectedModel =
     config?.models.find((item) => item.id === config.defaultModel)?.id ||
     config?.models[0]?.id;
-  const included = quote.quotePhotos || [];
+  const included = quote.quotePhotos || noPhotos;
+  const includedRef = useRef(included);
+  useEffect(() => {
+    includedRef.current = included;
+  }, [included]);
 
   useEffect(
     () => () => {
@@ -76,11 +82,32 @@ export default function QuotePhotosPanel({
     return demo ? file.path : `/api/files?id=${encodeURIComponent(file.id)}`;
   }
 
+  function clearCaptionTimer() {
+    if (captionTimer.current) clearTimeout(captionTimer.current);
+    captionTimer.current = null;
+  }
+
+  function withCaptionDrafts(photos: QuotePhoto[]) {
+    return photos.map((photo) => {
+      const caption = captionDrafts.current[photo.attachmentId];
+      return caption === undefined ? photo : { ...photo, caption };
+    });
+  }
+
+  function savePendingCaptions() {
+    clearCaptionTimer();
+    const current = includedRef.current;
+    const next = withCaptionDrafts(current);
+    if (next.some((photo, index) => photo.caption !== current[index].caption))
+      void updatePhotos(next);
+  }
+
   async function updatePhotos(next: QuotePhoto[]) {
+    clearCaptionTimer();
     setBusy("saving");
     setError("");
     try {
-      await onSave(next);
+      await onSave(withCaptionDrafts(next));
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not save quote photos.",
@@ -199,33 +226,37 @@ export default function QuotePhotosPanel({
                   <img src={photoUrl(file)} alt={file.name} />
                   <div className="quote-photo-item-body">
                     <strong title={file.name}>{file.name}</strong>
-                    <select
-                      aria-label={`Photo type for ${file.name}`}
-                      value={kind}
-                      disabled={!!busy}
-                      onChange={(event) => {
-                        const nextKind = event.target
-                          .value as QuotePhoto["kind"];
-                        setRolesById((current) => ({
-                          ...current,
-                          [file.id]: nextKind,
-                        }));
-                        if (selected)
-                          void updatePhotos(
-                            included.map((photo) =>
-                              photo.attachmentId === file.id
-                                ? { ...photo, kind: nextKind }
-                                : photo,
-                            ),
-                          );
-                      }}
-                    >
-                      {roles.map((role) => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      ))}
-                    </select>
+                    {kind === "concept" ? (
+                      <span className="quote-photo-kind">AI concept</span>
+                    ) : (
+                      <select
+                        aria-label={`Photo type for ${file.name}`}
+                        value={kind}
+                        disabled={!!busy}
+                        onChange={(event) => {
+                          const nextKind = event.target.value as
+                            "before" | "example";
+                          setRolesById((current) => ({
+                            ...current,
+                            [file.id]: nextKind,
+                          }));
+                          if (selected)
+                            void updatePhotos(
+                              included.map((photo) =>
+                                photo.attachmentId === file.id
+                                  ? { ...photo, kind: nextKind }
+                                  : photo,
+                              ),
+                            );
+                        }}
+                      >
+                        {roles.map((role) => (
+                          <option key={role.value} value={role.value}>
+                            {role.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {selected && (
                       <div className="quote-photo-caption">
                         <input
@@ -234,31 +265,31 @@ export default function QuotePhotosPanel({
                           maxLength={120}
                           value={captions[file.id] ?? selected.caption}
                           disabled={!!busy}
-                          onChange={(event) =>
-                            setCaptions((current) => ({
-                              ...current,
+                          onChange={(event) => {
+                            const next = {
+                              ...captionDrafts.current,
                               [file.id]: event.target.value,
-                            }))
-                          }
+                            };
+                            captionDrafts.current = next;
+                            setCaptions(next);
+                            clearCaptionTimer();
+                            captionTimer.current = setTimeout(
+                              savePendingCaptions,
+                              700,
+                            );
+                          }}
+                          onBlur={(event) => {
+                            const gallery = event.currentTarget.closest(
+                              ".quote-photos-gallery",
+                            );
+                            if (
+                              event.relatedTarget instanceof Node &&
+                              gallery?.contains(event.relatedTarget)
+                            )
+                              return;
+                            savePendingCaptions();
+                          }}
                         />
-                        {captions[file.id] !== undefined &&
-                          captions[file.id] !== selected.caption && (
-                            <button
-                              type="button"
-                              disabled={!!busy}
-                              onClick={() =>
-                                void updatePhotos(
-                                  included.map((photo) =>
-                                    photo.attachmentId === file.id
-                                      ? { ...photo, caption: captions[file.id] }
-                                      : photo,
-                                  ),
-                                )
-                              }
-                            >
-                              Save caption
-                            </button>
-                          )}
                       </div>
                     )}
                     <button

@@ -5104,19 +5104,20 @@ small {
   justify-content: center;
   width: 100%;
 }
+.quote-photo-kind {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 11px 12px;
+  border: 1px solid var(--theme-border, #dce1e6);
+  border-radius: 7px;
+  color: var(--theme-text-secondary, #658bb0);
+  background: var(--theme-surface-soft, #edf4fa);
+  font-size: 12px;
+}
 .quote-photo-caption {
   display: grid;
   gap: 5px;
-}
-.quote-photo-caption button {
-  justify-self: end;
-  padding: 0;
-  border: 0;
-  color: var(--theme-text-secondary, #658bb0);
-  background: none;
-  font: inherit;
-  font-size: 10px;
-  cursor: pointer;
 }
 .quote-photo-file-actions {
   display: flex;

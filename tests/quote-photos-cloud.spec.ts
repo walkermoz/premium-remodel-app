@@ -99,6 +99,18 @@ cloudTest(
     });
     await page.goto("/?view=Quotes");
     await page.getByRole("button", { name: /Photo quote/ }).click();
+    await page
+      .getByLabel("Caption for before.jpg")
+      .fill("Updated existing bathroom");
+    await expect
+      .poll(async () => {
+        const response = await api.get("/api/workspace");
+        const workspace = await response.json();
+        return workspace.quotes.find(
+          (item: { id: string }) => item.id === quote.id,
+        )?.quotePhotos?.[0]?.caption;
+      })
+      .toBe("Updated existing bathroom");
     const generateButton = page.getByRole("button", {
       name: "Generate finished concept",
     });
@@ -112,6 +124,10 @@ cloudTest(
     });
     await page.getByRole("button", { name: "Add concept to quote" }).click();
     await expect(page.getByText("2 of 8 selected")).toBeVisible();
+    await expect(page.getByText("AI concept", { exact: true })).toBeVisible();
+    await expect(
+      page.getByLabel("Photo type for finished-concept.jpg"),
+    ).toHaveCount(0);
     expect(generationCalls).toBe(1);
     const link = await api.post("/api/client-links", {
       headers: origin,
@@ -143,7 +159,9 @@ cloudTest(
       await expect(
         customerPage.getByRole("heading", { name: "Quote photos" }),
       ).toBeVisible();
-      await expect(customerPage.getByText("Existing bathroom")).toBeVisible();
+      await expect(
+        customerPage.getByText("Updated existing bathroom"),
+      ).toBeVisible();
       await expect(customerPage.getByText(/Bathroom - Modern/)).toBeVisible();
       const pdf = await client.request.get(`/api/client-quote/${token}/pdf`);
       expect(pdf.status()).toBe(200);
