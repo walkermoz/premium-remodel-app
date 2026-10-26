@@ -513,7 +513,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Subcontractor cost basis for Tile installation")
     .selectOption("sq ft");
   await row
-    .getByLabel("Subcontractor cost quantity for Tile installation")
+    .getByLabel("Total sq ft for subcontractor cost of Tile installation")
     .fill("100");
   await row
     .getByLabel("Subcontractor cost rate for Tile installation")
@@ -522,17 +522,32 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Material cost basis for Tile installation")
     .selectOption("each");
   await row
-    .getByLabel("Material cost quantity for Tile installation")
+    .getByLabel("Total items for material cost of Tile installation")
     .fill("2");
+  await expect(
+    row.locator(".scope-inspector-price-group").nth(1).getByText("Total sq ft"),
+  ).toBeVisible();
+  await expect(
+    row.locator(".scope-inspector-price-group").nth(2).getByText("Total items"),
+  ).toBeVisible();
+  await row
+    .getByLabel("Subcontractor cost basis for Tile installation")
+    .selectOption("hours");
+  await expect(
+    row.getByLabel("Total hours for subcontractor cost of Tile installation"),
+  ).toBeVisible();
+  await row
+    .getByLabel("Subcontractor cost basis for Tile installation")
+    .selectOption("sq ft");
   await row.getByLabel("Material cost rate for Tile installation").fill("50");
   await page.setViewportSize({ width: 1600, height: 900 });
   for (const labels of [
     [
       "Number of jobs for Tile installation",
       "Unit for Tile installation",
-      "Subcontractor cost quantity for Tile installation",
+      "Total sq ft for subcontractor cost of Tile installation",
       "Subcontractor cost basis for Tile installation",
-      "Material cost quantity for Tile installation",
+      "Total items for material cost of Tile installation",
       "Material cost basis for Tile installation",
     ],
     [
@@ -570,7 +585,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
     page.getByLabel("Material cost basis for Tile installation"),
   ).toHaveValue("each");
   await page
-    .getByLabel("Material cost quantity for Tile installation")
+    .getByLabel("Total items for material cost of Tile installation")
     .fill("3");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
   await expect(summary).toHaveAttribute("aria-expanded", "false");
@@ -581,7 +596,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await expect(summary).toContainText("$450");
   await summary.click();
   await expect(
-    page.getByLabel("Material cost quantity for Tile installation"),
+    page.getByLabel("Total items for material cost of Tile installation"),
   ).toHaveValue("3");
   await expect(
     page.getByLabel("Material cost rate for Tile installation"),
