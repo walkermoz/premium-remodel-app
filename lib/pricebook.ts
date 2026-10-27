@@ -21,13 +21,30 @@ export const pricebookInput = z.object({
 
 export type PricebookItem = z.infer<typeof pricebookInput> & {
   id: string;
+  code: string;
   revision: number;
   active: boolean;
 };
 
+/** Stable, automatically assigned reference. No per-organization counter to race or leak. */
+export function pricebookCode(id: string) {
+  return `PB-${id.replaceAll("-", "").slice(0, 12).toUpperCase()}`;
+}
+
+export function pricebookMatches(item: PricebookItem, query: string) {
+  const needle = query.trim().toLocaleLowerCase();
+  return (
+    !needle ||
+    [item.name, item.code, item.category, item.description].some((value) =>
+      value.toLocaleLowerCase().includes(needle),
+    )
+  );
+}
+
 export function mapPricebookItem(row: Record<string, unknown>): PricebookItem {
   return {
     id: String(row.id),
+    code: pricebookCode(String(row.id)),
     name: String(row.name),
     description: String(row.description || ""),
     category: String(row.category || ""),
