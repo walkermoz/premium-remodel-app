@@ -1,11 +1,17 @@
 import { test, expect } from "@playwright/test";
 
-test("sample settings never attempt a company Gmail connection", async ({ page }) => {
+test("sample settings never attempt a company Gmail connection", async ({
+  page,
+}) => {
   let requests = 0;
   page.on("request", (request) => {
     if (request.url().includes("/api/google-mail")) requests++;
   });
   await page.goto("/demo?view=Settings");
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Connections/ })
+    .click();
   const section = page.getByRole("region", { name: "Company email" });
   await expect(section).toContainText(
     "Company email is available in your signed-in workspace.",

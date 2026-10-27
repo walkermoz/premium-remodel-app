@@ -139,6 +139,22 @@
   padding: 24px 28px 48px;
 }
 
+.portalBanner {
+  width: min(100%, 816px);
+  aspect-ratio: 3 / 1;
+  max-height: 180px;
+  margin: 0 auto 20px;
+  overflow: hidden;
+  background: #dfe7ed;
+}
+
+.portalBanner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .sectionContent {
   background: #f9f8f6;
 }

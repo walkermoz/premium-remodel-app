@@ -9,6 +9,10 @@ test("Twilio demo does not request live company credentials", async ({
     if (request.url().includes("/api/twilio/")) requests++;
   });
   await page.goto("/demo?view=Settings");
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Connections/ })
+    .click();
   const section = page.getByRole("region", { name: "Twilio", exact: true });
   await expect(section).toContainText("available in your company workspace");
   await expect(section).toContainText("not enabled yet");
@@ -56,6 +60,10 @@ cloudTest(
       error: "Twilio messaging is not configured.",
     });
     await page.goto("/?view=Settings");
+    await page
+      .getByRole("navigation", { name: "Settings categories" })
+      .getByRole("button", { name: /Connections/ })
+      .click();
     const section = page.getByRole("region", { name: "Twilio", exact: true });
     await expect(section).toContainText("Twilio is not connected.");
     const sid = `AC${"a".repeat(32)}`;
@@ -100,8 +108,16 @@ cloudTest(
     await expect(section.locator('input[type="password"]')).toHaveCount(0);
     await section.screenshot({ path: "artifacts/twilio-settings-light.png" });
     await page.setViewportSize({ width: 390, height: 844 });
+    await page
+      .getByRole("navigation", { name: "Settings categories" })
+      .getByRole("button", { name: /Workspace/ })
+      .click();
     await page.getByLabel("Color theme").selectOption("dark");
     await page.reload();
+    await page
+      .getByRole("navigation", { name: "Settings categories" })
+      .getByRole("button", { name: /Connections/ })
+      .click();
     await expect(section).toContainText("Connected · Active account");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await section.scrollIntoViewIfNeeded();

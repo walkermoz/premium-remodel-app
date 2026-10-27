@@ -37,6 +37,19 @@ export function defaultRoleNavigation(): Record<
   ) as Record<(typeof workspaceGroups)[number], NavigationPage[]>;
 }
 
+const brandAssetUrl = (asset: "logo-dark" | "logo-mark" | "banner") =>
+  z
+    .string()
+    .max(500)
+    .refine(
+      (value) =>
+        value === "" ||
+        value === `/api/business-branding/${asset}` ||
+        /^https:\/\//i.test(value),
+      "Use an HTTPS image URL or an uploaded brand asset.",
+    )
+    .default("");
+
 export const businessConfigSchema = z.object({
   profile: z.object({
     name: z
@@ -71,6 +84,9 @@ export const businessConfigSchema = z.object({
         "Use an HTTPS logo URL or an app-relative path.",
       )
       .default("/images/logo.png"),
+    logoDarkUrl: brandAssetUrl("logo-dark"),
+    logoMarkUrl: brandAssetUrl("logo-mark"),
+    bannerUrl: brandAssetUrl("banner"),
   }),
   features: z.object({
     priceBook: z.boolean().default(false),

@@ -110,6 +110,10 @@ test("sample map supports selection, persistent sharing controls, stop and mobil
   await page
     .getByRole("button", { name: "Use on your phone", exact: true })
     .click();
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Workspace/ })
+    .click();
   await expect(
     page.getByRole("region", { name: "Install Premium Remodel" }),
   ).toContainText("Add to Home Screen");

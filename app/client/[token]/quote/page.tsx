@@ -510,6 +510,10 @@ export default async function ClientQuotePage({
     business.profile.logoUrl === "/api/business-logo"
       ? `/api/client-quote/${encodeURIComponent(token)}/logo`
       : business.profile.logoUrl;
+  const bannerSrc =
+    business.profile.bannerUrl === "/api/business-branding/banner"
+      ? `/api/client-quote/${encodeURIComponent(token)}/banner`
+      : business.profile.bannerUrl;
 
   const rawSection = typeof query.view === "string" ? query.view : "";
   const section: PortalView = [
@@ -623,6 +627,11 @@ export default async function ClientQuotePage({
       <div
         className={`${styles.content} ${section !== "detail" ? styles.sectionContent : ""}`}
       >
+        {bannerSrc && (
+          <div className={styles.portalBanner}>
+            <img src={bannerSrc} alt="" />
+          </div>
+        )}
         {section === "detail" ? (
           <>
             <nav className={styles.toolbar} aria-label="Quote actions">
