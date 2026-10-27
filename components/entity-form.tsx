@@ -9,9 +9,10 @@ import type {
   ScopeItem,
   Workspace,
 } from "@/lib/types";
-import { Modal } from "./ui";
-import { LoaderCircle } from "lucide-react";
+import { Avatar, Modal } from "./ui";
+import { Camera, LoaderCircle } from "lucide-react";
 import ContractorFields from "./contractor-fields";
+import { contactPhotoUrl } from "@/lib/contact-photo";
 import AddressInput from "./address-input";
 import { workTypes, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
@@ -35,20 +36,27 @@ export interface Editor {
 export function EntityForm({
   editor,
   workspace,
+  demo,
   onSave,
+  onContactPhotoChanged,
   onClose,
 }: {
   editor: Editor;
   workspace: Workspace;
+  demo: boolean;
   onSave: (
     kind: FormKind,
     data: Record<string, unknown>,
     existing?: Entity,
   ) => Promise<Entity>;
+  onContactPhotoChanged: (contact: Contractor) => void;
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const photoInput = useRef<HTMLInputElement>(null);
   const { kind, entity } = editor;
   const project = entity as Project | Quote | undefined;
   const projectValues = {
@@ -148,7 +156,7 @@ export function EntityForm({
   );
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || addingContractor) return;
+    if (busy || photoBusy || addingContractor) return;
     setBusy(true);
     setError("");
     const data: Record<string, unknown> = Object.fromEntries(
@@ -189,6 +197,39 @@ export function EntityForm({
       setContractorBusy(false);
     }
   }
+  async function changeContactPhoto(file?: File) {
+    if (!sub || demo || photoBusy) return;
+    setPhotoBusy(true);
+    setPhotoError("");
+    try {
+      let response: Response;
+      if (file) {
+        const form = new FormData();
+        form.set("contactId", sub.id);
+        form.set("file", file);
+        response = await fetch("/api/contact-photos", {
+          method: "POST",
+          body: form,
+        });
+      } else {
+        response = await fetch("/api/contact-photos", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId: sub.id }),
+        });
+      }
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not update contact photo.");
+      onContactPhotoChanged(result.contact as Contractor);
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error ? error.message : "Could not update contact photo.",
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
   return (
     <Modal
       title={
@@ -206,7 +247,7 @@ export function EntityForm({
               : "Keep the details your team needs in one place."
       }
       onClose={() => {
-        if (busy || contractorBusy) return;
+        if (busy || contractorBusy || photoBusy) return;
         if (addingContractor) setAddingContractor(false);
         else onClose();
       }}
@@ -489,7 +530,65 @@ export function EntityForm({
             </>
           )}
           {kind === "contractor" && (
-            <ContractorFields contractor={sub} workspace={workspace} />
+            <>
+              {sub && (
+                <div className="contact-photo-field">
+                  <Avatar name={sub.name} photoUrl={contactPhotoUrl(sub)} />
+                  <div className="contact-photo-details">
+                    <strong>Contact photo</strong>
+                    <p>
+                      {demo
+                        ? "Sign in to your workspace to add a photo."
+                        : "JPG, PNG, or WebP up to 4 MB. Photo changes save immediately."}
+                    </p>
+                    <div className="contact-photo-actions">
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={busy || photoBusy || demo}
+                        onClick={() => photoInput.current?.click()}
+                      >
+                        <Camera size={15} />
+                        {photoBusy
+                          ? "Saving photo…"
+                          : sub.photoPath
+                            ? "Change photo"
+                            : "Add photo"}
+                      </button>
+                      {sub.photoPath && !demo && (
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={busy || photoBusy}
+                          onClick={() => void changeContactPhoto()}
+                        >
+                          Remove photo
+                        </button>
+                      )}
+                      <input
+                        ref={photoInput}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        aria-label="Contact photo"
+                        hidden
+                        disabled={busy || photoBusy || demo}
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          if (file) void changeContactPhoto(file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </div>
+                    {photoError && (
+                      <div className="alert" role="alert">
+                        {photoError}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              <ContractorFields contractor={sub} workspace={workspace} />
+            </>
           )}
           {kind === "scope" && (
             <>
@@ -618,12 +717,12 @@ export function EntityForm({
           <button
             type="button"
             className="button secondary"
-            disabled={busy}
+            disabled={busy || photoBusy}
             onClick={onClose}
           >
             Cancel
           </button>
-          <button className="button primary" disabled={busy}>
+          <button className="button primary" disabled={busy || photoBusy}>
             {busy && <LoaderCircle size={16} className="spin" />}
             {busy
               ? "Saving…"

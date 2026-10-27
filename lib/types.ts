@@ -179,6 +179,8 @@ export interface Contractor extends Base {
   email: string;
   phone: string;
   notes: string;
+  photoPath?: string;
+  photoUpdatedAt?: string;
 }
 export interface ScopeItem extends Base {
   projectId: string;
