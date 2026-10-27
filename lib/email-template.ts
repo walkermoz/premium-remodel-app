@@ -65,13 +65,13 @@ export function renderQuoteEmail(input: {
   portalUrl?: string;
 }) {
   return renderPremiumEmail({
-    preheader: "Your Premium Remodel quote is attached for review.",
+    preheader: "Your quote is attached and available in the client portal.",
     title: "Your project quote",
     message: input.message,
     logoSrc: input.logoSrc,
     action: input.portalUrl
       ? {
-          label: "Open your quote",
+          label: "View your quote in the portal",
           url: input.portalUrl,
           note: "This private email link is valid for 30 days.",
           secondary: {

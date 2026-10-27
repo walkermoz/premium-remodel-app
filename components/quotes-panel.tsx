@@ -526,7 +526,8 @@ export function QuoteDetail({
               <div>
                 <h2>Email quote</h2>
                 <p>
-                  The generated PDF will be attached from
+                  We’ll attach the quote PDF and include a private link to view
+                  it in the client portal. The email will be sent from
                   contact@premiumremodel.com.
                 </p>
               </div>
@@ -549,7 +550,7 @@ export function QuoteDetail({
                 Message
                 <textarea
                   name="message"
-                  defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your Premium Remodel quote. Please review it and reply to this email with any questions.\n\nThanks,\nPremium Remodel Team`}
+                  defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your Premium Remodel quote. You can also view it in your client portal using the link below. Please review it and reply with any questions.\n\nThanks,\nPremium Remodel Team`}
                   required
                   rows={7}
                   maxLength={5000}

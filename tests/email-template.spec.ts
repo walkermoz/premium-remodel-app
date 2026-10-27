@@ -21,7 +21,7 @@ test("quote message remains readable in both formats and escapes customer text",
     "background:#ffffff;border-bottom:3px solid #e2e7e9",
   );
   expect(email.text).toContain("Please review <the scope> & reply.");
-  expect(email.html).toContain("Open your quote");
+  expect(email.html).toContain("View your quote in the portal");
   expect(email.html).toContain(
     'href="https://servicebuddy-ui.vercel.app/client/private-link/quote"',
   );
