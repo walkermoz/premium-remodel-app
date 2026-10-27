@@ -18,6 +18,7 @@ import {
 import { schemas } from "@/lib/schemas";
 import type {
   EntityKind,
+  Contractor,
   Project,
   Quote,
   ScopeItem,
@@ -182,6 +183,13 @@ async function save(request: Request, editing: boolean) {
     if (!parsed.success)
       throw new HttpError(400, parsed.error.issues[0].message);
     let data = parsed.data as Record<string, unknown>;
+    if (kind === "contractor" && current) {
+      const contact = current as Contractor;
+      if (contact.photoPath) {
+        data.photoPath = contact.photoPath;
+        data.photoUpdatedAt = contact.photoUpdatedAt;
+      }
+    }
     if (
       kind === "scope" &&
       data.pricebookItemId &&

@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { demoWorkspace } from "@/lib/demo";
 import { contractorServices } from "@/lib/contractor-services";
+import { contactPhotoUrl } from "@/lib/contact-photo";
 import {
   emptyWorkspace,
   kindKey,
@@ -1919,7 +1920,7 @@ export default function WorkspaceApp({
                       );
                       return (
                         <article className="contractor-row" key={c.id}>
-                          <Avatar name={c.name} />
+                          <Avatar name={c.name} photoUrl={contactPhotoUrl(c)} />
                           <div className="contractor-info">
                             <h3>{c.name}</h3>
                             <p>{c.company || "Independent contractor"}</p>
@@ -2112,7 +2113,24 @@ export default function WorkspaceApp({
           key={`${editor.kind}-${editor.entity?.id || editor.initialValues?.leadId || "new"}`}
           editor={editor}
           workspace={workspace}
+          demo={demo}
           onSave={save}
+          onContactPhotoChanged={(contact) => {
+            syncVersion.current++;
+            const current = workspaceRef.current;
+            commit({
+              ...current,
+              contractors: current.contractors.map((item) =>
+                item.id === contact.id ? contact : item,
+              ),
+            });
+            setEditor((currentEditor) =>
+              currentEditor?.kind === "contractor" &&
+              currentEditor.entity?.id === contact.id
+                ? { ...currentEditor, entity: contact }
+                : currentEditor,
+            );
+          }}
           onClose={() => setEditor(null)}
         />
       )}

@@ -4382,6 +4382,45 @@ small {
   opacity: 0.6;
   pointer-events: none;
 }
+.contact-photo-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.contact-photo-field > .avatar {
+  width: 72px;
+  height: 72px;
+  font-size: 21px;
+}
+.contact-photo-details {
+  flex: 1;
+  min-width: 0;
+}
+.contact-photo-details > strong {
+  display: block;
+  color: var(--theme-text-primary, #fff);
+  font-size: 12px;
+}
+.contact-photo-details > p {
+  margin: 5px 0 10px;
+  color: var(--theme-text-muted, #90a1af);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.contact-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.contact-photo-actions .button {
+  min-height: 36px;
+  font-size: 11px;
+}
+.contact-photo-details .alert {
+  margin-top: 10px;
+}
 .member-info {
   flex: 1;
   display: flex;
