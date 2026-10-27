@@ -1623,6 +1623,8 @@ small {
   letter-spacing: 0;
 }
 .avatar {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1635,6 +1637,13 @@ small {
   border: 2px solid var(--theme-border, #fff);
   background: var(--theme-surface-soft, #e7eaf3);
   color: var(--theme-text-secondary, #6b7190);
+}
+.avatar-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .avatar.small {
   width: 28px;
@@ -4309,6 +4318,69 @@ small {
   gap: 14px;
   padding: 25px 0;
   border-bottom: 1px solid var(--line);
+}
+.member-photo-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.member-photo-button > svg {
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  box-sizing: content-box;
+  padding: 3px;
+  border-radius: 50%;
+  color: var(--theme-text-primary, #fff);
+  background: var(--theme-surface, #1a2b3b);
+  border: 1px solid var(--theme-border, #304659);
+}
+.member-photo-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+}
+.member-photo-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 10px;
+  text-align: center;
+}
+.member-photo-editor .avatar {
+  width: 92px;
+  height: 92px;
+  font-size: 26px;
+}
+.member-photo-editor p {
+  max-width: 300px;
+  color: var(--theme-text-muted, #90a1af);
+  font-size: 12px;
+}
+.member-photo-upload {
+  position: relative;
+  cursor: pointer;
+}
+.member-photo-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+.member-photo-upload:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.member-photo-upload.disabled {
+  opacity: 0.6;
+  pointer-events: none;
 }
 .member-info {
   flex: 1;

@@ -15,9 +15,11 @@ export function Badge({ status }: { status: string }) {
 export function Avatar({
   name,
   small = false,
+  photoUrl,
 }: {
   name: string;
   small?: boolean;
+  photoUrl?: string;
 }) {
   return (
     <span
@@ -25,6 +27,17 @@ export function Avatar({
       className={`avatar ${small ? "small" : ""} tone-${name.length % 4}`}
     >
       {initials(name)}
+      {photoUrl && (
+        <img
+          key={photoUrl}
+          className="avatar-photo"
+          src={photoUrl}
+          alt=""
+          onError={(event) => {
+            event.currentTarget.hidden = true;
+          }}
+        />
+      )}
     </span>
   );
 }
