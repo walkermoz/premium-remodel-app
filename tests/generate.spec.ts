@@ -58,6 +58,10 @@ test("Generate accepts photos, adapts styles, preserves drafts and saves a sampl
   await page.getByLabel("Additional details").fill("White railings");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Workspace/ })
+    .click();
+  await page
     .getByLabel("Default image model")
     .selectOption("black-forest-labs/flux.2-pro");
   await page.getByRole("button", { name: "Save default model" }).click();
