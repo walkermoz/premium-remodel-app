@@ -1,0 +1,395 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { BusinessConfig } from "@/lib/business-config";
+import { navigationPages } from "@/lib/business-config-schema";
+
+const labels = {
+  priceBook: "Price book",
+  payments: "Payment links",
+  doorKnocking: "Door knocking",
+  imageGeneration: "Image generation",
+} as const;
+
+export default function BusinessSettings({
+  initial,
+  admin,
+  demo,
+}: {
+  initial: BusinessConfig;
+  admin: boolean;
+  demo: boolean;
+}) {
+  const [config, setConfig] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [canCreate, setCanCreate] = useState(false);
+  const [newBusiness, setNewBusiness] = useState("");
+
+  useEffect(() => {
+    if (demo || !admin) return;
+    fetch("/api/organizations", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((body) => setCanCreate(body.canCreate === true))
+      .catch(() => setCanCreate(false));
+  }, [demo, admin]);
+
+  function updateProfile(key: keyof BusinessConfig["profile"], value: string) {
+    setConfig((current) => ({
+      ...current,
+      profile: { ...current.profile, [key]: value },
+    }));
+  }
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      if (demo)
+        throw new Error("Business settings are available in a real workspace.");
+      const response = await fetch("/api/business-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not save business settings.");
+      window.location.reload();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not save business settings.",
+      );
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="settings-section">
+      <div className="settings-title">
+        <div>
+          <h2>Business setup</h2>
+          <p>
+            Branding, modules, quote tools, and navigation for this
+            organization.
+          </p>
+        </div>
+      </div>
+      <form className="settings-form" onSubmit={save}>
+        <div className="form-grid">
+          <label>
+            Company name
+            <input
+              value={config.profile.name}
+              maxLength={120}
+              disabled={!admin}
+              onChange={(event) => updateProfile("name", event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Website
+            <input
+              type="url"
+              value={config.profile.website}
+              disabled={!admin}
+              onChange={(event) => updateProfile("website", event.target.value)}
+            />
+          </label>
+          <label>
+            Contact email
+            <input
+              type="email"
+              value={config.profile.email}
+              disabled={!admin}
+              onChange={(event) => updateProfile("email", event.target.value)}
+            />
+          </label>
+          <label>
+            Phone
+            <input
+              value={config.profile.phone}
+              disabled={!admin}
+              onChange={(event) => updateProfile("phone", event.target.value)}
+            />
+          </label>
+          <label>
+            Address suggestions
+            <select
+              value={config.profile.addressPriority}
+              disabled={!admin}
+              onChange={(event) =>
+                updateProfile("addressPriority", event.target.value)
+              }
+            >
+              <option value="nationwide">Nationwide U.S.</option>
+              <option value="wake">Wake County first</option>
+            </select>
+          </label>
+          <label>
+            Logo URL
+            <input
+              value={config.profile.logoUrl}
+              disabled={!admin}
+              onChange={(event) => updateProfile("logoUrl", event.target.value)}
+              placeholder="/images/logo.png or https://…"
+            />
+          </label>
+          {admin && (
+            <label>
+              Upload logo (PNG, JPG, WebP)
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={busy || demo}
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  setBusy(true);
+                  setError("");
+                  try {
+                    const form = new FormData();
+                    form.set("logo", file);
+                    const response = await fetch("/api/business-logo", {
+                      method: "POST",
+                      body: form,
+                    });
+                    const body = await response.json();
+                    if (!response.ok)
+                      throw new Error(body.error || "Could not upload logo.");
+                    updateProfile("logoUrl", body.logoUrl);
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Could not upload logo.",
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              />
+            </label>
+          )}
+        </div>
+        <div className="form-grid">
+          {Object.entries(labels).map(([key, label]) => (
+            <label key={key} className="business-option">
+              <input
+                type="checkbox"
+                checked={
+                  config.features[key as keyof BusinessConfig["features"]]
+                }
+                disabled={!admin}
+                onChange={(event) =>
+                  setConfig((current) => ({
+                    ...current,
+                    features: {
+                      ...current.features,
+                      [key]: event.target.checked,
+                    },
+                  }))
+                }
+              />
+              {label}
+            </label>
+          ))}
+          <label className="business-option">
+            <input
+              type="checkbox"
+              checked={config.quotePreferences.showPriceBookPicker}
+              disabled={!admin || !config.features.priceBook}
+              onChange={(event) =>
+                setConfig((current) => ({
+                  ...current,
+                  quotePreferences: {
+                    ...current.quotePreferences,
+                    showPriceBookPicker: event.target.checked,
+                  },
+                }))
+              }
+            />
+            Show price-book picker on quotes
+          </label>
+          <label className="business-option">
+            <input
+              type="checkbox"
+              checked={config.quotePreferences.showInternalCosts}
+              disabled={!admin}
+              onChange={(event) =>
+                setConfig((current) => ({
+                  ...current,
+                  quotePreferences: {
+                    ...current.quotePreferences,
+                    showInternalCosts: event.target.checked,
+                  },
+                }))
+              }
+            />
+            Show internal costs in quote editor
+          </label>
+        </div>
+        <label>
+          Payment method for online links
+          <select
+            value={config.quotePreferences.paymentProvider}
+            disabled={!admin}
+            onChange={(event) =>
+              setConfig((current) => ({
+                ...current,
+                quotePreferences: {
+                  ...current.quotePreferences,
+                  paymentProvider: event.target.value as "stripe" | "manual",
+                },
+              }))
+            }
+          >
+            <option value="stripe">Stripe</option>
+            <option value="manual">Manual payments only</option>
+          </select>
+        </label>
+        <div>
+          <strong>Left navigation</strong>
+          <p className="footnote">
+            Choose the sections shown to this company. Drag-free order controls
+            keep the layout predictable.
+          </p>
+          <div className="business-navigation-list">
+            {navigationPages.map((name) => {
+              const index = config.navigation.indexOf(name);
+              return (
+                <div className="member-row" key={name}>
+                  <label className="business-option">
+                    <input
+                      type="checkbox"
+                      checked={index >= 0}
+                      disabled={!admin || name === "Settings"}
+                      onChange={(event) =>
+                        setConfig((current) => ({
+                          ...current,
+                          navigation: event.target.checked
+                            ? [...current.navigation, name]
+                            : current.navigation.filter(
+                                (entry) => entry !== name,
+                              ),
+                        }))
+                      }
+                    />
+                    {name}
+                  </label>
+                  {admin && index >= 0 && (
+                    <div className="page-heading-actions">
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={index === 0}
+                        onClick={() =>
+                          setConfig((current) => {
+                            const navigation = [...current.navigation];
+                            [navigation[index - 1], navigation[index]] = [
+                              navigation[index],
+                              navigation[index - 1],
+                            ];
+                            return { ...current, navigation };
+                          })
+                        }
+                      >
+                        Up
+                      </button>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={index === config.navigation.length - 1}
+                        onClick={() =>
+                          setConfig((current) => {
+                            const navigation = [...current.navigation];
+                            [navigation[index], navigation[index + 1]] = [
+                              navigation[index + 1],
+                              navigation[index],
+                            ];
+                            return { ...current, navigation };
+                          })
+                        }
+                      >
+                        Down
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {error && (
+          <div className="alert" role="alert">
+            {error}
+          </div>
+        )}
+        {admin && (
+          <button className="button primary" disabled={busy}>
+            {busy ? "Saving…" : "Save business settings"}
+          </button>
+        )}
+      </form>
+      {canCreate && (
+        <form
+          className="settings-form business-create-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setError("");
+            try {
+              const created = await fetch("/api/organizations", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newBusiness }),
+              });
+              const result = await created.json();
+              if (!created.ok)
+                throw new Error(result.error || "Could not create business.");
+              const switched = await fetch("/api/organizations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ organizationId: result.id }),
+              });
+              if (!switched.ok)
+                throw new Error(
+                  "Business created. Choose it from the organization switcher.",
+                );
+              window.location.assign("/");
+            } catch (cause) {
+              setError(
+                cause instanceof Error
+                  ? cause.message
+                  : "Could not create business.",
+              );
+              setBusy(false);
+            }
+          }}
+        >
+          <strong>Add another business</strong>
+          <p className="footnote">
+            Creates a separate organization with its own people, records, files,
+            and settings.
+          </p>
+          <div className="form-grid">
+            <label>
+              Business name
+              <input
+                value={newBusiness}
+                onChange={(event) => setNewBusiness(event.target.value)}
+                minLength={2}
+                maxLength={120}
+                required
+              />
+            </label>
+          </div>
+          <button className="button secondary" disabled={busy}>
+            Create business
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}

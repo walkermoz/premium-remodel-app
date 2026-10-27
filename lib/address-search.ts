@@ -128,6 +128,7 @@ export function wakeAddressSuggestions(payload: unknown): AddressSuggestion[] {
 export async function searchAddresses(
   query: string,
   signal: AbortSignal,
+  priority: "wake" | "nationwide" = "wake",
 ): Promise<AddressSuggestion[]> {
   async function load(url: string, timeout: number) {
     const response = await fetch(url, {
@@ -138,7 +139,7 @@ export async function searchAddresses(
     if (!response.ok) throw new Error("Address search unavailable");
     return response.json();
   }
-  const localUrl = wakeAddressSearchUrl(query);
+  const localUrl = priority === "wake" ? wakeAddressSearchUrl(query) : null;
   if (localUrl) {
     try {
       const local = wakeAddressSuggestions(await load(localUrl, 4000));
@@ -149,23 +150,31 @@ export async function searchAddresses(
     }
   }
   if (signal.aborted) throw new Error("Address search cancelled");
-  return addressSuggestions(await load(addressSearchUrl(query), 5000));
+  return addressSuggestions(
+    await load(addressSearchUrl(query, priority), 5000),
+  );
 }
 
-export function addressSearchUrl(query: string) {
+export function addressSearchUrl(
+  query: string,
+  priority: "wake" | "nationwide" = "wake",
+) {
   const url = new URL("https://photon.komoot.io/api/");
-  url.search = new URLSearchParams({
+  const params = new URLSearchParams({
     q: query.trim(),
     countrycode: "US",
     lang: "en",
     layer: "house",
     limit: "8",
+  });
+  if (priority === "wake") {
     // Prefer the company's service area without excluding other US addresses.
-    lat: addressPriorityRegion.latitude,
-    lon: addressPriorityRegion.longitude,
-    zoom: "9",
-    location_bias_scale: "0",
-  }).toString();
+    params.set("lat", addressPriorityRegion.latitude);
+    params.set("lon", addressPriorityRegion.longitude);
+    params.set("zoom", "9");
+    params.set("location_bias_scale", "0");
+  }
+  url.search = params.toString();
   return url.toString();
 }
 

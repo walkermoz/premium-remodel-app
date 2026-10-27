@@ -39,6 +39,7 @@ import { preserveWorkSchedule } from "@/lib/work";
 import { projectDates } from "@/lib/project-timing";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { validatePricebookSources } from "@/lib/pricebook-source";
 import { validateStoredFile } from "@/lib/validate-file";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { stripeClient } from "@/lib/stripe-payments";
@@ -181,6 +182,12 @@ async function save(request: Request, editing: boolean) {
     if (!parsed.success)
       throw new HttpError(400, parsed.error.issues[0].message);
     let data = parsed.data as Record<string, unknown>;
+    if (
+      kind === "scope" &&
+      data.pricebookItemId &&
+      data.pricebookItemId !== (current as ScopeItem | null)?.pricebookItemId
+    )
+      await validatePricebookSources(user, [data]);
     if (kind === "quote" && data.status === "Accepted")
       throw new HttpError(
         409,
@@ -312,28 +319,29 @@ async function save(request: Request, editing: boolean) {
           400,
           "Choose an active teammate from this company.",
         );
-      const { data: actor, error } = await supabaseAdmin()
-        .from("profiles")
-        .select("id,full_name")
+      const membership = await supabaseAdmin()
+        .from("remodel_memberships")
+        .select("profile_id")
         .eq("organization_id", user.organizationId)
-        .eq("id", data.actorId)
+        .eq("profile_id", data.actorId)
         .eq("active", true)
-        .in("role", [
-          "owner",
-          "admin",
-          "office",
-          "crew",
-          "field",
-          "doorknocker",
-        ])
         .maybeSingle();
-      if (error) throw error;
-      if (!actor)
+      if (membership.error) throw membership.error;
+      const actor = membership.data
+        ? await supabaseAdmin()
+            .from("profiles")
+            .select("id,full_name")
+            .eq("id", data.actorId)
+            .eq("active", true)
+            .maybeSingle()
+        : null;
+      if (actor?.error) throw actor.error;
+      if (!actor?.data)
         throw new HttpError(
           400,
           "Choose an active teammate from this company.",
         );
-      data.actorName = actor.full_name;
+      data.actorName = actor.data.full_name;
       data.authorId = user.id;
       data.authorName = user.name;
     }
@@ -460,7 +468,9 @@ async function save(request: Request, editing: boolean) {
             )) as Project | null;
             const sessionId = project?.msaAgreement?.depositCheckout?.sessionId;
             if (sessionId)
-              await stripeClient().checkout.sessions.expire(sessionId);
+              await stripeClient(user.organizationId).checkout.sessions.expire(
+                sessionId,
+              );
           } catch {
             // A recorded check remains valid; an already-completed or expired
             // checkout session cannot be expired again.

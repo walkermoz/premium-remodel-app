@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requirePremiumAgreement } from "@/lib/agreements";
 import {
   apiError,
   appOrigin,
@@ -33,6 +34,7 @@ export async function GET(
 ) {
   try {
     const user = await requireUser();
+    requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot view agreements.");
     const { projectId } = await params;
@@ -76,6 +78,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await requireUser();
+    requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot send agreements.");
     const { projectId } = await params;

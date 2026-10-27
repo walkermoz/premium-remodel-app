@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import type { ScopeItem, TaskStatus, Workspace } from "@/lib/types";
+import { pricebookScopeValues, type PricebookItem } from "@/lib/pricebook";
 import type {
   BathroomQuestionnaireAnswers,
   BathroomQuestionnaireProject,
@@ -190,6 +191,8 @@ export default function ScopeTable({
   onSaveMany,
   templateProject,
   onSaveTemplateProject,
+  pricebookEnabled = false,
+  showInternalCosts = true,
   defaultSectionName = DEFAULT_QUOTE_PROJECT_NAME,
 }: {
   items: ScopeItem[];
@@ -210,6 +213,8 @@ export default function ScopeTable({
   onSaveTemplateProject?: (
     project: BathroomQuestionnaireProject,
   ) => Promise<unknown>;
+  pricebookEnabled?: boolean;
+  showInternalCosts?: boolean;
   defaultSectionName?: string;
 }) {
   const orderedItems = useMemo(() => ordered(items), [items]);
@@ -226,12 +231,30 @@ export default function ScopeTable({
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateError, setTemplateError] = useState("");
   const [sectionSaving, setSectionSaving] = useState(false);
+  const [pricebookItems, setPricebookItems] = useState<PricebookItem[]>([]);
+  const [pricebookBusy, setPricebookBusy] = useState(false);
   const newTitle = useRef<HTMLInputElement>(null);
   const newProjectName = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (adding) (addingProject ? newProjectName : newTitle).current?.focus();
   }, [adding, addingProject]);
+
+  useEffect(() => {
+    if (!pricebookEnabled) return;
+    fetch("/api/pricebook", { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok)
+          throw new Error(body.error || "Could not load price book.");
+        setPricebookItems(body);
+      })
+      .catch((cause) =>
+        setError(
+          cause instanceof Error ? cause.message : "Could not load price book.",
+        ),
+      );
+  }, [pricebookEnabled]);
 
   if (!inline && !items.length)
     return (
@@ -577,7 +600,7 @@ export default function ScopeTable({
       )}
       <div className="table-scroll">
         <table
-          className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}${compactQuoteRows ? " scope-table-compact" : ""}`}
+          className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}${compactQuoteRows ? " scope-table-compact" : ""}${!showInternalCosts ? " scope-hide-internal-costs" : ""}`}
           aria-label={compactQuoteRows ? "Quote scope and pricing" : undefined}
         >
           {compactQuoteRows ? (
@@ -967,20 +990,72 @@ export default function ScopeTable({
                       <FolderPlus size={15} />
                       Use Project Template
                     </button>
+                    {pricebookEnabled && pricebookItems.length > 0 && (
+                      <select
+                        aria-label="Add work item from price book"
+                        className="scope-add-row-button"
+                        value=""
+                        disabled={pricebookBusy}
+                        onChange={async (event) => {
+                          const item = pricebookItems.find(
+                            (entry) => entry.id === event.target.value,
+                          );
+                          if (!item || !onSave || !projectId) return;
+                          setPricebookBusy(true);
+                          setError("");
+                          try {
+                            await onSave({
+                              projectId,
+                              ...pricebookScopeValues(item),
+                              sectionId: lastItem?.sectionId || "",
+                              sectionName:
+                                lastItem?.sectionName || defaultSectionName,
+                              position: nextPosition,
+                              contractorId: "",
+                              status: "To do",
+                            });
+                          } catch (cause) {
+                            setError(
+                              cause instanceof Error
+                                ? cause.message
+                                : "Could not add price-book item.",
+                            );
+                          } finally {
+                            setPricebookBusy(false);
+                          }
+                        }}
+                      >
+                        <option value="">Add from price book…</option>
+                        {pricebookItems.map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.category ? `${item.category} · ` : ""}
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </td>
               </tr>
             )}
           </tbody>
           <tfoot>
-            <tr>
-              <td colSpan={2}>Scope totals</td>
-              <td>{money(estimated)}</td>
-              <td>{money(subCosts)}</td>
-              <td>{money(materialCosts)}</td>
-              <td>{money(estimated - costs)}</td>
-              <td colSpan={showStatus ? 2 : 1} />
-            </tr>
+            {showInternalCosts ? (
+              <tr>
+                <td colSpan={2}>Scope totals</td>
+                <td>{money(estimated)}</td>
+                <td>{money(subCosts)}</td>
+                <td>{money(materialCosts)}</td>
+                <td>{money(estimated - costs)}</td>
+                <td colSpan={showStatus ? 2 : 1} />
+              </tr>
+            ) : (
+              <tr>
+                <td colSpan={showStatus ? 8 : 7}>
+                  Quote price: {money(estimated)}
+                </td>
+              </tr>
+            )}
           </tfoot>
         </table>
       </div>

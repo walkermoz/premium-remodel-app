@@ -46,12 +46,11 @@ export async function GET(request: Request) {
       .eq("organization_id", user.organizationId)
       .lt("captured_at", cutoff);
     if (cleanup.error) throw cleanup.error;
-    let profiles = db
-      .from("profiles")
-      .select("id,full_name")
+    let memberships = db
+      .from("remodel_memberships")
+      .select("profile_id")
       .eq("organization_id", user.organizationId)
-      .eq("active", true)
-      .in("role", ["owner", "admin", "office", "crew", "field", "doorknocker"]);
+      .eq("active", true);
     let locations = db
       .from("remodel_locations")
       .select("profile_id,latitude,longitude,accuracy,captured_at")
@@ -59,12 +58,21 @@ export async function GET(request: Request) {
       .eq("sharing", true)
       .gt("captured_at", cutoff);
     if (!new Set(["owner", "admin"]).has(user.role)) {
-      profiles = profiles.eq("id", user.id);
+      memberships = memberships.eq("profile_id", user.id);
       locations = locations.eq("profile_id", user.id);
     }
-    const [people, positions] = await Promise.all([profiles, locations]);
-    if (people.error) throw people.error;
+    const [members, positions] = await Promise.all([memberships, locations]);
+    if (members.error) throw members.error;
     if (positions.error) throw positions.error;
+    const ids = members.data.map((member) => member.profile_id);
+    const people = ids.length
+      ? await db
+          .from("profiles")
+          .select("id,full_name")
+          .in("id", ids)
+          .eq("active", true)
+      : { data: [], error: null };
+    if (people.error) throw people.error;
     return Response.json(
       {
         members: people.data.map((member) => {

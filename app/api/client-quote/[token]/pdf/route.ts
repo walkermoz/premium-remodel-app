@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { getBusinessLogoBytes } from "@/lib/business-logo";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import { readClientQuoteSource } from "@/lib/client-quote";
 import { buildQuotePdf, quotePdfFileName } from "@/lib/quote-pdf";
 import { loadQuotePhotos } from "@/lib/quote-photos";
@@ -14,20 +14,25 @@ export async function GET(
   const source = await readClientQuoteSource(token);
   if (!source) return new Response("Not found", { status: 404 });
 
-  const logo = await readFile(
-    path.join(process.cwd(), "public", "images", "logo.png"),
-  );
+  const [logo, business] = await Promise.all([
+    getBusinessLogoBytes(source.organizationId),
+    getBusinessConfigForOrganization(source.organizationId),
+  ]);
   const photos = await loadQuotePhotos(source.pdfQuote, source.organizationId);
   const pdf = await buildQuotePdf(
     source.pdfQuote,
     source.pdfItems,
     logo,
     photos,
+    business.profile,
   );
   const fileName = (
     source.view.acceptance
-      ? quotePdfFileName(source.pdfQuote).replace(/\.pdf$/i, " - Signed.pdf")
-      : quotePdfFileName(source.pdfQuote)
+      ? quotePdfFileName(source.pdfQuote, business.profile.name).replace(
+          /\.pdf$/i,
+          " - Signed.pdf",
+        )
+      : quotePdfFileName(source.pdfQuote, business.profile.name)
   ).replace(/["\\]/g, "");
   return new Response(Buffer.from(pdf), {
     headers: {

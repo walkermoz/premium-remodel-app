@@ -20,6 +20,10 @@ export default function AcceptInvite() {
       );
     setName(result.user.name);
     setEmail(result.user.email);
+    if (new URL(window.location.href).searchParams.get("existing") === "1") {
+      window.location.replace("/");
+      return;
+    }
     window.history.replaceState(null, "", "/auth/accept");
     setReady(true);
   }
@@ -74,15 +78,15 @@ export default function AcceptInvite() {
     <main className="login-page">
       <div className="login-panel">
         <Link href="/login" className="login-brand">
-          <img src="/images/logo.png" alt="Premium Remodel" />
+          <strong>Company workspace</strong>
         </Link>
         <div className="login-form-wrap">
-          <div className="eyebrow">Premium Remodel</div>
+          <div className="eyebrow">COMPANY WORKSPACE</div>
           <h1>{ready ? "Make yourself at home." : "You’re invited."}</h1>
           <p className="login-intro">
             {ready
               ? "Set your name and password to get started."
-              : "Join your team at Premium Remodel."}
+              : "Join your team in the shared workspace."}
           </p>
           {error && (
             <div className="alert" role="alert">
@@ -177,11 +181,11 @@ export default function AcceptInvite() {
           </p>
         </div>
         <div className="login-footer">
-          <LockKeyhole size={13} /> Premium Remodel
+          <LockKeyhole size={13} /> Secure team invitation
         </div>
       </div>
       <aside className="login-visual">
-        <img src="/images/home.jpg" alt="A renovated Premium Remodel home" />
+        <img src="/images/home.jpg" alt="A renovated home" />
         <div className="login-visual-shade" />
         <div className="login-visual-copy">
           <span className="eyebrow">EVERY PROJECT. YOUR WHOLE TEAM.</span>

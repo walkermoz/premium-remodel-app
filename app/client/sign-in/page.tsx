@@ -3,21 +3,21 @@ import SignInForm from "./sign-in-form";
 import styles from "./sign-in.module.css";
 
 export const metadata: Metadata = {
-  title: "Client sign-in | Premium Remodel",
+  title: "Client portal sign-in",
   robots: { index: false, follow: false, noarchive: true },
 };
 
 export default async function ClientSignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ expired?: string }>;
+  searchParams: Promise<{ expired?: string; org?: string }>;
 }) {
   const query = await searchParams;
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
         <header className={styles.header}>
-          <img src="/images/logo.png" alt="Premium Remodel" />
+          <strong>Client portal</strong>
         </header>
         <div className={styles.body}>
           <p className={styles.eyebrow}>CLIENT PORTAL</p>
@@ -31,10 +31,13 @@ export default async function ClientSignInPage({
               Your previous link expired. Request a fresh one below.
             </p>
           ) : null}
-          <SignInForm />
-          <p className={styles.help}>
-            Need help? <a href="mailto:contact@premiumremodel.com">Email us</a>.
-          </p>
+          <SignInForm
+            organizationId={
+              query.org && /^[0-9a-f-]{36}$/i.test(query.org)
+                ? query.org
+                : undefined
+            }
+          />
         </div>
       </div>
     </main>

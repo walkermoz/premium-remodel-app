@@ -4,7 +4,11 @@ import {
   parseClientPortalToken,
   validClientWalletFormToken,
 } from "@/lib/client-portal";
-import { stripeClient } from "@/lib/stripe-payments";
+import {
+  stripeClient,
+  stripeEnabledForOrganization,
+} from "@/lib/stripe-payments";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -42,21 +46,28 @@ export async function POST(
       return Response.redirect(walletUrl(request, token, "expired"), 303);
     const quote = await readClientQuote(token);
     if (!quote) return new Response(null, { status: 404 });
-    if (!process.env.STRIPE_SECRET_KEY)
-      return Response.redirect(walletUrl(request, token, "unavailable"), 303);
     await limitAttempts(`client-wallet:${id}`, 10);
     const admin = supabaseAdmin();
     const { data: link, error } = await admin
       .from("remodel_client_links")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id,organization_id")
       .eq("id", id)
       .eq("kind", "quote")
       .is("revoked_at", null)
       .maybeSingle();
     if (error) throw error;
     if (!link) return new Response(null, { status: 404 });
+    const business = await getBusinessConfigForOrganization(
+      link.organization_id,
+    );
+    if (
+      !business.features.payments ||
+      business.quotePreferences.paymentProvider !== "stripe" ||
+      !stripeEnabledForOrganization(link.organization_id)
+    )
+      return Response.redirect(walletUrl(request, token, "unavailable"), 303);
 
-    const stripe = stripeClient();
+    const stripe = stripeClient(link.organization_id);
     let customerId = link.stripe_customer_id as string | null;
     if (!customerId) {
       const customer = await stripe.customers.create(

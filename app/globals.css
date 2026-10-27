@@ -1736,6 +1736,43 @@ small {
 .workspace-switch > svg {
   color: var(--theme-text-muted, #9ca5ae);
 }
+.organization-switcher {
+  min-width: 0;
+  flex: 1;
+}
+.organization-switcher select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 2px 16px 2px 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.organization-switcher select:disabled {
+  cursor: default;
+  appearance: none;
+}
+.organization-switcher-error {
+  color: var(--danger, #d35252) !important;
+  white-space: normal;
+}
+.business-option {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+.business-option input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+.business-navigation-list .member-row {
+  min-height: 40px;
+}
 .nav-label {
   font-size: 9px;
   color: var(--theme-text-muted, #939ca6);
@@ -3063,6 +3100,17 @@ small {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+.scope-hide-internal-costs .scope-summary-button {
+  grid-template-columns: minmax(160px, 1.25fr) minmax(170px, 1.8fr) minmax(115px, 1fr) minmax(100px, 0.8fr);
+}
+.scope-hide-internal-costs .scope-summary-button > span:nth-last-child(-n + 2),
+.scope-hide-internal-costs .scope-inspector-price-group:not(:first-child),
+.scope-hide-internal-costs .scope-inspector-totals > span:not(:first-child) {
+  display: none;
+}
+.scope-hide-internal-costs .scope-inspector-price-groups {
+  grid-template-columns: 1fr;
 }
 .scope-summary-button:hover,
 .scope-summary-button:focus-visible {
@@ -5899,6 +5947,12 @@ small {
   width: 210px;
   display: block;
   margin-bottom: 65px;
+}
+.login-brand strong {
+  display: block;
+  color: var(--theme-link, #193d53);
+  font-size: 21px;
+  letter-spacing: -0.04em;
 }
 .login-form-wrap {
   width: 100%;

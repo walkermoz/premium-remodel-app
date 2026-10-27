@@ -8,6 +8,7 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/audit-server";
+import { isOriginalOrganization } from "@/lib/original-organization";
 import {
   appInstallMessage,
   maskedPhone,
@@ -27,6 +28,11 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    if (!isOriginalOrganization(user.organizationId))
+      throw new HttpError(
+        403,
+        "Twilio is not configured for this organization.",
+      );
     if (user.role !== "admin")
       throw new HttpError(
         403,

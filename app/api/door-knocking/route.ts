@@ -8,6 +8,7 @@ import {
   requireRequestUser,
 } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getBusinessConfig } from "@/lib/business-config";
 import { doorVisitOutcomes } from "@/lib/types";
 import { workToday } from "@/lib/work";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
@@ -106,6 +107,11 @@ export async function POST(request: Request) {
   try {
     checkOriginOrBearer(request);
     const user = await requireRequestUser(request);
+    if (!(await getBusinessConfig(user)).features.doorKnocking)
+      throw new HttpError(
+        403,
+        "Door knocking is not enabled for this organization.",
+      );
     const data = inputSchema.parse(await request.json());
     await limitAttempts(`door-visit:${user.id}`, 120);
     if (Date.parse(data.visitedAt) < Date.now() - 366 * 24 * 60 * 60_000)

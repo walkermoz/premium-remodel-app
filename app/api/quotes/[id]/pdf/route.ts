@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { getBusinessLogoBytes } from "@/lib/business-logo";
+import { getBusinessConfig } from "@/lib/business-config";
 import { apiError, HttpError, requireUser } from "@/lib/auth";
 import { buildQuotePdf, quotePdfFileName } from "@/lib/quote-pdf";
 import { loadQuotePhotos } from "@/lib/quote-photos";
@@ -21,12 +21,22 @@ export async function GET(
     if (!quote) throw new HttpError(404, "Quote not found.");
 
     const workspace = await getWorkspace(user);
-    const logo = await readFile(
-      path.join(process.cwd(), "public", "images", "logo.png"),
-    );
+    const [logo, business] = await Promise.all([
+      getBusinessLogoBytes(user.organizationId),
+      getBusinessConfig(user),
+    ]);
     const photos = await loadQuotePhotos(quote, user.organizationId);
-    const bytes = await buildQuotePdf(quote, workspace.scope, logo, photos);
-    const fileName = quotePdfFileName(quote).replace(/["\\]/g, "");
+    const bytes = await buildQuotePdf(
+      quote,
+      workspace.scope,
+      logo,
+      photos,
+      business.profile,
+    );
+    const fileName = quotePdfFileName(quote, business.profile.name).replace(
+      /["\\]/g,
+      "",
+    );
 
     return new Response(Buffer.from(bytes), {
       headers: {

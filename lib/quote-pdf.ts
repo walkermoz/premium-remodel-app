@@ -173,6 +173,7 @@ function drawFooter(
   quote: Quote,
   pageNumber: number,
   pageCount: number,
+  business: { name: string; website: string; phone: string },
 ) {
   page.drawLine({
     start: { x: 42, y: 44 },
@@ -181,9 +182,9 @@ function drawFooter(
     color: colors.line,
   });
   const contact = [
-    "premiumremodel.com",
-    quote.preparedBy || "Premium Remodel",
-    quote.preparedByPhone || "(919) 413-9782",
+    business.website ? new URL(business.website).host : "",
+    quote.preparedBy || business.name,
+    quote.preparedByPhone || business.phone,
   ]
     .filter(Boolean)
     .join("  |  ");
@@ -226,13 +227,18 @@ function quoteSectionName(item: ScopeItem, fallback: string) {
 export async function buildQuotePdf(
   quote: Quote,
   scope: ScopeItem[],
-  logoBytes: Uint8Array,
+  logoBytes: Uint8Array | null,
   photos: (QuotePhoto & { bytes: Uint8Array })[] = [],
+  business: { name: string; website: string; phone: string } = {
+    name: "Premium Remodel",
+    website: "https://premiumremodel.com",
+    phone: "(919) 454-4012",
+  },
 ) {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const logo = await pdf.embedPng(logoBytes);
+  const logo = logoBytes ? await pdf.embedPng(logoBytes) : null;
   const items = scope
     .filter((item) => item.projectId === quote.id)
     .map((item, index) => ({ item, index }))
@@ -259,14 +265,26 @@ export async function buildQuotePdf(
   let page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   pages.push(page);
 
-  page.drawText("PREMIUM REMODEL  |  REMODEL QUOTE", {
-    x: 414,
-    y: PAGE_HEIGHT - 26.6,
-    font: bold,
-    size: 6.8,
-    color: colors.muted,
-  });
-  page.drawImage(logo, { x: 176, y: 685, width: 261, height: 74 });
+  page.drawText(
+    safeText(`${business.name.toUpperCase()}  |  QUOTE`).slice(0, 52),
+    {
+      x: 414,
+      y: PAGE_HEIGHT - 26.6,
+      font: bold,
+      size: 6.8,
+      color: colors.muted,
+    },
+  );
+  if (logo) page.drawImage(logo, { x: 176, y: 685, width: 261, height: 74 });
+  else
+    drawTop(
+      page,
+      business.name,
+      176,
+      57,
+      bold,
+      fitSize(business.name, bold, 22, 261),
+    );
 
   const heading = safeText(quote.name).toUpperCase();
   const headingSize = fitSize(heading, bold, 17, CONTENT_WIDTH);
@@ -300,7 +318,7 @@ export async function buildQuotePdf(
     drawTop(page, quote.clientPhone, 54, 204, regular, 8.5);
   drawTop(
     page,
-    `Prepared by ${quote.preparedBy || "Premium Remodel"}`,
+    `Prepared by ${quote.preparedBy || business.name}`,
     54,
     225.5,
     regular,
@@ -569,23 +587,26 @@ export async function buildQuotePdf(
   }
 
   pages.forEach((current, index) =>
-    drawFooter(current, regular, quote, index + 1, pages.length),
+    drawFooter(current, regular, quote, index + 1, pages.length, business),
   );
 
-  pdf.setTitle(`Premium Remodel - ${quote.client || quote.name} - Quote`);
-  pdf.setAuthor("Premium Remodel");
+  pdf.setTitle(`${business.name} - ${quote.client || quote.name} - Quote`);
+  pdf.setAuthor(business.name);
   pdf.setSubject(heading);
-  pdf.setCreator("Premium Remodel");
-  pdf.setProducer("Premium Remodel");
+  pdf.setCreator(business.name);
+  pdf.setProducer(business.name);
   return pdf.save({ useObjectStreams: false });
 }
 
-export function quotePdfFileName(quote: Quote) {
+export function quotePdfFileName(
+  quote: Quote,
+  businessName = "Premium Remodel",
+) {
   const client = safeText(quote.client || quote.name)
     .replace(/[^a-zA-Z0-9]+/g, " ")
     .trim();
   const number = safeText(quote.quoteNumber || quote.id.slice(0, 8))
     .replace(/[^a-zA-Z0-9-]+/g, "")
     .trim();
-  return `Premium Remodel - ${client || "Client"} - Quote ${number || "Draft"}.pdf`;
+  return `${safeText(businessName).replace(/["\\/]/g, "")} - ${client || "Client"} - Quote ${number || "Draft"}.pdf`;
 }

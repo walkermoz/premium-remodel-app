@@ -35,9 +35,7 @@ export async function listApiKeys(
 ): Promise<ApiKeyRecord[]> {
   const { data, error } = await supabaseAdmin()
     .from("remodel_api_keys")
-    .select(
-      "id,name,key_prefix,created_at,last_used_at,revoked_at,created_by",
-    )
+    .select("id,name,key_prefix,created_at,last_used_at,revoked_at,created_by")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -121,14 +119,9 @@ export async function requireApiKey(
   if (!raw || !raw.startsWith(KEY_PREFIX))
     throw new HttpError(401, "A valid admin API key is required.");
 
-  const organizationId = process.env.SUPABASE_ORGANIZATION_ID;
-  if (!organizationId)
-    throw new HttpError(503, "Organization is not configured.");
-
   const { data, error } = await supabaseAdmin()
     .from("remodel_api_keys")
     .select("id,organization_id,name,revoked_at")
-    .eq("organization_id", organizationId)
     .eq("key_hash", hashKey(raw))
     .maybeSingle();
   if (error) throw error;
@@ -139,9 +132,9 @@ export async function requireApiKey(
     .from("remodel_api_keys")
     .update({ last_used_at: new Date().toISOString() })
     .eq("id", data.id)
+    .eq("organization_id", data.organization_id)
     .then(({ error: touchError }) => {
-      if (touchError)
-        console.error("Could not update API key last_used_at.");
+      if (touchError) console.error("Could not update API key last_used_at.");
     });
 
   return {

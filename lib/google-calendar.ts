@@ -8,6 +8,7 @@ import {
 } from "node:crypto";
 import { z } from "zod";
 import { appOrigin, HttpError, type WorkspaceUser } from "./auth";
+import { getBusinessConfig } from "./business-config";
 import {
   calendarDate,
   calendarEntries,
@@ -309,16 +310,19 @@ async function googleRequest(
   return responseJson(response);
 }
 
-async function createDedicatedCalendar(accessToken: string, fetcher: Fetcher) {
+async function createDedicatedCalendar(
+  accessToken: string,
+  businessName: string,
+  fetcher: Fetcher,
+) {
   const result = await googleRequest(
     accessToken,
     "/calendars",
     {
       method: "POST",
       body: JSON.stringify({
-        summary: "Premium Remodel",
-        description:
-          "Project work synchronized from the Premium Remodel workspace.",
+        summary: businessName,
+        description: `Project work synchronized from the ${businessName} workspace.`,
         timeZone: workTimeZone,
       }),
     },
@@ -327,7 +331,7 @@ async function createDedicatedCalendar(accessToken: string, fetcher: Fetcher) {
   const parsed = z
     .object({ id: z.string().min(1), summary: z.string().optional() })
     .parse(result);
-  return { id: parsed.id, name: parsed.summary || "Premium Remodel" };
+  return { id: parsed.id, name: parsed.summary || businessName };
 }
 
 async function calendarStillAvailable(
@@ -345,7 +349,7 @@ async function calendarStillAvailable(
     const parsed = z
       .object({ id: z.string().min(1), summary: z.string().optional() })
       .parse(result);
-    return { id: parsed.id, name: parsed.summary || "Premium Remodel" };
+    return { id: parsed.id, name: parsed.summary || "Company calendar" };
   } catch (error) {
     if (error instanceof GoogleCalendarError && error.status === 404)
       return null;
@@ -397,7 +401,7 @@ function googleEventBody(
   organizationId: string,
   origin: string,
 ) {
-  const projectName = entry.project?.name || "Premium Remodel";
+  const projectName = entry.project?.name || "Project";
   const address = entry.contact?.address || entry.project?.address || "";
   const startTime = entry.task?.startTime || entry.lead?.quoteStartTime || "";
   const endTime = entry.task?.endTime || entry.lead?.quoteEndTime || "";
@@ -412,10 +416,10 @@ function googleEventBody(
         ? `${projectName} · ${entry.title}`
         : `${projectName} · ${entry.title}`,
     description: [
-      "Scheduled in Premium Remodel",
+      "Scheduled in the company workspace",
       `Type: ${entryType(entry)}`,
       entry.project ? `Project: ${projectName}` : "",
-      `Open in Premium Remodel: ${appUrl}`,
+      `Open in the workspace: ${appUrl}`,
     ]
       .filter(Boolean)
       .join("\n"),
@@ -734,14 +738,24 @@ export async function connectGoogleCalendar(
     throw new GoogleCalendarError(
       "Google did not provide offline access. Remove Premium Remodel from your Google account permissions, then connect again.",
     );
+  const businessName = (await getBusinessConfig(user)).profile.name;
   const calendar =
     existing?.google_account_id === info.sub && existing.calendar_id
       ? (await calendarStillAvailable(
           tokens.access_token,
           existing.calendar_id,
           fetcher,
-        )) || (await createDedicatedCalendar(tokens.access_token, fetcher))
-      : await createDedicatedCalendar(tokens.access_token, fetcher);
+        )) ||
+        (await createDedicatedCalendar(
+          tokens.access_token,
+          businessName,
+          fetcher,
+        ))
+      : await createDedicatedCalendar(
+          tokens.access_token,
+          businessName,
+          fetcher,
+        );
   const now = new Date().toISOString();
   const result = await supabaseAdmin()
     .from("remodel_google_calendar_connections")
@@ -825,26 +839,38 @@ export async function syncOrganizationGoogleCalendars(
 ) {
   if (!googleCalendarConfigured()) return;
   const db = supabaseAdmin();
-  const [connectionsResult, profilesResult, rows] = await Promise.all([
+  const [connectionsResult, membershipsResult, rows] = await Promise.all([
     db
       .from("remodel_google_calendar_connections")
       .select("*")
       .eq("organization_id", organizationId)
       .not("refresh_token_ciphertext", "is", null),
     db
-      .from("profiles")
-      .select("id,role,active")
+      .from("remodel_memberships")
+      .select("profile_id,role,active")
       .eq("organization_id", organizationId)
       .eq("active", true),
     organizationRows(organizationId),
   ]);
   if (connectionsResult.error) throw connectionsResult.error;
-  if (profilesResult.error) throw profilesResult.error;
+  if (membershipsResult.error) throw membershipsResult.error;
+  const profileIds = membershipsResult.data.map((item) => item.profile_id);
+  const activeProfiles = profileIds.length
+    ? await db
+        .from("profiles")
+        .select("id")
+        .in("id", profileIds)
+        .eq("active", true)
+    : { data: [], error: null };
+  if (activeProfiles.error) throw activeProfiles.error;
+  const activeIds = new Set(activeProfiles.data.map((item) => item.id));
   const groups = new Map(
-    profilesResult.data.map((profile) => [
-      profile.id,
-      profile.role as WorkspaceGroup,
-    ]),
+    membershipsResult.data
+      .filter((membership) => activeIds.has(membership.profile_id))
+      .map((membership) => [
+        membership.profile_id,
+        membership.role as WorkspaceGroup,
+      ]),
   );
   for (const raw of connectionsResult.data as ConnectionRow[]) {
     const group = groups.get(raw.profile_id);

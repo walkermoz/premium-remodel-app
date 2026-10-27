@@ -1,4 +1,5 @@
 import { apiError, checkOrigin, HttpError, limitAttempts } from "@/lib/auth";
+import { requirePremiumAgreement } from "@/lib/agreements";
 import { readClientQuoteSource } from "@/lib/client-quote";
 import { parseClientPortalToken } from "@/lib/client-portal";
 import {
@@ -28,6 +29,7 @@ export async function POST(
       throw new HttpError(413, "Signature is too large.");
     const input = customerMsaInput.parse(JSON.parse(raw));
     const source = await readClientQuoteSource(token);
+    if (source) requirePremiumAgreement(source.organizationId);
     if (!source?.view.approved || !source.view.msa)
       throw new HttpError(404, "Agreement is not ready for signature.");
     const admin = supabaseAdmin();

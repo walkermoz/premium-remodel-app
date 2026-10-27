@@ -2,6 +2,7 @@ import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { findRecord, insertRecords } from "@/lib/repository";
 import { schemas } from "@/lib/schemas";
 import type { Quote } from "@/lib/types";
+import { validatePricebookSources } from "@/lib/pricebook-source";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
         throw new HttpError(400, parsed.error.issues[0].message);
       return parsed.data;
     });
+    await validatePricebookSources(user, items);
 
     const contractorIds = [
       ...new Set(

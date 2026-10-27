@@ -25,10 +25,12 @@ export default function TeamPanel({
   user,
   demo,
   notify,
+  twilioEnabled = false,
 }: {
   user: User;
   demo: boolean;
   notify: (message: string, error?: boolean) => void;
+  twilioEnabled?: boolean;
 }) {
   const [members, setMembers] = useState<User[]>([user]);
   const [showInvite, setShowInvite] = useState(false);
@@ -124,18 +126,20 @@ export default function TeamPanel({
         </div>
         {user.role === "admin" && (
           <div className="page-heading-actions">
-            <button
-              className="button secondary"
-              onClick={() => {
-                setShowAppInstructions(true);
-                setAppPhone("");
-                setAppLinkError("");
-                setAppLinkSentTo("");
-              }}
-            >
-              <MessageSquare size={17} />
-              Send app link
-            </button>
+            {twilioEnabled && (
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setShowAppInstructions(true);
+                  setAppPhone("");
+                  setAppLinkError("");
+                  setAppLinkSentTo("");
+                }}
+              >
+                <MessageSquare size={17} />
+                Send app link
+              </button>
+            )}
             <button
               className="button primary"
               onClick={() => {
@@ -285,7 +289,7 @@ export default function TeamPanel({
           </form>
         </Modal>
       )}
-      {showAppInstructions && (
+      {twilioEnabled && showAppInstructions && (
         <Modal
           title="Text the Premium Remodel app link"
           subtitle="Twilio sends the install link and phone setup steps directly to your teammate."

@@ -225,6 +225,7 @@ export function QuoteDetail({
   quote,
   workspace,
   user,
+  config,
   demo,
   onBack,
   onEdit,
@@ -239,6 +240,7 @@ export function QuoteDetail({
   quote: Quote;
   workspace: Workspace;
   user: User;
+  config: import("@/lib/business-config").BusinessConfig;
   demo: boolean;
   onBack: () => void;
   onEdit: (editor: Editor) => void;
@@ -349,7 +351,7 @@ export function QuoteDetail({
         throw new Error(data.error || "Could not check company email.");
       if (!data.connected)
         throw new Error(
-          "Connect contact@premiumremodel.com in Settings before sending a quote.",
+          "Connect the company mailbox in Settings before sending a quote.",
         );
       setSendRequestId(crypto.randomUUID());
       setSendError("");
@@ -527,8 +529,8 @@ export function QuoteDetail({
                 <h2>Email quote</h2>
                 <p>
                   We’ll attach the quote PDF and include a private link to view
-                  it in the client portal. The email will be sent from
-                  contact@premiumremodel.com.
+                  it in the client portal. The email will be sent from this
+                  organization’s connected Gmail account.
                 </p>
               </div>
             </header>
@@ -541,7 +543,7 @@ export function QuoteDetail({
                 Subject
                 <input
                   name="subject"
-                  defaultValue={`Premium Remodel Quote${quote.quoteNumber ? ` #${quote.quoteNumber}` : ""}`}
+                  defaultValue={`${config.profile.name} Quote${quote.quoteNumber ? ` #${quote.quoteNumber}` : ""}`}
                   required
                   maxLength={180}
                 />
@@ -550,7 +552,7 @@ export function QuoteDetail({
                 Message
                 <textarea
                   name="message"
-                  defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your Premium Remodel quote. You can also view it in your client portal using the link below. Please review it and reply with any questions.\n\nThanks,\nPremium Remodel Team`}
+                  defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your ${config.profile.name} quote. You can also view it in your client portal using the link below. Please review it and reply with any questions.\n\nThanks,\n${config.profile.name} Team`}
                   required
                   rows={7}
                   maxLength={5000}
@@ -583,22 +585,28 @@ export function QuoteDetail({
         </div>
       )}
       <div className="quote-overview">
-        <div className="quote-overview-metrics">
+        <div className={`quote-overview-metrics${config.quotePreferences.showInternalCosts ? "" : " quote-overview-metrics-solo"}`}>
           <div className="quote-overview-metric quote-price">
             <span>Scope total · quote price</span>
             <strong>{projectMoney(finances.total)}</strong>
             <small>{items.length} scope items</small>
           </div>
-          <div className="quote-overview-metric">
-            <span>Total costs</span>
-            <strong>{projectMoney(finances.costs)}</strong>
-          </div>
-          <div className="quote-overview-metric">
-            <span>Profit</span>
-            <strong className={finances.margin < 0 ? "is-negative" : undefined}>
-              {projectMoney(finances.margin)}
-            </strong>
-          </div>
+          {config.quotePreferences.showInternalCosts && (
+            <div className="quote-overview-metric">
+              <span>Total costs</span>
+              <strong>{projectMoney(finances.costs)}</strong>
+            </div>
+          )}
+          {config.quotePreferences.showInternalCosts && (
+            <div className="quote-overview-metric">
+              <span>Profit</span>
+              <strong
+                className={finances.margin < 0 ? "is-negative" : undefined}
+              >
+                {projectMoney(finances.margin)}
+              </strong>
+            </div>
+          )}
         </div>
         {overviewPhotos.length > 0 && (
           <div
@@ -673,6 +681,12 @@ export function QuoteDetail({
           <ScopeTable
             items={items}
             workspace={workspace}
+            pricebookEnabled={
+              config.features.priceBook &&
+              config.quotePreferences.showPriceBookPicker &&
+              !demo
+            }
+            showInternalCosts={config.quotePreferences.showInternalCosts}
             inline
             compactQuoteRows
             showStatus={false}
@@ -706,7 +720,7 @@ export function QuoteDetail({
           />
         )}
       </section>
-      {signedScope && (
+      {signedScope && config.features.agreements && (
         <MsaDraftPanel
           key={`${quote.id}:${JSON.stringify(quote.msaPaymentSchedule)}:${quote.msaPermitResponsibility || ""}:${JSON.stringify(quote.msaContractTerms)}`}
           project={quote}
@@ -728,57 +742,61 @@ export function QuoteDetail({
           }}
         />
       )}
-      {signedMsa && dueCents > 0 && user.role === "admin" && !demo && (
-        <section className="content-section" aria-label="Check deposit">
-          <div className="section-heading">
-            <h2>Check deposit</h2>
-          </div>
-          <form
-            className="form-fields"
-            onSubmit={(event) => void recordCheck(event)}
-          >
-            <p>
-              Record a check only after you have received it. The customer can
-              also pay online from the signed agreement.
-            </p>
-            <div className="form-grid">
-              <label>
-                Check amount ($)
-                <input
-                  name="amount"
-                  type="number"
-                  min="0.01"
-                  max={(dueCents / 100).toFixed(2)}
-                  step="0.01"
-                  placeholder={(dueCents / 100).toFixed(2)}
-                  required
-                  disabled={checkBusy}
-                />
-              </label>
-              <label>
-                Check number (optional)
-                <input
-                  name="checkReference"
-                  maxLength={100}
-                  disabled={checkBusy}
-                />
-              </label>
+      {config.features.agreements &&
+        signedMsa &&
+        dueCents > 0 &&
+        user.role === "admin" &&
+        !demo && (
+          <section className="content-section" aria-label="Check deposit">
+            <div className="section-heading">
+              <h2>Check deposit</h2>
             </div>
-            {checkError && (
-              <p role="alert" className="alert">
-                {checkError}
-              </p>
-            )}
-            <button
-              type="submit"
-              className="button primary"
-              disabled={checkBusy}
+            <form
+              className="form-fields"
+              onSubmit={(event) => void recordCheck(event)}
             >
-              {checkBusy ? "Recording…" : "Record received check"}
-            </button>
-          </form>
-        </section>
-      )}
+              <p>
+                Record a check only after you have received it. The customer can
+                also pay online from the signed agreement.
+              </p>
+              <div className="form-grid">
+                <label>
+                  Check amount ($)
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0.01"
+                    max={(dueCents / 100).toFixed(2)}
+                    step="0.01"
+                    placeholder={(dueCents / 100).toFixed(2)}
+                    required
+                    disabled={checkBusy}
+                  />
+                </label>
+                <label>
+                  Check number (optional)
+                  <input
+                    name="checkReference"
+                    maxLength={100}
+                    disabled={checkBusy}
+                  />
+                </label>
+              </div>
+              {checkError && (
+                <p role="alert" className="alert">
+                  {checkError}
+                </p>
+              )}
+              <button
+                type="submit"
+                className="button primary"
+                disabled={checkBusy}
+              >
+                {checkBusy ? "Recording…" : "Record received check"}
+              </button>
+            </form>
+          </section>
+        )}
       <section className="content-section">
         <div className="section-heading">
           <div>

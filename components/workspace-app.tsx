@@ -10,7 +10,6 @@ import {
   Settings,
   Search,
   Plus,
-  ChevronDown,
   ChevronRight,
   ArrowUpRight,
   Grid2X2,
@@ -101,10 +100,14 @@ import OverviewAlerts from "./overview-alerts";
 import LeadsPanel from "./leads-panel";
 import DoorKnockingPanel, { type DoorVisitDraft } from "./door-knocking-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
+import type { BusinessConfig } from "@/lib/business-config";
+import OrganizationSwitcher from "./organization-switcher";
+import PricebookPanel from "./pricebook-panel";
 type Page =
   | "Overview"
   | "Projects"
   | "Quotes"
+  | "Price book"
   | "Leads"
   | "Door knocking"
   | "Upcoming"
@@ -117,9 +120,11 @@ type Page =
 const demoKey = "premium-remodel-sample-v1";
 export default function WorkspaceApp({
   user,
+  config,
   demo = false,
 }: {
   user: User;
+  config: BusinessConfig;
   demo?: boolean;
 }) {
   const locationSharing = useLocationSharing(user, demo);
@@ -248,6 +253,7 @@ export default function WorkspaceApp({
               "Overview",
               "Projects",
               "Quotes",
+              "Price book",
               "Leads",
               "Door knocking",
               "Upcoming",
@@ -259,11 +265,27 @@ export default function WorkspaceApp({
               "Settings",
             ];
       setPage(
-        allowedPages.includes(nextPage as Page)
+        allowedPages.includes(nextPage as Page) &&
+          (nextPage === "Settings" ||
+            nextPage === "Activity" ||
+            config.navigation.includes(
+              nextPage as (typeof config.navigation)[number],
+            )) &&
+          (nextPage !== "Price book" || config.features.priceBook) &&
+          (nextPage !== "Generate" || config.features.imageGeneration) &&
+          (nextPage !== "Door knocking" || config.features.doorKnocking)
           ? (nextPage as Page)
           : user.group === "doorknocker"
-            ? "Door knocking"
-            : "Overview",
+            ? config.features.doorKnocking &&
+              config.navigation.includes("Door knocking")
+              ? "Door knocking"
+              : "Settings"
+            : (config.navigation.find(
+                (name) =>
+                  name !== "Door knocking" &&
+                  name !== "Price book" &&
+                  name !== "Generate",
+              ) as Page) || "Settings",
       );
       setProjectId(
         user.group === "doorknocker" ? "" : params.get("project") || "",
@@ -296,7 +318,7 @@ export default function WorkspaceApp({
       window.removeEventListener("popstate", readLocation);
       window.removeEventListener("keydown", keydown);
     };
-  }, [user.group]);
+  }, [user.group, config]);
   function navigate(
     next: Page,
     id = "",
@@ -753,7 +775,9 @@ export default function WorkspaceApp({
     syncVersion.current++;
     try {
       if (demo)
-        throw new Error("The signed agreement and deposit are required to move this quote to Projects.");
+        throw new Error(
+          "The signed agreement and deposit are required to move this quote to Projects.",
+        );
       const response = await fetch("/api/quotes/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1071,7 +1095,11 @@ export default function WorkspaceApp({
       if (byService) return byService;
       return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
     });
-  const menus: { name: Page; icon: typeof LayoutDashboard; count?: number }[] =
+  const baseMenus: {
+    name: Page;
+    icon: typeof LayoutDashboard;
+    count?: number;
+  }[] =
     user.group === "doorknocker"
       ? [
           { name: "Door knocking", icon: Footprints },
@@ -1081,6 +1109,7 @@ export default function WorkspaceApp({
           { name: "Overview", icon: LayoutDashboard },
           { name: "Projects", icon: FolderKanban },
           { name: "Quotes", icon: FileText },
+          { name: "Price book", icon: CircleDollarSign },
           {
             name: "Leads",
             icon: Inbox,
@@ -1091,6 +1120,28 @@ export default function WorkspaceApp({
           { name: "Contractors", icon: HardHat },
           { name: "Generate", icon: WandSparkles },
         ];
+  const menus = baseMenus
+    .filter((item) =>
+      config.navigation.includes(
+        item.name as (typeof config.navigation)[number],
+      ),
+    )
+    .filter((item) =>
+      item.name === "Door knocking"
+        ? config.features.doorKnocking
+        : item.name === "Price book"
+          ? config.features.priceBook
+          : item.name === "Generate"
+            ? config.features.imageGeneration
+            : true,
+    )
+    .sort(
+      (a, b) =>
+        config.navigation.indexOf(
+          a.name as (typeof config.navigation)[number],
+        ) -
+        config.navigation.indexOf(b.name as (typeof config.navigation)[number]),
+    );
   function projectCard(project: Project) {
     const clock = contractClock(project, contractToday);
     const tasks = workspace.tasks.filter((t) => t.projectId === project.id);
@@ -1197,15 +1248,17 @@ export default function WorkspaceApp({
       )}
       <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
         <Link href={demo ? "/demo" : "/"} className="brand">
-          <img src="/images/logo.png" alt="Premium Remodel" />
+          {config.profile.logoUrl ? (
+            <img src={config.profile.logoUrl} alt={config.profile.name} />
+          ) : (
+            <strong>{config.profile.name}</strong>
+          )}
         </Link>
         <div className="workspace-switch">
-          <span className="workspace-monogram">P</span>
-          <div>
-            <strong>Premium Remodel</strong>
-            <span>{demo ? "Sample workspace" : "Company workspace"}</span>
-          </div>
-          <ChevronDown size={14} />
+          <span className="workspace-monogram">
+            {config.profile.name.charAt(0)}
+          </span>
+          <OrganizationSwitcher currentName={config.profile.name} demo={demo} />
         </div>
         <span className="nav-label">WORKSPACE</span>
         <nav aria-label="Main navigation">
@@ -1223,22 +1276,25 @@ export default function WorkspaceApp({
         </nav>
         <span className="nav-label team-label">COMPANY</span>
         <nav aria-label="Company navigation">
-          <button
-            className={`nav-item ${page === "Team map" ? "active" : ""}`}
-            onClick={() => navigate("Team map")}
-          >
-            <MapPinned size={18} />
-            Team map
-          </button>
-          {user.group !== "doorknocker" && (
+          {config.navigation.includes("Team map") && (
             <button
-              className={`nav-item ${page === "Team" ? "active" : ""}`}
-              onClick={() => navigate("Team")}
+              className={`nav-item ${page === "Team map" ? "active" : ""}`}
+              onClick={() => navigate("Team map")}
             >
-              <Users size={18} />
-              Team
+              <MapPinned size={18} />
+              Team map
             </button>
           )}
+          {user.group !== "doorknocker" &&
+            config.navigation.includes("Team") && (
+              <button
+                className={`nav-item ${page === "Team" ? "active" : ""}`}
+                onClick={() => navigate("Team")}
+              >
+                <Users size={18} />
+                Team
+              </button>
+            )}
           <button
             className={`nav-item ${page === "Settings" ? "active" : ""}`}
             onClick={() => navigate("Settings")}
@@ -1248,16 +1304,18 @@ export default function WorkspaceApp({
           </button>
         </nav>
         <div className="sidebar-bottom">
-          <a
-            className="website-link"
-            href="https://premiumremodel.com"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <ExternalLink size={15} />
-            Visit our website
-            <ArrowUpRight size={14} />
-          </a>
+          {config.profile.website && (
+            <a
+              className="website-link"
+              href={config.profile.website}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink size={15} />
+              Visit our website
+              <ArrowUpRight size={14} />
+            </a>
+          )}
           {demo && (
             <div className="sample-sidebar">
               <span className="sample-indicator" />
@@ -1323,7 +1381,7 @@ export default function WorkspaceApp({
             >
               <Menu size={20} />
             </button>
-            <span>Premium Remodel</span>
+            <span>{config.profile.name}</span>
             <ChevronRight size={13} />
             <strong>
               {selectedQuote ? "Quotes" : projectId ? "Projects" : page}
@@ -1440,6 +1498,7 @@ export default function WorkspaceApp({
               quote={selectedQuote}
               workspace={workspace}
               user={user}
+              config={config}
               demo={demo}
               onBack={() => navigate("Quotes")}
               onEdit={setEditor}
@@ -1475,6 +1534,9 @@ export default function WorkspaceApp({
                   onImport={importQuotes}
                   demo={demo}
                 />
+              )}
+              {page === "Price book" && config.features.priceBook && (
+                <PricebookPanel user={user} />
               )}
               {page === "Door knocking" && (
                 <DoorKnockingPanel
@@ -1981,7 +2043,12 @@ export default function WorkspaceApp({
                 </>
               )}
               {page === "Team" && (
-                <TeamPanel user={user} demo={demo} notify={notify} />
+                <TeamPanel
+                  user={user}
+                  demo={demo}
+                  notify={notify}
+                  twilioEnabled={config.features.twilio}
+                />
               )}
               {page === "Team map" && (
                 <TeamMapPanel
@@ -1994,6 +2061,7 @@ export default function WorkspaceApp({
               {page === "Settings" && (
                 <SettingsPanel
                   user={user}
+                  config={config}
                   demo={demo}
                   alerts={workspace.alerts || []}
                   onSaveAlert={(data, alert) => save("alert", data, alert)}

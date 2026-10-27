@@ -10,7 +10,11 @@ import {
 } from "@/lib/auth";
 import { getWorkspace, findRecord } from "@/lib/repository";
 import { projectFinances } from "@/lib/project-finances";
-import { stripeClient } from "@/lib/stripe-payments";
+import {
+  stripeClient,
+  stripeEnabledForOrganization,
+} from "@/lib/stripe-payments";
+import { getBusinessConfig } from "@/lib/business-config";
 import { dollarsToCents } from "@/lib/stripe-payment-utils";
 import type { Project } from "@/lib/types";
 import { recordAuditEvent } from "@/lib/audit-server";
@@ -27,8 +31,10 @@ export async function GET() {
     const user = await requireUser();
     if (
       user.role !== "admin" ||
-      !process.env.STRIPE_SECRET_KEY ||
-      !process.env.STRIPE_WEBHOOK_SECRET
+      !stripeEnabledForOrganization(user.organizationId) ||
+      !(await getBusinessConfig(user)).features.payments ||
+      (await getBusinessConfig(user)).quotePreferences.paymentProvider !==
+        "stripe"
     )
       return Response.json(
         { enabled: false },
@@ -37,7 +43,8 @@ export async function GET() {
     let payoutsEnabled = false;
     try {
       payoutsEnabled =
-        (await stripeClient().accounts.retrieve(null)).payouts_enabled === true;
+        (await stripeClient(user.organizationId).accounts.retrieve(null))
+          .payouts_enabled === true;
     } catch {
       // Never offer a live payment link when Stripe account status is unknown.
     }
@@ -61,10 +68,18 @@ export async function POST(request: Request) {
     const user = await requireUser();
     if (user.role !== "admin")
       throw new HttpError(403, "Only administrators can create payment links.");
-    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET)
+    const business = await getBusinessConfig(user);
+    if (
+      !business.features.payments ||
+      business.quotePreferences.paymentProvider !== "stripe" ||
+      !stripeEnabledForOrganization(user.organizationId)
+    )
       throw new HttpError(503, "Stripe payments are not fully configured yet.");
     await limitAttempts(`stripe-checkout:${user.id}`, 30);
-    if ((await stripeClient().accounts.retrieve(null)).payouts_enabled !== true)
+    if (
+      (await stripeClient(user.organizationId).accounts.retrieve(null))
+        .payouts_enabled !== true
+    )
       throw new HttpError(
         503,
         "Stripe payouts are paused. Complete the account verification task in Stripe before collecting by card.",
@@ -107,7 +122,9 @@ export async function POST(request: Request) {
       createdByName: user.name,
       amountCents: String(amountCents),
     };
-    const session = await stripeClient().checkout.sessions.create({
+    const session = await stripeClient(
+      user.organizationId,
+    ).checkout.sessions.create({
       mode: "payment",
       allowed_payment_method_types: ["card"],
       expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
@@ -118,7 +135,7 @@ export async function POST(request: Request) {
             currency: "usd",
             unit_amount: amountCents,
             product_data: {
-              name: `Premium Remodel — ${project.name.slice(0, 120)}`,
+              name: `${business.profile.name} — ${project.name.slice(0, 120)}`,
             },
           },
           quantity: 1,
@@ -126,8 +143,8 @@ export async function POST(request: Request) {
       ],
       metadata,
       payment_intent_data: { metadata },
-      success_url: `${origin}/payment-complete`,
-      cancel_url: `${origin}/payment-complete?canceled=1`,
+      success_url: `${origin}/payment-complete?organization=${user.organizationId}`,
+      cancel_url: `${origin}/payment-complete?organization=${user.organizationId}&canceled=1`,
     });
     if (!session.url) throw new Error("Stripe did not return a payment URL.");
     try {
