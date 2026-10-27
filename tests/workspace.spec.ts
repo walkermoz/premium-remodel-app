@@ -20,10 +20,10 @@ cloudTest(
       page.getByRole("heading", { name: "Your next project starts here" }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "Contractors", exact: true })
+      .getByRole("button", { name: "Contacts", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Add contractor", exact: true })
+      .getByRole("button", { name: "Add contact", exact: true })
       .first()
       .click();
     let dialog = page.getByRole("dialog");
@@ -33,7 +33,7 @@ cloudTest(
     await dialog
       .getByLabel("Email", { exact: true })
       .fill("flooring@example.com");
-    await dialog.getByRole("button", { name: "Create contractor" }).click();
+    await dialog.getByRole("button", { name: "Create contact" }).click();
     await expect(dialog).not.toBeVisible();
     await page.getByRole("button", { name: "Projects", exact: true }).click();
     await page.getByRole("button", { name: "New project" }).click();
@@ -490,9 +490,9 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("button", { name: "Contractors", exact: true }).click();
+  await page.getByRole("button", { name: "Contacts", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Contractors." }),
+    page.getByRole("heading", { name: "Contacts." }),
   ).toBeVisible();
   expect(
     await page.evaluate(

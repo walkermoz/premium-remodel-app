@@ -91,7 +91,7 @@ test("create a contractor within work, preserve the draft, and save the assignme
     .click();
   await expect(selected).toHaveValue(contractorId);
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("button", { name: "Contractors", exact: true }).click();
+  await page.getByRole("button", { name: "Contacts", exact: true }).click();
   const card = page.locator("article").filter({
     has: page.getByRole("heading", { name: "Taylor Plumbing", exact: true }),
   });

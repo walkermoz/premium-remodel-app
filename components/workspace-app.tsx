@@ -245,7 +245,9 @@ export default function WorkspaceApp({
       const nextPage =
         legacyPage === "Tasks" || legacyPage === "Calendar"
           ? "Upcoming"
-          : legacyPage;
+          : legacyPage === "Contacts"
+            ? "Contractors"
+            : legacyPage;
       const allowedPages: Page[] =
         user.group === "doorknocker"
           ? ["Door knocking", "Upcoming", "Team map", "Settings"]
@@ -605,7 +607,7 @@ export default function WorkspaceApp({
               project: "Project created",
               quote: "Quote created",
               task: "Work added",
-              contractor: "Contractor added",
+              contractor: "Contact added",
               scope: "Scope item added",
               comment: "Note added",
               attachment: "File uploaded",
@@ -1237,6 +1239,7 @@ export default function WorkspaceApp({
       </button>
     );
   }
+  const visiblePageName = page === "Contractors" ? "Contacts" : page;
   return (
     <div className="app-shell">
       {sidebar && (
@@ -1269,7 +1272,7 @@ export default function WorkspaceApp({
               onClick={() => navigate(item.name)}
             >
               <item.icon size={18} />
-              <span>{item.name}</span>
+              <span>{item.name === "Contractors" ? "Contacts" : item.name}</span>
               {!!item.count && <span className="nav-count">{item.count}</span>}
             </button>
           ))}
@@ -1384,7 +1387,11 @@ export default function WorkspaceApp({
             <span>{config.profile.name}</span>
             <ChevronRight size={13} />
             <strong>
-              {selectedQuote ? "Quotes" : projectId ? "Projects" : page}
+              {selectedQuote
+                ? "Quotes"
+                : projectId
+                  ? "Projects"
+                  : visiblePageName}
             </strong>
             {(selected || selectedQuote) && (
               <>
@@ -1427,8 +1434,8 @@ export default function WorkspaceApp({
                   <Search size={16} />
                   <input
                     ref={searchInput}
-                    aria-label={`Search ${page === "Overview" ? "projects" : page.toLowerCase()}`}
-                    placeholder={`Search ${page === "Overview" ? "projects" : page.toLowerCase()}…`}
+                    aria-label={`Search ${page === "Overview" ? "projects" : visiblePageName.toLowerCase()}`}
+                    placeholder={`Search ${page === "Overview" ? "projects" : visiblePageName.toLowerCase()}…`}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -1860,7 +1867,7 @@ export default function WorkspaceApp({
                         THE PEOPLE BEHIND THE WORK
                       </span>
                       <h1>
-                        Contractors<span className="heading-dot">.</span>
+                        Contacts<span className="heading-dot">.</span>
                       </h1>
                       <p>
                         Your trusted trades, contact details, and current
@@ -1872,12 +1879,12 @@ export default function WorkspaceApp({
                       onClick={() => setEditor({ kind: "contractor" })}
                     >
                       <Plus size={17} />
-                      Add contractor
+                      Add contact
                     </button>
                   </div>
                   <div className="section-intro">
                     <HardHat size={19} />
-                    <h2>Contractor directory</h2>
+                    <h2>Trade contacts</h2>
                     <span className="count-pill">
                       {workspace.contractors.length}
                     </span>
@@ -1886,7 +1893,7 @@ export default function WorkspaceApp({
                     <label>
                       Service
                       <select
-                        aria-label="Filter contractors by service"
+                        aria-label="Filter contacts by service"
                         value={serviceFilter}
                         onChange={(event) =>
                           setServiceFilter(event.target.value)
@@ -1902,7 +1909,7 @@ export default function WorkspaceApp({
                     </label>
                     <span className="contractor-result-count" role="status">
                       {visibleContractors.length} of{" "}
-                      {workspace.contractors.length} contractors
+                      {workspace.contractors.length} contacts
                     </span>
                   </div>
                   <div className="contractor-list">
@@ -2006,12 +2013,12 @@ export default function WorkspaceApp({
                     <Empty
                       title={
                         workspace.contractors.length
-                          ? "No matching contractors"
-                          : "No contractors yet"
+                          ? "No matching contacts"
+                          : "No contacts yet"
                       }
                       text={
                         workspace.contractors.length
-                          ? "Try a different service or search to find your contractor."
+                          ? "Try a different service or search to find your contact."
                           : "Add your go-to trades and assign them to jobs."
                       }
                       action={
@@ -2029,7 +2036,7 @@ export default function WorkspaceApp({
                           ) : (
                             <>
                               <Plus size={16} />
-                              Add contractor
+                              Add contact
                             </>
                           )}
                         </button>
@@ -2037,7 +2044,7 @@ export default function WorkspaceApp({
                     />
                   )}
                   <p className="footnote">
-                    Contractor contacts do not automatically receive app access.
+                    Trade contacts do not automatically receive app access.
                     Invite employees from the Team page.
                   </p>
                 </>
