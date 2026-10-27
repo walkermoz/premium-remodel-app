@@ -7,7 +7,7 @@ The workspace resolves every signed-in request to one active organization member
 ## Adding a business
 
 1. Apply `supabase/migrations/202610270001_multi_business.sql` before deploying the app. Back up the database first.
-2. Add the existing owner account's email to `PLATFORM_ADMIN_EMAILS`. That owner can use **Settings → Add another business**. The database creates a new organization and owner membership together.
+2. Only Walker's personal `walker@premiumremodel.com` account may create an organization through the protected `PUT /api/organizations` route. Business creation is not offered in workspace Settings. The database creates the organization and owner membership together.
 3. Switch to the new business in the sidebar. **Settings → Business setup** configures company name, contact details, logo, address search region, enabled modules, quote cost visibility, price-book picker, and navigation order.
 4. Invite other employees from **Team**. An existing employee account receives another membership and can switch between businesses without a duplicate login. Removing them from one business leaves their other memberships active.
 5. If quotes should use saved prices, enable **Price book**, add entries, and enable the quote picker. A selected entry is copied into the quote as a priced scope line with the catalog ID and revision. Later catalog edits do not alter old quotes.

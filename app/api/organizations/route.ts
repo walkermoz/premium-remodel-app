@@ -3,16 +3,9 @@ import { cookies } from "next/headers";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { organizationCookie } from "@/lib/organization-context";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { canCreateBusiness } from "@/lib/business-creation-access";
 
 export const runtime = "nodejs";
-
-function canCreateBusiness(email: string) {
-  const allowed = (process.env.PLATFORM_ADMIN_EMAILS || "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
-}
 
 async function memberships() {
   // This call intentionally ignores the selected-org cookie so a revoked
@@ -28,7 +21,6 @@ async function memberships() {
 export async function GET() {
   try {
     const organizations = await memberships();
-    const auth = await (await supabaseServer(false)).auth.getUser();
     const configNames = organizations.length
       ? await supabaseAdmin()
           .from("remodel_business_config")
@@ -58,10 +50,6 @@ export async function GET() {
             ?.organization_id ||
           organizations[0]?.organization_id ||
           null,
-        canCreate:
-          organizations.some(
-            (item) => item.role === "owner" || item.role === "admin",
-          ) && canCreateBusiness(auth.data.user?.email || ""),
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
@@ -74,10 +62,10 @@ export async function PUT(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin" || !canCreateBusiness(user.email))
+    if (!canCreateBusiness(user))
       throw new HttpError(
         403,
-        "Only a platform administrator can create a business.",
+        "Only Walker's designated account can create a business.",
       );
     const { name } = z
       .object({ name: z.string().trim().min(2).max(120) })
