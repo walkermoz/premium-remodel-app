@@ -2,7 +2,20 @@
 
 import { useEffect, useState } from "react";
 import type { BusinessConfig } from "@/lib/business-config";
-import { navigationPages } from "@/lib/business-config-schema";
+import {
+  doorKnockerPages,
+  navigationPages,
+} from "@/lib/business-config-schema";
+import { workspaceGroups, type WorkspaceGroup } from "@/lib/types";
+
+const roleLabels: Record<WorkspaceGroup, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  office: "Office",
+  crew: "Crew",
+  field: "Field",
+  doorknocker: "Door knocker",
+};
 
 const labels = {
   priceBook: "Price book",
@@ -25,6 +38,7 @@ export default function BusinessSettings({
   const [error, setError] = useState("");
   const [canCreate, setCanCreate] = useState(false);
   const [newBusiness, setNewBusiness] = useState("");
+  const [selectedRole, setSelectedRole] = useState<WorkspaceGroup>("admin");
 
   useEffect(() => {
     if (demo || !admin) return;
@@ -252,8 +266,8 @@ export default function BusinessSettings({
         <div>
           <strong>Left navigation</strong>
           <p className="footnote">
-            Choose the sections shown to this company. Drag-free order controls
-            keep the layout predictable.
+            Choose the sections available to this company and their order. Role
+            access below further limits who sees each section.
           </p>
           <div className="business-navigation-list">
             {navigationPages.map((name) => {
@@ -316,6 +330,70 @@ export default function BusinessSettings({
                       </button>
                     </div>
                   )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <strong>Tab access by role</strong>
+          <p className="footnote">
+            Choose which workspace tabs each role can open. Door knocking is
+            assigned to door knockers by default. Settings stays available to
+            everyone.
+          </p>
+          <label>
+            Role
+            <select
+              value={selectedRole}
+              onChange={(event) =>
+                setSelectedRole(event.target.value as WorkspaceGroup)
+              }
+            >
+              {workspaceGroups.map((group) => (
+                <option key={group} value={group}>
+                  {roleLabels[group]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="business-navigation-list">
+            {navigationPages.map((name) => {
+              const companyEnabled = config.navigation.includes(name);
+              const fieldSupported =
+                selectedRole !== "doorknocker" ||
+                doorKnockerPages.includes(name);
+              return (
+                <div className="member-row" key={name}>
+                  <label className="business-option">
+                    <input
+                      type="checkbox"
+                      checked={config.roleNavigation[selectedRole].includes(
+                        name,
+                      )}
+                      disabled={
+                        !admin ||
+                        name === "Settings" ||
+                        !companyEnabled ||
+                        !fieldSupported
+                      }
+                      onChange={(event) =>
+                        setConfig((current) => ({
+                          ...current,
+                          roleNavigation: {
+                            ...current.roleNavigation,
+                            [selectedRole]: event.target.checked
+                              ? [...current.roleNavigation[selectedRole], name]
+                              : current.roleNavigation[selectedRole].filter(
+                                  (page) => page !== name,
+                                ),
+                          },
+                        }))
+                      }
+                    />
+                    {name}
+                  </label>
+                  {!companyEnabled && <small>Off for company</small>}
                 </div>
               );
             })}

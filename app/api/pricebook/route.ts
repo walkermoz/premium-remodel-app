@@ -3,14 +3,18 @@ import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { getBusinessConfig } from "@/lib/business-config";
 import { mapPricebookItem, pricebookInput } from "@/lib/pricebook";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 
 export const runtime = "nodejs";
 
 async function requirePricebook() {
   const user = await requireUser();
   if (
-    user.group === "doorknocker" ||
-    !(await getBusinessConfig(user)).features.priceBook
+    !canOpenWorkspaceTab(
+      await getBusinessConfig(user),
+      user.group,
+      "Price book",
+    )
   )
     throw new HttpError(
       403,

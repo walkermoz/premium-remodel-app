@@ -16,6 +16,7 @@ import {
 import { allocateQuoteNumber } from "@/lib/repository";
 import { schemas } from "@/lib/schemas";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot import quotes.");
     await limitAttempts(`quote-import-save:${user.id}`, 20);

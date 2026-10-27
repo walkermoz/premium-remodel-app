@@ -42,6 +42,8 @@ The additive migration creates:
 - `remodel-files`: a private Supabase Storage bucket with organization-prefixed paths.
 - Membership/session functions and row-level security policies.
 
+Administrators can set workspace tab access for each organization role in **Settings → Business setup → Tab access by role**. Company navigation and feature switches remain the outer limits. Door knocking is available to door knockers by default and hidden from owner/admin workspaces; Settings remains available to every role. The workspace API filters records for inaccessible sections and rejects edits there, while feature-specific routes check the same role rules.
+
 Existing company tables and files are preserved. They are not automatically imported into the redesigned workspace. Demo browser data and the previous local SQLite database are also separate and are not automatically uploaded.
 
 ## Run locally

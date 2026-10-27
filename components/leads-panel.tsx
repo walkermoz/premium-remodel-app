@@ -83,6 +83,7 @@ export default function LeadsPanel({
   onSaveLead,
   onCreateLead,
   onQuote,
+  canQuote = true,
 }: {
   leads: Lead[];
   contacts: Contact[];
@@ -92,6 +93,7 @@ export default function LeadsPanel({
   onSaveLead: (data: Record<string, unknown>, lead: Lead) => Promise<unknown>;
   onCreateLead: (data: ManualLeadInput) => Promise<Lead>;
   onQuote: (lead: Lead, contact: Contact | null, quote?: Quote) => void;
+  canQuote?: boolean;
 }) {
   const [selectedId, setSelectedId] = useState("");
   const [scheduling, setScheduling] = useState<Lead | null>(null);
@@ -305,13 +307,15 @@ export default function LeadsPanel({
                     <CalendarClock size={14} />
                     {new Date(selected.submittedAt).toLocaleString()}
                   </time>
-                  <button
-                    className="button primary small-button"
-                    onClick={() => onQuote(selected, contact, linkedQuote)}
-                  >
-                    <FilePlus2 size={15} aria-hidden="true" />
-                    {linkedQuote ? "Open quote" : "Create quote"}
-                  </button>
+                  {canQuote && (
+                    <button
+                      className="button primary small-button"
+                      onClick={() => onQuote(selected, contact, linkedQuote)}
+                    >
+                      <FilePlus2 size={15} aria-hidden="true" />
+                      {linkedQuote ? "Open quote" : "Create quote"}
+                    </button>
+                  )}
                   <button
                     className="button secondary small-button"
                     onClick={() => {

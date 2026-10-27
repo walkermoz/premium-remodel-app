@@ -18,6 +18,7 @@ import { getBusinessConfig } from "@/lib/business-config";
 import { dollarsToCents } from "@/lib/stripe-payment-utils";
 import type { Project } from "@/lib/types";
 import { recordAuditEvent } from "@/lib/audit-server";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     if (user.role !== "admin")
       throw new HttpError(403, "Only administrators can create payment links.");
     const business = await getBusinessConfig(user);

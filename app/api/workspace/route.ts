@@ -45,6 +45,11 @@ import { validateStoredFile } from "@/lib/validate-file";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { stripeClient } from "@/lib/stripe-payments";
 import { after } from "next/server";
+import { getBusinessConfig } from "@/lib/business-config";
+import {
+  canEditWorkspaceRecord,
+  filterWorkspaceForTabs,
+} from "@/lib/workspace-tab-access";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const filesBucket = "remodel-files";
@@ -103,9 +108,16 @@ async function validateLegacyCover(user: WorkspaceUser, cover: Attachment) {
 export async function GET() {
   try {
     const user = await requireUser();
-    return Response.json(await getWorkspace(user), {
-      headers: { "Cache-Control": "private, no-store" },
-    });
+    const [workspace, config] = await Promise.all([
+      getWorkspace(user),
+      getBusinessConfig(user),
+    ]);
+    return Response.json(
+      filterWorkspaceForTabs(workspace, config, user.group),
+      {
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
   } catch (e) {
     return apiError(e);
   }
@@ -129,6 +141,13 @@ async function save(request: Request, editing: boolean) {
     const kind = body.kind as keyof typeof schemas;
     if (!Object.prototype.hasOwnProperty.call(schemas, kind))
       throw new HttpError(400, "Unknown record type.");
+    if (
+      !canEditWorkspaceRecord(await getBusinessConfig(user), user.group, kind)
+    )
+      throw new HttpError(
+        403,
+        "This workspace section is not available to your role.",
+      );
     const current = editing
       ? await findRecord(user, String(body.id), kind)
       : null;
@@ -533,6 +552,13 @@ export async function DELETE(request: Request) {
       throw new HttpError(
         400,
         "This record cannot be deleted. Projects can be marked completed.",
+      );
+    if (
+      !canEditWorkspaceRecord(await getBusinessConfig(user), user.group, kind)
+    )
+      throw new HttpError(
+        403,
+        "This workspace section is not available to your role.",
       );
     const current = await findRecord(user, String(body.id), kind);
     if (!current) throw new HttpError(404, "Record not found.");

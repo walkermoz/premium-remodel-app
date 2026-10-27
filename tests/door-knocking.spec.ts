@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("door-knocking map saves a visit, lead, and consultation", async ({
   page,
 }) => {
-  await page.goto("/demo?view=Door+knocking");
+  await page.goto("/demo?as=doorknocker&view=Door+knocking");
   await expect(
     page.getByRole("heading", { name: "Door knocking." }),
   ).toBeVisible();
@@ -58,7 +58,7 @@ test("door-knocking map saves a visit, lead, and consultation", async ({
 });
 
 test("door-knocking form requires a map position", async ({ page }) => {
-  await page.goto("/demo?view=Door+knocking");
+  await page.goto("/demo?as=doorknocker&view=Door+knocking");
   await page.getByRole("button", { name: "Add by address" }).click();
   const dialog = page.getByRole("dialog", { name: "Mark this house" });
   await dialog

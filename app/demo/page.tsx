@@ -1,8 +1,13 @@
 import WorkspaceApp from "@/components/workspace-app";
 import { defaultBusinessConfig } from "@/lib/business-config";
 import { BusinessProvider } from "@/components/business-context";
-export default function Demo() {
+export default async function Demo({
+  searchParams,
+}: {
+  searchParams: Promise<{ as?: string }>;
+}) {
   const config = defaultBusinessConfig();
+  const doorKnocker = (await searchParams).as === "doorknocker";
   return (
     <BusinessProvider config={config}>
       <WorkspaceApp
@@ -12,8 +17,8 @@ export default function Demo() {
           id: "demo",
           name: "Alex Morgan",
           email: "demo@example.com",
-          role: "admin",
-          group: "owner",
+          role: doorKnocker ? "member" : "admin",
+          group: doorKnocker ? "doorknocker" : "owner",
         }}
       />
     </BusinessProvider>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { getBusinessConfig } from "@/lib/business-config";
+import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import {
   availableGenerationModels,
   getGenerationDefault,
@@ -10,7 +11,13 @@ import {
 export async function GET() {
   try {
     const user = await requireUser();
-    if (!(await getBusinessConfig(user)).features.imageGeneration)
+    if (
+      !canOpenWorkspaceTab(
+        await getBusinessConfig(user),
+        user.group,
+        "Generate",
+      )
+    )
       throw new HttpError(
         403,
         "Image generation is not enabled for this organization.",
@@ -36,7 +43,13 @@ export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (!(await getBusinessConfig(user)).features.imageGeneration)
+    if (
+      !canOpenWorkspaceTab(
+        await getBusinessConfig(user),
+        user.group,
+        "Generate",
+      )
+    )
       throw new HttpError(
         403,
         "Image generation is not enabled for this organization.",

@@ -3,6 +3,7 @@ import { findRecord, insertRecords } from "@/lib/repository";
 import { schemas } from "@/lib/schemas";
 import type { Quote } from "@/lib/types";
 import { validatePricebookSources } from "@/lib/pricebook-source";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     if (user.group === "doorknocker")
       throw new HttpError(
         403,

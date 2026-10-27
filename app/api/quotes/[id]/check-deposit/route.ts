@@ -6,6 +6,7 @@ import { dollarsToCents } from "@/lib/stripe-payment-utils";
 import { stripeClient } from "@/lib/stripe-payments";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Activity, Quote } from "@/lib/types";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     if (user.role !== "admin")
       throw new HttpError(
         403,

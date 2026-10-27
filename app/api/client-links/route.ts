@@ -16,6 +16,7 @@ import { isValidClientQuoteSnapshot } from "@/lib/client-quote";
 import { findRecord } from "@/lib/repository";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Project, Quote } from "@/lib/types";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 
@@ -89,6 +90,7 @@ function portalResponse(
 export async function GET(request: Request) {
   try {
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     requireAdministrator(user);
     const kind = linkKind(new URL(request.url).searchParams.get("kind"));
     const projectId = projectIdFrom(request);
@@ -127,6 +129,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     requireAdministrator(user);
     await limitAttempts(`client-links:${user.id}`, 30);
     const body = await request.json();
@@ -239,6 +242,7 @@ export async function DELETE(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     requireAdministrator(user);
     const body = await request.json();
     const kind = linkKind(body.kind);

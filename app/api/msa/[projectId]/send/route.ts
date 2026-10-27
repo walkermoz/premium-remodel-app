@@ -17,6 +17,7 @@ import { sendMsaEmail } from "@/lib/msa-email";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAuditEvent } from "@/lib/audit-server";
 import type { Project, Quote, ScopeItem } from "@/lib/types";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 const inputSchema = z.object({
@@ -34,6 +35,7 @@ export async function GET(
 ) {
   try {
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot view agreements.");
@@ -78,6 +80,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot send agreements.");

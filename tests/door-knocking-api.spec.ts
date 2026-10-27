@@ -42,20 +42,18 @@ cloudTest(
     ).toBe(200);
     await page.goto("/?view=Leads");
     await expect(page.getByRole("heading", { name: "Leads." })).toBeVisible();
-    await page.getByRole("button", { name: "Door knocking" }).click();
-    await expect(page).toHaveURL(/\?view=Door\+knocking$/);
+    await expect(
+      page.getByRole("button", { name: "Door knocking" }),
+    ).toHaveCount(0);
+    await page.goto("/?view=Door+knocking");
     await expect(
       page.getByRole("heading", { name: "Door knocking." }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     const ownerVisit = await ownerApi.post("/api/door-knocking", {
       headers: { Origin: "http://localhost:3100" },
       data: visit("101 Owner Test Lane, Raleigh, NC 27601"),
     });
-    expect(ownerVisit.status()).toBe(201);
-    const ownerCreated = await ownerVisit.json();
-    expect(ownerCreated.visit.leadId).toBe(ownerCreated.lead.id);
-    expect(ownerCreated.contact.id).toBe(ownerCreated.lead.contactId);
-    expect(ownerCreated.lead.quoteStartTime).toBe("14:30");
+    expect(ownerVisit.status()).toBe(403);
 
     const suffix = randomUUID();
     const email = `door-${suffix}@premiumremodel.test`;
@@ -101,7 +99,7 @@ cloudTest(
         ).status(),
       ).toBe(200);
       const before = await (await api.get("/api/workspace")).json();
-      expect(before.doorVisits).toHaveLength(1);
+      expect(before.doorVisits).toHaveLength(0);
       expect(before.leads).toHaveLength(0);
       expect(before.contacts).toHaveLength(0);
       expect(before.projects).toHaveLength(0);
@@ -112,7 +110,7 @@ cloudTest(
       });
       expect(ownVisit.status()).toBe(201);
       const after = await (await api.get("/api/workspace")).json();
-      expect(after.doorVisits).toHaveLength(2);
+      expect(after.doorVisits).toHaveLength(1);
       expect(after.leads).toHaveLength(1);
       expect(after.contacts).toHaveLength(1);
       expect(after.leads[0].canvasserName).toBe("Door Knocker Test");
