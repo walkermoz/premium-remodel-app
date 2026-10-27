@@ -1967,8 +1967,8 @@ export default function WorkspaceApp({
                             <span>
                               {assignedTasks.length} assigned{" "}
                               {assignedTasks.length === 1
-                                ? "work item"
-                                : "work items"}
+                                ? "task"
+                                : "tasks"}
                             </span>
                             {assignedTasks.slice(0, 3).map((task) => (
                               <div
