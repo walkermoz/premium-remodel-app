@@ -18,7 +18,7 @@ test("Google Calendar sample settings do not contact a live account", async ({
   await expect(section).toContainText(
     "available in your signed-in company workspace",
   );
-  await expect(section).toContainText("Premium Remodel");
+  await expect(section).toContainText("private company calendar");
   expect(requests).toBe(0);
 });
 

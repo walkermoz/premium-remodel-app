@@ -50,9 +50,14 @@ export function renderPremiumEmail(content: EmailContent) {
       ? "cid:premium-remodel-logo"
       : content.logoSrc;
   const linkStyle = "color:#286fae;text-decoration:underline;";
+  const phoneDigits = business.phone.replace(/\D/g, "");
+  const phoneHref =
+    phoneDigits.length >= 7
+      ? `tel:+${phoneDigits.length === 10 ? `1${phoneDigits}` : phoneDigits}`
+      : "";
   const footerLinks = [
     business.phone
-      ? `<td class="footer-link" align="left" style="padding-top:16px;font-size:12px;line-height:1.6;white-space:nowrap;">${escapeEmailHtml(business.phone)}</td>`
+      ? `<td class="footer-link" align="left" style="padding-top:16px;font-size:12px;line-height:1.6;white-space:nowrap;">${phoneHref ? `<a href="${phoneHref}" style="${linkStyle}">${escapeEmailHtml(business.phone)}</a>` : escapeEmailHtml(business.phone)}</td>`
       : "",
     business.email
       ? `<td class="footer-link" align="center" style="padding-top:16px;font-size:12px;line-height:1.6;white-space:nowrap;"><a href="mailto:${escapeEmailHtml(business.email)}" style="${linkStyle}">${escapeEmailHtml(business.email)}</a></td>`

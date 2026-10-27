@@ -77,7 +77,7 @@ test("client sign-in offers a new email link without exposing quote details", as
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
   await expect(page.getByText("Check your inbox")).toBeVisible();
   await expect(
-    page.getByText(/If this email has a Premium Remodel quote/),
+    page.getByText(/If this email has a quote with this business/),
   ).toBeVisible();
 });
 
