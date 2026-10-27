@@ -91,7 +91,7 @@ export function EntityForm({
     project: "project",
     quote: "quote",
     task: "work",
-    contractor: "contractor",
+    contractor: "contact",
     scope: "scope item",
   };
   const contractor = (label = "Assigned contractor", canCreate = false) => (
