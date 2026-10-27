@@ -27,11 +27,13 @@ export default function TeamPanel({
   demo,
   notify,
   twilioEnabled = false,
+  businessName = "your company",
 }: {
   user: User;
   demo: boolean;
   notify: (message: string, error?: boolean) => void;
   twilioEnabled?: boolean;
+  businessName?: string;
 }) {
   const [members, setMembers] = useState<User[]>([user]);
   const [showInvite, setShowInvite] = useState(false);
@@ -419,7 +421,7 @@ export default function TeamPanel({
       )}
       {twilioEnabled && showAppInstructions && (
         <Modal
-          title="Text the Premium Remodel app link"
+          title={`Text the ${businessName} app link`}
           subtitle="Twilio sends the install link and phone setup steps directly to your teammate."
           onClose={() => setShowAppInstructions(false)}
         >

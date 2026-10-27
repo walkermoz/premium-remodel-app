@@ -13,7 +13,10 @@ test("Twilio demo does not request live company credentials", async ({
     .getByRole("navigation", { name: "Settings categories" })
     .getByRole("button", { name: /Connections/ })
     .click();
-  const section = page.getByRole("region", { name: "Twilio", exact: true });
+  const section = page.getByRole("region", {
+    name: "Phone & texting",
+    exact: true,
+  });
   await expect(section).toContainText("available in your company workspace");
   await expect(section).toContainText("not enabled yet");
   expect(requests).toBe(0);
@@ -50,7 +53,14 @@ cloudTest(
       hasMoreNumbers: false,
       tollFreeVerification: null,
       checkedAt: null,
+      managedByPlatform: true,
     });
+    const invalidConnection = await api.post("/api/twilio/config", {
+      headers: { Origin: "http://localhost:3100" },
+      data: { accountSid: "not-an-account", authToken: "not-a-token" },
+    });
+    expect(invalidConnection.status()).toBe(403);
+    expect((await api.get("/api/twilio/config")).status()).toBe(200);
     const unavailableMessage = await api.post("/api/twilio/install-link", {
       headers: { Origin: "http://localhost:3100" },
       data: { phone: "(919) 555-0123" },
@@ -64,7 +74,10 @@ cloudTest(
       .getByRole("navigation", { name: "Settings categories" })
       .getByRole("button", { name: /Connections/ })
       .click();
-    const section = page.getByRole("region", { name: "Twilio", exact: true });
+    const section = page.getByRole("region", {
+      name: "Phone & texting",
+      exact: true,
+    });
     await expect(section).toContainText("Twilio is not connected.");
     const sid = `AC${"a".repeat(32)}`;
     let fail = false;
@@ -149,6 +162,14 @@ cloudTest(
       .eq("email", company.email);
     expect(changed.error).toBeNull();
     expect((await api.get("/api/twilio/config")).status()).toBe(403);
+    expect(
+      (
+        await api.post("/api/twilio/config", {
+          headers: { Origin: "http://localhost:3100" },
+          data: { accountSid: "not-an-account", authToken: "not-a-token" },
+        })
+      ).status(),
+    ).toBe(403);
     expect(
       (
         await api.post("/api/twilio/install-link", {

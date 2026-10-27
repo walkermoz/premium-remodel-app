@@ -115,12 +115,29 @@ export default function SettingsPanel({
       )}
       {section === "connections" && (
         <>
-          <GoogleCalendarSettings demo={demo} />
+          <div className="connections-intro">
+            <span className="eyebrow">SET UP YOUR BUSINESS</span>
+            <h2>Connect the tools your company uses.</h2>
+            <p>
+              Each business keeps its own mailbox and phone account. An
+              administrator can connect them here; teammates do not need access
+              to the credentials. Google Calendar is connected separately by
+              each person who wants a calendar copy.
+            </p>
+          </div>
           <GoogleMailSettings demo={demo} />
-          {user.role === "admin" && config.features.twilio && (
-            <TwilioSettings demo={demo} />
+          <GoogleCalendarSettings demo={demo} />
+          {user.role === "admin" && (
+            <TwilioSettings demo={demo} businessName={config.profile.name} />
           )}
-          {user.role === "admin" && <ApiKeysSettings demo={demo} />}
+          {user.role === "admin" && (
+            <details className="connections-advanced">
+              <summary>
+                Advanced connections <span>Admin API keys</span>
+              </summary>
+              <ApiKeysSettings demo={demo} />
+            </details>
+          )}
         </>
       )}
       {section === "account" && (

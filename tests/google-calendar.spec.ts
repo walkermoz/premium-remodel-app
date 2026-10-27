@@ -68,7 +68,9 @@ cloudTest(
       name: "Google Calendar",
       exact: true,
     });
-    await expect(section).toContainText("setup is not configured yet");
+    await expect(section).toContainText(
+      "Calendar connections are not available yet",
+    );
     await expect(section.locator('input[type="password"]')).toHaveCount(0);
 
     await page.route("**/api/google-calendar", (route) => {

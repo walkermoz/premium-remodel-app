@@ -88,7 +88,12 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
       <div className="settings-title">
         <Mail size={22} aria-hidden="true" />
         <div>
-          <h2 id="google-mail-heading">Company email</h2>
+          <h2 id="google-mail-heading">
+            Company email{" "}
+            <span className="connection-optional" aria-hidden="true">
+              For quote sending
+            </span>
+          </h2>
           <p>
             Send quote PDFs from this organization’s connected Google mailbox.
           </p>
@@ -121,8 +126,10 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
             )}
             {status && !status.configured && (
               <p className="generation-note">
-                Google Mail needs an OAuth client and encryption key in the
-                server settings before it can be connected.
+                Email connections are not available yet. The platform needs a
+                one-time Google setup before an administrator can connect your
+                company mailbox. Your company does not need to supply OAuth
+                credentials.
               </p>
             )}
             {status?.configured && !status.connected && status.canManage && (

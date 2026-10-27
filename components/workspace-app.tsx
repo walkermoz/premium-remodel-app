@@ -2046,6 +2046,7 @@ export default function WorkspaceApp({
                   demo={demo}
                   notify={notify}
                   twilioEnabled={config.features.twilio}
+                  businessName={config.profile.name}
                 />
               )}
               {page === "Team map" && (

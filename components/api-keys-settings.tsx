@@ -8,7 +8,7 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
   const [loading, setLoading] = useState(!demo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [name, setName] = useState("Dispatch");
+  const [name, setName] = useState("");
   const [secret, setSecret] = useState("");
 
   const refresh = useCallback(
@@ -61,7 +61,7 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
         throw new Error(data.error || "Could not create API key.");
       setSecret(data.secret || "");
       setKeys((current) => [data.key, ...current]);
-      setName("Dispatch");
+      setName("");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not create API key.",
@@ -73,7 +73,9 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
 
   async function revokeKey(id: string) {
     if (demo || busy) return;
-    if (!window.confirm("Revoke this API key? Integrations using it will stop."))
+    if (
+      !window.confirm("Revoke this API key? Integrations using it will stop.")
+    )
       return;
     setBusy(true);
     setError("");
@@ -185,8 +187,7 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
             </ul>
             <p className="generation-note">
               Use <code>Authorization: Bearer sbk_…</code> or{" "}
-              <code>X-API-Key</code> with{" "}
-              <code>GET/PATCH /api/v1/leads</code>.
+              <code>X-API-Key</code> with <code>GET/PATCH /api/v1/leads</code>.
             </p>
           </>
         )}
