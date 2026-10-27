@@ -201,6 +201,9 @@ export interface ScopeItem extends Base {
   materialCost?: number;
   materialCostUnit?: string;
   materialCostQuantity?: number;
+  /** Catalog provenance; saved prices remain a snapshot when the catalog changes. */
+  pricebookItemId?: string;
+  pricebookRevision?: number;
   contractorId: string;
   status: TaskStatus;
 }

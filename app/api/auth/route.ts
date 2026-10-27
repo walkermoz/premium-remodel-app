@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { cookies } from "next/headers";
+import { organizationCookie } from "@/lib/organization-context";
 import {
   apiError,
   appOrigin,
@@ -84,8 +86,7 @@ export async function POST(request: Request) {
         const update = await supabaseAdmin()
           .from("profiles")
           .update({ full_name: data.name, remodel_updated_by: user.id })
-          .eq("id", user.id)
-          .eq("organization_id", user.organizationId);
+          .eq("id", user.id);
         if (update.error) throw update.error;
       }
       const signedOut = await supabase.auth.signOut({ scope: "others" });
@@ -123,7 +124,21 @@ export async function POST(request: Request) {
         result.error.status === 429 ? 429 : 401,
         "Email or password is incorrect, or sign-in is temporarily unavailable.",
       );
-    const user = await getUser();
+    let user = await getUser();
+    if (!user) {
+      // A previously selected company may have revoked this user's access.
+      // Recover the remaining active memberships instead of trapping the user
+      // at the sign-in screen with a stale organization cookie.
+      const fallback = await supabaseServer(false);
+      const { data: memberships, error: membershipsError } = await fallback.rpc(
+        "remodel_my_organizations",
+      );
+      if (membershipsError) throw membershipsError;
+      if (memberships?.length) {
+        (await cookies()).delete(organizationCookie);
+        user = await getUser();
+      }
+    }
     if (!user) {
       await supabase.auth.signOut({ scope: "local" });
       throw new HttpError(
@@ -145,23 +160,44 @@ export async function GET() {
   try {
     const user = await requireUser();
     const { data, error } = await supabaseAdmin()
-      .from("profiles")
-      .select("id,full_name,email,role")
+      .from("remodel_memberships")
+      .select("profile_id,role")
       .eq("organization_id", user.organizationId)
       .eq("active", true)
-      .in("role", ["owner", "admin", "office", "crew", "field", "doorknocker"])
       .order("created_at");
     if (error) throw error;
+    const profileIds = data.map((member) => member.profile_id);
+    const profiles = profileIds.length
+      ? await supabaseAdmin()
+          .from("profiles")
+          .select("id,full_name,email,active")
+          .in("id", profileIds)
+      : { data: [], error: null };
+    if (profiles.error) throw profiles.error;
+    const byId = new Map(
+      profiles.data
+        ?.filter((item) => item.active)
+        .map((item) => [item.id, item]),
+    );
     return Response.json(
       {
         user,
-        members: data.map((p) => ({
-          id: p.id,
-          name: p.full_name,
-          email: p.email || "",
-          role: ["owner", "admin"].includes(p.role) ? "admin" : "member",
-          group: p.role,
-        })),
+        members: data.flatMap((membership) => {
+          const profile = byId.get(membership.profile_id);
+          return profile
+            ? [
+                {
+                  id: profile.id,
+                  name: profile.full_name,
+                  email: profile.email || "",
+                  role: ["owner", "admin"].includes(membership.role)
+                    ? "admin"
+                    : "member",
+                  group: membership.role,
+                },
+              ]
+            : [];
+        }),
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
@@ -214,14 +250,43 @@ export async function DELETE(request: Request) {
     if (id === user.id)
       throw new HttpError(400, "You cannot remove your own access.");
     const { data, error } = await supabaseAdmin()
-      .from("profiles")
-      .update({ active: false, remodel_updated_by: user.id })
-      .eq("id", id)
+      .from("remodel_memberships")
+      .update({ active: false })
+      .eq("profile_id", id)
       .eq("organization_id", user.organizationId)
       .in("role", ["office", "crew", "field", "doorknocker"])
-      .select("id");
+      .select("profile_id");
     if (error) throw error;
     if (!data.length) throw new HttpError(404, "Team member not found.");
+    const [location, calendar] = await Promise.all([
+      supabaseAdmin()
+        .from("remodel_locations")
+        .update({
+          sharing: false,
+          latitude: null,
+          longitude: null,
+          accuracy: null,
+          captured_at: null,
+        })
+        .eq("organization_id", user.organizationId)
+        .eq("profile_id", id),
+      supabaseAdmin()
+        .from("remodel_google_calendar_connections")
+        .update({
+          refresh_token_ciphertext: null,
+          disconnected_at: new Date().toISOString(),
+        })
+        .eq("organization_id", user.organizationId)
+        .eq("profile_id", id),
+    ]);
+    if (location.error) throw location.error;
+    if (calendar.error) throw calendar.error;
+    await recordAuditEvent(user, {
+      action: "deleted",
+      entityKind: "team",
+      entityId: id,
+      subject: "Removed team membership",
+    });
     return Response.json({ ok: true });
   } catch (e) {
     return apiError(e);

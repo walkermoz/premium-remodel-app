@@ -1,13 +1,13 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { renderPremiumEmail } from "./email-template";
+import { getBusinessConfigForOrganization } from "./business-config";
+import { getBusinessLogoBytes } from "./business-logo";
 import {
   gmailAccessTokenForOrganization,
-  googleMailAddress,
+  googleMailAddressForOrganization,
 } from "./google-mail";
 
 function encoded(value: string | Uint8Array) {
@@ -28,14 +28,21 @@ export async function sendClientAccessEmail(input: {
   const accessToken = await gmailAccessTokenForOrganization(
     input.organizationId,
   );
-  const logo = await readFile(
-    path.join(process.cwd(), "public", "images", "logo.png"),
+  const business = (
+    await getBusinessConfigForOrganization(input.organizationId)
+  ).profile;
+  const logo = await getBusinessLogoBytes(input.organizationId);
+  const fromEmail = await googleMailAddressForOrganization(
+    input.organizationId,
   );
+  if (!fromEmail)
+    throw new Error("Connect the company mailbox before sending email.");
   const content = renderPremiumEmail({
-    preheader: "Your secure Premium Remodel client portal link.",
+    preheader: `Your secure ${business.name} client portal link.`,
     title: "Open your client portal",
-    message:
-      "Use the button below to open your Premium Remodel client portal and review your quote. If you did not request this link, you can ignore this email.",
+    message: `Use the button below to open your ${business.name} client portal and review your quote. If you did not request this link, you can ignore this email.`,
+    business,
+    logoSrc: logo ? "cid:premium-remodel-logo" : "",
     action: {
       label: "Open client portal",
       url: input.url,
@@ -45,9 +52,9 @@ export async function sendClientAccessEmail(input: {
   const related = `premium-client-${randomUUID()}`;
   const alternative = `premium-client-alt-${randomUUID()}`;
   const lines = [
-    `From: Premium Remodel <${googleMailAddress}>`,
+    `From: =?UTF-8?B?${Buffer.from(business.name, "utf8").toString("base64")}?= <${fromEmail}>`,
     `To: ${recipient}`,
-    "Subject: Your Premium Remodel client portal link",
+    `Subject: =?UTF-8?B?${Buffer.from(`Your ${business.name} client portal link`, "utf8").toString("base64")}?=`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/related; boundary="${related}"`,
     "",
@@ -65,13 +72,17 @@ export async function sendClientAccessEmail(input: {
     "",
     encoded(content.html),
     `--${alternative}--`,
-    `--${related}`,
-    'Content-Type: image/png; name="premium-remodel-logo.png"',
-    "Content-Transfer-Encoding: base64",
-    "Content-ID: <premium-remodel-logo>",
-    'Content-Disposition: inline; filename="premium-remodel-logo.png"',
-    "",
-    encoded(logo),
+    ...(logo
+      ? [
+          `--${related}`,
+          'Content-Type: image/png; name="business-logo.png"',
+          "Content-Transfer-Encoding: base64",
+          "Content-ID: <premium-remodel-logo>",
+          'Content-Disposition: inline; filename="business-logo.png"',
+          "",
+          encoded(logo),
+        ]
+      : []),
     `--${related}--`,
     "",
   ];

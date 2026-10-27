@@ -1,4 +1,5 @@
 import { apiError, requireUser } from "@/lib/auth";
+import { requirePremiumAgreement } from "@/lib/agreements";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 import { findRecord } from "@/lib/repository";
 import type { Project, Quote } from "@/lib/types";
@@ -10,6 +11,7 @@ export async function GET(
 ) {
   try {
     const user = await requireUser();
+    requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       return new Response(null, { status: 403 });
     const { projectId } = await params;

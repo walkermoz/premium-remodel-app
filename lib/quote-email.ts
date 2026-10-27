@@ -1,12 +1,13 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { HttpError, type WorkspaceUser } from "./auth";
 import { recordAuditEvent } from "./audit-server";
-import { gmailAccessToken, googleMailAddress } from "./google-mail";
+import { gmailAccessToken, googleMailStatus } from "./google-mail";
+import { getBusinessConfig } from "./business-config";
+import { getBusinessLogoBytes } from "./business-logo";
+import type { BusinessConfig } from "./business-config-schema";
 import { renderQuoteEmail } from "./email-template";
 import { createClientEmailToken } from "./client-portal";
 import { ensureEmailedQuoteLink } from "./client-quote-link";
@@ -44,8 +45,11 @@ export function quoteEmailRaw(
   input: SendInput,
   pdf: Uint8Array,
   filename: string,
-  logo: Uint8Array,
+  logo: Uint8Array | null,
   portalUrl: string,
+  business: BusinessConfig["profile"],
+  fromEmail: string,
+  organizationId?: string,
 ) {
   const boundary = `premium-remodel-${randomUUID()}`;
   const relatedBoundary = `premium-remodel-related-${randomUUID()}`;
@@ -58,9 +62,16 @@ export function quoteEmailRaw(
   const email = renderQuoteEmail({
     message: input.message,
     portalUrl,
+    business,
+    organizationId,
+    logoSrc: logo
+      ? "cid:premium-remodel-logo"
+      : business.logoUrl.startsWith("https://")
+        ? business.logoUrl
+        : "",
   });
   const lines = [
-    `From: Premium Remodel <${googleMailAddress}>`,
+    `From: =?UTF-8?B?${Buffer.from(header(business.name), "utf8").toString("base64")}?= <${header(fromEmail)}>`,
     `To: ${safeRecipient}`,
     `Subject: =?UTF-8?B?${Buffer.from(safeSubject, "utf8").toString("base64")}?=`,
     "MIME-Version: 1.0",
@@ -83,13 +94,17 @@ export function quoteEmailRaw(
     "",
     base64Lines(Buffer.from(email.html, "utf8")),
     `--${alternativeBoundary}--`,
-    `--${relatedBoundary}`,
-    'Content-Type: image/png; name="premium-remodel-logo.png"',
-    "Content-Transfer-Encoding: base64",
-    "Content-ID: <premium-remodel-logo>",
-    'Content-Disposition: inline; filename="premium-remodel-logo.png"',
-    "",
-    base64Lines(logo),
+    ...(logo
+      ? [
+          `--${relatedBoundary}`,
+          'Content-Type: image/png; name="business-logo.png"',
+          "Content-Transfer-Encoding: base64",
+          "Content-ID: <premium-remodel-logo>",
+          'Content-Disposition: inline; filename="business-logo.png"',
+          "",
+          base64Lines(logo),
+        ]
+      : []),
     `--${relatedBoundary}--`,
     `--${boundary}`,
     'Content-Type: application/pdf; name="quote.pdf"',
@@ -186,11 +201,24 @@ export async function sendQuoteEmail(
   let accepted = false;
   try {
     const workspace = await getWorkspace(user);
-    const logo = await readFile(
-      path.join(process.cwd(), "public", "images", "logo.png"),
-    );
+    const [business, logo, mail] = await Promise.all([
+      getBusinessConfig(user),
+      getBusinessLogoBytes(user.organizationId),
+      googleMailStatus(user),
+    ]);
+    if (!mail.email)
+      throw new HttpError(
+        503,
+        "Connect a company mailbox before sending a quote.",
+      );
     const photos = await loadQuotePhotos(quote, user.organizationId);
-    const pdf = await buildQuotePdf(quote, workspace.scope, logo, photos);
+    const pdf = await buildQuotePdf(
+      quote,
+      workspace.scope,
+      logo,
+      photos,
+      business.profile,
+    );
     if (pdf.length > 20 * 1024 * 1024)
       throw new HttpError(413, "This quote PDF is too large to email.");
     const linkId = await ensureEmailedQuoteLink(
@@ -203,9 +231,12 @@ export async function sendQuoteEmail(
     const raw = quoteEmailRaw(
       input,
       pdf,
-      quotePdfFileName(quote),
+      quotePdfFileName(quote, business.profile.name),
       logo,
       portalUrl,
+      business.profile,
+      mail.email,
+      user.organizationId,
     );
     attempted = true;
     const response = await fetcher(
@@ -264,7 +295,7 @@ export async function sendQuoteEmail(
         subject: `Quote emailed to ${input.recipientEmail}`,
         afterData: {
           recipient: input.recipientEmail.toLowerCase(),
-          from: googleMailAddress,
+          from: mail.email,
           googleMessageId: messageId,
           requestId: input.requestId,
         },

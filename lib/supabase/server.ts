@@ -3,11 +3,25 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { supabaseConfig } from "./config";
+import {
+  organizationCookie,
+  organizationHeader,
+  organizationIdPattern,
+} from "../organization-context";
 
-export async function supabaseServer() {
+export async function supabaseServer(useSelectedOrganization = true) {
   const { url, key } = supabaseConfig();
   const jar = await cookies();
+  const selected = useSelectedOrganization
+    ? jar.get(organizationCookie)?.value
+    : undefined;
   return createServerClient(url, key, {
+    global: {
+      headers:
+        selected && organizationIdPattern.test(selected)
+          ? { [organizationHeader]: selected }
+          : {},
+    },
     cookies: {
       getAll: () => jar.getAll(),
       setAll(values) {
@@ -44,10 +58,17 @@ export function supabasePublic() {
   });
 }
 
-export function supabaseForAccessToken(token: string) {
+export function supabaseForAccessToken(token: string, organizationId?: string) {
   const { url, key } = supabaseConfig();
   return createClient(url, key, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(organizationId && organizationIdPattern.test(organizationId)
+          ? { [organizationHeader]: organizationId }
+          : {}),
+      },
+    },
     auth: {
       persistSession: false,
       autoRefreshToken: false,

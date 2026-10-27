@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requirePremiumAgreement } from "@/lib/agreements";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Quote } from "@/lib/types";
@@ -46,6 +47,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await requireUser();
+    requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot edit agreements.");
     const { projectId } = await params;

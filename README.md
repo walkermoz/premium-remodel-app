@@ -1,6 +1,6 @@
 # Premium Remodel
 
-A shared company job workspace built with Next.js and hosted on Vercel, using the company’s existing Supabase project for Postgres, employee authentication, and private file storage. Branding comes from [premiumremodel.com](https://premiumremodel.com).
+A multi-business job workspace built with Next.js and hosted on Vercel, using Supabase for Postgres, authentication, and private file storage. Premium Remodel is the first business; each additional business has its own membership, records, files, branding, and configuration. See [Multi-business architecture](docs/multi-business-architecture.md) for setup and isolation boundaries.
 
 ## Features
 
@@ -28,7 +28,7 @@ A shared company job workspace built with Next.js and hosted on Vercel, using th
 
 The Vercel web project is **servicebuddy-ui**. This app includes its own Next.js API routes; the previous separate Hono API is not required by v2.
 
-The existing Supabase project is **peeumpztticngltfszna**. Existing `organizations`, `profiles`, and Supabase Auth users are reused. Active owner/admin profiles are administrators; office/crew/field profiles are team members. Door-knocker profiles use the focused outreach workspace. Customer portal profiles cannot access this workspace.
+The existing Supabase project is **peeumpztticngltfszna**. Existing `organizations`, `profiles`, and Supabase Auth users are reused. `remodel_memberships` grants one employee access to one or more organizations, with a separate role for each. Active owner/admin memberships are administrators; office/crew/field memberships are team members. Customer portal profiles cannot access the employee workspace.
 
 The additive migration creates:
 
@@ -36,7 +36,10 @@ The additive migration creates:
 - `remodel_rate_limits`: server-only request limits.
 - `remodel_settings`: company-scoped default image model, readable only by active employees; validated administrator writes go through the API.
 - `remodel_google_calendar_connections`: server-only per-employee Google account metadata and encrypted refresh tokens. Browser and authenticated Data API access are revoked.
-- `remodel-files`: a private Supabase Storage bucket.
+- `remodel_business_config`: per-organization brand, features, pricing display, and navigation.
+- `remodel_pricebook_items`: reusable per-organization quote lines with versioned prices; quotes retain the prices used when added.
+- `remodel_memberships`: active role and access per organization, including people who work for more than one business.
+- `remodel-files`: a private Supabase Storage bucket with organization-prefixed paths.
 - Membership/session functions and row-level security policies.
 
 Existing company tables and files are preserved. They are not automatically imported into the redesigned workspace. Demo browser data and the previous local SQLite database are also separate and are not automatically uploaded.
@@ -74,11 +77,13 @@ Link the workspace to the existing `servicebuddy-ui` project. Set these producti
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only Secret)
 - `SUPABASE_ORGANIZATION_ID`
+- `PLATFORM_ADMIN_EMAILS` (comma-separated existing administrators allowed to create a new business)
 - `APP_URL=https://servicebuddy-ui.vercel.app`
 - `OPENROUTER_API_KEY` (server-only Secret, for Generate)
 - `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` (server-only Google OAuth web client)
 - `GOOGLE_GMAIL_CLIENT_ID` and `GOOGLE_GMAIL_CLIENT_SECRET` (optional separate server-only OAuth web client for company email; defaults to the Calendar client)
 - `GOOGLE_TOKEN_ENCRYPTION_KEY` (server-only Secret containing 32 random base64url bytes)
+- `STRIPE_ACCOUNTS_JSON` (optional server-only JSON mapping organization IDs to their own Stripe secret and webhook secret; the existing `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` still serve the legacy organization)
 
 Then deploy:
 
@@ -129,7 +134,7 @@ Email delivery requires working Supabase SMTP/email settings. Provider failures 
 
 Supabase Auth's allowed redirect URLs should include `https://servicebuddy-ui.vercel.app/auth/accept` and `http://localhost:3000/auth/accept`. Configure custom domains likewise. The acceptance page supports default Supabase email session fragments, PKCE codes, and token-hash links.
 
-Employees can manage all company jobs. Administrators manage access and file deletion. Removing a member deactivates their existing company profile; their comments and work records remain. Changing a password signs out other sessions. Database membership checks verify that the Supabase session still exists, so revoked sessions do not retain access until their JWT expires.
+Employees can manage the jobs in organizations where they have an active membership. Administrators manage access and file deletion for their own organization. Removing a member revokes only that organization's membership; their comments and work records remain, and access to other organizations is unaffected. Changing a password signs out other sessions. Database membership checks verify that the Supabase session still exists, so revoked sessions do not retain access until their JWT expires.
 
 The app checks company membership on each API request. Supabase RLS also limits record and file reads by company. Database writes pass through validated server routes; direct browser writes to v2 records are denied.
 
@@ -171,10 +176,10 @@ The administrator map uses Leaflet with OpenStreetMap standard tiles and visible
 
 Run `npm run db:migrate` before deploying location support. Location tests use isolated test accounts and mocked phone coordinates; production employees are never tracked during verification.
 
-
 ## Admin API keys, Dispatch polling, and CI/CD
 
 ### Admin API keys
+
 Administrators mint and revoke admin-scoped keys in **Settings → Admin API keys**. Secrets are shown once and stored only as SHA-256 hashes.
 
 Authenticated requests use either:
@@ -192,6 +197,7 @@ Lead funnel stages: `New` → `Follow-up` → `Quote drafted` → `Quote sent` �
 Dispositions `Archive` / `Junk` / `Spam` / `Test` exit the funnel and are excluded from close rate.
 
 ### Dispatch new-lead wake (polling)
+
 Dispatch uses **API polling** (`GET /api/v1/leads` with Admin API keys). The New-lead webhook Admin Settings block, `/api/admin/lead-webhook`, and lead-create webhook dispatch are **removed** — not shipping. Discord `#leads` alerting (env webhook) remains separate.
 
 Org columns from migration `202609230001_api_keys_lead_webhook.sql` are unused leftovers (migration name is historical); apply that migration for Admin API keys:
@@ -200,8 +206,8 @@ Org columns from migration `202609230001_api_keys_lead_webhook.sql` are unused l
 npm run db:migrate
 ```
 
-
 ### GitHub Actions → Vercel preview
+
 Workflow stub (copy into `.github/workflows/ci.yml` when the pushing account has the GitHub `workflow` scope): `docs/github-actions/ci.yml`
 
 - Every PR: lint, typecheck, Playwright sample tests
@@ -209,11 +215,11 @@ Workflow stub (copy into `.github/workflows/ci.yml` when the pushing account has
 
 Walker must add these **GitHub Actions repository secrets** (do not invent values here):
 
-| Secret | Purpose |
-|--------|---------|
-| `VERCEL_TOKEN` | Vercel account token with deploy access to `servicebuddy-ui` |
-| `VERCEL_ORG_ID` | Vercel team/org id (`vercel project ls` / dashboard) |
-| `VERCEL_PROJECT_ID` | Vercel project id for **servicebuddy-ui** |
+| Secret              | Purpose                                                      |
+| ------------------- | ------------------------------------------------------------ |
+| `VERCEL_TOKEN`      | Vercel account token with deploy access to `servicebuddy-ui` |
+| `VERCEL_ORG_ID`     | Vercel team/org id (`vercel project ls` / dashboard)         |
+| `VERCEL_PROJECT_ID` | Vercel project id for **servicebuddy-ui**                    |
 
 Until those secrets exist, the preview job posts a notice and skips deploy. GrokPR’s OAuth token cannot create workflow files directly; Walker (or an account with the `workflow` scope) should copy `docs/github-actions/ci.yml` to `.github/workflows/ci.yml` on this branch or after merge prep. Production remains protected by requiring Walker review before merge to `main`.
 

@@ -58,13 +58,13 @@ export default function LoginForm({
           <ThemeToggle />
         </div>
         <Link href="/login" className="login-brand">
-          <img src="/images/logo.png" alt="Premium Remodel" />
+          <strong>Company workspace</strong>
         </Link>
         <div className="login-form-wrap">
-          <div className="eyebrow">Premium Remodel</div>
+          <div className="eyebrow">YOUR WORKSPACE</div>
           <h1>Welcome back.</h1>
           <p className="login-intro">
-            Sign in to Premium Remodel to keep every job moving forward.
+            Sign in to keep every job moving forward.
           </p>
           {configurationError ? (
             <div className="alert">
@@ -80,7 +80,7 @@ export default function LoginForm({
                   name="email"
                   type="email"
                   autoComplete="email"
-                  placeholder="you@premiumremodel.com"
+                  placeholder="you@company.com"
                   required
                 />
               </label>
@@ -128,17 +128,14 @@ export default function LoginForm({
           <p className="demo-note">Sample data. No account required.</p>
         </div>
         <div className="login-footer">
-          <LockKeyhole size={13} /> Premium Remodel
+          <LockKeyhole size={13} /> Secure company access
         </div>
       </div>
       <aside className="login-visual">
-        <img
-          src="/images/home.jpg"
-          alt="A bright, renovated living space by Premium Remodel"
-        />
+        <img src="/images/home.jpg" alt="A bright, renovated living space" />
         <div className="login-visual-shade" />
         <div className="photo-topline">
-          PREMIUM REMODEL <span>WAKE COUNTY, NC</span>
+          YOUR BUSINESS <span>YOUR TEAM</span>
         </div>
         <div className="login-visual-copy">
           <span className="eyebrow">
@@ -165,7 +162,7 @@ export default function LoginForm({
             </span>
           </div>
         </div>
-        <div className="photo-caption">Built by Premium Remodel.</div>
+        <div className="photo-caption">Built for your team.</div>
       </aside>
     </main>
   );

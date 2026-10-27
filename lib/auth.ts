@@ -8,6 +8,7 @@ import {
 } from "./supabase/server";
 import { hasSupabaseConfig } from "./supabase/config";
 import type { User } from "./types";
+import { organizationHeader } from "./organization-context";
 export interface WorkspaceUser extends User {
   organizationId: string;
   authUserId: string;
@@ -25,12 +26,7 @@ export async function getUser(): Promise<WorkspaceUser | null> {
   );
   if (memberError) throw memberError;
   const profile = data?.[0];
-  if (
-    !profile ||
-    (process.env.SUPABASE_ORGANIZATION_ID &&
-      profile.organization_id !== process.env.SUPABASE_ORGANIZATION_ID)
-  )
-    return null;
+  if (!profile) return null;
   return {
     id: profile.id,
     authUserId: user.id,
@@ -48,7 +44,10 @@ export async function getRequestUser(
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match) return getUser();
   if (!hasSupabaseConfig()) return null;
-  const supabase = supabaseForAccessToken(match[1]);
+  const supabase = supabaseForAccessToken(
+    match[1],
+    request.headers.get(organizationHeader) || undefined,
+  );
   const {
     data: { user },
     error,
@@ -59,12 +58,7 @@ export async function getRequestUser(
   );
   if (memberError) throw memberError;
   const profile = data?.[0];
-  if (
-    !profile ||
-    (process.env.SUPABASE_ORGANIZATION_ID &&
-      profile.organization_id !== process.env.SUPABASE_ORGANIZATION_ID)
-  )
-    return null;
+  if (!profile) return null;
   return {
     id: profile.id,
     authUserId: user.id,

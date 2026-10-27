@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { LockKeyhole, Building2, ExternalLink, MapPin } from "lucide-react";
+import { LockKeyhole, MapPin } from "lucide-react";
 import type { User } from "@/lib/types";
 import { addressPriorityRegion } from "@/lib/address-search";
 import GenerationSettings from "./generation-settings";
@@ -13,14 +13,18 @@ import GoogleCalendarSettings from "./google-calendar-settings";
 import GoogleMailSettings from "./google-mail-settings";
 import ApiKeysSettings from "./api-keys-settings";
 import type { WorkspaceAlert } from "@/lib/types";
+import type { BusinessConfig } from "@/lib/business-config";
+import BusinessSettings from "./business-settings";
 export default function SettingsPanel({
   user,
+  config,
   demo,
   alerts,
   onSaveAlert,
   onRemoveAlert,
 }: {
   user: User;
+  config: BusinessConfig;
   demo: boolean;
   alerts: WorkspaceAlert[];
   onSaveAlert: (
@@ -44,6 +48,11 @@ export default function SettingsPanel({
         </div>
       </div>
       <AppearanceSettings />
+      <BusinessSettings
+        initial={config}
+        admin={user.role === "admin"}
+        demo={demo}
+      />
       <InstallAppPanel />
       <GoogleCalendarSettings demo={demo} />
       <GoogleMailSettings demo={demo} />
@@ -55,57 +64,31 @@ export default function SettingsPanel({
         />
       )}
       {user.role === "admin" && <WorkspaceHistorySettings demo={demo} />}
-      {user.role === "admin" && <TwilioSettings demo={demo} />}
+      {user.role === "admin" && config.features.twilio && (
+        <TwilioSettings demo={demo} />
+      )}
       {user.role === "admin" && <ApiKeysSettings demo={demo} />}
       <GenerationSettings demo={demo} admin={user.role === "admin"} />
-      <div className="settings-section">
-        <div className="settings-title">
-          <Building2 size={22} />
-          <div>
-            <h2>Company workspace</h2>
-            <p>
-              Premium Remodel ·{" "}
-              {demo ? "Sample workspace" : "Private company workspace"}
-            </p>
+      {config.profile.addressPriority === "wake" && (
+        <div className="settings-section">
+          <div className="settings-title">
+            <MapPin size={22} />
+            <div>
+              <h2>Address suggestions</h2>
+              <p>
+                Wake County address records are searched first. If there is no
+                local match, suggestions expand to other U.S. addresses.
+              </p>
+            </div>
+          </div>
+          <div className="settings-details">
+            <label>
+              Priority region
+              <input value={addressPriorityRegion.name} readOnly />
+            </label>
           </div>
         </div>
-        <div className="settings-details">
-          <label>
-            Company name
-            <input value="Premium Remodel" readOnly />
-          </label>
-          <label>
-            Company website
-            <a
-              href="https://premiumremodel.com"
-              target="_blank"
-              rel="noreferrer"
-              className="website-field"
-            >
-              premiumremodel.com
-              <ExternalLink size={15} />
-            </a>
-          </label>
-        </div>
-      </div>
-      <div className="settings-section">
-        <div className="settings-title">
-          <MapPin size={22} />
-          <div>
-            <h2>Address suggestions</h2>
-            <p>
-              Wake County address records are searched first. If there is no
-              local match, suggestions expand to other U.S. addresses.
-            </p>
-          </div>
-        </div>
-        <div className="settings-details">
-          <label>
-            Priority region
-            <input value={addressPriorityRegion.name} readOnly />
-          </label>
-        </div>
-      </div>
+      )}
       <div className="settings-section">
         <div className="settings-title">
           <LockKeyhole size={22} />

@@ -27,6 +27,12 @@
   max-width: 100%;
   height: auto;
 }
+.header strong {
+  display: block;
+  color: #183244;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
 
 .body {
   padding: 34px 30px 38px;

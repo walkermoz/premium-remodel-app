@@ -1,4 +1,5 @@
 import { apiError, HttpError, limitAttempts, requireUser } from "@/lib/auth";
+import { isOriginalOrganization } from "@/lib/original-organization";
 import {
   readTwilioConnection,
   TwilioConnectionError,
@@ -11,6 +12,11 @@ export async function GET() {
   let response: Response;
   try {
     const user = await requireUser();
+    if (!isOriginalOrganization(user.organizationId))
+      throw new HttpError(
+        403,
+        "Twilio is not configured for this organization.",
+      );
     if (user.role !== "admin")
       throw new HttpError(
         403,

@@ -67,6 +67,14 @@ export function preserveScopeCosts(
       input.materialCost === undefined
         ? (current?.materialCost ?? 0)
         : input.materialCost,
+    pricebookItemId:
+      input.pricebookItemId === undefined
+        ? current?.pricebookItemId
+        : input.pricebookItemId,
+    pricebookRevision:
+      input.pricebookRevision === undefined
+        ? current?.pricebookRevision
+        : input.pricebookRevision,
     subCostUnit:
       input.subCostUnit === undefined
         ? current?.subCostUnit

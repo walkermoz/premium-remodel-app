@@ -16,7 +16,9 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const raw = await request.text();
     if (raw.length > 2_000) throw new HttpError(413, "Request is too large.");
-    const input = z.object({ email: z.string() }).parse(JSON.parse(raw));
+    const input = z
+      .object({ email: z.string(), organizationId: z.uuid().optional() })
+      .parse(JSON.parse(raw));
     const email = z.email().max(320).parse(input.email.trim().toLowerCase());
     const ip = (
       request.headers.get("x-vercel-forwarded-for") ||
@@ -28,7 +30,8 @@ export async function POST(request: Request) {
       .slice(0, 80);
     await limitAttempts(`client-access-ip:${ip}`, 10);
     await limitAttempts(`client-access-email:${email}`, 3);
-    const organizationId = process.env.SUPABASE_ORGANIZATION_ID;
+    const organizationId =
+      input.organizationId || process.env.SUPABASE_ORGANIZATION_ID;
     if (!organizationId)
       throw new HttpError(503, "Client portal sign-in is unavailable.");
     const matches = await clientQuotesForEmail(

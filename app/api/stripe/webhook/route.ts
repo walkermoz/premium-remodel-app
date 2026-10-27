@@ -1,5 +1,9 @@
 import Stripe from "stripe";
-import { stripeClient } from "@/lib/stripe-payments";
+import {
+  stripeClient,
+  stripeEnabledForOrganization,
+  stripeConnections,
+} from "@/lib/stripe-payments";
 import { stripePaymentId } from "@/lib/stripe-payment-utils";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { promotePaidQuote } from "@/lib/quote-promotion";
@@ -7,34 +11,53 @@ import { promotePaidQuote } from "@/lib/quote-promotion";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
   const signature = request.headers.get("stripe-signature");
-  if (!secret || !signature)
+  const connections = stripeConnections();
+  if (!connections.length || !signature)
     return Response.json(
       { error: "Webhook is not configured." },
       { status: 503 },
     );
 
-  let event: Stripe.Event;
-  try {
-    event = stripeClient().webhooks.constructEvent(
-      await request.text(),
-      signature,
-      secret,
-    );
-  } catch {
+  const payload = await request.text();
+  let verified: {
+    event: Stripe.Event;
+    organizationId: string;
+    live: boolean;
+  } | null = null;
+  for (const connection of connections) {
+    try {
+      verified = {
+        event: stripeClient(connection.organizationId).webhooks.constructEvent(
+          payload,
+          signature,
+          connection.webhookSecret,
+        ),
+        organizationId: connection.organizationId,
+        live: connection.secretKey.startsWith("sk_live_"),
+      };
+      break;
+    } catch {
+      // Try the next company's webhook secret.
+    }
+  }
+  if (!verified) {
     return Response.json(
       { error: "Invalid Stripe signature." },
       { status: 400 },
     );
   }
-  if (event.livemode !== process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_"))
+  const { event } = verified;
+  if (event.livemode !== verified.live)
     return Response.json(
       { error: "Payment mode did not match." },
       { status: 400 },
     );
   if (event.type === "charge.refunded")
-    return recordRefund(event.data.object as Stripe.Charge);
+    return recordRefund(
+      event.data.object as Stripe.Charge,
+      verified.organizationId,
+    );
   if (
     event.type !== "checkout.session.completed" &&
     event.type !== "checkout.session.async_payment_succeeded"
@@ -45,6 +68,15 @@ export async function POST(request: Request) {
   const meta = session.metadata;
   if (meta?.source !== "premium_remodel_project")
     return Response.json({ received: true });
+  if (
+    !meta.organizationId ||
+    meta.organizationId !== verified.organizationId ||
+    !stripeEnabledForOrganization(meta.organizationId)
+  )
+    return Response.json(
+      { error: "Payment organization did not match." },
+      { status: 400 },
+    );
   if (session.payment_status !== "paid")
     return Response.json({ received: true });
   if (
@@ -145,16 +177,26 @@ export async function POST(request: Request) {
   return Response.json({ received: true });
 }
 
-async function recordRefund(charge: Stripe.Charge) {
+async function recordRefund(charge: Stripe.Charge, organizationId: string) {
   const paymentIntentId =
     typeof charge.payment_intent === "string"
       ? charge.payment_intent
       : charge.payment_intent?.id;
   if (!paymentIntentId) return Response.json({ received: true });
-  const intent = await stripeClient().paymentIntents.retrieve(paymentIntentId);
+  const intent =
+    await stripeClient(organizationId).paymentIntents.retrieve(paymentIntentId);
   const meta = intent.metadata;
   if (meta.source !== "premium_remodel_project")
     return Response.json({ received: true });
+  if (
+    !meta.organizationId ||
+    meta.organizationId !== organizationId ||
+    !stripeEnabledForOrganization(meta.organizationId)
+  )
+    return Response.json(
+      { error: "Payment organization did not match." },
+      { status: 400 },
+    );
   const admin = supabaseAdmin();
   const { data: current, error: readError } = await admin
     .from("remodel_records")

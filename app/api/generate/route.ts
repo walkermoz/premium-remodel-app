@@ -7,6 +7,7 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { generationProjectTypes } from "@/lib/generation";
+import { getBusinessConfig } from "@/lib/business-config";
 import {
   availableGenerationModels,
   generateRenovation,
@@ -21,6 +22,11 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    if (!(await getBusinessConfig(user)).features.imageGeneration)
+      throw new HttpError(
+        403,
+        "Image generation is not enabled for this organization.",
+      );
     if (
       Number(request.headers.get("content-length") || 0) >
       3 * 1024 * 1024 + 65536
@@ -83,7 +89,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "image/jpeg",
         "Cache-Control": "private, no-store",
-        "Content-Disposition": 'inline; filename="premium-remodel-concept.jpg"',
+        "Content-Disposition": 'inline; filename="renovation-concept.jpg"',
         "X-Content-Type-Options": "nosniff",
       },
     });

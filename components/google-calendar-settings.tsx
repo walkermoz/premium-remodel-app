@@ -140,8 +140,8 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
         <div>
           <h2 id="google-calendar-heading">Google Calendar</h2>
           <p>
-            Keep the built-in schedule and add a private Premium Remodel
-            calendar to your Google account.
+            Keep the built-in schedule and add a private company calendar to
+            your Google account.
           </p>
         </div>
       </div>
@@ -186,7 +186,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
                 <div>
                   <strong>Connect your Google account</strong>
                   <p>
-                    Premium Remodel creates and manages only its own secondary
+                    The workspace creates and manages only its own secondary
                     calendar. It cannot read or change your other calendars.
                   </p>
                 </div>
@@ -211,7 +211,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
                   </div>
                   <div>
                     <dt>Calendar</dt>
-                    <dd>{status.calendarName || "Premium Remodel"}</dd>
+                    <dd>{status.calendarName || "Company calendar"}</dd>
                   </div>
                   <div>
                     <dt>Last synced</dt>
@@ -265,7 +265,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
         )}
         <p className="generation-note calendar-sync-note">
           Project dates, tasks, inspections, deliveries, contractor visits, and
-          consultations sync automatically. Edit scheduling in Premium Remodel;
+          consultations sync automatically. Edit scheduling in the workspace;
           Google Calendar is a read-only copy of the workspace plan.
         </p>
       </div>

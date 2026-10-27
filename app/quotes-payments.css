@@ -381,6 +381,9 @@
   flex: 1;
   min-width: 0;
 }
+.quote-overview-metrics-solo {
+  grid-template-columns: minmax(0, 1fr);
+}
 .quote-overview-metric {
   display: flex;
   flex-direction: column;
@@ -512,6 +515,9 @@
   .quote-overview-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px 0;
+  }
+  .quote-overview-metrics-solo {
+    grid-template-columns: minmax(0, 1fr);
   }
   .quote-overview-metric.quote-price {
     grid-column: 1 / -1;

@@ -365,6 +365,8 @@ export const schemas = {
       .enum(["job", "sq ft", "linear ft", "each", "hours"])
       .optional(),
     materialCostQuantity: z.number().min(0).max(1_000_000_000).optional(),
+    pricebookItemId: z.uuid().optional(),
+    pricebookRevision: z.number().int().positive().optional(),
     contractorId: short,
     status: taskStatus,
   }),

@@ -1,11 +1,16 @@
 import { HttpError, limitAttempts, requestOrigin } from "@/lib/auth";
+import { premiumAgreementEnabled } from "@/lib/agreements";
 import { readClientQuoteSource } from "@/lib/client-quote";
 import {
   parseClientPortalToken,
   validClientWalletFormToken,
 } from "@/lib/client-portal";
 import { msaPaymentRows } from "@/lib/msa-contract";
-import { stripeClient } from "@/lib/stripe-payments";
+import {
+  stripeClient,
+  stripeEnabledForOrganization,
+} from "@/lib/stripe-payments";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Activity, Project, Quote } from "@/lib/types";
 
@@ -33,11 +38,20 @@ export async function POST(
       return Response.redirect(portalUrl(request, token, "expired"), 303);
     await limitAttempts(`msa-deposit:${linkId}`, 10);
     const source = await readClientQuoteSource(token);
+    if (source && !premiumAgreementEnabled(source.organizationId))
+      return new Response(null, { status: 404 });
     if (!source?.view.approved || source.view.msa?.status !== "signed")
       return new Response(null, { status: 404 });
-    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET)
+    const business = await getBusinessConfigForOrganization(
+      source.organizationId,
+    );
+    if (
+      !business.features.payments ||
+      business.quotePreferences.paymentProvider !== "stripe" ||
+      !stripeEnabledForOrganization(source.organizationId)
+    )
       return Response.redirect(portalUrl(request, token, "unavailable"), 303);
-    const stripe = stripeClient();
+    const stripe = stripeClient(source.organizationId);
     if ((await stripe.accounts.retrieve(null)).payouts_enabled !== true)
       return Response.redirect(portalUrl(request, token, "unavailable"), 303);
     const admin = supabaseAdmin();
@@ -107,7 +121,7 @@ export async function POST(
             currency: "usd",
             unit_amount: dueCents,
             product_data: {
-              name: `Premium Remodel deposit — ${agreement.projectName.slice(0, 100)}`,
+              name: `${business.profile.name} deposit — ${agreement.projectName.slice(0, 100)}`,
             },
           },
           quantity: 1,

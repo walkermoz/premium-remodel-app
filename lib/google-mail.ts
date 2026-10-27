@@ -147,7 +147,6 @@ export function googleMailAuthorization(request: Request, user: WorkspaceUser) {
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",
-    login_hint: googleMailAddress,
   }).toString();
   return { url: url.toString(), cookie };
 }
@@ -168,6 +167,10 @@ async function connection(organizationId: string): Promise<Connection | null> {
     .maybeSingle();
   if (error) throw error;
   return data as Connection | null;
+}
+
+export async function googleMailAddressForOrganization(organizationId: string) {
+  return (await connection(organizationId))?.google_email || null;
 }
 
 export async function googleMailStatus(user: WorkspaceUser) {
@@ -242,11 +245,6 @@ export async function connectGoogleMail(
     .safeParse(await json(infoResponse));
   if (!infoResponse.ok || !info.success || info.data.email_verified === false)
     throw new GoogleMailError("Google could not verify the mailbox.");
-  if (info.data.email.toLowerCase() !== googleMailAddress)
-    throw new GoogleMailError(
-      `Sign in as ${googleMailAddress} to connect the company mailbox.`,
-      400,
-    );
   const previous = await connection(user.organizationId);
   const refresh =
     tokens.data.refresh_token ||
@@ -264,7 +262,7 @@ export async function connectGoogleMail(
       organization_id: user.organizationId,
       connected_by: user.id,
       google_account_id: info.data.sub,
-      google_email: googleMailAddress,
+      google_email: info.data.email.toLowerCase(),
       refresh_token_ciphertext: seal(refresh, "refresh"),
       connected_at: now,
       updated_at: now,
@@ -274,7 +272,7 @@ export async function connectGoogleMail(
     action: previous ? "updated" : "created",
     entityKind: "email",
     subject: "Company Gmail connection",
-    afterData: { email: googleMailAddress },
+    afterData: { email: info.data.email.toLowerCase() },
   });
   return googleMailStatus(user);
 }

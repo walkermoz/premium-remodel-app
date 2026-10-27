@@ -38,19 +38,22 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
               ? "Gmail access was not approved."
               : result === "expired"
                 ? "The Google connection expired. Try again."
-                : "Gmail could not be connected. Check that you selected contact@premiumremodel.com and try again.",
+                : "Gmail could not be connected. Try again with the company mailbox.",
         );
     }, 0);
     const controller = new AbortController();
     fetch("/api/google-mail", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Could not check Gmail.");
+        if (!response.ok)
+          throw new Error(data.error || "Could not check Gmail.");
         setStatus(data);
       })
       .catch((caught) => {
         if (!controller.signal.aborted)
-          setError(caught instanceof Error ? caught.message : "Could not check Gmail.");
+          setError(
+            caught instanceof Error ? caught.message : "Could not check Gmail.",
+          );
       });
     return () => {
       window.clearTimeout(noticeTimer);
@@ -65,11 +68,16 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
     try {
       const response = await fetch("/api/google-mail", { method: "DELETE" });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not disconnect Gmail.");
+      if (!response.ok)
+        throw new Error(data.error || "Could not disconnect Gmail.");
       setStatus(data);
       setNotice("Company Gmail disconnected from the dashboard.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not disconnect Gmail.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not disconnect Gmail.",
+      );
     } finally {
       setBusy(false);
     }
@@ -81,25 +89,51 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
         <Mail size={22} aria-hidden="true" />
         <div>
           <h2 id="google-mail-heading">Company email</h2>
-          <p>Send quote PDFs from contact@premiumremodel.com through Google Workspace.</p>
+          <p>
+            Send quote PDFs from this organization’s connected Google mailbox.
+          </p>
         </div>
       </div>
       <div className="settings-form google-calendar-settings">
         {demo ? (
-          <p className="generation-note">Company email is available in your signed-in workspace.</p>
+          <p className="generation-note">
+            Company email is available in your signed-in workspace.
+          </p>
         ) : (
           <>
-            {error && <div className="alert" role="alert">{error}</div>}
-            {notice && <div className={status?.connected ? "success-note" : "generation-note"} role="status">{notice}</div>}
-            {!status && !error && <p className="generation-note">Checking company email…</p>}
+            {error && (
+              <div className="alert" role="alert">
+                {error}
+              </div>
+            )}
+            {notice && (
+              <div
+                className={
+                  status?.connected ? "success-note" : "generation-note"
+                }
+                role="status"
+              >
+                {notice}
+              </div>
+            )}
+            {!status && !error && (
+              <p className="generation-note">Checking company email…</p>
+            )}
             {status && !status.configured && (
-              <p className="generation-note">Google Mail needs an OAuth client and encryption key in the server settings before it can be connected.</p>
+              <p className="generation-note">
+                Google Mail needs an OAuth client and encryption key in the
+                server settings before it can be connected.
+              </p>
             )}
             {status?.configured && !status.connected && status.canManage && (
               <div className="calendar-connect-card">
                 <div>
                   <strong>Connect the company mailbox</strong>
-                  <p>Sign in as contact@premiumremodel.com. Google will request permission to send email only; the app will not read the inbox.</p>
+                  <p>
+                    Sign in with the mailbox this business will use for quotes.
+                    Google will request permission to send email only; the app
+                    will not read the inbox.
+                  </p>
                 </div>
                 <a className="button primary" href="/api/google-mail/connect">
                   <Mail size={15} aria-hidden="true" /> Connect Gmail
@@ -107,17 +141,29 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
               </div>
             )}
             {status?.configured && !status.connected && !status.canManage && (
-              <p className="generation-note">An administrator needs to connect the company mailbox before quotes can be emailed.</p>
+              <p className="generation-note">
+                An administrator needs to connect the company mailbox before
+                quotes can be emailed.
+              </p>
             )}
             {status?.connected && (
               <div className="calendar-connect-card">
                 <div>
                   <strong>Connected · {status.email}</strong>
-                  <p>Quote emails are sent from this mailbox with the generated PDF attached.</p>
+                  <p>
+                    Quote emails are sent from this mailbox with the generated
+                    PDF attached.
+                  </p>
                 </div>
                 {status.canManage && (
-                  <button type="button" className="button secondary" disabled={busy} onClick={() => void disconnect()}>
-                    <Unplug size={15} aria-hidden="true" /> {busy ? "Disconnecting…" : "Disconnect"}
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => void disconnect()}
+                  >
+                    <Unplug size={15} aria-hidden="true" />{" "}
+                    {busy ? "Disconnecting…" : "Disconnect"}
                   </button>
                 )}
               </div>

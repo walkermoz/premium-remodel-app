@@ -36,7 +36,8 @@ function leadSourceName(touch: LeadTouch) {
 
   if (
     normalizedSource === "google ads" ||
-    (normalizedSource === "google" && /^(cpc|ppc|paid|paid search)$/.test(medium)) ||
+    (normalizedSource === "google" &&
+      /^(cpc|ppc|paid|paid search)$/.test(medium)) ||
     touch.gclid ||
     touch.gbraid ||
     touch.wbraid
@@ -164,9 +165,7 @@ export default function LeadsPanel({
           <h1>
             Leads<span className="heading-dot">.</span>
           </h1>
-          <p>
-            Track new inquiries and follow-up through quotes and projects.
-          </p>
+          <p>Track new inquiries and follow-up through quotes and projects.</p>
         </div>
         <div className="leads-heading-actions">
           <button
@@ -473,15 +472,24 @@ export default function LeadsPanel({
                 {selected.leadAttribution ? (
                   <>
                     <div className="lead-source-headline">
-                      <strong>{leadSourceName(selected.leadAttribution.lastTouch)}</strong>
+                      <strong>
+                        {leadSourceName(selected.leadAttribution.lastTouch)}
+                      </strong>
                       {leadSourceType(selected.leadAttribution.lastTouch) && (
-                        <span>{leadSourceType(selected.leadAttribution.lastTouch)}</span>
+                        <span>
+                          {leadSourceType(selected.leadAttribution.lastTouch)}
+                        </span>
                       )}
                     </div>
                     {selected.leadAttribution.lastTouch.referrer &&
-                      referrerHost(selected.leadAttribution.lastTouch.referrer) && (
+                      referrerHost(
+                        selected.leadAttribution.lastTouch.referrer,
+                      ) && (
                         <div className="lead-source-context">
-                          Came from {referrerHost(selected.leadAttribution.lastTouch.referrer)}
+                          Came from{" "}
+                          {referrerHost(
+                            selected.leadAttribution.lastTouch.referrer,
+                          )}
                         </div>
                       )}
                     {(selected.leadAttribution.firstTouch.source !==
@@ -489,7 +497,8 @@ export default function LeadsPanel({
                       selected.leadAttribution.firstTouch.medium !==
                         selected.leadAttribution.lastTouch.medium) && (
                       <div className="lead-source-context">
-                        First recorded visit: {leadSourceName(selected.leadAttribution.firstTouch)}
+                        First recorded visit:{" "}
+                        {leadSourceName(selected.leadAttribution.firstTouch)}
                         {leadSourceType(selected.leadAttribution.firstTouch)
                           ? ` · ${leadSourceType(selected.leadAttribution.firstTouch)}`
                           : ""}
@@ -502,17 +511,27 @@ export default function LeadsPanel({
                           <dt>Submitted through</dt>
                           <dd>{selected.source}</dd>
                         </div>
-                        {([
-                          ["First visit", selected.leadAttribution.firstTouch],
-                          ["Latest visit", selected.leadAttribution.lastTouch],
-                        ] as const).map(([label, touch]) => (
+                        {(
+                          [
+                            [
+                              "First visit",
+                              selected.leadAttribution.firstTouch,
+                            ],
+                            [
+                              "Latest visit",
+                              selected.leadAttribution.lastTouch,
+                            ],
+                          ] as const
+                        ).map(([label, touch]) => (
                           <div key={label}>
                             <dt>{label}</dt>
                             <dd>
                               {touch.source}
                               {touch.medium ? ` / ${touch.medium}` : ""}
                               {touch.campaign ? ` · ${touch.campaign}` : ""}
-                              {touch.landingPath ? ` · ${touch.landingPath}` : ""}
+                              {touch.landingPath
+                                ? ` · ${touch.landingPath}`
+                                : ""}
                               {touch.referrer && (
                                 <>
                                   <br />
@@ -541,7 +560,9 @@ export default function LeadsPanel({
                     <div className="lead-source-headline">
                       <strong>{selected.source}</strong>
                     </div>
-                    <div className="lead-source-context">Visit source was not recorded.</div>
+                    <div className="lead-source-context">
+                      Visit source was not recorded.
+                    </div>
                   </>
                 )}
               </section>
@@ -756,7 +777,7 @@ export default function LeadsPanel({
           title={
             scheduling.quoteDate ? "Edit consultation" : "Schedule consultation"
           }
-          subtitle="Add the visit to Premium Remodel’s calendar. It will also sync to each connected Google Calendar."
+          subtitle="Add the visit to the team calendar. It will also sync to each connected Google Calendar."
           onClose={() => {
             if (!saving) setScheduling(null);
           }}

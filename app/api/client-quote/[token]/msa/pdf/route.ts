@@ -1,4 +1,5 @@
 import { readClientQuoteSource } from "@/lib/client-quote";
+import { premiumAgreementEnabled } from "@/lib/agreements";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 
 export const runtime = "nodejs";
@@ -9,6 +10,8 @@ export async function GET(
 ) {
   const { token } = await params;
   const source = await readClientQuoteSource(token);
+  if (!source || !premiumAgreementEnabled(source.organizationId))
+    return new Response(null, { status: 404 });
   const agreement = source?.view.msa;
   if (!source?.view.approved || !agreement || agreement.status !== "signed")
     return new Response(null, { status: 404 });

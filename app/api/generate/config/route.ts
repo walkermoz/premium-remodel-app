@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
+import { getBusinessConfig } from "@/lib/business-config";
 import {
   availableGenerationModels,
   getGenerationDefault,
@@ -9,6 +10,11 @@ import {
 export async function GET() {
   try {
     const user = await requireUser();
+    if (!(await getBusinessConfig(user)).features.imageGeneration)
+      throw new HttpError(
+        403,
+        "Image generation is not enabled for this organization.",
+      );
     const [models, defaultModel] = await Promise.all([
       availableGenerationModels(),
       getGenerationDefault(user),
@@ -30,6 +36,11 @@ export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    if (!(await getBusinessConfig(user)).features.imageGeneration)
+      throw new HttpError(
+        403,
+        "Image generation is not enabled for this organization.",
+      );
     if (user.role !== "admin")
       throw new HttpError(
         403,

@@ -6,6 +6,7 @@ import {
   wakeAddressSource,
   type AddressSuggestion,
 } from "@/lib/address-search";
+import { useBusinessConfig } from "./business-context";
 
 export default function AddressInput({
   defaultValue = "",
@@ -19,6 +20,7 @@ export default function AddressInput({
   onSuggestion?: (suggestion: AddressSuggestion) => void;
 }) {
   const id = useId();
+  const priority = useBusinessConfig()?.profile.addressPriority || "wake";
   const [value, setValue] = useState(defaultValue);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -41,7 +43,7 @@ export default function AddressInput({
       try {
         let results = cache.current.get(key);
         if (!results) {
-          results = await searchAddresses(query, controller.signal);
+          results = await searchAddresses(query, controller.signal, priority);
           if (controller.signal.aborted || version.current !== currentVersion)
             return;
           if (cache.current.size >= 40)
@@ -61,7 +63,7 @@ export default function AddressInput({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, priority]);
 
   function choose(match: AddressSuggestion) {
     version.current++;

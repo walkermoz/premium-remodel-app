@@ -31,7 +31,12 @@ import {
   easternDate,
   msaPaymentRows,
 } from "@/lib/msa-contract";
-import { stripeClient } from "@/lib/stripe-payments";
+import {
+  stripeClient,
+  stripeEnabledForOrganization,
+} from "@/lib/stripe-payments";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
+import type { BusinessConfig } from "@/lib/business-config-schema";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Activity } from "@/lib/types";
 import MsaDocument from "@/components/msa-document";
@@ -48,8 +53,8 @@ import styles from "./quote.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Your quote | Premium Remodel",
-  description: "A private Premium Remodel quote.",
+  title: "Your project quote",
+  description: "A private project quote.",
   robots: { index: false, follow: false, noarchive: true },
 };
 
@@ -91,11 +96,13 @@ function ClientNavigation({
   view,
   className,
   hasMsa,
+  hasWallet,
 }: {
   quoteUrl: string;
   view: PortalView;
   className: string;
   hasMsa: boolean;
+  hasWallet: boolean;
 }) {
   const links = [
     { id: "requests", label: "Requests", icon: Inbox },
@@ -104,7 +111,9 @@ function ClientNavigation({
       ? [{ id: "msa" as const, label: "Agreement", icon: FileText }]
       : []),
     { id: "invoices", label: "Invoices", icon: ReceiptText },
-    { id: "wallet", label: "Wallet", icon: CreditCard },
+    ...(hasWallet
+      ? [{ id: "wallet" as const, label: "Wallet", icon: CreditCard }]
+      : []),
     { id: "contact", label: "Contact us", icon: Phone },
   ] as const;
   return (
@@ -138,6 +147,7 @@ async function ClientSectionView({
   result,
   organizationId,
   emailQuotes,
+  business,
 }: {
   section: Exclude<PortalView, "detail">;
   quoteUrl: string;
@@ -148,13 +158,14 @@ async function ClientSectionView({
   result: string;
   organizationId: string;
   emailQuotes: ClientEmailQuote[];
+  business: BusinessConfig;
 }) {
   const { quote, total } = quoteView;
   const requestUrl = `${quoteUrl}?view=new-request`;
 
   if (section === "msa") {
     const agreement = quoteView.msa;
-    if (!agreement)
+    if (!agreement || !business.features.agreements)
       return (
         <main className={styles.sectionPage}>
           <h1>Agreement unavailable</h1>
@@ -170,9 +181,10 @@ async function ClientSectionView({
           }
         : agreement;
     let paidCents = 0;
-    let cardAvailable = Boolean(
-      process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET,
-    );
+    let cardAvailable =
+      business.features.payments &&
+      business.quotePreferences.paymentProvider === "stripe" &&
+      stripeEnabledForOrganization(organizationId);
     if (agreement.status === "signed") {
       const { data: payments, error } = await supabaseAdmin()
         .from("remodel_records")
@@ -191,8 +203,8 @@ async function ClientSectionView({
       if (cardAvailable) {
         try {
           cardAvailable =
-            (await stripeClient().accounts.retrieve(null)).payouts_enabled ===
-            true;
+            (await stripeClient(organizationId).accounts.retrieve(null))
+              .payouts_enabled === true;
         } catch {
           cardAvailable = false;
         }
@@ -288,12 +300,17 @@ async function ClientSectionView({
         <h1>Contact us</h1>
         <div className={styles.contactCard}>
           <h2>Contact details</h2>
-          <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`}>
-            <Phone size={21} aria-hidden="true" /> {contactPhone}
-          </a>
-          <a href={contactHref}>
-            <Mail size={21} aria-hidden="true" /> contact@premiumremodel.com
-          </a>
+          {contactPhone && (
+            <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`}>
+              <Phone size={21} aria-hidden="true" /> {contactPhone}
+            </a>
+          )}
+          {business.profile.email && (
+            <a href={contactHref}>
+              <Mail size={21} aria-hidden="true" />{" "}
+              {business.profile.email || "Email us"}
+            </a>
+          )}
         </div>
       </main>
     );
@@ -390,7 +407,10 @@ async function ClientSectionView({
     );
 
   let methods: Awaited<ReturnType<typeof savedPaymentMethods>> = [];
-  let methodsUnavailable = !process.env.STRIPE_SECRET_KEY;
+  let methodsUnavailable =
+    !business.features.payments ||
+    business.quotePreferences.paymentProvider !== "stripe" ||
+    !stripeEnabledForOrganization(organizationId);
   if (!methodsUnavailable) {
     try {
       methods = await savedPaymentMethods(token);
@@ -479,6 +499,17 @@ export default async function ClientQuotePage({
     notFound();
   }
   const view = source.view;
+  const business = await getBusinessConfigForOrganization(
+    source.organizationId,
+  );
+  const walletEnabled =
+    business.features.payments &&
+    business.quotePreferences.paymentProvider === "stripe" &&
+    stripeEnabledForOrganization(source.organizationId);
+  const logoSrc =
+    business.profile.logoUrl === "/api/business-logo"
+      ? `/api/client-quote/${encodeURIComponent(token)}/logo`
+      : business.profile.logoUrl;
 
   const rawSection = typeof query.view === "string" ? query.view : "";
   const section: PortalView = [
@@ -508,8 +539,8 @@ export default async function ClientQuotePage({
           (access.expiresAt - 30 * 24 * 60 * 60) * 1000,
         )
       : [];
-  const contactHref = `mailto:contact@premiumremodel.com?subject=${encodeURIComponent(`Question about Premium Remodel Quote #${number}`)}`;
-  const contactPhone = quote.preparedByPhone || "(919) 413-9782";
+  const contactHref = `mailto:${business.profile.email}?subject=${encodeURIComponent(`Question about ${business.profile.name} Quote #${number}`)}`;
+  const contactPhone = quote.preparedByPhone || business.profile.phone;
   const sectionTotals = new Map<string, number>();
   const sections: Array<{
     key: string;
@@ -532,10 +563,14 @@ export default async function ClientQuotePage({
     <div className={styles.page}>
       <aside
         className={styles.sidebar}
-        aria-label="Premium Remodel client portal"
+        aria-label={`${business.profile.name} client portal`}
       >
         <div className={styles.sidebarBrand}>
-          <img src="/images/logo.png" alt="Premium Remodel" />
+          {logoSrc ? (
+            <img src={logoSrc} alt={business.profile.name} />
+          ) : (
+            <strong>{business.profile.name}</strong>
+          )}
         </div>
         <a className={styles.newRequest} href={`${quoteUrl}?view=new-request`}>
           <Plus size={18} aria-hidden="true" /> New request
@@ -544,17 +579,24 @@ export default async function ClientQuotePage({
           quoteUrl={quoteUrl}
           view={section}
           className={styles.sidebarNav}
-          hasMsa={Boolean(view.msa)}
+          hasMsa={business.features.agreements && Boolean(view.msa)}
+          hasWallet={walletEnabled}
         />
         <div className={styles.sidebarContact}>
           <span>Need help with your quote?</span>
-          <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`}>
-            <Phone size={15} aria-hidden="true" /> {contactPhone}
-          </a>
-          <a href="mailto:contact@premiumremodel.com">
-            <Mail size={15} aria-hidden="true" /> Email us
-          </a>
-          <Link href="/client/sign-in">Sign in on another device</Link>
+          {contactPhone && (
+            <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`}>
+              <Phone size={15} aria-hidden="true" /> {contactPhone}
+            </a>
+          )}
+          {business.profile.email && (
+            <a href={contactHref}>
+              <Mail size={15} aria-hidden="true" /> Email us
+            </a>
+          )}
+          <Link href={`/client/sign-in?org=${source.organizationId}`}>
+            Sign in on another device
+          </Link>
         </div>
         <details className={styles.mobileMenu}>
           <summary>
@@ -571,7 +613,8 @@ export default async function ClientQuotePage({
               quoteUrl={quoteUrl}
               view={section}
               className={styles.mobileNav}
-              hasMsa={Boolean(view.msa)}
+              hasMsa={business.features.agreements && Boolean(view.msa)}
+              hasWallet={walletEnabled}
             />
           </div>
         </details>
@@ -584,7 +627,9 @@ export default async function ClientQuotePage({
           <>
             <nav className={styles.toolbar} aria-label="Quote actions">
               <div className={styles.toolbarMeta}>
-                <span>Premium Remodel Quote #{number}</span>
+                <span>
+                  {business.profile.name} Quote #{number}
+                </span>
                 <span className={styles.toolbarStatus}>
                   {approved ? "Approved" : "Awaiting response"}
                 </span>
@@ -601,8 +646,15 @@ export default async function ClientQuotePage({
 
             <main className={styles.document}>
               <div className={styles.masthead}>
-                <p>PREMIUM REMODEL&nbsp; | &nbsp;REMODEL QUOTE</p>
-                <img src="/images/logo.png" alt="Premium Remodel" />
+                <p>
+                  {business.profile.name.toUpperCase()}&nbsp; | &nbsp;PROJECT
+                  QUOTE
+                </p>
+                {logoSrc ? (
+                  <img src={logoSrc} alt={business.profile.name} />
+                ) : (
+                  <strong>{business.profile.name}</strong>
+                )}
               </div>
 
               <header className={styles.titleBlock}>
@@ -619,7 +671,7 @@ export default async function ClientQuotePage({
                   <p>{quote.client || "Client"}</p>
                   {quote.clientPhone && <p>{quote.clientPhone}</p>}
                   <small>
-                    Prepared by {quote.preparedBy || "Premium Remodel"}
+                    Prepared by {quote.preparedBy || business.profile.name}
                   </small>
                 </div>
                 <div>
@@ -748,8 +800,11 @@ export default async function ClientQuotePage({
 
               <footer className={styles.footer}>
                 <span>
-                  premiumremodel.com&nbsp; | &nbsp;
-                  {quote.preparedBy || "Premium Remodel"}&nbsp; | &nbsp;
+                  {business.profile.website
+                    ? new URL(business.profile.website).host
+                    : business.profile.name}
+                  &nbsp; | &nbsp;
+                  {quote.preparedBy || business.profile.name}&nbsp; | &nbsp;
                   {quote.preparedByPhone || "(919) 413-9782"}
                 </span>
                 <span>Page 1</span>
@@ -767,6 +822,7 @@ export default async function ClientQuotePage({
             result={typeof query.result === "string" ? query.result : ""}
             organizationId={source.organizationId}
             emailQuotes={emailQuotes}
+            business={business}
           />
         )}
       </div>

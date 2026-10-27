@@ -1,7 +1,7 @@
 import "server-only";
 
 import { parseClientPortalToken } from "./client-portal";
-import { stripeClient } from "./stripe-payments";
+import { stripeClient, stripeEnabledForOrganization } from "./stripe-payments";
 import { supabaseAdmin } from "./supabase/server";
 
 export async function walletCustomerId(token: string) {
@@ -9,20 +9,25 @@ export async function walletCustomerId(token: string) {
   if (!id) return null;
   const { data, error } = await supabaseAdmin()
     .from("remodel_client_links")
-    .select("stripe_customer_id")
+    .select("stripe_customer_id,organization_id")
     .eq("id", id)
     .eq("kind", "quote")
     .is("revoked_at", null)
     .maybeSingle();
   if (error) throw error;
-  return data?.stripe_customer_id || null;
+  return data || null;
 }
 
 export async function savedPaymentMethods(token: string) {
   if (!process.env.STRIPE_SECRET_KEY) return [];
-  const customer = await walletCustomerId(token);
-  if (!customer) return [];
-  const stripe = stripeClient();
+  const wallet = await walletCustomerId(token);
+  if (
+    !wallet?.stripe_customer_id ||
+    !stripeEnabledForOrganization(wallet.organization_id)
+  )
+    return [];
+  const customer = wallet.stripe_customer_id;
+  const stripe = stripeClient(wallet.organization_id);
   const [cards, banks] = await Promise.all([
     stripe.paymentMethods.list({ customer, type: "card", limit: 20 }),
     stripe.paymentMethods.list({

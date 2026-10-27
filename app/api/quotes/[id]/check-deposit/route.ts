@@ -145,7 +145,7 @@ export async function POST(
     if (insertError) throw insertError;
     if (agreement.depositCheckout?.sessionId && process.env.STRIPE_SECRET_KEY) {
       try {
-        await stripeClient().checkout.sessions.expire(
+        await stripeClient(user.organizationId).checkout.sessions.expire(
           agreement.depositCheckout.sessionId,
         );
       } catch {

@@ -3,7 +3,11 @@
 import { useState, type FormEvent } from "react";
 import styles from "./sign-in.module.css";
 
-export default function SignInForm() {
+export default function SignInForm({
+  organizationId,
+}: {
+  organizationId?: string;
+}) {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -17,7 +21,7 @@ export default function SignInForm() {
       const response = await fetch("/api/client-access/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, organizationId }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -40,7 +44,7 @@ export default function SignInForm() {
       <div className={styles.sent} role="status">
         <strong>Check your inbox</strong>
         <p>
-          If this email has a Premium Remodel quote, we’ve sent a new portal
+          If this email has a quote with this business, we’ve sent a new portal
           link. It may take a few minutes to arrive.
         </p>
         <button

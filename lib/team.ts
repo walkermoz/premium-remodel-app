@@ -24,43 +24,35 @@ export async function inviteTeammate(
   const { data: profiles, error: profileError } = await admin
     .from("profiles")
     .select("id,organization_id,auth_user_id,active,role")
-    .eq("email", email);
+    .eq(existing ? "auth_user_id" : "email", existing?.id || email);
   if (profileError) throw profileError;
-  // Do not change another company's or a customer portal user's membership.
-  if (
-    profiles.some(
-      (p) => p.organization_id !== user.organizationId || p.role === "customer",
-    )
-  )
+  if (profiles.some((p) => p.role === "customer"))
     throw new HttpError(
       409,
-      "This email is already associated with another account. Use a different work email.",
+      "This customer account cannot be invited as a teammate.",
     );
-  if (existing) {
-    const linked = await admin
-      .from("profiles")
-      .select("id,organization_id,role")
-      .eq("auth_user_id", existing.id);
-    if (linked.error) throw linked.error;
-    if (
-      linked.data.some(
-        (p) =>
-          p.organization_id !== user.organizationId || p.role === "customer",
-      )
-    )
-      throw new HttpError(
-        409,
-        "This email is already associated with another account.",
-      );
-  }
   if (profiles.length > 1)
     throw new HttpError(
       409,
       "This email has duplicate employee profiles. Ask your administrator to resolve them.",
     );
   const profile = profiles[0];
-  if (profile?.active && existing?.last_sign_in_at)
-    throw new HttpError(409, "This person is already on your team.");
+  if (profile && !profile.active)
+    throw new HttpError(
+      409,
+      "This account is disabled. Its home administrator must reactivate it first.",
+    );
+  if (profile) {
+    const membership = await admin
+      .from("remodel_memberships")
+      .select("active")
+      .eq("organization_id", user.organizationId)
+      .eq("profile_id", profile.id)
+      .maybeSingle();
+    if (membership.error) throw membership.error;
+    if (membership.data?.active)
+      throw new HttpError(409, "This person is already on your team.");
+  }
   const redirectTo = `${origin}/auth/accept`;
   const generated = await admin.auth.admin.generateLink({
     type: existing?.email_confirmed_at ? "magiclink" : "invite",
@@ -81,29 +73,53 @@ export async function inviteTeammate(
     remodel_updated_by: user.id,
     role: group,
   };
-  const saved = profile
-    ? await admin
-        .from("profiles")
-        .update(values)
-        .eq("id", profile.id)
-        .eq("organization_id", user.organizationId)
-    : await admin
-        .from("profiles")
-        .insert({ ...values, full_name: email.split("@")[0] });
-  if (saved.error) throw saved.error;
+  let profileId = profile?.id;
+  if (!profileId) {
+    const saved = await admin
+      .from("profiles")
+      .insert({ ...values, full_name: email.split("@")[0] })
+      .select("id")
+      .single();
+    if (saved.error) throw saved.error;
+    profileId = saved.data.id;
+  }
+  const membership = await admin.from("remodel_memberships").upsert(
+    {
+      organization_id: user.organizationId,
+      profile_id: profileId,
+      role: group,
+      active: true,
+    },
+    { onConflict: "organization_id,profile_id" },
+  );
+  if (membership.error) throw membership.error;
   if (method === "link") {
     const url = new URL("/auth/accept", origin);
     url.searchParams.set("token_hash", generated.data.properties.hashed_token);
     url.searchParams.set("type", generated.data.properties.verification_type);
+    if (profile) url.searchParams.set("existing", "1");
     return { url: url.toString(), email, delivery: "link" };
   }
-  const result = authUser.email_confirmed_at
-    ? await supabasePublic().auth.resetPasswordForEmail(email, { redirectTo })
-    : await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
-  if (result.error)
+  const result =
+    profile && authUser.email_confirmed_at
+      ? await supabasePublic().auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${redirectTo}?existing=1`,
+            shouldCreateUser: false,
+          },
+        })
+      : await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+  if (result.error) {
+    await admin
+      .from("remodel_memberships")
+      .update({ active: false })
+      .eq("organization_id", user.organizationId)
+      .eq("profile_id", profileId);
     throw new HttpError(
       502,
       "Email could not be sent. Check Supabase email delivery settings, or choose “Create a link” and share it yourself.",
     );
+  }
   return { email, delivery: "email" };
 }
