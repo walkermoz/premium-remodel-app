@@ -6,6 +6,22 @@ const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
 
 cloudTest(
+  "another organization owner cannot create a business",
+  async ({ company, page }) => {
+    const login = await page.request.post("/api/auth", {
+      headers: origin,
+      data: { action: "login", email: company.email, password },
+    });
+    expect(login.status()).toBe(200);
+    const attempt = await page.request.put("/api/organizations", {
+      headers: origin,
+      data: { name: "Unauthorized test business" },
+    });
+    expect(attempt.status()).toBe(403);
+  },
+);
+
+cloudTest(
   "one employee can switch companies without mixing records",
   async ({ company, page }) => {
     const secondOrg = randomUUID();

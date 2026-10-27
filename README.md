@@ -79,7 +79,6 @@ Link the workspace to the existing `servicebuddy-ui` project. Set these producti
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only Secret)
 - `SUPABASE_ORGANIZATION_ID`
-- `PLATFORM_ADMIN_EMAILS` (comma-separated existing administrators allowed to create a new business)
 - `APP_URL=https://servicebuddy-ui.vercel.app`
 - `OPENROUTER_API_KEY` (server-only Secret, for Generate)
 - `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` (server-only Google OAuth web client)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { BusinessConfig } from "@/lib/business-config";
 import {
   doorKnockerPages,
@@ -36,17 +36,7 @@ export default function BusinessSettings({
   const [config, setConfig] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [canCreate, setCanCreate] = useState(false);
-  const [newBusiness, setNewBusiness] = useState("");
   const [selectedRole, setSelectedRole] = useState<WorkspaceGroup>("admin");
-
-  useEffect(() => {
-    if (demo || !admin) return;
-    fetch("/api/organizations", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((body) => setCanCreate(body.canCreate === true))
-      .catch(() => setCanCreate(false));
-  }, [demo, admin]);
 
   function updateProfile(key: keyof BusinessConfig["profile"], value: string) {
     setConfig((current) => ({
@@ -410,64 +400,6 @@ export default function BusinessSettings({
           </button>
         )}
       </form>
-      {canCreate && (
-        <form
-          className="settings-form business-create-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            setBusy(true);
-            setError("");
-            try {
-              const created = await fetch("/api/organizations", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: newBusiness }),
-              });
-              const result = await created.json();
-              if (!created.ok)
-                throw new Error(result.error || "Could not create business.");
-              const switched = await fetch("/api/organizations", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ organizationId: result.id }),
-              });
-              if (!switched.ok)
-                throw new Error(
-                  "Business created. Choose it from the organization switcher.",
-                );
-              window.location.assign("/");
-            } catch (cause) {
-              setError(
-                cause instanceof Error
-                  ? cause.message
-                  : "Could not create business.",
-              );
-              setBusy(false);
-            }
-          }}
-        >
-          <strong>Add another business</strong>
-          <p className="footnote">
-            Creates a separate organization with its own people, records, files,
-            and settings.
-          </p>
-          <div className="form-grid">
-            <label>
-              Business name
-              <input
-                value={newBusiness}
-                onChange={(event) => setNewBusiness(event.target.value)}
-                minLength={2}
-                maxLength={120}
-                required
-              />
-            </label>
-          </div>
-          <button className="button secondary" disabled={busy}>
-            Create business
-          </button>
-        </form>
-      )}
     </div>
   );
 }
