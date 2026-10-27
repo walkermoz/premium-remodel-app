@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth";
 import { sendQuoteEmail, sendQuoteInput } from "@/lib/quote-email";
 import { GoogleMailError } from "@/lib/google-mail";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,6 +19,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     await limitAttempts(`quote-email:${user.id}`, 30);
     const input = sendQuoteInput.parse(await request.json());
     const { id } = await context.params;

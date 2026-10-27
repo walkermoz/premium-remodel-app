@@ -10,6 +10,7 @@ import { promotePaidQuote } from "@/lib/quote-promotion";
 import type { Project } from "@/lib/types";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { after } from "next/server";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     const body = await request.json();
     const id = String(body.id || "");
     if (!/^[0-9a-f-]{36}$/i.test(id))

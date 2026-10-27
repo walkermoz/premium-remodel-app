@@ -5,6 +5,7 @@ import { buildQuotePdf, quotePdfFileName } from "@/lib/quote-pdf";
 import { loadQuotePhotos } from "@/lib/quote-photos";
 import { findRecord, getWorkspace } from "@/lib/repository";
 import type { Quote } from "@/lib/types";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ export async function GET(
 ) {
   try {
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot download quotes.");
     const { id } = await context.params;

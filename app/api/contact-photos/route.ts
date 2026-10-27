@@ -15,6 +15,7 @@ import { findRecord, updateRecord } from "@/lib/repository";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contractor } from "@/lib/types";
 import { validateStoredFile } from "@/lib/validate-file";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ const bucket = "remodel-files";
 const contactIdSchema = z.uuid();
 
 async function contactForUser(user: WorkspaceUser, contactId: string) {
+  await requireWorkspaceTabs(user, "Contractors");
   if (user.group === "doorknocker")
     throw new HttpError(403, "Contact photos are unavailable for this role.");
   const contact = (await findRecord(

@@ -3,6 +3,7 @@ import { requirePremiumAgreement } from "@/lib/agreements";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Quote } from "@/lib/types";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot edit agreements.");

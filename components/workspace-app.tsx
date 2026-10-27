@@ -104,6 +104,7 @@ import type { ImportedQuote } from "@/lib/quote-import";
 import type { BusinessConfig } from "@/lib/business-config";
 import OrganizationSwitcher from "./organization-switcher";
 import PricebookPanel from "./pricebook-panel";
+import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 type Page =
   | "Overview"
   | "Projects"
@@ -135,7 +136,11 @@ export default function WorkspaceApp({
   const [contractToday, setContractToday] = useState(workToday);
   const [loadError, setLoadError] = useState("");
   const [page, setPage] = useState<Page>(
-    user.group === "doorknocker" ? "Door knocking" : "Overview",
+    canOpenWorkspaceTab(config, user.group, "Overview")
+      ? "Overview"
+      : (config.navigation.find((tab) =>
+          canOpenWorkspaceTab(config, user.group, tab),
+        ) as Page | undefined) || "Settings",
   );
   const [projectId, setProjectId] = useState("");
   const [projectTab, setProjectTab] = useState<ProjectTab>("Overview");
@@ -249,49 +254,22 @@ export default function WorkspaceApp({
           : legacyPage === "Contacts"
             ? "Contractors"
             : legacyPage;
-      const allowedPages: Page[] =
-        user.group === "doorknocker"
-          ? ["Door knocking", "Upcoming", "Team map", "Settings"]
-          : [
-              "Overview",
-              "Projects",
-              "Quotes",
-              "Price book",
-              "Leads",
-              "Door knocking",
-              "Upcoming",
-              "Activity",
-              "Contractors",
-              "Generate",
-              "Team",
-              "Team map",
-              "Settings",
-            ];
       setPage(
-        allowedPages.includes(nextPage as Page) &&
-          (nextPage === "Settings" ||
-            nextPage === "Activity" ||
-            config.navigation.includes(
-              nextPage as (typeof config.navigation)[number],
-            )) &&
-          (nextPage !== "Price book" || config.features.priceBook) &&
-          (nextPage !== "Generate" || config.features.imageGeneration) &&
-          (nextPage !== "Door knocking" || config.features.doorKnocking)
+        (nextPage === "Activity" ||
+          config.navigation.includes(
+            nextPage as (typeof config.navigation)[number],
+          )) &&
+          canOpenWorkspaceTab(config, user.group, nextPage as Page)
           ? (nextPage as Page)
-          : user.group === "doorknocker"
-            ? config.features.doorKnocking &&
-              config.navigation.includes("Door knocking")
-              ? "Door knocking"
-              : "Settings"
-            : (config.navigation.find(
-                (name) =>
-                  name !== "Door knocking" &&
-                  name !== "Price book" &&
-                  name !== "Generate",
-              ) as Page) || "Settings",
+          : (config.navigation.find((tab) =>
+              canOpenWorkspaceTab(config, user.group, tab),
+            ) as Page | undefined) || "Settings",
       );
       setProjectId(
-        user.group === "doorknocker" ? "" : params.get("project") || "",
+        (nextPage === "Projects" || nextPage === "Quotes") &&
+          canOpenWorkspaceTab(config, user.group, nextPage)
+          ? params.get("project") || ""
+          : "",
       );
       const legacyTab = params.get("tab");
       const nextTab =
@@ -328,6 +306,7 @@ export default function WorkspaceApp({
     tab: ProjectTab = "Overview",
     layout: UpcomingView = "Calendar",
   ) {
+    if (!canOpenWorkspaceTab(config, user.group, next)) return;
     setPage(next);
     setProjectId(id);
     setProjectTab(tab);
@@ -336,6 +315,7 @@ export default function WorkspaceApp({
     setSearch("");
     setFilter("In progress");
     const params = new URLSearchParams({ view: next });
+    if (demo && user.group === "doorknocker") params.set("as", "doorknocker");
     if (id) params.set("project", id);
     if (id && tab !== "Overview") params.set("tab", tab);
     if (next === "Upcoming" || (id && tab === "Upcoming"))
@@ -1124,20 +1104,7 @@ export default function WorkspaceApp({
           { name: "Generate", icon: WandSparkles },
         ];
   const menus = baseMenus
-    .filter((item) =>
-      config.navigation.includes(
-        item.name as (typeof config.navigation)[number],
-      ),
-    )
-    .filter((item) =>
-      item.name === "Door knocking"
-        ? config.features.doorKnocking
-        : item.name === "Price book"
-          ? config.features.priceBook
-          : item.name === "Generate"
-            ? config.features.imageGeneration
-            : true,
-    )
+    .filter((item) => canOpenWorkspaceTab(config, user.group, item.name))
     .sort(
       (a, b) =>
         config.navigation.indexOf(
@@ -1177,6 +1144,7 @@ export default function WorkspaceApp({
       <button
         className={`project-card ${view === "list" ? "project-list-card" : ""}`}
         key={project.id}
+        disabled={!canOpenWorkspaceTab(config, user.group, "Projects")}
         onClick={() => navigate("Projects", project.id)}
       >
         {cover && (
@@ -1273,14 +1241,16 @@ export default function WorkspaceApp({
               onClick={() => navigate(item.name)}
             >
               <item.icon size={18} />
-              <span>{item.name === "Contractors" ? "Contacts" : item.name}</span>
+              <span>
+                {item.name === "Contractors" ? "Contacts" : item.name}
+              </span>
               {!!item.count && <span className="nav-count">{item.count}</span>}
             </button>
           ))}
         </nav>
         <span className="nav-label team-label">COMPANY</span>
         <nav aria-label="Company navigation">
-          {config.navigation.includes("Team map") && (
+          {canOpenWorkspaceTab(config, user.group, "Team map") && (
             <button
               className={`nav-item ${page === "Team map" ? "active" : ""}`}
               onClick={() => navigate("Team map")}
@@ -1289,16 +1259,15 @@ export default function WorkspaceApp({
               Team map
             </button>
           )}
-          {user.group !== "doorknocker" &&
-            config.navigation.includes("Team") && (
-              <button
-                className={`nav-item ${page === "Team" ? "active" : ""}`}
-                onClick={() => navigate("Team")}
-              >
-                <Users size={18} />
-                Team
-              </button>
-            )}
+          {canOpenWorkspaceTab(config, user.group, "Team") && (
+            <button
+              className={`nav-item ${page === "Team" ? "active" : ""}`}
+              onClick={() => navigate("Team")}
+            >
+              <Users size={18} />
+              Team
+            </button>
+          )}
           <button
             className={`nav-item ${page === "Settings" ? "active" : ""}`}
             onClick={() => navigate("Settings")}
@@ -1554,6 +1523,7 @@ export default function WorkspaceApp({
               )}
               {page === "Leads" && (
                 <LeadsPanel
+                  canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
                   leads={workspace.leads}
                   contacts={workspace.contacts}
                   quotes={workspace.quotes || []}
@@ -1597,13 +1567,15 @@ export default function WorkspaceApp({
                         moving.
                       </p>
                     </div>
-                    <button
-                      className="button primary"
-                      onClick={() => setEditor({ kind: "project" })}
-                    >
-                      <Plus size={17} />
-                      New project
-                    </button>
+                    {canOpenWorkspaceTab(config, user.group, "Projects") && (
+                      <button
+                        className="button primary"
+                        onClick={() => setEditor({ kind: "project" })}
+                      >
+                        <Plus size={17} />
+                        New project
+                      </button>
+                    )}
                   </div>
                   {page === "Overview" && (
                     <div className="summary-strip">
@@ -1788,7 +1760,8 @@ export default function WorkspaceApp({
                             : "Choose another status to see its projects."
                       }
                       action={
-                        !workspace.projects.length ? (
+                        !workspace.projects.length &&
+                        canOpenWorkspaceTab(config, user.group, "Projects") ? (
                           <button
                             className="button primary"
                             onClick={() => setEditor({ kind: "project" })}
@@ -1966,9 +1939,7 @@ export default function WorkspaceApp({
                           <div className="contractor-assignments">
                             <span>
                               {assignedTasks.length} assigned{" "}
-                              {assignedTasks.length === 1
-                                ? "task"
-                                : "tasks"}
+                              {assignedTasks.length === 1 ? "task" : "tasks"}
                             </span>
                             {assignedTasks.slice(0, 3).map((task) => (
                               <div

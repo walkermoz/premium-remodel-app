@@ -3,6 +3,7 @@ import { requirePremiumAgreement } from "@/lib/agreements";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 import { findRecord } from "@/lib/repository";
 import type { Project, Quote } from "@/lib/types";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 export async function GET(
@@ -11,6 +12,7 @@ export async function GET(
 ) {
   try {
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     requirePremiumAgreement(user.organizationId);
     if (user.group === "doorknocker")
       return new Response(null, { status: 403 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { workspaceGroups } from "./types";
 
 export const navigationPages = [
   "Overview",
@@ -14,6 +15,27 @@ export const navigationPages = [
   "Team",
   "Settings",
 ] as const;
+export type NavigationPage = (typeof navigationPages)[number];
+export const doorKnockerPages: NavigationPage[] = [
+  "Door knocking",
+  "Upcoming",
+  "Team map",
+  "Settings",
+];
+
+export function defaultRoleNavigation(): Record<
+  (typeof workspaceGroups)[number],
+  NavigationPage[]
+> {
+  return Object.fromEntries(
+    workspaceGroups.map((group) => [
+      group,
+      group === "doorknocker"
+        ? [...doorKnockerPages]
+        : navigationPages.filter((page) => page !== "Door knocking"),
+    ]),
+  ) as Record<(typeof workspaceGroups)[number], NavigationPage[]>;
+}
 
 export const businessConfigSchema = z.object({
   profile: z.object({
@@ -26,10 +48,17 @@ export const businessConfigSchema = z.object({
         (value) => !/[\x00-\x1f\x7f]/.test(value),
         "Name cannot contain control characters.",
       ),
-    website: z.union([
-      z.url().refine((value) => /^https?:\/\//i.test(value), "Use an HTTP or HTTPS website URL."),
-      z.literal(""),
-    ]).default(""),
+    website: z
+      .union([
+        z
+          .url()
+          .refine(
+            (value) => /^https?:\/\//i.test(value),
+            "Use an HTTP or HTTPS website URL.",
+          ),
+        z.literal(""),
+      ])
+      .default(""),
     email: z.union([z.email(), z.literal("")]).default(""),
     phone: z.string().max(40).default(""),
     addressPriority: z.enum(["wake", "nationwide"]).default("nationwide"),
@@ -62,6 +91,22 @@ export const businessConfigSchema = z.object({
     .refine(
       (items) => items.includes("Settings"),
       "Settings must remain in navigation.",
+    ),
+  roleNavigation: z
+    .record(
+      z.enum(workspaceGroups),
+      z
+        .array(z.enum(navigationPages))
+        .max(navigationPages.length)
+        .refine(
+          (items) => items.includes("Settings"),
+          "Settings must remain available to every role.",
+        ),
+    )
+    .refine(
+      (roles) =>
+        roles.doorknocker.every((page) => doorKnockerPages.includes(page)),
+      "Door knockers can only use their field workspace tabs.",
     ),
 });
 export type BusinessConfig = z.infer<typeof businessConfigSchema>;

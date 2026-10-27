@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { generationProjectTypes } from "@/lib/generation";
 import { getBusinessConfig } from "@/lib/business-config";
+import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import {
   availableGenerationModels,
   generateRenovation,
@@ -22,7 +23,13 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (!(await getBusinessConfig(user)).features.imageGeneration)
+    if (
+      !canOpenWorkspaceTab(
+        await getBusinessConfig(user),
+        user.group,
+        "Generate",
+      )
+    )
       throw new HttpError(
         403,
         "Image generation is not enabled for this organization.",

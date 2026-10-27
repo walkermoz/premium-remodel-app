@@ -9,6 +9,7 @@ import {
   importedQuoteSchema,
   parseInvestmentBreakdown,
 } from "@/lib/quote-import";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Quotes");
     if (user.group === "doorknocker")
       throw new HttpError(403, "This account cannot import quotes.");
     await limitAttempts(`quote-import:${user.id}`, 30);

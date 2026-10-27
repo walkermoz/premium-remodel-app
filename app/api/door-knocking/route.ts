@@ -13,6 +13,7 @@ import { doorVisitOutcomes } from "@/lib/types";
 import { workToday } from "@/lib/work";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { after } from "next/server";
+import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -107,11 +108,14 @@ export async function POST(request: Request) {
   try {
     checkOriginOrBearer(request);
     const user = await requireRequestUser(request);
-    if (!(await getBusinessConfig(user)).features.doorKnocking)
-      throw new HttpError(
-        403,
-        "Door knocking is not enabled for this organization.",
-      );
+    if (
+      !canOpenWorkspaceTab(
+        await getBusinessConfig(user),
+        user.group,
+        "Door knocking",
+      )
+    )
+      throw new HttpError(403, "Door knocking is not available to your role.");
     const data = inputSchema.parse(await request.json());
     await limitAttempts(`door-visit:${user.id}`, 120);
     if (Date.parse(data.visitedAt) < Date.now() - 366 * 24 * 60 * 60_000)

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "./supabase/server";
 import type { WorkspaceUser } from "./auth";
 import {
   businessConfigSchema,
+  defaultRoleNavigation,
   navigationPages,
   type BusinessConfig,
 } from "./business-config-schema";
@@ -43,6 +44,7 @@ export function defaultBusinessConfig(
       paymentProvider: premium ? "stripe" : "manual",
     },
     navigation: [...navigationPages],
+    roleNavigation: defaultRoleNavigation(),
   };
 }
 
@@ -64,7 +66,7 @@ export async function getBusinessConfigForOrganization(
       .single(),
     admin
       .from("remodel_business_config")
-      .select("profile,features,quote_preferences,navigation")
+      .select("profile,features,quote_preferences,navigation,role_navigation")
       .eq("organization_id", organizationId)
       .maybeSingle(),
   ]);
@@ -90,6 +92,10 @@ export async function getBusinessConfigForOrganization(
     navigation: saved.data.navigation?.length
       ? saved.data.navigation
       : defaults.navigation,
+    roleNavigation: {
+      ...defaults.roleNavigation,
+      ...(saved.data.role_navigation || {}),
+    },
   });
 }
 
@@ -110,6 +116,7 @@ export async function saveBusinessConfig(
       features: config.features,
       quote_preferences: config.quotePreferences,
       navigation: config.navigation,
+      role_navigation: config.roleNavigation,
       updated_by: user.id,
       updated_at: new Date().toISOString(),
     });

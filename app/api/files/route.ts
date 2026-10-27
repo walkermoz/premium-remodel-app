@@ -16,6 +16,7 @@ import {
 import type { Attachment, Project } from "@/lib/types";
 import { validateStoredFile } from "@/lib/validate-file";
 import { MAX_FILE_SIZE } from "@/lib/file-policy";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const bucket = "remodel-files";
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     if (Number(request.headers.get("content-length") || 0) > maxSize + 65536)
       throw new HttpError(413, "Choose a file smaller than 4 MB.");
     const form = await request.formData();
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     const file = id
@@ -109,6 +112,7 @@ export async function DELETE(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Projects", "Quotes");
     if (user.role !== "admin")
       throw new HttpError(403, "Only the administrator can delete files.");
     const { id } = await request.json();

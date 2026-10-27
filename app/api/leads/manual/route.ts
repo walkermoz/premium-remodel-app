@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { buildManualLeadRecords } from "@/lib/manual-lead";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    await requireWorkspaceTabs(user, "Leads");
     if (user.group === "doorknocker")
       throw new HttpError(403, "Create door-knocking leads from the map.");
     const { contact, lead } = buildManualLeadRecords(
