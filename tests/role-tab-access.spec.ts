@@ -27,6 +27,7 @@ test("business settings show separate defaults for admin and door knocker", asyn
   page,
 }) => {
   await page.goto("/demo?view=Settings");
+  await page.getByRole("button", { name: "Navigation & access" }).click();
   const access = page.getByText("Tab access by role").locator("..");
   await expect(access.getByLabel("Role")).toHaveValue("admin");
   await expect(access.getByLabel("Door knocking")).not.toBeChecked();

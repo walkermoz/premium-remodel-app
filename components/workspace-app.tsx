@@ -1221,14 +1221,33 @@ export default function WorkspaceApp({
       <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
         <Link href={demo ? "/demo" : "/"} className="brand">
           {config.profile.logoUrl ? (
-            <img src={config.profile.logoUrl} alt={config.profile.name} />
+            <>
+              <img
+                className={
+                  config.profile.logoDarkUrl ? "brand-logo-default" : undefined
+                }
+                src={config.profile.logoUrl}
+                alt={config.profile.name}
+              />
+              {config.profile.logoDarkUrl && (
+                <img
+                  className="brand-logo-dark"
+                  src={config.profile.logoDarkUrl}
+                  alt={config.profile.name}
+                />
+              )}
+            </>
           ) : (
             <strong>{config.profile.name}</strong>
           )}
         </Link>
         <div className="workspace-switch">
           <span className="workspace-monogram">
-            {config.profile.name.charAt(0)}
+            {config.profile.logoMarkUrl ? (
+              <img src={config.profile.logoMarkUrl} alt="" />
+            ) : (
+              config.profile.name.charAt(0)
+            )}
           </span>
           <OrganizationSwitcher currentName={config.profile.name} demo={demo} />
         </div>

@@ -27,6 +27,9 @@ export function defaultBusinessConfig(
       phone: premium ? "(919) 454-4012" : "",
       addressPriority: premium ? "wake" : "nationwide",
       logoUrl: premium ? "/images/logo.png" : "",
+      logoDarkUrl: "",
+      logoMarkUrl: "",
+      bannerUrl: "",
     },
     features: {
       priceBook: false,

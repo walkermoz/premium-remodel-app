@@ -36,6 +36,9 @@ export default function SettingsPanel({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
+  const [section, setSection] = useState<
+    "business" | "workspace" | "connections" | "account"
+  >("business");
   return (
     <>
       <div className="page-heading">
@@ -47,143 +50,176 @@ export default function SettingsPanel({
           <p>Your company workspace and account preferences.</p>
         </div>
       </div>
-      <AppearanceSettings />
-      <BusinessSettings
-        initial={config}
-        admin={user.role === "admin"}
-        demo={demo}
-      />
-      <InstallAppPanel />
-      <GoogleCalendarSettings demo={demo} />
-      <GoogleMailSettings demo={demo} />
-      {user.role === "admin" && (
-        <WorkspaceAlertSettings
-          alerts={alerts}
-          onSave={onSaveAlert}
-          onRemove={onRemoveAlert}
+      <nav className="settings-main-nav" aria-label="Settings categories">
+        {(
+          [
+            ["business", "Business", "Brand, company, quotes & access"],
+            ["workspace", "Workspace", "Display and tools"],
+            ["connections", "Connections", "Calendar, email & services"],
+            ["account", "My account", "Security"],
+          ] as const
+        ).map(([id, label, description]) => (
+          <button
+            key={id}
+            type="button"
+            className={section === id ? "active" : ""}
+            aria-current={section === id ? "page" : undefined}
+            onClick={() => setSection(id)}
+          >
+            <strong>{label}</strong>
+            <span>{description}</span>
+          </button>
+        ))}
+      </nav>
+      <div hidden={section !== "business"}>
+        <BusinessSettings
+          initial={config}
+          admin={user.role === "admin"}
+          demo={demo}
         />
-      )}
-      {user.role === "admin" && <WorkspaceHistorySettings demo={demo} />}
-      {user.role === "admin" && config.features.twilio && (
-        <TwilioSettings demo={demo} />
-      )}
-      {user.role === "admin" && <ApiKeysSettings demo={demo} />}
-      <GenerationSettings demo={demo} admin={user.role === "admin"} />
-      {config.profile.addressPriority === "wake" && (
-        <div className="settings-section">
-          <div className="settings-title">
-            <MapPin size={22} />
-            <div>
-              <h2>Address suggestions</h2>
-              <p>
-                Wake County address records are searched first. If there is no
-                local match, suggestions expand to other U.S. addresses.
-              </p>
-            </div>
-          </div>
-          <div className="settings-details">
-            <label>
-              Priority region
-              <input value={addressPriorityRegion.name} readOnly />
-            </label>
-          </div>
-        </div>
-      )}
-      <div className="settings-section">
-        <div className="settings-title">
-          <LockKeyhole size={22} />
-          <div>
-            <h2>Account security</h2>
-            <p>{user.email}</p>
-          </div>
-        </div>
-        <form
-          className="settings-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setMessage("");
-            setError(false);
-            if (demo) {
-              setError(true);
-              setMessage(
-                "Password changes are available in your real workspace.",
-              );
-              return;
-            }
-            setBusy(true);
-            const form = e.currentTarget;
-            try {
-              const fields = Object.fromEntries(new FormData(form));
-              if (fields.password !== fields.confirm)
-                throw new Error("The new passwords do not match.");
-              const response = await fetch("/api/auth", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "password", ...fields }),
-              });
-              const data = await response.json();
-              if (!response.ok) throw new Error(data.error);
-              setMessage(
-                "Password updated. Other sessions have been signed out.",
-              );
-              form.reset();
-            } catch (err) {
-              setError(true);
-              setMessage(
-                err instanceof Error
-                  ? err.message
-                  : "Could not update password.",
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <label>
-            Current password
-            <input
-              type="password"
-              name="current"
-              autoComplete="current-password"
-              required
-              maxLength={128}
+      </div>
+      {section === "workspace" && (
+        <>
+          <AppearanceSettings />
+          <InstallAppPanel />
+          {user.role === "admin" && (
+            <WorkspaceAlertSettings
+              alerts={alerts}
+              onSave={onSaveAlert}
+              onRemove={onRemoveAlert}
             />
-          </label>
-          <div className="form-grid">
-            <label>
-              New password
-              <input
-                type="password"
-                name="password"
-                autoComplete="new-password"
-                required
-                minLength={12}
-                maxLength={128}
-                placeholder="At least 12 characters"
-              />
-            </label>
-            <label>
-              Confirm new password
-              <input
-                type="password"
-                name="confirm"
-                autoComplete="new-password"
-                required
-                minLength={12}
-                maxLength={128}
-              />
-            </label>
-          </div>
-          {message && (
-            <div className={error ? "alert" : "success-note"} role="status">
-              {message}
+          )}
+          {user.role === "admin" && <WorkspaceHistorySettings demo={demo} />}
+          <GenerationSettings demo={demo} admin={user.role === "admin"} />
+          {config.profile.addressPriority === "wake" && (
+            <div className="settings-section">
+              <div className="settings-title">
+                <MapPin size={22} />
+                <div>
+                  <h2>Address suggestions</h2>
+                  <p>
+                    Wake County address records are searched first. If there is
+                    no local match, suggestions expand to other U.S. addresses.
+                  </p>
+                </div>
+              </div>
+              <div className="settings-details">
+                <label>
+                  Priority region
+                  <input value={addressPriorityRegion.name} readOnly />
+                </label>
+              </div>
             </div>
           )}
-          <button className="button primary" disabled={busy}>
-            {busy ? "Updating…" : "Update password"}
-          </button>
-        </form>
-      </div>
+        </>
+      )}
+      {section === "connections" && (
+        <>
+          <GoogleCalendarSettings demo={demo} />
+          <GoogleMailSettings demo={demo} />
+          {user.role === "admin" && config.features.twilio && (
+            <TwilioSettings demo={demo} />
+          )}
+          {user.role === "admin" && <ApiKeysSettings demo={demo} />}
+        </>
+      )}
+      {section === "account" && (
+        <div className="settings-section">
+          <div className="settings-title">
+            <LockKeyhole size={22} />
+            <div>
+              <h2>Account security</h2>
+              <p>{user.email}</p>
+            </div>
+          </div>
+          <form
+            className="settings-form"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setMessage("");
+              setError(false);
+              if (demo) {
+                setError(true);
+                setMessage(
+                  "Password changes are available in your real workspace.",
+                );
+                return;
+              }
+              setBusy(true);
+              const form = e.currentTarget;
+              try {
+                const fields = Object.fromEntries(new FormData(form));
+                if (fields.password !== fields.confirm)
+                  throw new Error("The new passwords do not match.");
+                const response = await fetch("/api/auth", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "password", ...fields }),
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error);
+                setMessage(
+                  "Password updated. Other sessions have been signed out.",
+                );
+                form.reset();
+              } catch (err) {
+                setError(true);
+                setMessage(
+                  err instanceof Error
+                    ? err.message
+                    : "Could not update password.",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <label>
+              Current password
+              <input
+                type="password"
+                name="current"
+                autoComplete="current-password"
+                required
+                maxLength={128}
+              />
+            </label>
+            <div className="form-grid">
+              <label>
+                New password
+                <input
+                  type="password"
+                  name="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={12}
+                  maxLength={128}
+                  placeholder="At least 12 characters"
+                />
+              </label>
+              <label>
+                Confirm new password
+                <input
+                  type="password"
+                  name="confirm"
+                  autoComplete="new-password"
+                  required
+                  minLength={12}
+                  maxLength={128}
+                />
+              </label>
+            </div>
+            {message && (
+              <div className={error ? "alert" : "success-note"} role="status">
+                {message}
+              </div>
+            )}
+            <button className="button primary" disabled={busy}>
+              {busy ? "Updating…" : "Update password"}
+            </button>
+          </form>
+        </div>
+      )}
     </>
   );
 }
