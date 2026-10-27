@@ -15,8 +15,8 @@ import { recordAuditEvent } from "@/lib/audit-server";
 
 export const runtime = "nodejs";
 
-async function requireAdmin(request: Request) {
-  checkOrigin(request);
+async function requireAdmin(request: Request, write = false) {
+  if (write) checkOrigin(request);
   const user = await requireUser();
   if (user.role !== "admin")
     throw new HttpError(403, "Only administrators can manage API keys.");
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireAdmin(request);
+    const user = await requireAdmin(request, true);
     await limitAttempts(`api-keys-create:${user.id}`, 20);
     const body = z
       .object({ name: z.string().trim().min(1).max(100) })
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const user = await requireAdmin(request);
+    const user = await requireAdmin(request, true);
     await limitAttempts(`api-keys-revoke:${user.id}`, 40);
     const body = z
       .object({ id: z.uuid() })
