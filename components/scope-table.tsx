@@ -34,6 +34,7 @@ import {
 } from "@/lib/scope-pricing";
 import { Badge, Empty, Modal } from "./ui";
 import BathroomQuestionnaire from "./bathroom-questionnaire";
+import PricebookPicker from "./pricebook-picker";
 import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
@@ -233,6 +234,7 @@ export default function ScopeTable({
   const [sectionSaving, setSectionSaving] = useState(false);
   const [pricebookItems, setPricebookItems] = useState<PricebookItem[]>([]);
   const [pricebookBusy, setPricebookBusy] = useState(false);
+  const [pricebookOpen, setPricebookOpen] = useState(false);
   const newTitle = useRef<HTMLInputElement>(null);
   const newProjectName = useRef<HTMLInputElement>(null);
 
@@ -990,49 +992,16 @@ export default function ScopeTable({
                       <FolderPlus size={15} />
                       Use Project Template
                     </button>
-                    {pricebookEnabled && pricebookItems.length > 0 && (
-                      <select
-                        aria-label="Add work item from price book"
+                    {pricebookEnabled && (
+                      <button
+                        type="button"
                         className="scope-add-row-button"
-                        value=""
                         disabled={pricebookBusy}
-                        onChange={async (event) => {
-                          const item = pricebookItems.find(
-                            (entry) => entry.id === event.target.value,
-                          );
-                          if (!item || !onSave || !projectId) return;
-                          setPricebookBusy(true);
-                          setError("");
-                          try {
-                            await onSave({
-                              projectId,
-                              ...pricebookScopeValues(item),
-                              sectionId: lastItem?.sectionId || "",
-                              sectionName:
-                                lastItem?.sectionName || defaultSectionName,
-                              position: nextPosition,
-                              contractorId: "",
-                              status: "To do",
-                            });
-                          } catch (cause) {
-                            setError(
-                              cause instanceof Error
-                                ? cause.message
-                                : "Could not add price-book item.",
-                            );
-                          } finally {
-                            setPricebookBusy(false);
-                          }
-                        }}
+                        onClick={() => setPricebookOpen(true)}
                       >
-                        <option value="">Add from price book…</option>
-                        {pricebookItems.map((item) => (
-                          <option value={item.id} key={item.id}>
-                            {item.category ? `${item.category} · ` : ""}
-                            {item.name}
-                          </option>
-                        ))}
-                      </select>
+                        <Plus size={15} />
+                        Add from price book
+                      </button>
                     )}
                   </div>
                 </td>
@@ -1075,6 +1044,34 @@ export default function ScopeTable({
             onSubmit={(answers, rows) => void addBathroomProject(answers, rows)}
           />
         </Modal>
+      )}
+      {pricebookOpen && (
+        <PricebookPicker
+          items={pricebookItems}
+          busy={pricebookBusy}
+          showInternalCosts={showInternalCosts}
+          onClose={() => {
+            if (!pricebookBusy) setPricebookOpen(false);
+          }}
+          onAdd={async (item, quantity) => {
+            if (!onSave || !projectId)
+              throw new Error("This quote is unavailable.");
+            setPricebookBusy(true);
+            try {
+              await onSave({
+                projectId,
+                ...pricebookScopeValues(item, quantity),
+                sectionId: lastItem?.sectionId || "",
+                sectionName: lastItem?.sectionName || defaultSectionName,
+                position: nextPosition,
+                contractorId: "",
+                status: "To do",
+              });
+            } finally {
+              setPricebookBusy(false);
+            }
+          }}
+        />
       )}
     </div>
   );
