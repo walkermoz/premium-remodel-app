@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Users,
   MessageSquare,
+  Camera,
 } from "lucide-react";
 import type { User } from "@/lib/types";
 import { Avatar, Modal } from "./ui";
@@ -45,6 +46,9 @@ export default function TeamPanel({
   const [appLinkSentTo, setAppLinkSentTo] = useState("");
   const [sendingAppLink, setSendingAppLink] = useState(false);
   const [remove, setRemove] = useState<User | null>(null);
+  const [photoMember, setPhotoMember] = useState<User | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
   useEffect(() => {
     if (!demo)
       fetch("/api/auth")
@@ -114,6 +118,59 @@ export default function TeamPanel({
       setSendingAppLink(false);
     }
   }
+  async function uploadPhoto(file: File, member: User) {
+    setPhotoError("");
+    setPhotoBusy(true);
+    try {
+      const form = new FormData();
+      form.set("memberId", member.id);
+      form.set("file", file);
+      const response = await fetch("/api/team-photos", {
+        method: "POST",
+        body: form,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save photo.");
+      const updated = { ...member, photoUrl: data.photoUrl as string };
+      setMembers((current) =>
+        current.map((item) => (item.id === member.id ? updated : item)),
+      );
+      setPhotoMember(updated);
+      notify("Profile photo saved");
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error ? error.message : "Could not save photo.",
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+  async function removePhoto(member: User) {
+    setPhotoError("");
+    setPhotoBusy(true);
+    try {
+      const response = await fetch("/api/team-photos", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: member.id }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not remove photo.");
+      const updated = { ...member, photoUrl: undefined };
+      setMembers((current) =>
+        current.map((item) => (item.id === member.id ? updated : item)),
+      );
+      setPhotoMember(updated);
+      notify("Profile photo removed");
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error ? error.message : "Could not remove photo.",
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
   return (
     <>
       <div className="page-heading team-page-heading">
@@ -164,7 +221,23 @@ export default function TeamPanel({
       <div className="members-list">
         {members.map((member) => (
           <div className="member-row" key={member.id}>
-            <Avatar name={member.name} />
+            {user.role === "admin" || member.id === user.id ? (
+              <button
+                type="button"
+                className="member-photo-button"
+                aria-label={`Change profile photo for ${member.name}`}
+                title={`Change profile photo for ${member.name}`}
+                onClick={() => {
+                  setPhotoMember(member);
+                  setPhotoError("");
+                }}
+              >
+                <Avatar name={member.name} photoUrl={member.photoUrl} />
+                <Camera size={12} aria-hidden="true" />
+              </button>
+            ) : (
+              <Avatar name={member.name} photoUrl={member.photoUrl} />
+            )}
             <div className="member-info">
               <strong>
                 {member.name}
@@ -193,6 +266,61 @@ export default function TeamPanel({
         updates. The administrator also manages access and file deletion.
       </p>
       {error && !showInvite && <div className="alert">{error}</div>}
+      {photoMember && (
+        <Modal
+          title="Profile photo"
+          subtitle={photoMember.name}
+          onClose={() => !photoBusy && setPhotoMember(null)}
+        >
+          <div className="member-photo-editor">
+            <Avatar name={photoMember.name} photoUrl={photoMember.photoUrl} />
+            <p>
+              Use a clear JPG, PNG, or WebP photo up to 4 MB. It will be cropped
+              to a square.
+            </p>
+            {photoError && (
+              <div className="alert" role="alert">
+                {photoError}
+              </div>
+            )}
+          </div>
+          <footer className="modal-footer">
+            {photoMember.photoUrl && (
+              <button
+                type="button"
+                className="button secondary"
+                disabled={photoBusy}
+                onClick={() => removePhoto(photoMember)}
+              >
+                Remove photo
+              </button>
+            )}
+            <button
+              type="button"
+              className="button secondary"
+              disabled={photoBusy}
+              onClick={() => setPhotoMember(null)}
+            >
+              Close
+            </button>
+            <label
+              className={`button primary member-photo-upload ${photoBusy ? "disabled" : ""}`}
+            >
+              <Camera size={16} /> {photoBusy ? "Saving…" : "Choose photo"}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={photoBusy || demo}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) uploadPhoto(file, photoMember);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+          </footer>
+        </Modal>
+      )}
       {showInvite && (
         <Modal
           title="Invite a teammate"

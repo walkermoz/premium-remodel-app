@@ -411,6 +411,7 @@ export interface User {
   email: string;
   role: "admin" | "member";
   group: WorkspaceGroup;
+  photoUrl?: string;
 }
 export interface Workspace {
   alerts?: WorkspaceAlert[];

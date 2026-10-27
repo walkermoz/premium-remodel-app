@@ -161,7 +161,7 @@ export async function GET() {
     const user = await requireUser();
     const { data, error } = await supabaseAdmin()
       .from("remodel_memberships")
-      .select("profile_id,role")
+      .select("profile_id,role,avatar_path,avatar_updated_at")
       .eq("organization_id", user.organizationId)
       .eq("active", true)
       .order("created_at");
@@ -194,6 +194,9 @@ export async function GET() {
                     ? "admin"
                     : "member",
                   group: membership.role,
+                  photoUrl: membership.avatar_path
+                    ? `/api/team-photos?memberId=${profile.id}&v=${encodeURIComponent(membership.avatar_updated_at || "1")}`
+                    : undefined,
                 },
               ]
             : [];
