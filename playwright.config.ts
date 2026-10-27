@@ -28,6 +28,9 @@ export default defineConfig({
       // Tests must never use the company's real phone account.
       TWILIO_ACCOUNT_SID: "",
       TWILIO_AUTH_TOKEN: "",
+      STRIPE_SECRET_KEY: "",
+      STRIPE_WEBHOOK_SECRET: "",
+      STRIPE_ACCOUNTS_JSON: "",
       // Tests must never notify the company's real Discord channel.
       DISCORD_LEAD_WEBHOOK_URL: "",
       GOOGLE_CALENDAR_CLIENT_ID: "",
@@ -35,6 +38,8 @@ export default defineConfig({
       GOOGLE_GMAIL_CLIENT_ID: "",
       GOOGLE_GMAIL_CLIENT_SECRET: "",
       GOOGLE_TOKEN_ENCRYPTION_KEY: "",
+      // Generation requests in the cloud test are invalid or browser-mocked.
+      OPENROUTER_API_KEY: "playwright-test-key-no-external-calls",
       CLIENT_PORTAL_SECRET:
         "playwright-only-client-portal-secret-change-before-production",
     },

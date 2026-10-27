@@ -472,12 +472,11 @@ cloudTest(
     await expect(
       clientPage.getByText("No invoices are available in this quote link"),
     ).toBeVisible();
-    await clientPage.getByRole("link", { name: "Wallet" }).click();
-    await expect(
-      clientPage.getByText("Payment methods are temporarily unavailable.", {
-        exact: false,
-      }),
-    ).toBeVisible();
+    // Isolated test companies have no payment processor; a wallet only appears
+    // when an organization has its own Stripe connection.
+    await expect(clientPage.getByRole("link", { name: "Wallet" })).toHaveCount(
+      0,
+    );
     await clientPage.getByRole("link", { name: "Contact us" }).click();
     await expect(
       clientPage.getByRole("link", { name: "contact@premiumremodel.com" }),
@@ -561,7 +560,8 @@ cloudTest(
     const projectPage = await client.request.get(
       first.url.replace(/\/quote$/, ""),
     );
-    expect(projectPage.status()).toBe(404);
+    expect(projectPage.status()).toBe(200);
+    expect(new URL(projectPage.url()).pathname).toBe("/client/sign-in");
 
     const accepted = await api.post("/api/quotes/accept", {
       headers: origin,

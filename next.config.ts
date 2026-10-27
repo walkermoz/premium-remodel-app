@@ -28,6 +28,17 @@ const config: NextConfig = {
           },
         ],
       },
+      ...["/api/files", "/api/contact-photos", "/api/team-photos"].map(
+        (source) => ({
+          source,
+          headers: [
+            {
+              key: "Content-Security-Policy",
+              value: "default-src 'none'; sandbox",
+            },
+          ],
+        }),
+      ),
       {
         source: "/client/:path*",
         headers: [

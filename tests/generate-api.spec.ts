@@ -172,6 +172,15 @@ cloudTest(
     ).toBeNull();
     expect(
       (
+        await company.admin
+          .from("remodel_memberships")
+          .update({ role: "crew" })
+          .eq("organization_id", company.organizationId)
+          .eq("profile_id", profile!.id)
+      ).error,
+    ).toBeNull();
+    expect(
+      (
         await api.patch("/api/generate/config", {
           headers: origin,
           data: { defaultModel: "openai/gpt-image-2" },

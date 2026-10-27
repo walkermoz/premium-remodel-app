@@ -124,7 +124,11 @@ cloudTest(
     });
     await page.getByRole("button", { name: "Add concept to quote" }).click();
     await expect(page.getByText("2 of 8 selected")).toBeVisible();
-    await expect(page.getByText("AI concept", { exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByLabel("Selected quote photos")
+        .getByText("AI concept", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByLabel("Photo type for finished-concept.jpg"),
     ).toHaveCount(0);

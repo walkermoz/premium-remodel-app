@@ -21,7 +21,11 @@ function visit(address: string, createLead = true) {
     project: createLead ? "Deck" : "",
     projectDescription: createLead ? "Replace the rear deck and railing." : "",
     scheduleQuote: createLead,
-    quoteDate: createLead ? "2026-10-05" : "",
+    quoteDate: createLead
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10)
+      : "",
     quoteStartTime: createLead ? "14:30" : "",
     quoteEndTime: createLead ? "15:30" : "",
     quoteNotes: createLead ? "Meet at the side gate." : "",
