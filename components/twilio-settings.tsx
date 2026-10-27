@@ -1,12 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Phone, RefreshCw, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Phone, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
 import type { TwilioConnection } from "@/lib/twilio-types";
 
-export default function TwilioSettings({ demo }: { demo: boolean }) {
+export default function TwilioSettings({
+  demo,
+  businessName,
+}: {
+  demo: boolean;
+  businessName: string;
+}) {
+  const router = useRouter();
   const [connection, setConnection] = useState<TwilioConnection | null>(null);
   const [loading, setLoading] = useState(!demo);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [accountSid, setAccountSid] = useState("");
+  const [authToken, setAuthToken] = useState("");
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       if (demo) return;
@@ -43,15 +55,72 @@ export default function TwilioSettings({ demo }: { demo: boolean }) {
     };
   }, [refresh]);
 
+  async function connect(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || demo) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/twilio/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountSid, authToken }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not connect Twilio.");
+      setConnection(data);
+      setAccountSid("");
+      setAuthToken("");
+      setNotice("Phone account connected. Texting is now available from Team.");
+      router.refresh();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not connect Twilio.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    if (
+      busy ||
+      !window.confirm(
+        "Disconnect this company's Twilio account? App-link texts will stop.",
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/twilio/config", { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not disconnect Twilio.");
+      setConnection(data);
+      setNotice("Phone account disconnected. Team texting is now unavailable.");
+      router.refresh();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not disconnect Twilio.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="settings-section" aria-labelledby="twilio-heading">
       <div className="settings-title">
         <Phone size={22} aria-hidden="true" />
         <div>
-          <h2 id="twilio-heading">Twilio</h2>
+          <h2 id="twilio-heading">Phone &amp; texting</h2>
           <p>
-            Your company phone account. Only administrators can view these
-            settings.
+            Connect {businessName}&apos;s Twilio account for company texting.
+            Only administrators can manage it.
           </p>
         </div>
       </div>
@@ -72,12 +141,58 @@ export default function TwilioSettings({ demo }: { demo: boolean }) {
                 {error}
               </div>
             )}
-            {connection && !connection.configured && (
-              <p className="generation-note" role="status">
-                Twilio is not connected. Add the company Account SID and Auth
-                Token to the secure server configuration.
+            {notice && (
+              <div className="success-note" role="status">
+                {notice}
+              </div>
+            )}
+            {connection?.managedByPlatform && !connection.configured && (
+              <p className="generation-note">
+                The platform-managed phone account is not configured yet.
               </p>
             )}
+            {connection &&
+              !connection.configured &&
+              !connection.managedByPlatform && (
+                <form className="twilio-connect-form" onSubmit={connect}>
+                  <div>
+                    <strong>
+                      Twilio is not connected. Connect your company phone
+                      account
+                    </strong>
+                    <p className="generation-note">
+                      Enter the Account SID and Auth Token from your Twilio
+                      console. We verify the account before saving it for this
+                      business.
+                    </p>
+                  </div>
+                  <label>
+                    Account SID
+                    <input
+                      value={accountSid}
+                      onChange={(event) => setAccountSid(event.target.value)}
+                      placeholder="AC…"
+                      autoComplete="off"
+                      required
+                      pattern="AC[0-9a-fA-F]{32}"
+                    />
+                  </label>
+                  <label>
+                    Auth Token
+                    <input
+                      type="password"
+                      value={authToken}
+                      onChange={(event) => setAuthToken(event.target.value)}
+                      autoComplete="new-password"
+                      required
+                      pattern="[0-9a-fA-F]{32}"
+                    />
+                  </label>
+                  <button className="button primary" disabled={busy}>
+                    {busy ? "Verifying…" : "Connect Twilio"}
+                  </button>
+                </form>
+              )}
             {connection?.account && (
               <>
                 <div
@@ -180,6 +295,17 @@ export default function TwilioSettings({ demo }: { demo: boolean }) {
                     </time>
                   </p>
                 )}
+                {!connection.managedByPlatform && (
+                  <button
+                    type="button"
+                    className="button danger"
+                    disabled={busy}
+                    onClick={() => void disconnect()}
+                  >
+                    <Unplug size={14} aria-hidden="true" />{" "}
+                    {busy ? "Disconnecting…" : "Disconnect phone account"}
+                  </button>
+                )}
               </>
             )}
             <button
@@ -199,8 +325,8 @@ export default function TwilioSettings({ demo }: { demo: boolean }) {
           </>
         )}
         <p className="generation-note">
-          Administrators can send the Premium Remodel app link from the Team
-          page. Calling inside the workspace is not enabled yet.
+          Once connected, administrators can text the {businessName} app link
+          from Team. Calling inside the workspace is not enabled yet.
         </p>
       </div>
     </section>

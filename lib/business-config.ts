@@ -9,6 +9,7 @@ import {
 } from "./business-config-schema";
 import { premiumAgreementEnabled } from "./agreements";
 import { isOriginalOrganization } from "./original-organization";
+import { hasTwilioConnection } from "./twilio-connection-store";
 export { businessConfigSchema } from "./business-config-schema";
 export type { BusinessConfig } from "./business-config-schema";
 
@@ -61,7 +62,7 @@ export async function getBusinessConfigForOrganization(
   organizationId: string,
 ): Promise<BusinessConfig> {
   const admin = supabaseAdmin();
-  const [organization, saved] = await Promise.all([
+  const [organization, saved, twilioConnected] = await Promise.all([
     admin
       .from("organizations")
       .select("name")
@@ -72,6 +73,7 @@ export async function getBusinessConfigForOrganization(
       .select("profile,features,quote_preferences,navigation,role_navigation")
       .eq("organization_id", organizationId)
       .maybeSingle(),
+    hasTwilioConnection(organizationId),
   ]);
   if (organization.error) throw organization.error;
   if (saved.error) throw saved.error;
@@ -79,6 +81,7 @@ export async function getBusinessConfigForOrganization(
     organization.data.name,
     organizationId,
   );
+  defaults.features.twilio = twilioConnected;
   if (!saved.data) return defaults;
   return businessConfigSchema.parse({
     profile: { ...defaults.profile, ...saved.data.profile },
@@ -86,7 +89,7 @@ export async function getBusinessConfigForOrganization(
       ...defaults.features,
       ...saved.data.features,
       agreements: premiumAgreementEnabled(organizationId),
-      twilio: isOriginalOrganization(organizationId),
+      twilio: twilioConnected,
     },
     quotePreferences: {
       ...defaults.quotePreferences,
@@ -109,7 +112,7 @@ export async function saveBusinessConfig(
   const config = businessConfigSchema.parse(input);
   // A copied Premium Remodel legal template must never be presented as another company's agreement.
   config.features.agreements = premiumAgreementEnabled(user.organizationId);
-  config.features.twilio = isOriginalOrganization(user.organizationId);
+  config.features.twilio = await hasTwilioConnection(user.organizationId);
   const { error } = await supabaseAdmin()
     .from("remodel_business_config")
     .upsert({

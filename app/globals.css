@@ -4465,6 +4465,52 @@ small {
   grid-template-columns: 300px 1fr;
   gap: 32px;
 }
+.connections-intro {
+  max-width: 930px;
+  padding: 2px 0 28px;
+}
+.connections-intro h2 {
+  margin: 8px 0;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 22px;
+  letter-spacing: -0.025em;
+}
+.connections-intro p {
+  max-width: 650px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.connection-optional {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  vertical-align: middle;
+}
+.connections-advanced {
+  max-width: 930px;
+  border-top: 1px solid var(--line);
+}
+.connections-advanced > summary {
+  padding: 22px 0;
+  color: var(--theme-text-strong, var(--ink));
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+.connections-advanced > summary span {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.connections-advanced .settings-section {
+  border-top: 0;
+  padding-top: 0;
+}
 .settings-main-nav {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4705,6 +4751,21 @@ small {
 .twilio-settings {
   min-width: 0;
   gap: 18px;
+}
+.twilio-connect-form {
+  display: grid;
+  gap: 14px;
+  max-width: 430px;
+}
+.twilio-connect-form strong {
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 13px;
+}
+.twilio-connect-form .generation-note {
+  margin: 5px 0 0;
+}
+.twilio-connect-form .button {
+  justify-self: start;
 }
 .twilio-details {
   margin: 0;

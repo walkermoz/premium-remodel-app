@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   appInstallMessage,
+  appInstallMessageForBusiness,
   appInstallUrl,
   normalizeSmsRecipient,
 } from "../lib/install-link";
@@ -29,6 +30,9 @@ test("location age distinguishes recent, stale and expired positions", () => {
 test("phone app text stays in one SMS segment and normalizes US numbers", () => {
   expect(appInstallMessage).toContain(appInstallUrl);
   expect(appInstallMessage.length).toBeLessThanOrEqual(160);
+  expect(appInstallMessageForBusiness("Another Builder")).toContain(
+    "Another Builder app:",
+  );
   expect(normalizeSmsRecipient("(919) 555-0123")).toBe("+19195550123");
   expect(normalizeSmsRecipient("+44 20 7946 0958")).toBe("+442079460958");
   expect(normalizeSmsRecipient("555")).toBeNull();

@@ -138,7 +138,12 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
       <div className="settings-title">
         <CalendarDays size={22} aria-hidden="true" />
         <div>
-          <h2 id="google-calendar-heading">Google Calendar</h2>
+          <h2 id="google-calendar-heading">
+            Google Calendar{" "}
+            <span className="connection-optional" aria-hidden="true">
+              Optional · per person
+            </span>
+          </h2>
           <p>
             Keep the built-in schedule and add a private company calendar to
             your Google account.
@@ -176,9 +181,10 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
             )}
             {!loading && !status.configured && (
               <p className="generation-note">
-                Google Calendar setup is not configured yet. Add the Google
-                OAuth credentials to the secure server settings to enable
-                account connections.
+                Calendar connections are not available yet. The platform needs a
+                one-time Google Calendar setup; your company does not need to
+                supply OAuth credentials. Your workspace schedule continues to
+                work.
               </p>
             )}
             {status.configured && !status.connected && (

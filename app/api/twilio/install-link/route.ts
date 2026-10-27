@@ -8,9 +8,10 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/audit-server";
-import { isOriginalOrganization } from "@/lib/original-organization";
+import { getBusinessConfig } from "@/lib/business-config";
+import { twilioCredentialsForOrganization } from "@/lib/twilio-connection-store";
 import {
-  appInstallMessage,
+  appInstallMessageForBusiness,
   maskedPhone,
   normalizeSmsRecipient,
 } from "@/lib/install-link";
@@ -28,11 +29,6 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (!isOriginalOrganization(user.organizationId))
-      throw new HttpError(
-        403,
-        "Twilio is not configured for this organization.",
-      );
     if (user.role !== "admin")
       throw new HttpError(
         403,
@@ -47,13 +43,14 @@ export async function POST(request: Request) {
       limitAttempts(`twilio-install:recipient:${recipient}`, 3),
     ]);
 
-    const sent = await sendTwilioSms(
-      {
-        accountSid: process.env.TWILIO_ACCOUNT_SID,
-        authToken: process.env.TWILIO_AUTH_TOKEN,
-      },
-      { to: recipient, body: appInstallMessage },
-    );
+    const [credentials, config] = await Promise.all([
+      twilioCredentialsForOrganization(user.organizationId),
+      getBusinessConfig(user),
+    ]);
+    const sent = await sendTwilioSms(credentials, {
+      to: recipient,
+      body: appInstallMessageForBusiness(config.profile.name),
+    });
 
     try {
       await recordAuditEvent(user, {

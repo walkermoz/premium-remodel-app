@@ -140,7 +140,7 @@ export async function readTwilioConnection(
     }
     if (response.status === 401 || response.status === 403)
       throw new TwilioConnectionError(
-        "Twilio rejected the saved credentials. Update the server credentials and check again.",
+        "Twilio rejected these credentials. Check the Account SID and Auth Token.",
       );
     if (!response.ok)
       throw new TwilioConnectionError(

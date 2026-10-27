@@ -28,7 +28,7 @@ test("business branding is organized and keeps edits while browsing settings", a
     .getByRole("button", { name: /Connections/ })
     .click();
   await expect(
-    page.getByText("Google Calendar", { exact: true }),
+    page.getByRole("heading", { name: "Google Calendar", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Settings categories" })

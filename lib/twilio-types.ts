@@ -1,4 +1,5 @@
 export interface TwilioConnection {
+  managedByPlatform?: boolean;
   configured: boolean;
   account: {
     sid: string;
