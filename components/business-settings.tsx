@@ -254,7 +254,7 @@ export default function BusinessSettings({
                   </div>
                 )}
               </div>
-              <div className="brand-asset">
+              <div className="brand-asset square-mark">
                 <div className="brand-asset-preview light">
                   {config.profile.logoMarkUrl ? (
                     <img
