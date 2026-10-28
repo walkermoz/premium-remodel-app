@@ -392,9 +392,6 @@ export default function BusinessSettings({
                 </div>
               </div>
             </div>
-            <p className="footnote">
-              PNG, JPG, or WebP · up to 4 MB. Uploads save immediately.
-            </p>
           </div>
         )}
         {activeTab === "details" && (
