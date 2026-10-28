@@ -626,6 +626,8 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Total items for material cost of Tile installation")
     .fill("3");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  await summary.click();
   await expect(summary).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator(".scope-inspector-row")).toHaveCount(0);
   await expect(summary).toContainText("$450");
@@ -932,9 +934,9 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
       'textarea[aria-label="Details for Paint, finish carpentry & final cleanup"]',
     ),
   ).toHaveValue(/Prioritize an easy-to-clean shower and accessible storage/);
-  await table
-    .getByRole("button", { name: "Edit Demolition & site protection" })
-    .click();
+  await expect(
+    table.getByRole("button", { name: "Edit Demolition & site protection" }),
+  ).toHaveAttribute("aria-expanded", "true");
   await table
     .getByRole("button", { name: "Delete Demolition & site protection" })
     .click();
@@ -945,9 +947,9 @@ test("bathroom questionnaire turns detailed selections into editable quote rows"
     table.getByRole("button", { name: "Edit Demolition & site protection" }),
   ).toHaveCount(0);
 
-  await table
-    .getByRole("button", { name: "Edit Shower base & waterproofing" })
-    .click();
+  await expect(
+    table.getByRole("button", { name: "Edit Shower base & waterproofing" }),
+  ).toHaveAttribute("aria-expanded", "true");
   await table
     .getByLabel("Price per job for Shower base & waterproofing")
     .fill("4250");

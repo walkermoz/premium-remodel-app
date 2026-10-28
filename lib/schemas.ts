@@ -53,12 +53,12 @@ const time = z
 export const schemas = {
   contact: z.object({
     firstName: short.min(1),
-    lastName: short.min(1),
+    lastName: short,
     name: short.min(1),
     email: z.union([z.email().max(250), z.literal("")]),
-    phone: short.min(1),
+    phone: short,
     zip: short,
-    address: short.min(1),
+    address: short,
     source: short.min(1),
   }),
   lead: z
@@ -174,6 +174,7 @@ export const schemas = {
       importedFrom: short.optional(),
       importedSources: z.array(short).max(5).optional(),
       importedAt: z.iso.datetime().optional(),
+      contactId: z.union([z.uuid(), z.literal("")]).optional(),
       leadId: z.union([z.uuid(), z.literal("")]).optional(),
       outcomeAt: z.iso.datetime().optional(),
       quoteNumber: short.optional(),

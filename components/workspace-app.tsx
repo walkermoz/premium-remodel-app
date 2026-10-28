@@ -42,6 +42,7 @@ import {
 import { demoWorkspace } from "@/lib/demo";
 import { contractorServices } from "@/lib/contractor-services";
 import { contactPhotoUrl } from "@/lib/contact-photo";
+import { newestCustomerLead } from "@/lib/contacts";
 import {
   emptyWorkspace,
   kindKey,
@@ -99,6 +100,7 @@ import { useLocationSharing } from "./use-location-sharing";
 import { checkUploadFile, FILE_VALIDATION_VERSION } from "@/lib/file-policy";
 import OverviewAlerts from "./overview-alerts";
 import LeadsPanel from "./leads-panel";
+import CustomerContactsPanel from "./customer-contacts-panel";
 import DoorKnockingPanel, { type DoorVisitDraft } from "./door-knocking-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
 import type { BusinessConfig } from "@/lib/business-config";
@@ -111,6 +113,7 @@ type Page =
   | "Quotes"
   | "Price book"
   | "Leads"
+  | "Contacts"
   | "Door knocking"
   | "Upcoming"
   | "Activity"
@@ -251,9 +254,7 @@ export default function WorkspaceApp({
       const nextPage =
         legacyPage === "Tasks" || legacyPage === "Calendar"
           ? "Upcoming"
-          : legacyPage === "Contacts"
-            ? "Contractors"
-            : legacyPage;
+          : legacyPage;
       setPage(
         (nextPage === "Activity" ||
           config.navigation.includes(
@@ -435,6 +436,18 @@ export default function WorkspaceApp({
           );
           if (kind === "quote") {
             const prior = existing as Quote | undefined;
+            const contactId = String(data.contactId || "");
+            const linked = workspaceRef.current.leads.find(
+              (lead) => lead.id === data.leadId,
+            );
+            if (contactId && linked?.contactId !== contactId) {
+              const associated = newestCustomerLead(
+                contactId,
+                workspaceRef.current.leads,
+              );
+              if (associated) data.leadId = associated.id;
+              else delete data.leadId;
+            }
             data.quoteNumber =
               prior?.quoteNumber || nextQuoteNumber(workspaceRef.current);
             data.preparedBy =
@@ -1098,6 +1111,7 @@ export default function WorkspaceApp({
             icon: Inbox,
             count: workspace.leads.length,
           },
+          { name: "Contacts", icon: Users },
           { name: "Door knocking", icon: Footprints },
           { name: "Upcoming", icon: CalendarDays, count: openTasks.length },
           { name: "Contractors", icon: HardHat },
@@ -1208,7 +1222,7 @@ export default function WorkspaceApp({
       </button>
     );
   }
-  const visiblePageName = page === "Contractors" ? "Contacts" : page;
+  const visiblePageName = page === "Contractors" ? "Trade contacts" : page;
   return (
     <div className="app-shell">
       {sidebar && (
@@ -1261,7 +1275,7 @@ export default function WorkspaceApp({
             >
               <item.icon size={18} />
               <span>
-                {item.name === "Contractors" ? "Contacts" : item.name}
+                {item.name === "Contractors" ? "Trade contacts" : item.name}
               </span>
               {!!item.count && <span className="nav-count">{item.count}</span>}
             </button>
@@ -1562,6 +1576,35 @@ export default function WorkspaceApp({
                   }}
                 />
               )}
+              {page === "Contacts" && (
+                <CustomerContactsPanel
+                  contacts={workspace.contacts}
+                  leads={workspace.leads}
+                  quotes={workspace.quotes || []}
+                  search={search}
+                  canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
+                  onAdd={() => setEditor({ kind: "contact" })}
+                  onEdit={(contact) =>
+                    setEditor({ kind: "contact", entity: contact })
+                  }
+                  onQuote={(contact, lead) =>
+                    setEditor({
+                      kind: "quote",
+                      initialValues: lead
+                        ? quotePrefillFromLead(lead, contact)
+                        : {
+                            client: contact.name,
+                            clientEmail: contact.email,
+                            clientPhone: contact.phone,
+                            address: [contact.address, contact.zip]
+                              .filter(Boolean)
+                              .join(", "),
+                            contactId: contact.id,
+                          },
+                    })
+                  }
+                />
+              )}
               {(page === "Overview" || page === "Projects") && (
                 <>
                   {page === "Overview" && (
@@ -1860,7 +1903,7 @@ export default function WorkspaceApp({
                         THE PEOPLE BEHIND THE WORK
                       </span>
                       <h1>
-                        Contacts<span className="heading-dot">.</span>
+                        Trade contacts<span className="heading-dot">.</span>
                       </h1>
                       <p>
                         Your trusted trades, contact details, and current

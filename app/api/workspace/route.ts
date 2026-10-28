@@ -29,6 +29,7 @@ import { preserveScopeCosts } from "@/lib/project-finances";
 import { FILE_VALIDATION_VERSION } from "@/lib/file-policy";
 import type { Attachment } from "@/lib/types";
 import { preserveProjectHistory } from "@/lib/quotes";
+import { newestCustomerLead } from "@/lib/contacts";
 import {
   leadDisposition,
   leadPatchFromQuote,
@@ -202,6 +203,14 @@ async function save(request: Request, editing: boolean) {
     if (!parsed.success)
       throw new HttpError(400, parsed.error.issues[0].message);
     let data = parsed.data as Record<string, unknown>;
+    if (
+      kind === "lead" &&
+      !(await findRecord(user, String(data.contactId), "contact"))
+    )
+      throw new HttpError(
+        400,
+        "Create the customer contact before saving this lead.",
+      );
     if (kind === "contractor" && current) {
       const contact = current as Contractor;
       if (contact.photoPath) {
@@ -307,14 +316,33 @@ async function save(request: Request, editing: boolean) {
         data.quoteNumber =
           prior?.quoteNumber || (await allocateQuoteNumber(user));
         data.preparedBy = prior?.preparedBy || user.name || "Premium Remodel";
-        const leadId = String(data.leadId || prior?.leadId || "").trim();
-        if (leadId) {
-          data.leadId = leadId;
-          if (!(await findRecord(user, leadId, "lead")))
-            throw new HttpError(400, "Choose an existing lead for this quote.");
-        } else {
-          delete data.leadId;
-        }
+        const contactId = String(data.contactId || "").trim();
+        if (contactId && !(await findRecord(user, contactId, "contact")))
+          throw new HttpError(
+            400,
+            "Choose a customer contact in this organization.",
+          );
+        if (!contactId) delete data.contactId;
+        const requestedLeadId = String(
+          data.leadId || prior?.leadId || "",
+        ).trim();
+        const requestedLead = requestedLeadId
+          ? ((await findRecord(user, requestedLeadId, "lead")) as Lead | null)
+          : null;
+        if (requestedLeadId && !requestedLead)
+          throw new HttpError(
+            400,
+            "The associated lead is no longer available.",
+          );
+        if (contactId) {
+          const associatedLead =
+            requestedLead?.contactId === contactId
+              ? requestedLead
+              : newestCustomerLead(contactId, (await getWorkspace(user)).leads);
+          if (associatedLead) data.leadId = associatedLead.id;
+          else delete data.leadId;
+        } else if (requestedLead) data.leadId = requestedLead.id;
+        else delete data.leadId;
         if (data.status === "Sent" && prior?.status !== "Sent")
           data.quoteSentAt = new Date().toISOString();
         if (

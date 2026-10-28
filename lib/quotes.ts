@@ -34,6 +34,7 @@ export function preserveProjectHistory(
     "preparedBy",
     "clientEmail",
     "clientPhone",
+    "contactId",
     "leadId",
     "outcomeAt",
     "revisedDate",
@@ -45,7 +46,10 @@ export function preserveProjectHistory(
     if (
       current &&
       key in current &&
-      ((key !== "clientEmail" && key !== "clientPhone") || !(key in data))
+      ((key !== "clientEmail" &&
+        key !== "clientPhone" &&
+        key !== "contactId") ||
+        !(key in data))
     )
       result[key] = (current as unknown as Record<string, unknown>)[key];
   }

@@ -226,7 +226,9 @@ export default function ScopeTable({
   const [addingProject, setAddingProject] = useState(false);
   const [newDraft, setNewDraft] = useState<ScopeDraft>(() => draftFrom());
   const [saving, setSaving] = useState<Set<string>>(() => new Set());
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [error, setError] = useState("");
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
@@ -419,7 +421,8 @@ export default function ScopeTable({
         cancelAdding();
       }
     } catch (saveError) {
-      if (item && compactQuoteRows) setExpandedItemId(item.id);
+      if (item && compactQuoteRows)
+        setExpandedItemIds((current) => new Set(current).add(item.id));
       setError(
         saveError instanceof Error
           ? saveError.message
@@ -458,13 +461,9 @@ export default function ScopeTable({
       event.relatedTarget.closest(".scope-new-project-row")
     )
       return;
-    // Keep the destination button mounted until its click opens the next row.
-    // Collapsing here can remove that button during the pointer sequence.
-    const movingToAnotherSummary =
-      event.relatedTarget instanceof Element &&
-      Boolean(event.relatedTarget.closest(".scope-summary-button"));
-    if (compactQuoteRows && item && !movingToAnotherSummary)
-      setExpandedItemId((current) => (current === item.id ? null : current));
+    // A new quote row stays in progress until its Save or Cancel button is used.
+    // Existing rows can autosave on blur while remaining visibly expanded.
+    if (compactQuoteRows && !item) return;
     void saveRow(item);
   }
 
@@ -672,11 +671,14 @@ export default function ScopeTable({
                             type="button"
                             className="scope-summary-button"
                             aria-label={`Edit ${draft.title}`}
-                            aria-expanded={expandedItemId === item.id}
+                            aria-expanded={expandedItemIds.has(item.id)}
                             onClick={() =>
-                              setExpandedItemId((current) =>
-                                current === item.id ? null : item.id,
-                              )
+                              setExpandedItemIds((current) => {
+                                const next = new Set(current);
+                                if (next.has(item.id)) next.delete(item.id);
+                                else next.add(item.id);
+                                return next;
+                              })
                             }
                           >
                             <span>
@@ -726,7 +728,7 @@ export default function ScopeTable({
                           </button>
                         </td>
                       </tr>
-                      {expandedItemId === item.id && (
+                      {expandedItemIds.has(item.id) && (
                         <CompactQuoteEditor
                           draft={draft}
                           workspace={workspace}
@@ -764,7 +766,7 @@ export default function ScopeTable({
                       dirty={dirty(item)}
                       compact={compactQuoteRows}
                       focusTitle={
-                        compactQuoteRows && expandedItemId === item.id
+                        compactQuoteRows && expandedItemIds.has(item.id)
                       }
                       editorId={item.id}
                       showStatus={showStatus}
