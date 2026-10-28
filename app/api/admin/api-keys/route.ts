@@ -6,12 +6,9 @@ import {
   limitAttempts,
   requireUser,
 } from "@/lib/auth";
-import {
-  createApiKey,
-  listApiKeys,
-  revokeApiKey,
-} from "@/lib/api-keys";
+import { createApiKey, listApiKeys, revokeApiKey } from "@/lib/api-keys";
 import { recordAuditEvent } from "@/lib/audit-server";
+import { apiKeyScopes } from "@/lib/api-key-types";
 
 export const runtime = "nodejs";
 
@@ -41,9 +38,34 @@ export async function POST(request: Request) {
     const user = await requireAdmin(request, true);
     await limitAttempts(`api-keys-create:${user.id}`, 20);
     const body = z
-      .object({ name: z.string().trim().min(1).max(100) })
+      .object({
+        name: z.string().trim().min(1).max(100),
+        scopes: z
+          .array(z.enum(apiKeyScopes))
+          .min(1)
+          .max(apiKeyScopes.length)
+          .refine(
+            (scopes) => new Set(scopes).size === scopes.length,
+            "Duplicate scopes are not allowed.",
+          )
+          .refine(
+            (scopes) => scopes.includes("leads:read"),
+            "Read leads is required.",
+          ),
+        expiresInDays: z.union([
+          z.literal(30),
+          z.literal(90),
+          z.literal(365),
+          z.null(),
+        ]),
+      })
+      .strict()
       .parse(await request.json());
-    const created = await createApiKey(user, body.name);
+    const expiresAt =
+      body.expiresInDays === null
+        ? null
+        : new Date(Date.now() + body.expiresInDays * 86_400_000).toISOString();
+    const created = await createApiKey(user, body.name, body.scopes, expiresAt);
     await recordAuditEvent(user, {
       action: "created",
       entityKind: "api_key",
@@ -53,6 +75,8 @@ export async function POST(request: Request) {
         id: created.key.id,
         name: created.key.name,
         keyPrefix: created.key.keyPrefix,
+        scopes: created.key.scopes,
+        expiresAt: created.key.expiresAt,
       },
     });
     return Response.json(
@@ -62,7 +86,7 @@ export async function POST(request: Request) {
         notice:
           "Copy this secret now. It is shown once and cannot be retrieved later.",
       },
-      { status: 201 },
+      { status: 201, headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
     return apiError(error);
@@ -73,9 +97,7 @@ export async function DELETE(request: Request) {
   try {
     const user = await requireAdmin(request, true);
     await limitAttempts(`api-keys-revoke:${user.id}`, 40);
-    const body = z
-      .object({ id: z.uuid() })
-      .parse(await request.json());
+    const body = z.object({ id: z.uuid() }).parse(await request.json());
     const revoked = await revokeApiKey(user, body.id);
     await recordAuditEvent(user, {
       action: "deleted",

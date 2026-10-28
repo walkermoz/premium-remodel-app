@@ -133,7 +133,7 @@ export default function SettingsPanel({
           {user.role === "admin" && (
             <details className="connections-advanced">
               <summary>
-                Advanced connections <span>Admin API keys</span>
+                Advanced connections <span>Scoped API keys</span>
               </summary>
               <ApiKeysSettings demo={demo} />
             </details>

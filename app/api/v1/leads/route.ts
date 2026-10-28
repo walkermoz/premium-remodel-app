@@ -42,7 +42,7 @@ function serializeLead(lead: Lead, contact: Contact | null) {
 
 export async function GET(request: Request) {
   try {
-    const principal = await requireApiKey(request);
+    const principal = await requireApiKey(request, "leads:read");
     await limitAttempts(`v1-leads:${principal.keyId}`, 120);
     const url = new URL(request.url);
     const status = url.searchParams.get("status") || undefined;

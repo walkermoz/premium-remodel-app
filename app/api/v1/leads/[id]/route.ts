@@ -11,6 +11,7 @@ import {
   type Lead,
 } from "@/lib/types";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { missingApiKeyScopes } from "@/lib/api-key-types";
 
 export const runtime = "nodejs";
 
@@ -77,7 +78,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const principal = await requireApiKey(request);
+    const principal = await requireApiKey(request, "leads:read");
     await limitAttempts(`v1-lead-get:${principal.keyId}`, 120);
     const { id } = await context.params;
     const lead = await findLeadRecord(principal.organizationId, id);
@@ -97,7 +98,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const principal = await requireApiKey(request);
+    const principal = await requireApiKey(request, "leads:read");
     await limitAttempts(`v1-lead-patch:${principal.keyId}`, 120);
     const { id } = await context.params;
     const lead = await findLeadRecord(principal.organizationId, id);
@@ -105,6 +106,20 @@ export async function PATCH(
     const body = patchInput.parse(await request.json());
     if (!Object.keys(body).length)
       throw new HttpError(400, "Provide at least one field to update.");
+    const missingScopes = missingApiKeyScopes(
+      principal.scopes,
+      Object.keys(body),
+    );
+    if (missingScopes.length)
+      throw new HttpError(
+        403,
+        `API key requires ${missingScopes.join(", ")} scope${missingScopes.length === 1 ? "" : "s"}.`,
+      );
+    if (!principal.createdBy)
+      throw new HttpError(
+        403,
+        "The key issuer no longer exists. Create a replacement key to write leads.",
+      );
 
     const patch: Partial<Lead> = { ...body };
     if (body.disposition) {
