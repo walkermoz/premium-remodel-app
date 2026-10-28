@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import BrandAssetPreview, {
+  type BrandPreviewKind,
+} from "./brand-asset-preview";
 import type { BusinessConfig } from "@/lib/business-config";
 import {
   doorKnockerPages,
@@ -47,6 +50,9 @@ export default function BusinessSettings({
   const [selectedRole, setSelectedRole] = useState<WorkspaceGroup>("admin");
   const [activeTab, setActiveTab] = useState<BusinessTab>("brand");
   const [previewVersion, setPreviewVersion] = useState(0);
+  const [previewAsset, setPreviewAsset] = useState<BrandPreviewKind | null>(
+    null,
+  );
 
   function updateProfile(key: keyof BusinessConfig["profile"], value: string) {
     setConfig((current) => ({
@@ -193,21 +199,30 @@ export default function BusinessSettings({
                   <strong>Primary logo</strong>
                   <span>Used in the workspace, quote, PDF, and email.</span>
                 </div>
-                {admin && (
-                  <label className="brand-upload">
-                    Replace image
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      disabled={busy || demo}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) void uploadAsset("logo", file);
-                        event.target.value = "";
-                      }}
-                    />
-                  </label>
-                )}
+                <div className="brand-asset-actions">
+                  <button
+                    type="button"
+                    className="brand-preview-button"
+                    onClick={() => setPreviewAsset("logo")}
+                  >
+                    See in context
+                  </button>
+                  {admin && (
+                    <label className="brand-upload">
+                      Replace image
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        disabled={busy || demo}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void uploadAsset("logo", file);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
               <div className="brand-asset">
                 <div className="brand-asset-preview dark">
@@ -224,37 +239,46 @@ export default function BusinessSettings({
                   <strong>White / reversed logo</strong>
                   <span>Use a light-colored version for dark backgrounds.</span>
                 </div>
-                {admin && (
-                  <div className="brand-asset-actions">
-                    <label className="brand-upload">
-                      {config.profile.logoDarkUrl
-                        ? "Replace image"
-                        : "Upload image"}
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        disabled={busy || demo}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void uploadAsset("logo-dark", file);
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
-                    {config.profile.logoDarkUrl && (
-                      <button
-                        type="button"
-                        className="text-button"
-                        disabled={busy || demo}
-                        onClick={() => void removeAsset("logo-dark")}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="brand-asset-actions">
+                  <button
+                    type="button"
+                    className="brand-preview-button"
+                    onClick={() => setPreviewAsset("logo-dark")}
+                  >
+                    See in context
+                  </button>
+                  {admin && (
+                    <>
+                      <label className="brand-upload">
+                        {config.profile.logoDarkUrl
+                          ? "Replace image"
+                          : "Upload image"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          disabled={busy || demo}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void uploadAsset("logo-dark", file);
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {config.profile.logoDarkUrl && (
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy || demo}
+                          onClick={() => void removeAsset("logo-dark")}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="brand-asset">
+              <div className="brand-asset square-mark">
                 <div className="brand-asset-preview light">
                   {config.profile.logoMarkUrl ? (
                     <img
@@ -271,35 +295,44 @@ export default function BusinessSettings({
                     Shown beside the business name in the workspace switcher.
                   </span>
                 </div>
-                {admin && (
-                  <div className="brand-asset-actions">
-                    <label className="brand-upload">
-                      {config.profile.logoMarkUrl
-                        ? "Replace image"
-                        : "Upload image"}
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        disabled={busy || demo}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void uploadAsset("logo-mark", file);
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
-                    {config.profile.logoMarkUrl && (
-                      <button
-                        type="button"
-                        className="text-button"
-                        disabled={busy || demo}
-                        onClick={() => void removeAsset("logo-mark")}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="brand-asset-actions">
+                  <button
+                    type="button"
+                    className="brand-preview-button"
+                    onClick={() => setPreviewAsset("logo-mark")}
+                  >
+                    See in context
+                  </button>
+                  {admin && (
+                    <>
+                      <label className="brand-upload">
+                        {config.profile.logoMarkUrl
+                          ? "Replace image"
+                          : "Upload image"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          disabled={busy || demo}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void uploadAsset("logo-mark", file);
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {config.profile.logoMarkUrl && (
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy || demo}
+                          onClick={() => void removeAsset("logo-mark")}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
               <div className="brand-asset banner">
                 <div className="brand-asset-preview banner">
@@ -319,35 +352,44 @@ export default function BusinessSettings({
                     ratio: 3:1.
                   </span>
                 </div>
-                {admin && (
-                  <div className="brand-asset-actions">
-                    <label className="brand-upload">
-                      {config.profile.bannerUrl
-                        ? "Replace image"
-                        : "Upload image"}
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        disabled={busy || demo}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void uploadAsset("banner", file);
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
-                    {config.profile.bannerUrl && (
-                      <button
-                        type="button"
-                        className="text-button"
-                        disabled={busy || demo}
-                        onClick={() => void removeAsset("banner")}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="brand-asset-actions">
+                  <button
+                    type="button"
+                    className="brand-preview-button"
+                    onClick={() => setPreviewAsset("banner")}
+                  >
+                    See in context
+                  </button>
+                  {admin && (
+                    <>
+                      <label className="brand-upload">
+                        {config.profile.bannerUrl
+                          ? "Replace image"
+                          : "Upload image"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          disabled={busy || demo}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void uploadAsset("banner", file);
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {config.profile.bannerUrl && (
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy || demo}
+                          onClick={() => void removeAsset("banner")}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             <label className="brand-url-field">
@@ -683,6 +725,14 @@ export default function BusinessSettings({
           </button>
         )}
       </form>
+      {previewAsset && (
+        <BrandAssetPreview
+          kind={previewAsset}
+          profile={config.profile}
+          previewUrl={previewUrl}
+          onClose={() => setPreviewAsset(null)}
+        />
+      )}
     </div>
   );
 }
