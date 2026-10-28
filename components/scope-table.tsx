@@ -35,6 +35,7 @@ import {
 import { Badge, Empty, Modal } from "./ui";
 import BathroomQuestionnaire from "./bathroom-questionnaire";
 import PricebookPicker from "./pricebook-picker";
+import { readDemoPricebook } from "@/lib/demo-pricebook";
 import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
@@ -193,6 +194,7 @@ export default function ScopeTable({
   templateProject,
   onSaveTemplateProject,
   pricebookEnabled = false,
+  demoPricebook = false,
   showInternalCosts = true,
   defaultSectionName = DEFAULT_QUOTE_PROJECT_NAME,
 }: {
@@ -215,6 +217,7 @@ export default function ScopeTable({
     project: BathroomQuestionnaireProject,
   ) => Promise<unknown>;
   pricebookEnabled?: boolean;
+  demoPricebook?: boolean;
   showInternalCosts?: boolean;
   defaultSectionName?: string;
 }) {
@@ -246,6 +249,10 @@ export default function ScopeTable({
 
   useEffect(() => {
     if (!pricebookEnabled) return;
+    if (demoPricebook) {
+      const timer = setTimeout(() => setPricebookItems(readDemoPricebook()), 0);
+      return () => clearTimeout(timer);
+    }
     fetch("/api/pricebook", { cache: "no-store" })
       .then(async (response) => {
         const body = await response.json();
@@ -258,7 +265,7 @@ export default function ScopeTable({
           cause instanceof Error ? cause.message : "Could not load price book.",
         ),
       );
-  }, [pricebookEnabled]);
+  }, [pricebookEnabled, demoPricebook]);
 
   if (!inline && !items.length)
     return (
@@ -1050,23 +1057,24 @@ export default function ScopeTable({
       {pricebookOpen && (
         <PricebookPicker
           items={pricebookItems}
+          contractors={workspace.contractors}
           busy={pricebookBusy}
           showInternalCosts={showInternalCosts}
           onClose={() => {
             if (!pricebookBusy) setPricebookOpen(false);
           }}
-          onAdd={async (item, quantity) => {
+          onAdd={async (item, quantity, contractorId) => {
             if (!onSave || !projectId)
               throw new Error("This quote is unavailable.");
             setPricebookBusy(true);
             try {
               await onSave({
                 projectId,
-                ...pricebookScopeValues(item, quantity),
+                ...pricebookScopeValues(item, quantity, contractorId),
                 sectionId: lastItem?.sectionId || "",
                 sectionName: lastItem?.sectionName || defaultSectionName,
                 position: nextPosition,
-                contractorId: "",
+                contractorId,
                 status: "To do",
               });
             } finally {

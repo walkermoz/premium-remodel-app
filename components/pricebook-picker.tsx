@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { pricebookMatches, type PricebookItem } from "@/lib/pricebook";
 import { quantityLabel, rateLabel } from "@/lib/scope-pricing";
+import type { Contractor } from "@/lib/types";
 import { Modal } from "./ui";
 
 const money = (cents: number) =>
@@ -13,21 +14,28 @@ const money = (cents: number) =>
 
 export default function PricebookPicker({
   items,
+  contractors,
   busy,
   showInternalCosts,
   onClose,
   onAdd,
 }: {
   items: PricebookItem[];
+  contractors: Contractor[];
   busy: boolean;
   showInternalCosts: boolean;
   onClose: () => void;
-  onAdd: (item: PricebookItem, quantity: number) => Promise<void>;
+  onAdd: (
+    item: PricebookItem,
+    quantity: number,
+    contractorId: string,
+  ) => Promise<void>;
 }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedId, setSelectedId] = useState(items[0]?.id || "");
   const [quantityInput, setQuantityInput] = useState("1");
+  const [contractorId, setContractorId] = useState("");
   const [error, setError] = useState("");
   const categories = useMemo(
     () => ["All", ...new Set(items.map((item) => item.category || "General"))],
@@ -40,6 +48,16 @@ export default function PricebookPicker({
   );
   const selected =
     filtered.find((item) => item.id === selectedId) || filtered[0] || null;
+  const contractorOptions =
+    selected?.contractorRates.filter((rate) =>
+      contractors.some((contractor) => contractor.id === rate.contractorId),
+    ) || [];
+  const selectedContractorRate = contractorOptions.find(
+    (rate) => rate.contractorId === contractorId,
+  );
+  const needsContractor = Boolean(
+    selected?.contractorRates.length && !selectedContractorRate,
+  );
   const quantity = Number(quantityInput);
   const validQuantity =
     Number.isFinite(quantity) && quantity > 0 && quantity <= 1_000_000;
@@ -47,12 +65,15 @@ export default function PricebookPicker({
     selected && validQuantity
       ? Math.round(selected.customerRateCents * quantity)
       : 0;
-  const subCents = selected
-    ? Math.round(
-        selected.subRateCents *
-          (selected.subUnit === selected.unit && validQuantity ? quantity : 1),
-      )
-    : 0;
+  const subCents =
+    selected && !needsContractor
+      ? Math.round(
+          (selectedContractorRate?.rateCents ?? selected.subRateCents) *
+            (selected.subUnit === selected.unit && validQuantity
+              ? quantity
+              : 1),
+        )
+      : 0;
   const materialCents = selected
     ? Math.round(
         selected.materialRateCents *
@@ -68,6 +89,10 @@ export default function PricebookPicker({
       setError("Enter a quantity greater than zero.");
       return;
     }
+    if (selected.contractorRates.length && !selectedContractorRate) {
+      setError("Choose the contractor whose rate applies to this item.");
+      return;
+    }
     if (
       quoteCents > 100_000_000_000 ||
       subCents > 100_000_000_000 ||
@@ -78,7 +103,11 @@ export default function PricebookPicker({
     }
     setError("");
     try {
-      await onAdd(selected, quantity);
+      await onAdd(
+        selected,
+        quantity,
+        selectedContractorRate?.contractorId || "",
+      );
       onClose();
     } catch (cause) {
       setError(
@@ -102,7 +131,11 @@ export default function PricebookPicker({
               placeholder="Search items, codes or scope"
               aria-label="Search price book"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setContractorId("");
+                setError("");
+              }}
             />
           </label>
           <div
@@ -115,7 +148,11 @@ export default function PricebookPicker({
                 className={category === name ? "active" : ""}
                 aria-pressed={category === name}
                 key={name}
-                onClick={() => setCategory(name)}
+                onClick={() => {
+                  setCategory(name);
+                  setContractorId("");
+                  setError("");
+                }}
               >
                 {name}
               </button>
@@ -132,6 +169,7 @@ export default function PricebookPicker({
                   onClick={() => {
                     setSelectedId(item.id);
                     setQuantityInput("1");
+                    setContractorId("");
                     setError("");
                   }}
                 >
@@ -146,7 +184,9 @@ export default function PricebookPicker({
               ))
             ) : (
               <p className="pricebook-empty">
-                {items.length ? "No items match this search." : "No price-book items yet. Add one in the Price book first."}
+                {items.length
+                  ? "No items match this search."
+                  : "No price-book items yet. Add one in the Price book first."}
               </p>
             )}
           </div>
@@ -173,6 +213,43 @@ export default function PricebookPicker({
                     onChange={(event) => setQuantityInput(event.target.value)}
                   />
                 </label>
+                {!!selected.contractorRates.length && (
+                  <label className="pricebook-picker-contractor">
+                    Which contractor will do this work?
+                    <select
+                      value={contractorId}
+                      onChange={(event) => {
+                        setContractorId(event.target.value);
+                        setError("");
+                      }}
+                    >
+                      <option value="">Choose a contractor</option>
+                      {contractorOptions.map((rate) => (
+                        <option
+                          key={rate.contractorId}
+                          value={rate.contractorId}
+                        >
+                          {
+                            contractors.find(
+                              (contractor) =>
+                                contractor.id === rate.contractorId,
+                            )?.name
+                          }{" "}
+                          · {money(rate.rateCents)}{" "}
+                          {selected.subUnit === "job"
+                            ? "flat"
+                            : `per ${selected.subUnit}`}
+                        </option>
+                      ))}
+                    </select>
+                    {!contractorOptions.length && (
+                      <small>
+                        No listed contractor is available. Update the price-book
+                        item first.
+                      </small>
+                    )}
+                  </label>
+                )}
                 <div className="pricebook-picker-total">
                   <span>Quote price</span>
                   <strong>{money(quoteCents)}</strong>
@@ -181,7 +258,11 @@ export default function PricebookPicker({
                   <>
                     <div>
                       <span>Subcontractor cost</span>
-                      <strong>{money(subCents)}</strong>
+                      <strong>
+                        {needsContractor
+                          ? "Choose a contractor"
+                          : money(subCents)}
+                      </strong>
                     </div>
                     <div>
                       <span>Material cost</span>
@@ -190,7 +271,9 @@ export default function PricebookPicker({
                     <div>
                       <span>Estimated profit</span>
                       <strong>
-                        {money(quoteCents - subCents - materialCents)}
+                        {needsContractor
+                          ? "—"
+                          : money(quoteCents - subCents - materialCents)}
                       </strong>
                     </div>
                   </>
@@ -220,7 +303,13 @@ export default function PricebookPicker({
         <button
           type="button"
           className="button primary"
-          disabled={!selected || busy}
+          disabled={
+            !selected ||
+            busy ||
+            Boolean(
+              selected.contractorRates.length && !contractorOptions.length,
+            )
+          }
           onClick={() => void add()}
         >
           {busy ? "Adding…" : "Add to quote"}

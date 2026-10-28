@@ -9507,6 +9507,27 @@ small {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
+.pricebook-contractor-summary {
+  padding: 15px 0 4px;
+  border-top: 1px solid var(--line);
+}
+.pricebook-contractor-summary h3 {
+  margin: 0 0 8px;
+  color: var(--theme-link, #324d63);
+  font-size: 12px;
+}
+.pricebook-contractor-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 11px;
+}
+.pricebook-contractor-summary strong {
+  color: var(--theme-link, #324d63);
+  font-variant-numeric: tabular-nums;
+}
 .pricebook-inspector-actions {
   display: flex;
   align-items: center;
@@ -9569,6 +9590,27 @@ small {
   color: var(--theme-link, #324d63);
   font-size: 12px;
   font-weight: 700;
+}
+.pricebook-contractor-rates > p {
+  margin: 0 0 14px;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.pricebook-contractor-rate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pricebook-contractor-rates > .button {
+  margin-top: 4px;
+}
+.pricebook-contractor-rates > small {
+  display: block;
+  margin-top: 8px;
+  color: var(--theme-text-muted, #8699a8);
 }
 .pricebook-code-note {
   margin: 0;
@@ -9650,6 +9692,12 @@ small {
 .pricebook-picker-pricing input {
   width: 100%;
 }
+.pricebook-picker-contractor select {
+  width: 100%;
+}
+.pricebook-picker-contractor small {
+  color: var(--theme-text-muted, #8699a8);
+}
 .pricebook-picker-pricing .pricebook-picker-total {
   border-top-color: var(--blue);
   font-weight: 700;
@@ -9691,6 +9739,13 @@ small {
   }
   .pricebook-picker-list {
     max-height: 230px;
+  }
+  .pricebook-contractor-rate-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .pricebook-contractor-rate-row .button {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 @media (max-width: 480px) {

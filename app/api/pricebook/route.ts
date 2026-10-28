@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
+import {
+  apiError,
+  checkOrigin,
+  HttpError,
+  requireUser,
+  type WorkspaceUser,
+} from "@/lib/auth";
 import { getBusinessConfig } from "@/lib/business-config";
 import { mapPricebookItem, pricebookInput } from "@/lib/pricebook";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -7,13 +13,16 @@ import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 
 export const runtime = "nodejs";
 
-async function requirePricebook() {
+async function requirePricebook(readForQuote = false) {
   const user = await requireUser();
+  const config = await getBusinessConfig(user);
   if (
-    !canOpenWorkspaceTab(
-      await getBusinessConfig(user),
-      user.group,
-      "Price book",
+    !canOpenWorkspaceTab(config, user.group, "Price book") &&
+    !(
+      readForQuote &&
+      config.features.priceBook &&
+      config.quotePreferences.showPriceBookPicker &&
+      canOpenWorkspaceTab(config, user.group, "Quotes")
     )
   )
     throw new HttpError(
@@ -23,9 +32,26 @@ async function requirePricebook() {
   return user;
 }
 
+async function validateContractorRates(
+  user: WorkspaceUser,
+  rates?: { contractorId: string }[],
+) {
+  if (!rates?.length) return;
+  const ids = rates.map((rate) => rate.contractorId);
+  const { data, error } = await supabaseAdmin()
+    .from("remodel_records")
+    .select("id")
+    .eq("organization_id", user.organizationId)
+    .eq("kind", "contractor")
+    .in("id", ids);
+  if (error) throw error;
+  if (data.length !== ids.length)
+    throw new HttpError(400, "Choose contractors from this organization.");
+}
+
 export async function GET() {
   try {
-    const user = await requirePricebook();
+    const user = await requirePricebook(true);
     const { data, error } = await supabaseAdmin()
       .from("remodel_pricebook_items")
       .select("*")
@@ -49,6 +75,7 @@ export async function POST(request: Request) {
     if (user.role !== "admin")
       throw new HttpError(403, "Only administrators can edit the price book.");
     const input = pricebookInput.parse(await request.json());
+    await validateContractorRates(user, input.contractorRates);
     const { data, error } = await supabaseAdmin()
       .from("remodel_pricebook_items")
       .insert({
@@ -62,6 +89,7 @@ export async function POST(request: Request) {
         sub_rate_cents: input.subRateCents,
         material_unit: input.materialUnit,
         material_rate_cents: input.materialRateCents,
+        contractor_rates: input.contractorRates || [],
       })
       .select("*")
       .single();
@@ -81,6 +109,7 @@ export async function PATCH(request: Request) {
     const { id, revision, ...input } = pricebookInput
       .extend({ id: z.uuid(), revision: z.number().int().positive() })
       .parse(await request.json());
+    await validateContractorRates(user, input.contractorRates);
     const { data, error } = await supabaseAdmin()
       .from("remodel_pricebook_items")
       .update({
@@ -93,6 +122,9 @@ export async function PATCH(request: Request) {
         sub_rate_cents: input.subRateCents,
         material_unit: input.materialUnit,
         material_rate_cents: input.materialRateCents,
+        ...(input.contractorRates
+          ? { contractor_rates: input.contractorRates }
+          : {}),
         revision: revision + 1,
         updated_at: new Date().toISOString(),
       })

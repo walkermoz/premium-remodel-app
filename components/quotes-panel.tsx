@@ -683,9 +683,9 @@ export function QuoteDetail({
             workspace={workspace}
             pricebookEnabled={
               config.features.priceBook &&
-              config.quotePreferences.showPriceBookPicker &&
-              !demo
+              config.quotePreferences.showPriceBookPicker
             }
+            demoPricebook={demo}
             showInternalCosts={config.quotePreferences.showInternalCosts}
             inline
             compactQuoteRows

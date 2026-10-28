@@ -58,6 +58,7 @@ import {
   type ScopeItem,
   type WorkspaceAlert,
   type Contact,
+  type Contractor,
   type Lead,
   type DoorVisit,
 } from "@/lib/types";
@@ -210,7 +211,23 @@ export default function WorkspaceApp({
             throw new Error(
               "Sample data could not be loaded. Clear this site's sample storage to start again.",
             );
-          commit({ ...emptyWorkspace, ...parsed });
+          const sampleContractor = demoWorkspace().contractors.find(
+            (contractor) => contractor.id === "c6",
+          );
+          const savedContractors = Array.isArray(parsed.contractors)
+            ? parsed.contractors
+            : [];
+          commit({
+            ...emptyWorkspace,
+            ...parsed,
+            contractors:
+              sampleContractor &&
+              !savedContractors.some(
+                (contractor: Contractor) => contractor.id === sampleContractor.id,
+              )
+                ? [...savedContractors, sampleContractor]
+                : savedContractors,
+          });
         } else commit(demoWorkspace());
       } else {
         const response = await fetch("/api/workspace", { cache: "no-store" });
@@ -1546,7 +1563,11 @@ export default function WorkspaceApp({
                 />
               )}
               {page === "Price book" && config.features.priceBook && (
-                <PricebookPanel user={user} />
+                <PricebookPanel
+                  user={user}
+                  contractors={workspace.contractors}
+                  demo={demo}
+                />
               )}
               {page === "Door knocking" && (
                 <DoorKnockingPanel

@@ -69,6 +69,16 @@ export function demoWorkspace(): Workspace {
       phone: "(919) 555-0105",
       notes: "Bathroom tile and fixture installation.",
     },
+    {
+      ...base,
+      id: "c6",
+      name: "Noah Patel",
+      company: "Patel Tile Co.",
+      trade: "Tile",
+      email: "noah@example.com",
+      phone: "(919) 555-0106",
+      notes: "Tile installation and waterproofing.",
+    },
   ];
   const projects: Project[] = [
     {

@@ -7,6 +7,8 @@ export default async function Demo({
   searchParams: Promise<{ as?: string }>;
 }) {
   const config = defaultBusinessConfig();
+  config.features.priceBook = true;
+  config.quotePreferences.showPriceBookPicker = true;
   const doorKnocker = (await searchParams).as === "doorknocker";
   return (
     <BusinessProvider config={config}>
