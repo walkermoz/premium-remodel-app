@@ -3111,8 +3111,81 @@ small {
 .scope-table-compact tbody .scope-summary-row.scope-item-alternate td {
   background: color-mix(in srgb, var(--blue) 12%, var(--surface));
 }
+.scope-summary-shell {
+  display: flex;
+  align-items: stretch;
+}
+.scope-reorder-status {
+  padding: 7px 12px;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 11px;
+}
+.scope-row-controls {
+  display: flex;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  padding-left: 5px;
+}
+.scope-row-drag-handle,
+.scope-row-touch-move {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 30px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--theme-text-muted, #96a2ad);
+  cursor: grab;
+}
+.scope-row-drag-handle:hover,
+.scope-row-drag-handle:focus-visible,
+.scope-row-touch-move:hover,
+.scope-row-touch-move:focus-visible {
+  background: color-mix(in srgb, var(--blue) 15%, transparent);
+  color: var(--blue);
+  outline: none;
+}
+.scope-row-drag-handle:active {
+  cursor: grabbing;
+}
+.scope-row-drag-handle:disabled,
+.scope-row-touch-move:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.scope-row-touch-move {
+  display: none;
+  cursor: pointer;
+}
+.scope-summary-row.is-dragging td {
+  opacity: 0.6;
+}
+.scope-table-compact tbody .scope-summary-row.drop-before td {
+  box-shadow: inset 4px 0 var(--scope-project-accent, transparent), inset 0 3px var(--blue);
+}
+.scope-table-compact tbody .scope-summary-row.drop-after td {
+  box-shadow: inset 4px 0 var(--scope-project-accent, transparent), inset 0 -3px var(--blue);
+}
+@media (pointer: coarse) {
+  .scope-row-controls {
+    flex-basis: 32px;
+    flex-direction: column;
+    padding-left: 2px;
+  }
+  .scope-row-drag-handle {
+    display: none;
+  }
+  .scope-row-touch-move {
+    display: grid;
+    height: 24px;
+  }
+}
 .scope-summary-button {
   display: grid;
+  flex: 1;
+  min-width: 0;
   grid-template-columns:
     minmax(160px, 1.25fr) minmax(170px, 1.8fr) minmax(115px, 1fr)
     repeat(3, minmax(100px, 0.8fr));

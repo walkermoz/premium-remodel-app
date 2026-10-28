@@ -2,8 +2,11 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   FolderPlus,
+  GripVertical,
   LoaderCircle,
   Pencil,
   Plus,
@@ -36,6 +39,7 @@ import { Badge, Empty, Modal } from "./ui";
 import BathroomQuestionnaire from "./bathroom-questionnaire";
 import PricebookPicker from "./pricebook-picker";
 import { readDemoPricebook } from "@/lib/demo-pricebook";
+import { moveQuoteScopeItem, orderedScopeItems } from "@/lib/scope-order";
 import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
@@ -154,19 +158,6 @@ function draftValuesForMath(draft: ScopeDraft) {
   };
 }
 
-function ordered(items: ScopeItem[]) {
-  return items
-    .map((item, index) => ({ item, index }))
-    .sort((a, b) => {
-      if (a.item.position !== undefined && b.item.position !== undefined)
-        return a.item.position - b.item.position || a.index - b.index;
-      if (a.item.position !== undefined) return -1;
-      if (b.item.position !== undefined) return 1;
-      return a.index - b.index;
-    })
-    .map(({ item }) => item);
-}
-
 function scopeSectionKey(item: ScopeItem) {
   return item.sectionId?.trim()
     ? `id:${item.sectionId.trim()}`
@@ -191,6 +182,7 @@ export default function ScopeTable({
   projectId,
   onSave,
   onSaveMany,
+  onReorder,
   templateProject,
   onSaveTemplateProject,
   pricebookEnabled = false,
@@ -212,6 +204,11 @@ export default function ScopeTable({
     item?: ScopeItem,
   ) => Promise<unknown>;
   onSaveMany?: (rows: Record<string, unknown>[]) => Promise<unknown>;
+  onReorder?: (
+    quoteId: string,
+    items: ScopeItem[],
+    movingId: string,
+  ) => Promise<unknown>;
   templateProject?: Partial<BathroomQuestionnaireProject>;
   onSaveTemplateProject?: (
     project: BathroomQuestionnaireProject,
@@ -221,7 +218,11 @@ export default function ScopeTable({
   showInternalCosts?: boolean;
   defaultSectionName?: string;
 }) {
-  const orderedItems = useMemo(() => ordered(items), [items]);
+  const [pendingOrder, setPendingOrder] = useState<ScopeItem[] | null>(null);
+  const orderedItems = useMemo(
+    () => orderedScopeItems(pendingOrder || items),
+    [items, pendingOrder],
+  );
   const [drafts, setDrafts] = useState<Record<string, ScopeDraft>>(() =>
     Object.fromEntries(orderedItems.map((item) => [item.id, draftFrom(item)])),
   );
@@ -237,6 +238,12 @@ export default function ScopeTable({
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateError, setTemplateError] = useState("");
   const [sectionSaving, setSectionSaving] = useState(false);
+  const [reorderBusy, setReorderBusy] = useState(false);
+  const [dragSourceId, setDragSourceId] = useState("");
+  const [dropTarget, setDropTarget] = useState<{
+    id: string;
+    placement: "before" | "after";
+  } | null>(null);
   const [pricebookItems, setPricebookItems] = useState<PricebookItem[]>([]);
   const [pricebookBusy, setPricebookBusy] = useState(false);
   const [pricebookOpen, setPricebookOpen] = useState(false);
@@ -373,7 +380,7 @@ export default function ScopeTable({
   async function saveRow(item?: ScopeItem) {
     if (!inline || !projectId || !onSave) return;
     const id = item?.id || "new";
-    if (saving.has(id)) return;
+    if (saving.has(id) || reorderBusy) return;
     const draft = item ? drafts[item.id] || draftFrom(item) : newDraft;
     if (!item && !draft.title.trim()) {
       cancelAdding();
@@ -506,6 +513,54 @@ export default function ScopeTable({
     }
   }
 
+  async function moveRow(
+    movingId: string,
+    targetId: string,
+    placement: "before" | "after",
+  ) {
+    if (!projectId || !onReorder) return;
+    if (reorderBusy || sectionSaving || saving.size) {
+      setError("Wait for the current save before moving a quote row.");
+      return;
+    }
+    const next = moveQuoteScopeItem(
+      orderedItems,
+      movingId,
+      targetId,
+      placement,
+    );
+    if (!next) return;
+    setPendingOrder(next);
+    setReorderBusy(true);
+    setError("");
+    try {
+      await onReorder(projectId, next, movingId);
+      const moved = next.find((item) => item.id === movingId)!;
+      setDrafts((current) => ({
+        ...current,
+        [movingId]: {
+          ...(current[movingId] || draftFrom(moved)),
+          sectionId: moved.sectionId || "",
+          sectionName: moved.sectionName || "",
+        },
+      }));
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not reorder quote rows.",
+      );
+    } finally {
+      setPendingOrder(null);
+      setReorderBusy(false);
+    }
+  }
+
+  function dropPlacement(event: React.DragEvent<HTMLTableRowElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return event.clientY < bounds.top + bounds.height / 2
+      ? ("before" as const)
+      : ("after" as const);
+  }
+
   function resetTemplate() {
     setTemplateOpen(false);
     setTemplateError("");
@@ -515,7 +570,7 @@ export default function ScopeTable({
     sectionKey: string,
     name: string | null,
   ) {
-    if (!inline || !onSave || sectionSaving) return;
+    if (!inline || !onSave || sectionSaving || reorderBusy) return;
     const sectionItems = orderedItems.filter(
       (item) => scopeSectionKey(item) === sectionKey,
     );
@@ -606,6 +661,11 @@ export default function ScopeTable({
           {error}
         </div>
       )}
+      {reorderBusy && (
+        <div className="scope-reorder-status" role="status">
+          Saving row order…
+        </div>
+      )}
       <div className="table-scroll">
         <table
           className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}${compactQuoteRows ? " scope-table-compact" : ""}${!showInternalCosts ? " scope-hide-internal-costs" : ""}`}
@@ -661,7 +721,7 @@ export default function ScopeTable({
                         }
                         colSpan={showStatus ? 8 : 7}
                         editable={inline && Boolean(onSave)}
-                        busy={sectionSaving}
+                        busy={sectionSaving || reorderBusy}
                         onRename={(name) =>
                           updateProjectGrouping(sectionKey, name)
                         }
@@ -671,9 +731,91 @@ export default function ScopeTable({
                   {inline && compactQuoteRows ? (
                     <>
                       <tr
-                        className={`scope-summary-row${index % 2 === 1 ? " scope-item-alternate" : ""}${projectAccentClasses.get(sectionKey) ? ` ${projectAccentClasses.get(sectionKey)}` : ""}`}
+                        className={`scope-summary-row${index % 2 === 1 ? " scope-item-alternate" : ""}${projectAccentClasses.get(sectionKey) ? ` ${projectAccentClasses.get(sectionKey)}` : ""}${dragSourceId === item.id ? " is-dragging" : ""}${dropTarget?.id === item.id ? ` drop-${dropTarget.placement}` : ""}`}
+                        onDragOver={(event) => {
+                          if (!dragSourceId || dragSourceId === item.id || reorderBusy)
+                            return;
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                          const placement = dropPlacement(event);
+                          setDropTarget((current) =>
+                            current?.id === item.id && current.placement === placement
+                              ? current
+                              : { id: item.id, placement },
+                          );
+                        }}
+                        onDragLeave={(event) => {
+                          if (
+                            !event.relatedTarget ||
+                            !event.currentTarget.contains(event.relatedTarget as Node)
+                          )
+                            setDropTarget(null);
+                        }}
+                        onDrop={(event) => {
+                          const movingId = event.dataTransfer.getData("text/plain") || dragSourceId;
+                          if (!movingId) return;
+                          event.preventDefault();
+                          const placement = dropPlacement(event);
+                          setDragSourceId("");
+                          setDropTarget(null);
+                          void moveRow(movingId, item.id, placement);
+                        }}
                       >
                         <td colSpan={showStatus ? 8 : 7}>
+                          <div className="scope-summary-shell">
+                            <div className="scope-row-controls">
+                              <button
+                                type="button"
+                                className="scope-row-drag-handle"
+                                draggable={!reorderBusy && !sectionSaving && !saving.size}
+                                disabled={reorderBusy || sectionSaving || Boolean(saving.size)}
+                                aria-label={`Drag ${draft.title} to reorder`}
+                                title="Drag to reorder this quote row"
+                                onDragStart={(event) => {
+                                  setDragSourceId(item.id);
+                                  event.dataTransfer.effectAllowed = "move";
+                                  event.dataTransfer.setData("text/plain", item.id);
+                                }}
+                                onDragEnd={() => {
+                                  setDragSourceId("");
+                                  setDropTarget(null);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "ArrowUp" && index > 0) {
+                                    event.preventDefault();
+                                    void moveRow(item.id, orderedItems[index - 1].id, "before");
+                                  }
+                                  if (event.key === "ArrowDown" && index < orderedItems.length - 1) {
+                                    event.preventDefault();
+                                    void moveRow(item.id, orderedItems[index + 1].id, "after");
+                                  }
+                                }}
+                              >
+                                <GripVertical size={16} aria-hidden="true" />
+                              </button>
+                              <button
+                                type="button"
+                                className="scope-row-touch-move"
+                                disabled={index === 0 || reorderBusy || sectionSaving || Boolean(saving.size)}
+                                aria-label={`Move ${draft.title} up`}
+                                onClick={() =>
+                                  void moveRow(item.id, orderedItems[index - 1].id, "before")
+                                }
+                              >
+                                <ArrowUp size={14} aria-hidden="true" />
+                              </button>
+                              <button
+                                type="button"
+                                className="scope-row-touch-move"
+                                disabled={index === orderedItems.length - 1 || reorderBusy || sectionSaving || Boolean(saving.size)}
+                                aria-label={`Move ${draft.title} down`}
+                                onClick={() =>
+                                  void moveRow(item.id, orderedItems[index + 1].id, "after")
+                                }
+                              >
+                                <ArrowDown size={14} aria-hidden="true" />
+                              </button>
+                            </div>
                           <button
                             type="button"
                             className="scope-summary-button"
@@ -733,6 +875,7 @@ export default function ScopeTable({
                               </strong>
                             </span>
                           </button>
+                          </div>
                         </td>
                       </tr>
                       {expandedItemIds.has(item.id) && (

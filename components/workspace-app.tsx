@@ -748,6 +748,82 @@ export default function WorkspaceApp({
       syncVersion.current++;
     }
   }
+  async function reorderQuoteScope(
+    quoteId: string,
+    nextItems: ScopeItem[],
+    movingId: string,
+  ) {
+    const key = `scope-order-${quoteId}`;
+    if (pending.current.size)
+      throw new Error("A save is in progress. Please wait and try again.");
+    const current = workspaceRef.current;
+    const quote = current.quotes?.find((entry) => entry.id === quoteId);
+    const currentItems = current.scope.filter(
+      (item) => item.projectId === quoteId,
+    );
+    if (!quote || quote.status === "Accepted")
+      throw new Error("This quote can no longer be reordered.");
+    if (
+      currentItems.length !== nextItems.length ||
+      !nextItems.every((item) =>
+        currentItems.some((existing) => existing.id === item.id),
+      )
+    )
+      throw new Error("Quote rows changed. Refresh and try again.");
+    const moving = nextItems.find((item) => item.id === movingId);
+    if (!moving) throw new Error("Choose a quote row to move.");
+
+    pending.current.add(key);
+    syncVersion.current++;
+    try {
+      let updated: ScopeItem[];
+      if (demo) {
+        const now = new Date().toISOString();
+        updated = nextItems.map((item, position) => ({
+          ...currentItems.find((existing) => existing.id === item.id)!,
+          position,
+          ...(item.id === movingId
+            ? { sectionId: item.sectionId, sectionName: item.sectionName }
+            : {}),
+          updatedAt: now,
+        }));
+      } else {
+        const response = await fetch("/api/workspace/scope-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quoteId,
+            items: nextItems.map((item) => ({
+              id: item.id,
+              updatedAt: item.updatedAt,
+            })),
+            movingId,
+            sectionId: moving.sectionId || "",
+            sectionName: moving.sectionName || "",
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "Could not reorder quote rows.");
+        if (!Array.isArray(result) || result.length !== nextItems.length)
+          throw new Error("The reordered quote response was incomplete.");
+        updated = result as ScopeItem[];
+      }
+      const byId = new Map(updated.map((item) => [item.id, item]));
+      const latest = workspaceRef.current;
+      commit(
+        {
+          ...latest,
+          scope: latest.scope.map((item) => byId.get(item.id) || item),
+        },
+        true,
+      );
+      return updated;
+    } finally {
+      pending.current.delete(key);
+      syncVersion.current++;
+    }
+  }
   async function importQuotes(
     quotes: ImportedQuote[],
     options: { combine: boolean; combinedName: string },
@@ -1531,6 +1607,7 @@ export default function WorkspaceApp({
               onEdit={setEditor}
               onSave={save}
               onSaveScopeBatch={saveScopeBatch}
+              onReorderScope={reorderQuoteScope}
               onAccept={accept}
               onDelete={requestDelete}
               onUpload={upload}

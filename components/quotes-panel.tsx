@@ -30,6 +30,7 @@ import {
 } from "@/lib/project-finances";
 import { msaPaymentRows } from "@/lib/msa-contract";
 import { DEFAULT_QUOTE_PROJECT_NAME } from "@/lib/scope-projects";
+import { orderedScopeItems } from "@/lib/scope-order";
 import { dateLabel } from "@/lib/utils";
 import { Empty } from "./ui";
 import type { Editor } from "./entity-form";
@@ -231,6 +232,7 @@ export function QuoteDetail({
   onEdit,
   onSave,
   onSaveScopeBatch,
+  onReorderScope,
   onAccept,
   onDelete,
   onUpload,
@@ -250,6 +252,11 @@ export function QuoteDetail({
     entity?: Entity,
   ) => Promise<Entity>;
   onSaveScopeBatch: (rows: Record<string, unknown>[]) => Promise<ScopeItem[]>;
+  onReorderScope: (
+    quoteId: string,
+    items: ScopeItem[],
+    movingId: string,
+  ) => Promise<ScopeItem[]>;
   onAccept: (quote: Quote) => Promise<void>;
   onDelete: (kind: EntityKind, entity: Entity) => void;
   onUpload: (file: File, projectId: string) => Promise<Attachment>;
@@ -267,7 +274,9 @@ export function QuoteDetail({
   const [checkRequestId, setCheckRequestId] = useState(() =>
     crypto.randomUUID(),
   );
-  const items = workspace.scope.filter((item) => item.projectId === quote.id);
+  const items = orderedScopeItems(
+    workspace.scope.filter((item) => item.projectId === quote.id),
+  );
   const files = workspace.attachments.filter(
     (file) => file.projectId === quote.id,
   );
@@ -653,7 +662,7 @@ export function QuoteDetail({
             <p>
               {signedScope
                 ? "Signed scope is locked."
-                : "Edit any cell. Each row saves when you leave it or press Enter."}
+                : "Edit a row, or drag its handle to change the quote order."}
             </p>
           </div>
         </div>
@@ -716,6 +725,7 @@ export function QuoteDetail({
             }
             onSave={(data, item) => onSave("scope", data, item)}
             onSaveMany={onSaveScopeBatch}
+            onReorder={onReorderScope}
             onDelete={(item) => onDelete("scope", item)}
           />
         )}
