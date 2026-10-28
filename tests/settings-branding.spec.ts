@@ -16,12 +16,12 @@ test("business branding is organized and keeps edits while browsing settings", a
     page.getByText("Client portal banner", { exact: true }),
   ).toBeVisible();
 
-  const url = page.getByLabel("Primary logo URL");
-  await url.fill("https://example.com/updated-logo.png");
+  await expect(page.getByLabel("Primary logo URL")).toHaveCount(0);
   await page.getByRole("button", { name: "Business details" }).click();
-  await expect(page.getByLabel("Company name")).toBeVisible();
+  const name = page.getByLabel("Company name");
+  await name.fill("Premium Remodel Preview");
   await page.getByRole("button", { name: "Brand", exact: true }).click();
-  await expect(url).toHaveValue("https://example.com/updated-logo.png");
+  await expect(page.getByText("Primary logo", { exact: true })).toBeVisible();
 
   await page
     .getByRole("navigation", { name: "Settings categories" })
@@ -34,7 +34,8 @@ test("business branding is organized and keeps edits while browsing settings", a
     .getByRole("navigation", { name: "Settings categories" })
     .getByRole("button", { name: /Business/ })
     .click();
-  await expect(url).toHaveValue("https://example.com/updated-logo.png");
+  await page.getByRole("button", { name: "Business details" }).click();
+  await expect(name).toHaveValue("Premium Remodel Preview");
 });
 
 test("private brand assets require workspace access", async ({ request }) => {

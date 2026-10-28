@@ -392,21 +392,6 @@ export default function BusinessSettings({
                 </div>
               </div>
             </div>
-            <label className="brand-url-field">
-              Primary logo URL
-              <input
-                value={config.profile.logoUrl}
-                disabled={!admin}
-                onChange={(event) =>
-                  updateProfile("logoUrl", event.target.value)
-                }
-                placeholder="Upload an image or enter an HTTPS URL"
-              />
-            </label>
-            <p className="footnote">
-              PNG, JPG, or WebP · up to 4 MB. Uploads save immediately; URL
-              changes save below.
-            </p>
           </div>
         )}
         {activeTab === "details" && (
