@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { appOrigin, requireUser } from "@/lib/auth";
 import {
   connectGoogleCalendar,
+  GoogleCalendarError,
   googleCalendarOAuthCookie,
 } from "@/lib/google-calendar";
 
@@ -32,7 +33,15 @@ export async function GET(request: Request) {
       return Response.redirect(settingsUrl(request, "expired"), 302);
     await connectGoogleCalendar(request, user, code, state, stateCookie);
     return Response.redirect(settingsUrl(request, "connected"), 302);
-  } catch {
-    return Response.redirect(settingsUrl(request, "error"), 302);
+  } catch (error) {
+    return Response.redirect(
+      settingsUrl(
+        request,
+        error instanceof GoogleCalendarError && error.status === 503
+          ? "setup"
+          : "error",
+      ),
+      302,
+    );
   }
 }
