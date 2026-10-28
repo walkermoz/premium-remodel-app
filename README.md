@@ -81,8 +81,8 @@ Link the workspace to the existing `servicebuddy-ui` project. Set these producti
 - `SUPABASE_ORGANIZATION_ID`
 - `APP_URL=https://servicebuddy-ui.vercel.app`
 - `OPENROUTER_API_KEY` (server-only Secret, for Generate)
-- `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` (server-only Google OAuth web client)
-- `GOOGLE_GMAIL_CLIENT_ID` and `GOOGLE_GMAIL_CLIENT_SECRET` (optional separate server-only OAuth web client for company email; defaults to the Calendar client)
+- `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` (optional dedicated server-only Google OAuth web client; Calendar can also use the company email client)
+- `GOOGLE_GMAIL_CLIENT_ID` and `GOOGLE_GMAIL_CLIENT_SECRET` (server-only Google OAuth web client for company email; Calendar uses this client when no dedicated Calendar client is configured)
 - `GOOGLE_TOKEN_ENCRYPTION_KEY` (server-only Secret containing 32 random base64url bytes)
 - `STRIPE_ACCOUNTS_JSON` (optional server-only JSON mapping organization IDs to their own Stripe secret and webhook secret; the existing `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` still serve the legacy organization)
 
@@ -96,12 +96,14 @@ No Neon database or Vercel Blob store is used. Never expose the service-role key
 
 ## Google Calendar
 
-Enable the Google Calendar API in a Google Cloud project, configure the OAuth consent screen, and create a **Web application** OAuth client. Add these exact authorized redirect URIs:
+Enable the Google Calendar API in the Google Cloud project that owns the configured OAuth client and add `calendar.app.created` to its consent screen. Members connect their own Google accounts from **Settings → Connections → Google Calendar**. Their dedicated calendars and tokens are stored per organization and per member; one member's connection is not shared with another member or business.
+
+The existing company email OAuth client can be used for Calendar as well. In that case, Calendar authorization returns through the already-registered `/api/google-mail/callback` endpoint, and no extra OAuth credentials or redirect URI are needed. The callback validates the integration's own encrypted state and organization before storing the connection. If a separate `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` are configured, add these exact authorized redirect URIs to that client:
 
 - `https://servicebuddy-ui.vercel.app/api/google-calendar/callback`
 - `http://localhost:3000/api/google-calendar/callback`
 
-The app requests `openid`, `email`, and Google Calendar’s narrow `calendar.app.created` scope. That scope allows Premium Remodel to create and manage its own secondary calendar without reading or changing the user’s existing personal or company calendars. During Google’s testing phase, add each Premium Remodel teammate who will connect as an OAuth test user. Publish or verify the consent screen before wider use if Google requires it.
+The app requests `openid`, `email`, and Google Calendar’s narrow `calendar.app.created` scope. That scope allows the app to create and manage its own secondary calendar without reading or changing the user's existing calendars. During Google's testing phase, add each teammate who will connect as an OAuth test user. Publish or verify the consent screen before wider use if Google requires it.
 
 ### Company email
 
@@ -109,7 +111,7 @@ The dashboard can email a quote PDF from `contact@premiumremodel.com`. Apply `su
 
 An administrator opens **Settings → Company email → Connect Gmail**, signs in as `contact@premiumremodel.com`, and grants the send-only permission. The connected mailbox is shared by the company workspace; administrators can disconnect it. From a quote with a saved client email, **Email quote** lets a teammate review the recipient, subject, and message, then sends the generated PDF as an attachment. A unique request ID and delivery log prevent accidental repeat submission; if Gmail's response is uncertain, check the mailbox's Sent folder before trying again. **Mark as sent** remains a manual status control and does not send email.
 
-Store the OAuth client ID, client secret, and encryption key only in `.env.local` and Vercel’s server-side environment. Refresh tokens are encrypted with AES-256-GCM before storage; access tokens stay in server memory and are never returned to the browser. Disconnecting clears the stored token and asks Google to revoke it, while leaving the generated calendar and its existing entries in the user’s account.
+Store the OAuth client ID, client secret, and encryption key only in `.env.local` and Vercel’s server-side environment. Refresh tokens are encrypted with AES-256-GCM before storage; access tokens stay in server memory and are never returned to the browser. Disconnecting clears the member's token for the selected organization while leaving their other organization connections and the generated Google calendar intact. The member can revoke the application's overall Google access in their Google Account permissions.
 
 Google sync is one-way. The built-in Premium Remodel calendar is authoritative, and subsequent syncs overwrite edits made to synchronized Google events. Successful project/task/appointment changes queue an automatic sync for every connected teammate, and each user can run **Sync now** from Settings. Failed syncs never block workspace saves and appear on the affected user’s Google Calendar settings.
 

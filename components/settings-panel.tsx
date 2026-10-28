@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LockKeyhole, MapPin } from "lucide-react";
 import type { User } from "@/lib/types";
 import { addressPriorityRegion } from "@/lib/address-search";
@@ -39,6 +39,12 @@ export default function SettingsPanel({
   const [section, setSection] = useState<
     "business" | "workspace" | "connections" | "account"
   >("business");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("calendar") && !params.has("mail")) return;
+    const timer = window.setTimeout(() => setSection("connections"), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   return (
     <>
       <div className="page-heading">
@@ -126,7 +132,10 @@ export default function SettingsPanel({
             </p>
           </div>
           <GoogleMailSettings demo={demo} />
-          <GoogleCalendarSettings demo={demo} />
+          <GoogleCalendarSettings
+            demo={demo}
+            businessName={config.profile.name}
+          />
           {user.role === "admin" && (
             <TwilioSettings demo={demo} businessName={config.profile.name} />
           )}

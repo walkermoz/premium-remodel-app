@@ -22,7 +22,9 @@ test("Google Calendar sample settings do not contact a live account", async ({
   await expect(section).toContainText(
     "available in your signed-in company workspace",
   );
-  await expect(section).toContainText("private company calendar");
+  await expect(section).toContainText(
+    "Your connection belongs only to this organization",
+  );
   expect(requests).toBe(0);
 });
 
@@ -93,7 +95,7 @@ cloudTest(
       .getByRole("navigation", { name: "Settings categories" })
       .getByRole("button", { name: /Connections/ })
       .click();
-    await expect(section).toContainText("Connect your Google account");
+    await expect(section).toContainText("Connect your Google account to");
     await expect(
       section.getByRole("link", { name: "Connect Google Calendar" }),
     ).toHaveAttribute("href", "/api/google-calendar/connect");

@@ -74,11 +74,26 @@ export class GoogleCalendarError extends Error {
 }
 
 function config() {
+  const calendarClientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim() || "";
+  const calendarClientSecret =
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim() || "";
+  const useMailClient = !calendarClientId || !calendarClientSecret;
   return {
-    clientId: process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim() || "",
-    clientSecret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim() || "",
+    clientId: useMailClient
+      ? process.env.GOOGLE_GMAIL_CLIENT_ID?.trim() || ""
+      : calendarClientId,
+    clientSecret: useMailClient
+      ? process.env.GOOGLE_GMAIL_CLIENT_SECRET?.trim() || ""
+      : calendarClientSecret,
+    callbackPath: useMailClient
+      ? "/api/google-mail/callback"
+      : "/api/google-calendar/callback",
     encryptionKey: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim() || "",
   };
+}
+
+export function googleCalendarUsesMailCallback() {
+  return config().callbackPath === "/api/google-mail/callback";
 }
 
 export function googleCalendarConfigured() {
@@ -147,7 +162,7 @@ function unseal(value: string, purpose: "oauth-state" | "refresh-token") {
 }
 
 function redirectUri(request: Request) {
-  return `${appOrigin(request)}/api/google-calendar/callback`;
+  return `${appOrigin(request)}${config().callbackPath}`;
 }
 
 const oauthStateSchema = z.object({
@@ -183,7 +198,6 @@ export function googleAuthorizationRequest(
     response_type: "code",
     scope: `openid email ${googleCalendarScope}`,
     access_type: "offline",
-    include_granted_scopes: "true",
     prompt: "consent select_account",
     state,
     code_challenge: challenge,
@@ -205,6 +219,18 @@ function readOAuthState(cookie: string, state: string, user: WorkspaceUser) {
   )
     throw new GoogleCalendarError("The Google connection request expired.");
   return parsed;
+}
+
+export function matchesGoogleCalendarOAuthState(cookie: string, state: string) {
+  if (!cookie || !state) return false;
+  try {
+    const parsed = oauthStateSchema.parse(
+      JSON.parse(unseal(cookie, "oauth-state")),
+    );
+    return parsed.state === state;
+  } catch {
+    return false;
+  }
 }
 
 const tokenSchema = z.object({
@@ -297,13 +323,23 @@ async function googleRequest(
     const body = await responseJson(response);
     const reason =
       typeof body?.error?.message === "string" ? body.error.message : "";
+    const apiDisabled =
+      body?.error?.details?.some?.(
+        (detail: { reason?: string }) => detail.reason === "SERVICE_DISABLED",
+      ) ||
+      body?.error?.errors?.some?.(
+        (detail: { reason?: string }) =>
+          detail.reason === "accessNotConfigured",
+      );
     throw new GoogleCalendarError(
-      response.status === 401 || response.status === 403
-        ? "Google Calendar access needs to be reconnected."
-        : reason
-          ? `Google Calendar could not sync: ${reason.slice(0, 240)}`
-          : "Google Calendar could not sync. Please try again.",
-      response.status,
+      apiDisabled
+        ? "The platform needs to enable the Google Calendar API before accounts can connect."
+        : response.status === 401 || response.status === 403
+          ? "Google Calendar access needs to be reconnected."
+          : reason
+            ? `Google Calendar could not sync: ${reason.slice(0, 240)}`
+            : "Google Calendar could not sync. Please try again.",
+      apiDisabled ? 503 : response.status,
     );
   }
   if (response.status === 204) return null;
@@ -375,7 +411,7 @@ export async function googleCalendarStatus(
   const connection = await connectionForUser(user);
   return {
     configured,
-    connected: configured && Boolean(connection?.refresh_token_ciphertext),
+    connected: Boolean(connection?.refresh_token_ciphertext),
     email: connection?.google_email || null,
     calendarName: connection?.calendar_name || null,
     lastSyncedAt: connection?.last_synced_at || null,
@@ -893,18 +929,9 @@ export async function syncOrganizationGoogleCalendars(
   }
 }
 
-export async function disconnectGoogleCalendar(
-  user: WorkspaceUser,
-  fetcher: Fetcher = fetch,
-) {
+export async function disconnectGoogleCalendar(user: WorkspaceUser) {
   const connection = await connectionForUser(user);
   if (!connection?.refresh_token_ciphertext) return googleCalendarStatus(user);
-  let refreshToken = "";
-  try {
-    refreshToken = unseal(connection.refresh_token_ciphertext, "refresh-token");
-  } catch {
-    // The local connection must still be removable if server keys changed.
-  }
   const now = new Date().toISOString();
   const result = await supabaseAdmin()
     .from("remodel_google_calendar_connections")
@@ -917,17 +944,6 @@ export async function disconnectGoogleCalendar(
     .eq("organization_id", user.organizationId)
     .eq("profile_id", user.id);
   if (result.error) throw result.error;
-  if (refreshToken)
-    try {
-      await fetcher("https://oauth2.googleapis.com/revoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ token: refreshToken }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch {
-      // Local access is removed even if Google's revocation endpoint is down.
-    }
   await recordCalendarAudit(user, "deleted", {
     email: connection.google_email,
     calendar: connection.calendar_name,

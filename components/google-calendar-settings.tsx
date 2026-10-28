@@ -30,7 +30,13 @@ function timeLabel(value: string | null) {
   }).format(new Date(value));
 }
 
-export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
+export default function GoogleCalendarSettings({
+  demo,
+  businessName,
+}: {
+  demo: boolean;
+  businessName: string;
+}) {
   const [status, setStatus] = useState<GoogleCalendarStatus>(emptyStatus);
   const [loading, setLoading] = useState(!demo);
   const [busy, setBusy] = useState<"sync" | "disconnect" | "">("");
@@ -74,9 +80,11 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
         ? "Google Calendar connected and the first sync has started."
         : result === "denied"
           ? "Google Calendar access was not approved."
-          : result === "expired"
-            ? "The Google connection request expired. Please try again."
-            : "Google Calendar could not be connected. Please try again."
+          : result === "setup"
+            ? "The platform needs to enable the Google Calendar API before accounts can connect."
+            : result === "expired"
+              ? "The Google connection request expired. Please try again."
+              : "Google Calendar could not be connected. Please try again."
       : "";
     if (result) {
       params.delete("calendar");
@@ -117,7 +125,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
       setNotice(
         action === "sync"
           ? `${data.count ?? 0} scheduled items synced to Google Calendar.`
-          : "Google Calendar disconnected. The dedicated calendar remains in your Google account.",
+          : `Google Calendar disconnected from ${businessName}. The dedicated calendar remains in your Google account.`,
       );
     } catch (caught) {
       setError(
@@ -141,12 +149,12 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
           <h2 id="google-calendar-heading">
             Google Calendar{" "}
             <span className="connection-optional" aria-hidden="true">
-              Optional · per person
+              Optional · personal connection
             </span>
           </h2>
           <p>
-            Keep the built-in schedule and add a private company calendar to
-            your Google account.
+            Add a private {businessName} calendar to your Google account. Your
+            connection belongs only to this organization.
           </p>
         </div>
       </div>
@@ -182,18 +190,18 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
             {!loading && !status.configured && (
               <p className="generation-note">
                 Calendar connections are not available yet. The platform needs a
-                one-time Google Calendar setup; your company does not need to
-                supply OAuth credentials. Your workspace schedule continues to
-                work.
+                one-time Google setup; your organization does not need to supply
+                OAuth credentials. Your workspace schedule continues to work.
               </p>
             )}
             {status.configured && !status.connected && (
               <div className="calendar-connect-card">
                 <div>
-                  <strong>Connect your Google account</strong>
+                  <strong>Connect your Google account to {businessName}</strong>
                   <p>
-                    The workspace creates and manages only its own secondary
-                    calendar. It cannot read or change your other calendars.
+                    This creates a separate {businessName} calendar in your
+                    Google account. It cannot read or change your other
+                    calendars, and other members connect their own accounts.
                   </p>
                 </div>
                 <a
@@ -208,7 +216,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
             {status.connected && (
               <>
                 <div className="success-note" role="status">
-                  Connected · {status.email}
+                  Connected to {businessName} · {status.email}
                 </div>
                 <dl className="google-calendar-details">
                   <div>
@@ -240,7 +248,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
                   <button
                     type="button"
                     className="button secondary"
-                    disabled={Boolean(busy)}
+                    disabled={Boolean(busy) || !status.configured}
                     onClick={() => void run("sync")}
                   >
                     <RefreshCw size={15} aria-hidden="true" />
