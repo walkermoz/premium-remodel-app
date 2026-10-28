@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
 
-// Expo SDK 57 still depends on these two unfixed upstream advisories. Keep the
-// existing risk visible while blocking any new high or critical advisory.
+// Expo SDK 57 still depends on these reviewed upstream advisories. Keep the
+// existing risk visible while blocking any unreviewed advisory.
 const knownAdvisories = new Set([
   "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
   "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+  // Low-severity deepmerge issue via Expo config; no patched release available.
+  "https://github.com/advisories/GHSA-gcqx-w48m-w2h4",
 ]);
 
 const onWindows = process.platform === "win32";
