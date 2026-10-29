@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import { moveQuoteScopeItem } from "../lib/scope-order";
 import type { ScopeItem } from "../lib/types";
 
-test("quote row order requires an authenticated workspace", async ({ request }) => {
+test("quote row order requires an authenticated workspace", async ({
+  request,
+}) => {
   const response = await request.post("/api/workspace/scope-order", {
     headers: { Origin: "http://localhost:3100" },
     data: {
@@ -37,8 +39,10 @@ test("moving a quote row between sections assigns its destination section", () =
   expect(rows[0].sectionId).toBe("first");
 });
 
-test("quote rows reorder by dragging and keep their order after reload", async ({ page }) => {
-  await page.setViewportSize({ width: 1600, height: 1600 });
+test("quote rows reorder by dragging and keep their order after reload", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 2200 });
   await page.goto("/demo?view=Quotes");
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
@@ -49,37 +53,85 @@ test("quote rows reorder by dragging and keep their order after reload", async (
   for (const title of ["First task", "Second task", "Third task"]) {
     await page.getByRole("button", { name: "Add row", exact: true }).click();
     const row = page.locator(".scope-new-row");
-    await row.getByRole("textbox", { name: "New work item", exact: true }).fill(title);
+    await row
+      .getByRole("textbox", { name: "New work item", exact: true })
+      .fill(title);
     await row.getByRole("button", { name: `Save ${title}` }).click();
     await expect(row).toHaveCount(0);
   }
 
-  const summaryNames = page.locator(".scope-summary-row .scope-summary-button > span:first-child strong");
-  await expect(summaryNames).toHaveText(["First task", "Second task", "Third task"]);
+  const summaryNames = page.locator(
+    ".scope-summary-row .scope-summary-button > span:first-child strong",
+  );
+  await expect(summaryNames).toHaveText([
+    "First task",
+    "Second task",
+    "Third task",
+  ]);
   await page.getByRole("button", { name: "Edit First task" }).click();
-  const handle = page.getByRole("button", { name: "Drag First task to reorder" });
+  const handle = page.getByRole("button", {
+    name: "Drag First task to reorder",
+  });
   const target = page.locator(".scope-summary-row").filter({
     has: page.getByRole("button", { name: "Edit Third task" }),
   });
   const box = await target.boundingBox();
   expect(box).not.toBeNull();
-  await handle.dragTo(target, {
-    targetPosition: { x: Math.round(box!.width / 2), y: box!.height - 4 },
+  const source = await handle.boundingBox();
+  expect(source).not.toBeNull();
+  await page.mouse.move(
+    source!.x + source!.width / 2,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    source!.x + source!.width / 2 + 12,
+    source!.y + source!.height / 2 + 3,
+    { steps: 5 },
+  );
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height - 4, {
+    steps: 12,
   });
-  await expect(summaryNames).toHaveText(["Second task", "Third task", "First task"]);
-  await expect(page.getByRole("button", { name: "Edit First task" })).toHaveAttribute("aria-expanded", "true");
+  await page.mouse.up();
+  await expect(summaryNames).toHaveText([
+    "Second task",
+    "Third task",
+    "First task",
+  ]);
+  await expect(
+    page.getByRole("button", { name: "Edit First task" }),
+  ).toHaveAttribute("aria-expanded", "true");
 
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("premium-remodel-sample-v1") || "{}"));
-  const created = stored.quotes.find((entry: { name: string }) => entry.name === "Drag row example");
+  const stored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("premium-remodel-sample-v1") || "{}"),
+  );
+  const created = stored.quotes.find(
+    (entry: { name: string }) => entry.name === "Drag row example",
+  );
   const savedRows = stored.scope
     .filter((entry: { projectId: string }) => entry.projectId === created.id)
-    .sort((a: { position: number }, b: { position: number }) => a.position - b.position);
-  expect(savedRows.map((entry: { title: string }) => entry.title)).toEqual(["Second task", "Third task", "First task"]);
+    .sort(
+      (a: { position: number }, b: { position: number }) =>
+        a.position - b.position,
+    );
+  expect(savedRows.map((entry: { title: string }) => entry.title)).toEqual([
+    "Second task",
+    "Third task",
+    "First task",
+  ]);
 
   await page.reload();
-  await expect(summaryNames).toHaveText(["Second task", "Third task", "First task"]);
+  await expect(summaryNames).toHaveText([
+    "Second task",
+    "Third task",
+    "First task",
+  ]);
   const up = page.getByRole("button", { name: "Drag First task to reorder" });
   await up.focus();
   await up.press("ArrowUp");
-  await expect(summaryNames).toHaveText(["Second task", "First task", "Third task"]);
+  await expect(summaryNames).toHaveText([
+    "Second task",
+    "First task",
+    "Third task",
+  ]);
 });

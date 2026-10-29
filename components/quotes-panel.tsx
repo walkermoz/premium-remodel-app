@@ -233,6 +233,7 @@ export function QuoteDetail({
   onSave,
   onSaveScopeBatch,
   onReorderScope,
+  onPriceScope,
   onAccept,
   onDelete,
   onUpload,
@@ -256,6 +257,12 @@ export function QuoteDetail({
     quoteId: string,
     items: ScopeItem[],
     movingId: string,
+  ) => Promise<ScopeItem[]>;
+  onPriceScope: (
+    quoteId: string,
+    items: ScopeItem[],
+    subMultiplier: number,
+    materialMultiplier: number,
   ) => Promise<ScopeItem[]>;
   onAccept: (quote: Quote) => Promise<void>;
   onDelete: (kind: EntityKind, entity: Entity) => void;
@@ -594,7 +601,9 @@ export function QuoteDetail({
         </div>
       )}
       <div className="quote-overview">
-        <div className={`quote-overview-metrics${config.quotePreferences.showInternalCosts ? "" : " quote-overview-metrics-solo"}`}>
+        <div
+          className={`quote-overview-metrics${config.quotePreferences.showInternalCosts ? "" : " quote-overview-metrics-solo"}`}
+        >
           <div className="quote-overview-metric quote-price">
             <span>Scope total · quote price</span>
             <strong>{projectMoney(finances.total)}</strong>
@@ -726,6 +735,7 @@ export function QuoteDetail({
             onSave={(data, item) => onSave("scope", data, item)}
             onSaveMany={onSaveScopeBatch}
             onReorder={onReorderScope}
+            onBulkPrice={onPriceScope}
             onDelete={(item) => onDelete("scope", item)}
           />
         )}

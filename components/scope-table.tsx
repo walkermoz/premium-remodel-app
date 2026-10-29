@@ -41,6 +41,12 @@ import PricebookPicker from "./pricebook-picker";
 import { readDemoPricebook } from "@/lib/demo-pricebook";
 import { moveQuoteScopeItem, orderedScopeItems } from "@/lib/scope-order";
 import {
+  calculatedQuotePrice,
+  DEFAULT_MATERIAL_MULTIPLIER,
+  DEFAULT_SUB_MULTIPLIER,
+  validMultiplier,
+} from "@/lib/quote-bulk-pricing";
+import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "@/lib/scope-projects";
@@ -183,6 +189,7 @@ export default function ScopeTable({
   onSave,
   onSaveMany,
   onReorder,
+  onBulkPrice,
   templateProject,
   onSaveTemplateProject,
   pricebookEnabled = false,
@@ -209,6 +216,12 @@ export default function ScopeTable({
     items: ScopeItem[],
     movingId: string,
   ) => Promise<unknown>;
+  onBulkPrice?: (
+    quoteId: string,
+    items: ScopeItem[],
+    subMultiplier: number,
+    materialMultiplier: number,
+  ) => Promise<ScopeItem[]>;
   templateProject?: Partial<BathroomQuestionnaireProject>;
   onSaveTemplateProject?: (
     project: BathroomQuestionnaireProject,
@@ -239,6 +252,14 @@ export default function ScopeTable({
   const [templateError, setTemplateError] = useState("");
   const [sectionSaving, setSectionSaving] = useState(false);
   const [reorderBusy, setReorderBusy] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [pricingBusy, setPricingBusy] = useState(false);
+  const [subMultiplier, setSubMultiplier] = useState(
+    String(DEFAULT_SUB_MULTIPLIER),
+  );
+  const [materialMultiplier, setMaterialMultiplier] = useState(
+    String(DEFAULT_MATERIAL_MULTIPLIER),
+  );
   const [dragSourceId, setDragSourceId] = useState("");
   const [dropTarget, setDropTarget] = useState<{
     id: string;
@@ -295,6 +316,24 @@ export default function ScopeTable({
       }))
     : orderedItems;
   const estimated = scopeTotal(visibleItems);
+  const selectedItems = orderedItems.filter((item) => selectedIds.has(item.id));
+  const multipliersValid =
+    validMultiplier(Number(subMultiplier)) &&
+    validMultiplier(Number(materialMultiplier)) &&
+    subMultiplier.trim() !== "" &&
+    materialMultiplier.trim() !== "";
+  const selectedPricingTotal = multipliersValid
+    ? selectedItems.reduce(
+        (total, item) =>
+          total +
+          calculatedQuotePrice(
+            item,
+            Number(subMultiplier),
+            Number(materialMultiplier),
+          ),
+        0,
+      )
+    : 0;
   const { subCosts, materialCosts, costs } = scopeCosts(visibleItems);
   const sectionStats = new Map<
     string,
@@ -377,10 +416,67 @@ export default function ScopeTable({
     );
   }
 
+  async function applyBulkPricing() {
+    if (!projectId || !onBulkPrice || !selectedItems.length || pricingBusy)
+      return;
+    if (!multipliersValid) {
+      setError("Enter multipliers between 0 and 100.");
+      return;
+    }
+    if (
+      saving.size ||
+      reorderBusy ||
+      sectionSaving ||
+      selectedItems.some(dirty)
+    ) {
+      setError(
+        "Save any open edits on selected items before applying pricing.",
+      );
+      return;
+    }
+    if (
+      selectedItems.some(
+        (item) =>
+          calculatedQuotePrice(
+            item,
+            Number(subMultiplier),
+            Number(materialMultiplier),
+          ) > 1_000_000_000,
+      )
+    ) {
+      setError("A calculated price exceeds the maximum allowed amount.");
+      return;
+    }
+    setPricingBusy(true);
+    setError("");
+    try {
+      const updated = await onBulkPrice(
+        projectId,
+        selectedItems,
+        Number(subMultiplier),
+        Number(materialMultiplier),
+      );
+      setDrafts((current) => {
+        const next = { ...current };
+        for (const item of updated) next[item.id] = draftFrom(item);
+        return next;
+      });
+      setSelectedIds(new Set());
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not apply quote pricing.",
+      );
+    } finally {
+      setPricingBusy(false);
+    }
+  }
+
   async function saveRow(item?: ScopeItem) {
     if (!inline || !projectId || !onSave) return;
     const id = item?.id || "new";
-    if (saving.has(id) || reorderBusy) return;
+    if (saving.has(id) || reorderBusy || pricingBusy) return;
     const draft = item ? drafts[item.id] || draftFrom(item) : newDraft;
     if (!item && !draft.title.trim()) {
       cancelAdding();
@@ -519,7 +615,7 @@ export default function ScopeTable({
     placement: "before" | "after",
   ) {
     if (!projectId || !onReorder) return;
-    if (reorderBusy || sectionSaving || saving.size) {
+    if (reorderBusy || sectionSaving || pricingBusy || saving.size) {
       setError("Wait for the current save before moving a quote row.");
       return;
     }
@@ -546,7 +642,9 @@ export default function ScopeTable({
       }));
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not reorder quote rows.",
+        cause instanceof Error
+          ? cause.message
+          : "Could not reorder quote rows.",
       );
     } finally {
       setPendingOrder(null);
@@ -666,6 +764,79 @@ export default function ScopeTable({
           Saving row order…
         </div>
       )}
+      {inline && compactQuoteRows && orderedItems.length > 0 && (
+        <div className="scope-bulk-bar">
+          <label className="scope-select-all">
+            <input
+              type="checkbox"
+              aria-label="Select all quote items"
+              checked={selectedItems.length === orderedItems.length}
+              disabled={pricingBusy}
+              onChange={(event) =>
+                setSelectedIds(
+                  event.target.checked
+                    ? new Set(orderedItems.map((item) => item.id))
+                    : new Set(),
+                )
+              }
+            />
+            <span>
+              {selectedItems.length
+                ? `${selectedItems.length} selected`
+                : `Select all ${orderedItems.length} items`}
+            </span>
+          </label>
+          {selectedItems.length > 0 && showInternalCosts && onBulkPrice && (
+            <div className="scope-bulk-pricing">
+              <span className="scope-bulk-pricing-label">
+                Set quote price from costs
+              </span>
+              <label>
+                Sub costs ×{" "}
+                <input
+                  aria-label="Subcontractor cost multiplier"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={subMultiplier}
+                  disabled={pricingBusy}
+                  onChange={(event) => setSubMultiplier(event.target.value)}
+                />
+              </label>
+              <label>
+                Material costs ×{" "}
+                <input
+                  aria-label="Material cost multiplier"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={materialMultiplier}
+                  disabled={pricingBusy}
+                  onChange={(event) =>
+                    setMaterialMultiplier(event.target.value)
+                  }
+                />
+              </label>
+              <span className="scope-bulk-preview">
+                New quote total:{" "}
+                <strong>
+                  {multipliersValid ? money(selectedPricingTotal) : "—"}
+                </strong>
+              </span>
+              <button
+                className="button primary"
+                type="button"
+                disabled={pricingBusy || !multipliersValid}
+                onClick={() => void applyBulkPricing()}
+              >
+                {pricingBusy ? "Applying…" : "Apply pricing"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="table-scroll">
         <table
           className={`scope-table${inline ? " scope-table-editable" : ""}${showStatus ? "" : " scope-table-no-status"}${compactQuoteRows ? " scope-table-compact" : ""}${!showInternalCosts ? " scope-hide-internal-costs" : ""}`}
@@ -731,15 +902,20 @@ export default function ScopeTable({
                   {inline && compactQuoteRows ? (
                     <>
                       <tr
-                        className={`scope-summary-row${index % 2 === 1 ? " scope-item-alternate" : ""}${projectAccentClasses.get(sectionKey) ? ` ${projectAccentClasses.get(sectionKey)}` : ""}${dragSourceId === item.id ? " is-dragging" : ""}${dropTarget?.id === item.id ? ` drop-${dropTarget.placement}` : ""}`}
+                        className={`scope-summary-row${index % 2 === 1 ? " scope-item-alternate" : ""}${projectAccentClasses.get(sectionKey) ? ` ${projectAccentClasses.get(sectionKey)}` : ""}${dragSourceId === item.id ? " is-dragging" : ""}${dropTarget?.id === item.id ? ` drop-${dropTarget.placement}` : ""}${selectedIds.has(item.id) ? " is-selected" : ""}`}
                         onDragOver={(event) => {
-                          if (!dragSourceId || dragSourceId === item.id || reorderBusy)
+                          if (
+                            !dragSourceId ||
+                            dragSourceId === item.id ||
+                            reorderBusy
+                          )
                             return;
                           event.preventDefault();
                           event.dataTransfer.dropEffect = "move";
                           const placement = dropPlacement(event);
                           setDropTarget((current) =>
-                            current?.id === item.id && current.placement === placement
+                            current?.id === item.id &&
+                            current.placement === placement
                               ? current
                               : { id: item.id, placement },
                           );
@@ -747,12 +923,16 @@ export default function ScopeTable({
                         onDragLeave={(event) => {
                           if (
                             !event.relatedTarget ||
-                            !event.currentTarget.contains(event.relatedTarget as Node)
+                            !event.currentTarget.contains(
+                              event.relatedTarget as Node,
+                            )
                           )
                             setDropTarget(null);
                         }}
                         onDrop={(event) => {
-                          const movingId = event.dataTransfer.getData("text/plain") || dragSourceId;
+                          const movingId =
+                            event.dataTransfer.getData("text/plain") ||
+                            dragSourceId;
                           if (!movingId) return;
                           event.preventDefault();
                           const placement = dropPlacement(event);
@@ -763,18 +943,47 @@ export default function ScopeTable({
                       >
                         <td colSpan={showStatus ? 8 : 7}>
                           <div className="scope-summary-shell">
+                            <label className="scope-row-selection">
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${draft.title}`}
+                                checked={selectedIds.has(item.id)}
+                                disabled={pricingBusy}
+                                onChange={(event) =>
+                                  setSelectedIds((current) => {
+                                    const next = new Set(current);
+                                    if (event.target.checked) next.add(item.id);
+                                    else next.delete(item.id);
+                                    return next;
+                                  })
+                                }
+                              />
+                            </label>
                             <div className="scope-row-controls">
                               <button
                                 type="button"
                                 className="scope-row-drag-handle"
-                                draggable={!reorderBusy && !sectionSaving && !saving.size}
-                                disabled={reorderBusy || sectionSaving || Boolean(saving.size)}
+                                draggable={
+                                  !reorderBusy &&
+                                  !sectionSaving &&
+                                  !pricingBusy &&
+                                  !saving.size
+                                }
+                                disabled={
+                                  reorderBusy ||
+                                  sectionSaving ||
+                                  pricingBusy ||
+                                  Boolean(saving.size)
+                                }
                                 aria-label={`Drag ${draft.title} to reorder`}
                                 title="Drag to reorder this quote row"
                                 onDragStart={(event) => {
                                   setDragSourceId(item.id);
                                   event.dataTransfer.effectAllowed = "move";
-                                  event.dataTransfer.setData("text/plain", item.id);
+                                  event.dataTransfer.setData(
+                                    "text/plain",
+                                    item.id,
+                                  );
                                 }}
                                 onDragEnd={() => {
                                   setDragSourceId("");
@@ -783,11 +992,22 @@ export default function ScopeTable({
                                 onKeyDown={(event) => {
                                   if (event.key === "ArrowUp" && index > 0) {
                                     event.preventDefault();
-                                    void moveRow(item.id, orderedItems[index - 1].id, "before");
+                                    void moveRow(
+                                      item.id,
+                                      orderedItems[index - 1].id,
+                                      "before",
+                                    );
                                   }
-                                  if (event.key === "ArrowDown" && index < orderedItems.length - 1) {
+                                  if (
+                                    event.key === "ArrowDown" &&
+                                    index < orderedItems.length - 1
+                                  ) {
                                     event.preventDefault();
-                                    void moveRow(item.id, orderedItems[index + 1].id, "after");
+                                    void moveRow(
+                                      item.id,
+                                      orderedItems[index + 1].id,
+                                      "after",
+                                    );
                                   }
                                 }}
                               >
@@ -796,10 +1016,19 @@ export default function ScopeTable({
                               <button
                                 type="button"
                                 className="scope-row-touch-move"
-                                disabled={index === 0 || reorderBusy || sectionSaving || Boolean(saving.size)}
+                                disabled={
+                                  index === 0 ||
+                                  reorderBusy ||
+                                  sectionSaving ||
+                                  Boolean(saving.size)
+                                }
                                 aria-label={`Move ${draft.title} up`}
                                 onClick={() =>
-                                  void moveRow(item.id, orderedItems[index - 1].id, "before")
+                                  void moveRow(
+                                    item.id,
+                                    orderedItems[index - 1].id,
+                                    "before",
+                                  )
                                 }
                               >
                                 <ArrowUp size={14} aria-hidden="true" />
@@ -807,74 +1036,83 @@ export default function ScopeTable({
                               <button
                                 type="button"
                                 className="scope-row-touch-move"
-                                disabled={index === orderedItems.length - 1 || reorderBusy || sectionSaving || Boolean(saving.size)}
+                                disabled={
+                                  index === orderedItems.length - 1 ||
+                                  reorderBusy ||
+                                  sectionSaving ||
+                                  Boolean(saving.size)
+                                }
                                 aria-label={`Move ${draft.title} down`}
                                 onClick={() =>
-                                  void moveRow(item.id, orderedItems[index + 1].id, "after")
+                                  void moveRow(
+                                    item.id,
+                                    orderedItems[index + 1].id,
+                                    "after",
+                                  )
                                 }
                               >
                                 <ArrowDown size={14} aria-hidden="true" />
                               </button>
                             </div>
-                          <button
-                            type="button"
-                            className="scope-summary-button"
-                            aria-label={`Edit ${draft.title}`}
-                            aria-expanded={expandedItemIds.has(item.id)}
-                            onClick={() =>
-                              setExpandedItemIds((current) => {
-                                const next = new Set(current);
-                                if (next.has(item.id)) next.delete(item.id);
-                                else next.add(item.id);
-                                return next;
-                              })
-                            }
-                          >
-                            <span>
-                              <small>Work item</small>
-                              <strong>{draft.title}</strong>
-                            </span>
-                            <span>
-                              <small>Scope</small>
-                              <span className="scope-summary-scope">
-                                {draft.details || "No scope details"}
-                              </span>
-                            </span>
-                            <span>
-                              <small>Contractor</small>
+                            <button
+                              type="button"
+                              className="scope-summary-button"
+                              aria-label={`Edit ${draft.title}`}
+                              aria-expanded={expandedItemIds.has(item.id)}
+                              onClick={() =>
+                                setExpandedItemIds((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(item.id)) next.delete(item.id);
+                                  else next.add(item.id);
+                                  return next;
+                                })
+                              }
+                            >
                               <span>
-                                {workspace.contractors.find(
-                                  (contractor) =>
-                                    contractor.id === draft.contractorId,
-                                )?.name || "Unassigned"}
+                                <small>Work item</small>
+                                <strong>{draft.title}</strong>
                               </span>
-                            </span>
-                            <span>
-                              <small>Quote price</small>
-                              <strong>
-                                {money(draftNumber(draft.estimate))}
-                              </strong>
-                            </span>
-                            <span>
-                              <small>Total costs</small>
                               <span>
-                                {money(
-                                  draftNumber(draft.subCost) +
-                                    draftNumber(draft.materialCost),
-                                )}
+                                <small>Scope</small>
+                                <span className="scope-summary-scope">
+                                  {draft.details || "No scope details"}
+                                </span>
                               </span>
-                            </span>
-                            <span>
-                              <small>Profit</small>
-                              <strong
-                                className={
-                                  difference < 0 ? "is-overdue" : undefined
-                                }
-                              >
-                                {money(difference)}
-                              </strong>
-                            </span>
-                          </button>
+                              <span>
+                                <small>Contractor</small>
+                                <span>
+                                  {workspace.contractors.find(
+                                    (contractor) =>
+                                      contractor.id === draft.contractorId,
+                                  )?.name || "Unassigned"}
+                                </span>
+                              </span>
+                              <span>
+                                <small>Quote price</small>
+                                <strong>
+                                  {money(draftNumber(draft.estimate))}
+                                </strong>
+                              </span>
+                              <span>
+                                <small>Total costs</small>
+                                <span>
+                                  {money(
+                                    draftNumber(draft.subCost) +
+                                      draftNumber(draft.materialCost),
+                                  )}
+                                </span>
+                              </span>
+                              <span>
+                                <small>Profit</small>
+                                <strong
+                                  className={
+                                    difference < 0 ? "is-overdue" : undefined
+                                  }
+                                >
+                                  {money(difference)}
+                                </strong>
+                              </span>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -891,6 +1129,7 @@ export default function ScopeTable({
                           focusTitle
                           editorId={item.id}
                           showStatus={showStatus}
+                          showInternalCosts={showInternalCosts}
                           onChange={(patch) =>
                             updateDraft(item.id, patch, item)
                           }
@@ -1050,6 +1289,7 @@ export default function ScopeTable({
                   compact
                   editorId="new"
                   showStatus={showStatus}
+                  showInternalCosts={showInternalCosts}
                   newRow
                   titleRef={newTitle}
                   onChange={(patch) =>
@@ -1764,6 +2004,7 @@ function CompactQuoteEditor({
   focusTitle = false,
   editorId,
   showStatus,
+  showInternalCosts = true,
   newRow = false,
   titleRef,
   onChange,
@@ -1771,7 +2012,7 @@ function CompactQuoteEditor({
   onDelete,
   onBlur,
   onKeyDown,
-}: Parameters<typeof EditableRow>[0]) {
+}: Parameters<typeof EditableRow>[0] & { showInternalCosts?: boolean }) {
   const itemName = draft.title || "new work item";
   const totalCosts =
     draftNumber(draft.subCost) + draftNumber(draft.materialCost);
@@ -1884,9 +2125,53 @@ function CompactQuoteEditor({
 
           <div className="scope-inspector-body">
             <div className="scope-inspector-pricing">
-              <div className="scope-inspector-pricing-title">Pricing</div>
+              <div className="scope-inspector-pricing-title">
+                {showInternalCosts
+                  ? "Enter costs, then set customer pricing"
+                  : "Customer pricing"}
+              </div>
               <div className="scope-inspector-price-groups">
-                <div className="scope-inspector-price-group">
+                <QuoteCostGroup
+                  heading="Sub cost"
+                  label="Subcontractor cost"
+                  itemName={itemName}
+                  unit={draft.subCostUnit}
+                  quantity={draft.subCostQuantity}
+                  rate={draft.subCostRate}
+                  total={draft.subCost}
+                  saleUnit={draft.unit}
+                  saleQuantity={draft.quantity}
+                  disabled={saving}
+                  onChange={(cost) =>
+                    onChange({
+                      subCostUnit: cost.unit,
+                      subCostQuantity: cost.quantity,
+                      subCostRate: cost.rate,
+                      subCost: cost.total,
+                    })
+                  }
+                />
+                <QuoteCostGroup
+                  heading="Material cost"
+                  label="Material cost"
+                  itemName={itemName}
+                  unit={draft.materialCostUnit}
+                  quantity={draft.materialCostQuantity}
+                  rate={draft.materialCostRate}
+                  total={draft.materialCost}
+                  saleUnit={draft.unit}
+                  saleQuantity={draft.quantity}
+                  disabled={saving}
+                  onChange={(cost) =>
+                    onChange({
+                      materialCostUnit: cost.unit,
+                      materialCostQuantity: cost.quantity,
+                      materialCostRate: cost.rate,
+                      materialCost: cost.total,
+                    })
+                  }
+                />
+                <div className="scope-inspector-price-group scope-inspector-customer-price">
                   <span className="scope-inspector-group-title">
                     Customer price
                   </span>
@@ -1966,46 +2251,6 @@ function CompactQuoteEditor({
                     </span>
                   </label>
                 </div>
-                <QuoteCostGroup
-                  heading="Sub cost"
-                  label="Subcontractor cost"
-                  itemName={itemName}
-                  unit={draft.subCostUnit}
-                  quantity={draft.subCostQuantity}
-                  rate={draft.subCostRate}
-                  total={draft.subCost}
-                  saleUnit={draft.unit}
-                  saleQuantity={draft.quantity}
-                  disabled={saving}
-                  onChange={(cost) =>
-                    onChange({
-                      subCostUnit: cost.unit,
-                      subCostQuantity: cost.quantity,
-                      subCostRate: cost.rate,
-                      subCost: cost.total,
-                    })
-                  }
-                />
-                <QuoteCostGroup
-                  heading="Material cost"
-                  label="Material cost"
-                  itemName={itemName}
-                  unit={draft.materialCostUnit}
-                  quantity={draft.materialCostQuantity}
-                  rate={draft.materialCostRate}
-                  total={draft.materialCost}
-                  saleUnit={draft.unit}
-                  saleQuantity={draft.quantity}
-                  disabled={saving}
-                  onChange={(cost) =>
-                    onChange({
-                      materialCostUnit: cost.unit,
-                      materialCostQuantity: cost.quantity,
-                      materialCostRate: cost.rate,
-                      materialCost: cost.total,
-                    })
-                  }
-                />
               </div>
             </div>
           </div>

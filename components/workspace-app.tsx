@@ -42,6 +42,7 @@ import {
 import { demoWorkspace } from "@/lib/demo";
 import { contractorServices } from "@/lib/contractor-services";
 import { contactPhotoUrl } from "@/lib/contact-photo";
+import { calculatedQuotePrice } from "@/lib/quote-bulk-pricing";
 import { newestCustomerLead } from "@/lib/contacts";
 import {
   emptyWorkspace,
@@ -223,7 +224,8 @@ export default function WorkspaceApp({
             contractors:
               sampleContractor &&
               !savedContractors.some(
-                (contractor: Contractor) => contractor.id === sampleContractor.id,
+                (contractor: Contractor) =>
+                  contractor.id === sampleContractor.id,
               )
                 ? [...savedContractors, sampleContractor]
                 : savedContractors,
@@ -817,6 +819,87 @@ export default function WorkspaceApp({
           scope: latest.scope.map((item) => byId.get(item.id) || item),
         },
         true,
+      );
+      return updated;
+    } finally {
+      pending.current.delete(key);
+      syncVersion.current++;
+    }
+  }
+  async function priceQuoteScope(
+    quoteId: string,
+    selectedItems: ScopeItem[],
+    subMultiplier: number,
+    materialMultiplier: number,
+  ) {
+    const key = `scope-pricing-${quoteId}`;
+    if (pending.current.size)
+      throw new Error("A save is in progress. Please wait and try again.");
+    const current = workspaceRef.current;
+    const quote = current.quotes?.find((entry) => entry.id === quoteId);
+    if (!quote || quote.status === "Accepted")
+      throw new Error("This quote can no longer be priced.");
+    if (
+      !selectedItems.length ||
+      selectedItems.some(
+        (item) =>
+          !current.scope.some(
+            (existing) =>
+              existing.id === item.id &&
+              existing.projectId === quoteId &&
+              existing.updatedAt === item.updatedAt,
+          ),
+      )
+    )
+      throw new Error("Quote rows changed. Refresh and try again.");
+
+    pending.current.add(key);
+    syncVersion.current++;
+    try {
+      let updated: ScopeItem[];
+      if (demo) {
+        const now = new Date().toISOString();
+        updated = selectedItems.map((item) => ({
+          ...item,
+          estimate: calculatedQuotePrice(
+            item,
+            subMultiplier,
+            materialMultiplier,
+          ),
+          updatedAt: now,
+        }));
+      } else {
+        const response = await fetch("/api/workspace/scope-pricing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quoteId,
+            items: selectedItems.map((item) => ({
+              id: item.id,
+              updatedAt: item.updatedAt,
+            })),
+            subMultiplier,
+            materialMultiplier,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "Could not apply quote pricing.");
+        if (!Array.isArray(result) || result.length !== selectedItems.length)
+          throw new Error("The quote pricing response was incomplete.");
+        updated = result as ScopeItem[];
+      }
+      const byId = new Map(updated.map((item) => [item.id, item]));
+      const latest = workspaceRef.current;
+      commit(
+        {
+          ...latest,
+          scope: latest.scope.map((item) => byId.get(item.id) || item),
+        },
+        true,
+      );
+      notify(
+        `Pricing updated for ${updated.length} item${updated.length === 1 ? "" : "s"}`,
       );
       return updated;
     } finally {
@@ -1608,6 +1691,7 @@ export default function WorkspaceApp({
               onSave={save}
               onSaveScopeBatch={saveScopeBatch}
               onReorderScope={reorderQuoteScope}
+              onPriceScope={priceQuoteScope}
               onAccept={accept}
               onDelete={requestDelete}
               onUpload={upload}
