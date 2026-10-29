@@ -3467,6 +3467,42 @@ small {
   font-size: 12px;
   font-weight: 700;
 }
+.scope-inspector-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 520px;
+  margin-bottom: 10px;
+}
+.scope-inspector-group-heading .scope-inspector-group-title {
+  margin-bottom: 0;
+}
+.scope-apply-default-pricing {
+  flex: none;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  color: var(--blue);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.scope-apply-default-pricing:hover,
+.scope-apply-default-pricing:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.scope-apply-default-pricing:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue) 35%, transparent);
+  outline-offset: 3px;
+}
+.scope-apply-default-pricing:disabled {
+  cursor: default;
+  opacity: 0.55;
+  text-decoration: none;
+}
 .scope-inspector-basis-row {
   display: grid;
   grid-template-columns: minmax(72px, 0.8fr) minmax(108px, 1.2fr);

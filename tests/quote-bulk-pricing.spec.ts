@@ -132,7 +132,17 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
     .fill("25");
   await row.getByLabel("Unit for Site supervision").selectOption("days");
   await row.getByLabel("Total days for Site supervision").fill("2");
-  await row.getByLabel("Price per day for Site supervision").fill("450");
+  await row
+    .getByRole("button", {
+      name: "Apply default pricing for Site supervision",
+    })
+    .click();
+  await expect(
+    row.getByLabel("Price per day for Site supervision"),
+  ).toHaveValue("395");
+  await expect(row.getByText("Quote price").locator("..")).toContainText(
+    "$790",
+  );
   await row.getByRole("button", { name: "Save Site supervision" }).click();
 
   await page.getByRole("checkbox", { name: "Select Site supervision" }).check();
