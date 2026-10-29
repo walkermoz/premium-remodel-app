@@ -20,7 +20,7 @@ cloudTest(
       page.getByRole("heading", { name: "Your next project starts here" }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "Contacts", exact: true })
+      .getByRole("button", { name: "Trade contacts", exact: true })
       .click();
     await page
       .getByRole("button", { name: "Add contact", exact: true })
@@ -490,9 +490,11 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("button", { name: "Contacts", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Trade contacts", exact: true })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "Contacts." }),
+    page.getByRole("heading", { name: "Trade contacts." }),
   ).toBeVisible();
   expect(
     await page.evaluate(

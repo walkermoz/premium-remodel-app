@@ -2,9 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
-import { pricebookMatches, type PricebookItem } from "@/lib/pricebook";
+import {
+  pricebookCode,
+  pricebookMatches,
+  type PricebookItem,
+} from "@/lib/pricebook";
+import { readDemoPricebook, writeDemoPricebook } from "@/lib/demo-pricebook";
 import { pricingBases, rateLabel, costRateLabel } from "@/lib/scope-pricing";
-import type { User } from "@/lib/types";
+import type { Contractor, User } from "@/lib/types";
 import { Modal } from "./ui";
 
 type Draft = {
@@ -17,6 +22,7 @@ type Draft = {
   subRate: string;
   materialUnit: string;
   materialRate: string;
+  contractorRates: { contractorId: string; rate: string }[];
 };
 const blank: Draft = {
   name: "",
@@ -28,6 +34,7 @@ const blank: Draft = {
   subRate: "0",
   materialUnit: "job",
   materialRate: "0",
+  contractorRates: [],
 };
 const money = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
@@ -51,10 +58,22 @@ function fromItem(item: PricebookItem): Draft {
     subRate: String(item.subRateCents / 100),
     materialUnit: item.materialUnit,
     materialRate: String(item.materialRateCents / 100),
+    contractorRates: item.contractorRates.map((rate) => ({
+      contractorId: rate.contractorId,
+      rate: String(rate.rateCents / 100),
+    })),
   };
 }
 
-export default function PricebookPanel({ user }: { user: User }) {
+export default function PricebookPanel({
+  user,
+  contractors,
+  demo = false,
+}: {
+  user: User;
+  contractors: Contractor[];
+  demo?: boolean;
+}) {
   const [items, setItems] = useState<PricebookItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -67,6 +86,13 @@ export default function PricebookPanel({ user }: { user: User }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   useEffect(() => {
+    if (demo) {
+      const timer = setTimeout(() => {
+        setItems(readDemoPricebook());
+        setLoading(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
     fetch("/api/pricebook", { cache: "no-store" })
       .then(async (response) => {
         const body = await response.json();
@@ -80,7 +106,7 @@ export default function PricebookPanel({ user }: { user: User }) {
         ),
       )
       .finally(() => setLoading(false));
-  }, []);
+  }, [demo]);
   const categories = useMemo(
     () => ["All", ...new Set(items.map((item) => item.category || "General"))],
     [items],
@@ -104,7 +130,11 @@ export default function PricebookPanel({ user }: { user: User }) {
     setError("");
     setEditorOpen(true);
   }
-  function field(key: keyof Draft, label: string, type = "text") {
+  function field(
+    key: Exclude<keyof Draft, "contractorRates">,
+    label: string,
+    type = "text",
+  ) {
     return (
       <label key={key}>
         {label}
@@ -156,16 +186,39 @@ export default function PricebookPanel({ user }: { user: User }) {
         subRateCents: cents(draft.subRate),
         materialUnit: draft.materialUnit,
         materialRateCents: cents(draft.materialRate),
+        contractorRates: draft.contractorRates.map((rate) => ({
+          contractorId: rate.contractorId,
+          rateCents: cents(rate.rate),
+        })),
         ...(editing ? { id: editing.id, revision: editing.revision } : {}),
       };
-      const response = await fetch("/api/pricebook", {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = await response.json();
-      if (!response.ok)
-        throw new Error(body.error || "Could not save price-book item.");
+      let body: PricebookItem;
+      if (demo) {
+        const id = editing?.id || crypto.randomUUID();
+        body = {
+          ...payload,
+          unit: payload.unit as PricebookItem["unit"],
+          subUnit: payload.subUnit as PricebookItem["subUnit"],
+          materialUnit: payload.materialUnit as PricebookItem["materialUnit"],
+          id,
+          code: pricebookCode(id),
+          revision: (editing?.revision || 0) + 1,
+          active: true,
+        };
+        writeDemoPricebook([...items.filter((item) => item.id !== id), body]);
+      } else {
+        const response = await fetch("/api/pricebook", {
+          method: editing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        body = await response.json();
+        if (!response.ok)
+          throw new Error(
+            (body as unknown as { error?: string }).error ||
+              "Could not save price-book item.",
+          );
+      }
       setItems((current) =>
         [...current.filter((item) => item.id !== body.id), body].sort(
           (a, b) =>
@@ -200,14 +253,18 @@ export default function PricebookPanel({ user }: { user: User }) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/pricebook", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: item.id }),
-      });
-      const body = await response.json();
-      if (!response.ok)
-        throw new Error(body.error || "Could not archive item.");
+      if (demo)
+        writeDemoPricebook(items.filter((entry) => entry.id !== item.id));
+      else {
+        const response = await fetch("/api/pricebook", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: item.id }),
+        });
+        const body = await response.json();
+        if (!response.ok)
+          throw new Error(body.error || "Could not archive item.");
+      }
       setItems((current) => current.filter((entry) => entry.id !== item.id));
       setMessage(
         `${item.name} archived. Existing quote lines were not changed.`,
@@ -352,6 +409,26 @@ export default function PricebookPanel({ user }: { user: User }) {
                   <dd>{money(selected.materialRateCents)}</dd>
                 </div>
               </dl>
+              {!!selected.contractorRates.length && (
+                <div className="pricebook-contractor-summary">
+                  <h3>Contractor rates</h3>
+                  {selected.contractorRates.map((rate) => (
+                    <div key={rate.contractorId}>
+                      <span>
+                        {contractors.find(
+                          (contractor) => contractor.id === rate.contractorId,
+                        )?.name || "Former contractor"}
+                      </span>
+                      <strong>
+                        {money(rate.rateCents)}{" "}
+                        {costRateLabel(selected.subUnit)
+                          .replace(/^Cost /, "")
+                          .toLowerCase()}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              )}
               {user.role === "admin" && (
                 <div className="pricebook-inspector-actions">
                   <button
@@ -430,6 +507,112 @@ export default function PricebookPanel({ user }: { user: User }) {
                     "number",
                   )}
                 </div>
+              </fieldset>
+              <fieldset className="pricebook-contractor-rates">
+                <legend>Contractor rates</legend>
+                <p>
+                  Add rates for specific trade contacts. When this item is added
+                  to a quote, the estimator chooses the contractor. All rates
+                  use the subcontractor cost basis above.
+                </p>
+                {draft.contractorRates.map((rate, index) => (
+                  <div
+                    className="pricebook-contractor-rate-row"
+                    key={`${rate.contractorId}-${index}`}
+                  >
+                    <label>
+                      Contractor
+                      <select
+                        value={rate.contractorId}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            contractorRates: current.contractorRates.map(
+                              (entry, position) =>
+                                position === index
+                                  ? {
+                                      ...entry,
+                                      contractorId: event.target.value,
+                                    }
+                                  : entry,
+                            ),
+                          }))
+                        }
+                      >
+                        {contractors.map((contractor) => (
+                          <option key={contractor.id} value={contractor.id}>
+                            {contractor.name}
+                            {contractor.trade ? ` · ${contractor.trade}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {costRateLabel(draft.subUnit)} ($)
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={rate.rate}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            contractorRates: current.contractorRates.map(
+                              (entry, position) =>
+                                position === index
+                                  ? { ...entry, rate: event.target.value }
+                                  : entry,
+                            ),
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      aria-label={`Remove contractor rate ${index + 1}`}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          contractorRates: current.contractorRates.filter(
+                            (_, position) => position !== index,
+                          ),
+                        }))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={draft.contractorRates.length >= contractors.length}
+                  onClick={() => {
+                    const next = contractors.find(
+                      (contractor) =>
+                        !draft.contractorRates.some(
+                          (rate) => rate.contractorId === contractor.id,
+                        ),
+                    );
+                    if (next)
+                      setDraft((current) => ({
+                        ...current,
+                        contractorRates: [
+                          ...current.contractorRates,
+                          { contractorId: next.id, rate: current.subRate },
+                        ],
+                      }));
+                  }}
+                >
+                  <Plus size={14} /> Add contractor rate
+                </button>
+                {!contractors.length && (
+                  <small>
+                    Add trade contacts first to set contractor-specific rates.
+                  </small>
+                )}
               </fieldset>
               <fieldset>
                 <legend>Material cost</legend>

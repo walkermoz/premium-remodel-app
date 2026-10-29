@@ -42,6 +42,8 @@ import {
 import { demoWorkspace } from "@/lib/demo";
 import { contractorServices } from "@/lib/contractor-services";
 import { contactPhotoUrl } from "@/lib/contact-photo";
+import { calculatedQuotePrice } from "@/lib/quote-bulk-pricing";
+import { newestCustomerLead } from "@/lib/contacts";
 import {
   emptyWorkspace,
   kindKey,
@@ -57,6 +59,7 @@ import {
   type ScopeItem,
   type WorkspaceAlert,
   type Contact,
+  type Contractor,
   type Lead,
   type DoorVisit,
 } from "@/lib/types";
@@ -99,6 +102,7 @@ import { useLocationSharing } from "./use-location-sharing";
 import { checkUploadFile, FILE_VALIDATION_VERSION } from "@/lib/file-policy";
 import OverviewAlerts from "./overview-alerts";
 import LeadsPanel from "./leads-panel";
+import CustomerContactsPanel from "./customer-contacts-panel";
 import DoorKnockingPanel, { type DoorVisitDraft } from "./door-knocking-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
 import type { BusinessConfig } from "@/lib/business-config";
@@ -111,6 +115,7 @@ type Page =
   | "Quotes"
   | "Price book"
   | "Leads"
+  | "Contacts"
   | "Door knocking"
   | "Upcoming"
   | "Activity"
@@ -207,7 +212,24 @@ export default function WorkspaceApp({
             throw new Error(
               "Sample data could not be loaded. Clear this site's sample storage to start again.",
             );
-          commit({ ...emptyWorkspace, ...parsed });
+          const sampleContractor = demoWorkspace().contractors.find(
+            (contractor) => contractor.id === "c6",
+          );
+          const savedContractors = Array.isArray(parsed.contractors)
+            ? parsed.contractors
+            : [];
+          commit({
+            ...emptyWorkspace,
+            ...parsed,
+            contractors:
+              sampleContractor &&
+              !savedContractors.some(
+                (contractor: Contractor) =>
+                  contractor.id === sampleContractor.id,
+              )
+                ? [...savedContractors, sampleContractor]
+                : savedContractors,
+          });
         } else commit(demoWorkspace());
       } else {
         const response = await fetch("/api/workspace", { cache: "no-store" });
@@ -251,9 +273,7 @@ export default function WorkspaceApp({
       const nextPage =
         legacyPage === "Tasks" || legacyPage === "Calendar"
           ? "Upcoming"
-          : legacyPage === "Contacts"
-            ? "Contractors"
-            : legacyPage;
+          : legacyPage;
       setPage(
         (nextPage === "Activity" ||
           config.navigation.includes(
@@ -435,6 +455,18 @@ export default function WorkspaceApp({
           );
           if (kind === "quote") {
             const prior = existing as Quote | undefined;
+            const contactId = String(data.contactId || "");
+            const linked = workspaceRef.current.leads.find(
+              (lead) => lead.id === data.leadId,
+            );
+            if (contactId && linked?.contactId !== contactId) {
+              const associated = newestCustomerLead(
+                contactId,
+                workspaceRef.current.leads,
+              );
+              if (associated) data.leadId = associated.id;
+              else delete data.leadId;
+            }
             data.quoteNumber =
               prior?.quoteNumber || nextQuoteNumber(workspaceRef.current);
             data.preparedBy =
@@ -713,6 +745,163 @@ export default function WorkspaceApp({
         window.dispatchEvent(new Event("premium-remodel-audit-updated"));
       notify(`${entities.length} scope items added`);
       return entities;
+    } finally {
+      pending.current.delete(key);
+      syncVersion.current++;
+    }
+  }
+  async function reorderQuoteScope(
+    quoteId: string,
+    nextItems: ScopeItem[],
+    movingId: string,
+  ) {
+    const key = `scope-order-${quoteId}`;
+    if (pending.current.size)
+      throw new Error("A save is in progress. Please wait and try again.");
+    const current = workspaceRef.current;
+    const quote = current.quotes?.find((entry) => entry.id === quoteId);
+    const currentItems = current.scope.filter(
+      (item) => item.projectId === quoteId,
+    );
+    if (!quote || quote.status === "Accepted")
+      throw new Error("This quote can no longer be reordered.");
+    if (
+      currentItems.length !== nextItems.length ||
+      !nextItems.every((item) =>
+        currentItems.some((existing) => existing.id === item.id),
+      )
+    )
+      throw new Error("Quote rows changed. Refresh and try again.");
+    const moving = nextItems.find((item) => item.id === movingId);
+    if (!moving) throw new Error("Choose a quote row to move.");
+
+    pending.current.add(key);
+    syncVersion.current++;
+    try {
+      let updated: ScopeItem[];
+      if (demo) {
+        const now = new Date().toISOString();
+        updated = nextItems.map((item, position) => ({
+          ...currentItems.find((existing) => existing.id === item.id)!,
+          position,
+          ...(item.id === movingId
+            ? { sectionId: item.sectionId, sectionName: item.sectionName }
+            : {}),
+          updatedAt: now,
+        }));
+      } else {
+        const response = await fetch("/api/workspace/scope-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quoteId,
+            items: nextItems.map((item) => ({
+              id: item.id,
+              updatedAt: item.updatedAt,
+            })),
+            movingId,
+            sectionId: moving.sectionId || "",
+            sectionName: moving.sectionName || "",
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "Could not reorder quote rows.");
+        if (!Array.isArray(result) || result.length !== nextItems.length)
+          throw new Error("The reordered quote response was incomplete.");
+        updated = result as ScopeItem[];
+      }
+      const byId = new Map(updated.map((item) => [item.id, item]));
+      const latest = workspaceRef.current;
+      commit(
+        {
+          ...latest,
+          scope: latest.scope.map((item) => byId.get(item.id) || item),
+        },
+        true,
+      );
+      return updated;
+    } finally {
+      pending.current.delete(key);
+      syncVersion.current++;
+    }
+  }
+  async function priceQuoteScope(
+    quoteId: string,
+    selectedItems: ScopeItem[],
+    subMultiplier: number,
+    materialMultiplier: number,
+  ) {
+    const key = `scope-pricing-${quoteId}`;
+    if (pending.current.size)
+      throw new Error("A save is in progress. Please wait and try again.");
+    const current = workspaceRef.current;
+    const quote = current.quotes?.find((entry) => entry.id === quoteId);
+    if (!quote || quote.status === "Accepted")
+      throw new Error("This quote can no longer be priced.");
+    if (
+      !selectedItems.length ||
+      selectedItems.some(
+        (item) =>
+          !current.scope.some(
+            (existing) =>
+              existing.id === item.id &&
+              existing.projectId === quoteId &&
+              existing.updatedAt === item.updatedAt,
+          ),
+      )
+    )
+      throw new Error("Quote rows changed. Refresh and try again.");
+
+    pending.current.add(key);
+    syncVersion.current++;
+    try {
+      let updated: ScopeItem[];
+      if (demo) {
+        const now = new Date().toISOString();
+        updated = selectedItems.map((item) => ({
+          ...item,
+          estimate: calculatedQuotePrice(
+            item,
+            subMultiplier,
+            materialMultiplier,
+          ),
+          updatedAt: now,
+        }));
+      } else {
+        const response = await fetch("/api/workspace/scope-pricing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quoteId,
+            items: selectedItems.map((item) => ({
+              id: item.id,
+              updatedAt: item.updatedAt,
+            })),
+            subMultiplier,
+            materialMultiplier,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "Could not apply quote pricing.");
+        if (!Array.isArray(result) || result.length !== selectedItems.length)
+          throw new Error("The quote pricing response was incomplete.");
+        updated = result as ScopeItem[];
+      }
+      const byId = new Map(updated.map((item) => [item.id, item]));
+      const latest = workspaceRef.current;
+      commit(
+        {
+          ...latest,
+          scope: latest.scope.map((item) => byId.get(item.id) || item),
+        },
+        true,
+      );
+      notify(
+        `Pricing updated for ${updated.length} item${updated.length === 1 ? "" : "s"}`,
+      );
+      return updated;
     } finally {
       pending.current.delete(key);
       syncVersion.current++;
@@ -1098,6 +1287,7 @@ export default function WorkspaceApp({
             icon: Inbox,
             count: workspace.leads.length,
           },
+          { name: "Contacts", icon: Users },
           { name: "Door knocking", icon: Footprints },
           { name: "Upcoming", icon: CalendarDays, count: openTasks.length },
           { name: "Contractors", icon: HardHat },
@@ -1208,7 +1398,7 @@ export default function WorkspaceApp({
       </button>
     );
   }
-  const visiblePageName = page === "Contractors" ? "Contacts" : page;
+  const visiblePageName = page === "Contractors" ? "Trade contacts" : page;
   return (
     <div className="app-shell">
       {sidebar && (
@@ -1261,7 +1451,7 @@ export default function WorkspaceApp({
             >
               <item.icon size={18} />
               <span>
-                {item.name === "Contractors" ? "Contacts" : item.name}
+                {item.name === "Contractors" ? "Trade contacts" : item.name}
               </span>
               {!!item.count && <span className="nav-count">{item.count}</span>}
             </button>
@@ -1500,6 +1690,8 @@ export default function WorkspaceApp({
               onEdit={setEditor}
               onSave={save}
               onSaveScopeBatch={saveScopeBatch}
+              onReorderScope={reorderQuoteScope}
+              onPriceScope={priceQuoteScope}
               onAccept={accept}
               onDelete={requestDelete}
               onUpload={upload}
@@ -1532,7 +1724,11 @@ export default function WorkspaceApp({
                 />
               )}
               {page === "Price book" && config.features.priceBook && (
-                <PricebookPanel user={user} />
+                <PricebookPanel
+                  user={user}
+                  contractors={workspace.contractors}
+                  demo={demo}
+                />
               )}
               {page === "Door knocking" && (
                 <DoorKnockingPanel
@@ -1560,6 +1756,35 @@ export default function WorkspaceApp({
                       initialValues: quotePrefillFromLead(lead, contact),
                     });
                   }}
+                />
+              )}
+              {page === "Contacts" && (
+                <CustomerContactsPanel
+                  contacts={workspace.contacts}
+                  leads={workspace.leads}
+                  quotes={workspace.quotes || []}
+                  search={search}
+                  canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
+                  onAdd={() => setEditor({ kind: "contact" })}
+                  onEdit={(contact) =>
+                    setEditor({ kind: "contact", entity: contact })
+                  }
+                  onQuote={(contact, lead) =>
+                    setEditor({
+                      kind: "quote",
+                      initialValues: lead
+                        ? quotePrefillFromLead(lead, contact)
+                        : {
+                            client: contact.name,
+                            clientEmail: contact.email,
+                            clientPhone: contact.phone,
+                            address: [contact.address, contact.zip]
+                              .filter(Boolean)
+                              .join(", "),
+                            contactId: contact.id,
+                          },
+                    })
+                  }
                 />
               )}
               {(page === "Overview" || page === "Projects") && (
@@ -1860,7 +2085,7 @@ export default function WorkspaceApp({
                         THE PEOPLE BEHIND THE WORK
                       </span>
                       <h1>
-                        Contacts<span className="heading-dot">.</span>
+                        Trade contacts<span className="heading-dot">.</span>
                       </h1>
                       <p>
                         Your trusted trades, contact details, and current

@@ -136,13 +136,15 @@ export const quoteStatuses = [
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export interface Quote extends Omit<Project, "status"> {
   status: QuoteStatus;
+  /** Customer contact selected when the quote was prepared. */
+  contactId?: string;
   /** Selected images shown to the customer in the quote and PDF. */
   quotePhotos?: QuotePhoto[];
   /** Original filename for a PDF-imported quote; the PDF itself stays on the user's device. */
   importedFrom?: string;
   importedSources?: string[];
   importedAt?: string;
-  /** Optional linked sales lead. */
+  /** Internal sales-funnel association; customers select a contact instead. */
   leadId?: string;
   /** When status first became Declined or Expired. */
   outcomeAt?: string;

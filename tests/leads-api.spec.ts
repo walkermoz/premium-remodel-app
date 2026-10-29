@@ -34,10 +34,17 @@ test("website lead intake keeps validated attribution separate from unknown fiel
       capturedAt: "2026-10-25T13:00:00.000Z",
     },
   };
-  const parsed = parseWebsiteLead({ ...payload, lead_attribution, custom_field: "value" });
+  const parsed = parseWebsiteLead({
+    ...payload,
+    lead_attribution,
+    custom_field: "value",
+  });
   expect(parsed.leadAttribution).toEqual(lead_attribution);
   expect(parsed.otherSubmittedFields).toEqual({ custom_field: "value" });
-  expect(parseWebsiteLead({ ...payload, lead_attribution: { invalid: true } }).leadAttribution).toBeUndefined();
+  expect(
+    parseWebsiteLead({ ...payload, lead_attribution: { invalid: true } })
+      .leadAttribution,
+  ).toBeUndefined();
 });
 
 test("Discord lead notification preserves the form details safely", () => {
@@ -223,9 +230,10 @@ test("a lead creates a quote with its available details filled in", async ({
   await expect(dialog.getByLabel("Address")).toHaveValue(
     "1214 Willowbrook Drive, Cary, NC, 27513",
   );
-  await expect(dialog.getByLabel("Linked lead")).toHaveValue(
-    "00000000-0000-4000-8000-000000000102",
+  await expect(dialog.getByLabel("Customer contact")).toHaveValue(
+    "00000000-0000-4000-8000-000000000101",
   );
+  await expect(dialog.getByLabel("Linked lead")).toHaveCount(0);
   await expect(dialog.getByLabel("Full scope of work")).toHaveValue(
     /update our cabinets, countertops, lighting, and flooring/i,
   );

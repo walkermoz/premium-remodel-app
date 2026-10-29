@@ -3111,8 +3111,158 @@ small {
 .scope-table-compact tbody .scope-summary-row.scope-item-alternate td {
   background: color-mix(in srgb, var(--blue) 12%, var(--surface));
 }
+.scope-summary-shell {
+  display: flex;
+  align-items: stretch;
+}
+.scope-reorder-status {
+  padding: 7px 12px;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 11px;
+}
+.scope-row-controls {
+  display: flex;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  padding-left: 5px;
+}
+.scope-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: var(--surface);
+  font-size: 11px;
+}
+.scope-select-all,
+.scope-row-selection {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.scope-select-all input,
+.scope-row-selection input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+.scope-row-selection {
+  flex: 0 0 32px;
+  justify-content: center;
+  padding-left: 8px;
+}
+.scope-summary-row.is-selected td {
+  box-shadow: inset 3px 0 var(--blue);
+}
+.scope-bulk-pricing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+.scope-bulk-pricing-label {
+  color: var(--ink);
+  font-weight: 650;
+}
+.scope-bulk-pricing label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.scope-bulk-pricing input {
+  width: 58px;
+  height: 30px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.scope-bulk-preview {
+  font-variant-numeric: tabular-nums;
+}
+.scope-bulk-pricing .button {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 11px;
+}
+.scope-row-drag-handle,
+.scope-row-touch-move {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 30px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--theme-text-muted, #96a2ad);
+  cursor: grab;
+}
+.scope-row-drag-handle:hover,
+.scope-row-drag-handle:focus-visible,
+.scope-row-touch-move:hover,
+.scope-row-touch-move:focus-visible {
+  background: color-mix(in srgb, var(--blue) 15%, transparent);
+  color: var(--blue);
+  outline: none;
+}
+.scope-row-drag-handle:active {
+  cursor: grabbing;
+}
+.scope-row-drag-handle svg {
+  pointer-events: none;
+}
+.scope-row-drag-handle:disabled,
+.scope-row-touch-move:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.scope-row-touch-move {
+  display: none;
+  cursor: pointer;
+}
+.scope-summary-row.is-dragging td {
+  opacity: 0.6;
+}
+.scope-table-compact tbody .scope-summary-row.drop-before td {
+  box-shadow:
+    inset 4px 0 var(--scope-project-accent, transparent),
+    inset 0 3px var(--blue);
+}
+.scope-table-compact tbody .scope-summary-row.drop-after td {
+  box-shadow:
+    inset 4px 0 var(--scope-project-accent, transparent),
+    inset 0 -3px var(--blue);
+}
+@media (pointer: coarse) {
+  .scope-row-controls {
+    flex-basis: 32px;
+    flex-direction: column;
+    padding-left: 2px;
+  }
+  .scope-row-drag-handle {
+    display: none;
+  }
+  .scope-row-touch-move {
+    display: grid;
+    height: 24px;
+  }
+}
 .scope-summary-button {
   display: grid;
+  flex: 1;
+  min-width: 0;
   grid-template-columns:
     minmax(160px, 1.25fr) minmax(170px, 1.8fr) minmax(115px, 1fr)
     repeat(3, minmax(100px, 0.8fr));
@@ -3132,7 +3282,8 @@ small {
     minmax(100px, 0.8fr);
 }
 .scope-hide-internal-costs .scope-summary-button > span:nth-last-child(-n + 2),
-.scope-hide-internal-costs .scope-inspector-price-group:not(:first-child),
+.scope-hide-internal-costs
+  .scope-inspector-price-group:not(.scope-inspector-customer-price),
 .scope-hide-internal-costs .scope-inspector-totals > span:not(:first-child) {
   display: none;
 }
@@ -3247,7 +3398,8 @@ small {
 }
 .scope-inspector-price-groups {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 0;
 }
 .scope-inspector-price-group {
   min-width: 0;
@@ -3260,6 +3412,39 @@ small {
 }
 .scope-inspector-price-group:last-child {
   padding-right: 0;
+}
+.scope-inspector-price-groups > .scope-inspector-customer-price {
+  grid-column: 1 / -1;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+  border-left: 0;
+}
+.scope-inspector-price-groups > .scope-inspector-price-group:nth-child(2) {
+  padding-right: 0;
+}
+.scope-inspector-price-groups
+  > .scope-inspector-customer-price
+  .scope-inspector-basis-row,
+.scope-inspector-price-groups
+  > .scope-inspector-customer-price
+  .scope-inspector-rate {
+  max-width: 520px;
+}
+.scope-hide-internal-costs
+  .scope-inspector-price-groups
+  > .scope-inspector-customer-price {
+  padding-top: 0;
+  border-top: 0;
+}
+@media (max-width: 680px) {
+  .scope-inspector-price-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .scope-inspector-price-groups > .scope-inspector-price-group:nth-child(2) {
+    padding: 16px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
 }
 .scope-inspector-group-title {
   display: block;
@@ -4235,6 +4420,85 @@ small {
 .contractor-list,
 .members-list {
   border-top: 1px solid var(--line);
+}
+.customer-contact-list {
+  border-top: 1px solid var(--line);
+}
+.customer-contact-row {
+  display: grid;
+  grid-template-columns: 42px minmax(160px, 1fr) minmax(210px, 1.4fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.customer-contact-row > .avatar {
+  width: 42px;
+  height: 42px;
+}
+.customer-contact-main h3 {
+  margin: 0 0 5px;
+  font-size: 14px;
+  color: var(--theme-link, #425e73);
+}
+.customer-contact-main span {
+  font-size: 11px;
+  color: var(--theme-text-muted, #7991a5);
+}
+.customer-contact-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.customer-contact-details a,
+.customer-contact-details span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--theme-text-muted, #7991a5);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.customer-contact-details svg {
+  flex: none;
+}
+.customer-contact-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 850px) {
+  .customer-contact-row {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+  }
+  .customer-contact-details {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+  .customer-contact-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+@media (max-width: 520px) {
+  .customer-contact-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .customer-contact-row > .avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .customer-contact-details {
+    grid-column: 2;
+    grid-row: auto;
+  }
+  .customer-contact-actions {
+    grid-column: 2;
+    grid-row: auto;
+    justify-content: flex-start;
+  }
 }
 .contractor-row {
   display: flex;
@@ -9428,6 +9692,27 @@ small {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
+.pricebook-contractor-summary {
+  padding: 15px 0 4px;
+  border-top: 1px solid var(--line);
+}
+.pricebook-contractor-summary h3 {
+  margin: 0 0 8px;
+  color: var(--theme-link, #324d63);
+  font-size: 12px;
+}
+.pricebook-contractor-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 11px;
+}
+.pricebook-contractor-summary strong {
+  color: var(--theme-link, #324d63);
+  font-variant-numeric: tabular-nums;
+}
 .pricebook-inspector-actions {
   display: flex;
   align-items: center;
@@ -9490,6 +9775,27 @@ small {
   color: var(--theme-link, #324d63);
   font-size: 12px;
   font-weight: 700;
+}
+.pricebook-contractor-rates > p {
+  margin: 0 0 14px;
+  color: var(--theme-text-secondary, #698094);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.pricebook-contractor-rate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pricebook-contractor-rates > .button {
+  margin-top: 4px;
+}
+.pricebook-contractor-rates > small {
+  display: block;
+  margin-top: 8px;
+  color: var(--theme-text-muted, #8699a8);
 }
 .pricebook-code-note {
   margin: 0;
@@ -9571,6 +9877,12 @@ small {
 .pricebook-picker-pricing input {
   width: 100%;
 }
+.pricebook-picker-contractor select {
+  width: 100%;
+}
+.pricebook-picker-contractor small {
+  color: var(--theme-text-muted, #8699a8);
+}
 .pricebook-picker-pricing .pricebook-picker-total {
   border-top-color: var(--blue);
   font-weight: 700;
@@ -9612,6 +9924,13 @@ small {
   }
   .pricebook-picker-list {
     max-height: 230px;
+  }
+  .pricebook-contractor-rate-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .pricebook-contractor-rate-row .button {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 @media (max-width: 480px) {

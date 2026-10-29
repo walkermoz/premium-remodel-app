@@ -43,6 +43,7 @@ export function quotePrefillFromLead(
     address,
     category,
     description: lead.projectDescription || "",
+    contactId: contact?.id || lead.contactId,
     leadId: lead.id,
     status: "Draft",
     startDate: "",

@@ -30,6 +30,7 @@ import {
 } from "@/lib/project-finances";
 import { msaPaymentRows } from "@/lib/msa-contract";
 import { DEFAULT_QUOTE_PROJECT_NAME } from "@/lib/scope-projects";
+import { orderedScopeItems } from "@/lib/scope-order";
 import { dateLabel } from "@/lib/utils";
 import { Empty } from "./ui";
 import type { Editor } from "./entity-form";
@@ -231,6 +232,8 @@ export function QuoteDetail({
   onEdit,
   onSave,
   onSaveScopeBatch,
+  onReorderScope,
+  onPriceScope,
   onAccept,
   onDelete,
   onUpload,
@@ -250,6 +253,17 @@ export function QuoteDetail({
     entity?: Entity,
   ) => Promise<Entity>;
   onSaveScopeBatch: (rows: Record<string, unknown>[]) => Promise<ScopeItem[]>;
+  onReorderScope: (
+    quoteId: string,
+    items: ScopeItem[],
+    movingId: string,
+  ) => Promise<ScopeItem[]>;
+  onPriceScope: (
+    quoteId: string,
+    items: ScopeItem[],
+    subMultiplier: number,
+    materialMultiplier: number,
+  ) => Promise<ScopeItem[]>;
   onAccept: (quote: Quote) => Promise<void>;
   onDelete: (kind: EntityKind, entity: Entity) => void;
   onUpload: (file: File, projectId: string) => Promise<Attachment>;
@@ -267,7 +281,9 @@ export function QuoteDetail({
   const [checkRequestId, setCheckRequestId] = useState(() =>
     crypto.randomUUID(),
   );
-  const items = workspace.scope.filter((item) => item.projectId === quote.id);
+  const items = orderedScopeItems(
+    workspace.scope.filter((item) => item.projectId === quote.id),
+  );
   const files = workspace.attachments.filter(
     (file) => file.projectId === quote.id,
   );
@@ -585,7 +601,9 @@ export function QuoteDetail({
         </div>
       )}
       <div className="quote-overview">
-        <div className={`quote-overview-metrics${config.quotePreferences.showInternalCosts ? "" : " quote-overview-metrics-solo"}`}>
+        <div
+          className={`quote-overview-metrics${config.quotePreferences.showInternalCosts ? "" : " quote-overview-metrics-solo"}`}
+        >
           <div className="quote-overview-metric quote-price">
             <span>Scope total · quote price</span>
             <strong>{projectMoney(finances.total)}</strong>
@@ -653,7 +671,7 @@ export function QuoteDetail({
             <p>
               {signedScope
                 ? "Signed scope is locked."
-                : "Edit any cell. Each row saves when you leave it or press Enter."}
+                : "Edit a row, or drag its handle to change the quote order."}
             </p>
           </div>
         </div>
@@ -683,9 +701,9 @@ export function QuoteDetail({
             workspace={workspace}
             pricebookEnabled={
               config.features.priceBook &&
-              config.quotePreferences.showPriceBookPicker &&
-              !demo
+              config.quotePreferences.showPriceBookPicker
             }
+            demoPricebook={demo}
             showInternalCosts={config.quotePreferences.showInternalCosts}
             inline
             compactQuoteRows
@@ -716,6 +734,8 @@ export function QuoteDetail({
             }
             onSave={(data, item) => onSave("scope", data, item)}
             onSaveMany={onSaveScopeBatch}
+            onReorder={onReorderScope}
+            onBulkPrice={onPriceScope}
             onDelete={(item) => onDelete("scope", item)}
           />
         )}

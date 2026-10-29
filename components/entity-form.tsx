@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type {
+  Contact,
   Entity,
   Project,
   Quote,
@@ -16,6 +17,7 @@ import { contactPhotoUrl } from "@/lib/contact-photo";
 import AddressInput from "./address-input";
 import { workTypes, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
+import { contactAddress, customerContacts } from "@/lib/contacts";
 import { projectMoney } from "@/lib/project-finances";
 import {
   lineTotal,
@@ -24,7 +26,8 @@ import {
   rateLabel,
   salePricingBases,
 } from "@/lib/scope-pricing";
-export type FormKind = "project" | "quote" | "task" | "contractor" | "scope";
+export type FormKind =
+  "project" | "quote" | "task" | "contractor" | "scope" | "contact";
 export interface Editor {
   kind: FormKind;
   entity?: Entity;
@@ -63,6 +66,36 @@ export function EntityForm({
     ...editor.initialValues,
     ...project,
   } as Partial<Project | Quote>;
+  const customer = entity as Contact | undefined;
+  const [contactId, setContactId] = useState(
+    String(
+      (projectValues as Partial<Quote>).contactId ||
+        (kind === "quote" && !entity ? "__new__" : ""),
+    ),
+  );
+  const [clientName, setClientName] = useState(projectValues.client || "");
+  const [clientEmail, setClientEmail] = useState(
+    projectValues.clientEmail || "",
+  );
+  const [clientPhone, setClientPhone] = useState(
+    projectValues.clientPhone || "",
+  );
+  const [clientAddress, setClientAddress] = useState(
+    projectValues.address || "",
+  );
+  const [addressVersion, setAddressVersion] = useState(0);
+  const availableCustomers = customerContacts(
+    workspace.contacts,
+    workspace.leads,
+  );
+  const selectedCustomer = workspace.contacts.find(
+    (contact) => contact.id === contactId,
+  );
+  if (
+    selectedCustomer &&
+    !availableCustomers.some((contact) => contact.id === selectedCustomer.id)
+  )
+    availableCustomers.push(selectedCustomer);
   const [projectStatus, setProjectStatus] = useState<string>(
     projectValues.status || (kind === "quote" ? "Draft" : "Planning"),
   );
@@ -101,6 +134,7 @@ export function EntityForm({
     task: "work",
     contractor: "contact",
     scope: "scope item",
+    contact: "customer contact",
   };
   const contractor = (label = "Assigned contractor", canCreate = false) => (
     <label>
@@ -162,12 +196,48 @@ export function EntityForm({
     const data: Record<string, unknown> = Object.fromEntries(
       new FormData(event.currentTarget),
     );
+    if (kind === "contact") {
+      data.firstName = String(data.firstName || "").trim();
+      data.lastName = String(data.lastName || "").trim();
+      data.name = [data.firstName, data.lastName].filter(Boolean).join(" ");
+      data.source = customer?.source || "Manual";
+    }
     if (kind === "quote") data.status = projectValues.status || "Draft";
+    if (kind === "quote") {
+      if (contactId === "__new__") {
+        const name = String(data.client || "").trim();
+        if (!name) {
+          setError("Enter the customer's name to create their contact.");
+          setBusy(false);
+          return;
+        }
+      } else if (!contactId && !entity) {
+        setError("Choose a customer contact for this quote.");
+        setBusy(false);
+        return;
+      }
+    }
     for (const key of ["quantity", "estimate", "subCost", "materialCost"])
       if (key in data) data[key] = Number(data[key]);
     if (kind === "scope")
       data.estimate = lineTotal(Number(data.quantity), Number(data.estimate));
     try {
+      if (kind === "quote" && contactId === "__new__") {
+        const name = String(data.client || "").trim();
+        const [firstName, ...last] = name.split(/\s+/);
+        const created = await onSave("contact", {
+          firstName,
+          lastName: last.join(" "),
+          name,
+          email: String(data.clientEmail || "").trim(),
+          phone: String(data.clientPhone || "").trim(),
+          address: String(data.address || "").trim(),
+          zip: "",
+          source: "Quote",
+        });
+        data.contactId = created.id;
+        setContactId(created.id);
+      }
       await onSave(kind, data, entity);
       onClose();
     } catch (e) {
@@ -224,7 +294,9 @@ export function EntityForm({
       onContactPhotoChanged(result.contact as Contractor);
     } catch (error) {
       setPhotoError(
-        error instanceof Error ? error.message : "Could not update contact photo.",
+        error instanceof Error
+          ? error.message
+          : "Could not update contact photo.",
       );
     } finally {
       setPhotoBusy(false);
@@ -243,7 +315,7 @@ export function EntityForm({
           : kind === "scope"
             ? "Use a flat price or enter a quantity and rate to calculate the item total."
             : kind === "quote" && editor.initialValues?.leadId
-              ? "Lead and contact details are filled in. Review them, then create the quote."
+              ? "Customer details are filled in. Review them, then create the quote."
               : "Keep the details your team needs in one place."
       }
       onClose={() => {
@@ -259,6 +331,56 @@ export function EntityForm({
         inert={addingContractor}
       >
         <div className="form-fields">
+          {kind === "contact" && (
+            <>
+              <div className="form-grid">
+                <label>
+                  First name
+                  <input
+                    name="firstName"
+                    defaultValue={customer?.firstName}
+                    required
+                    maxLength={250}
+                  />
+                </label>
+                <label>
+                  Last name
+                  <input
+                    name="lastName"
+                    defaultValue={customer?.lastName}
+                    maxLength={250}
+                  />
+                </label>
+              </div>
+              <label>
+                Email
+                <input
+                  name="email"
+                  type="email"
+                  defaultValue={customer?.email}
+                  maxLength={250}
+                />
+              </label>
+              <label>
+                Phone
+                <input
+                  name="phone"
+                  type="tel"
+                  defaultValue={customer?.phone}
+                  maxLength={250}
+                />
+              </label>
+              <AddressInput label="Address" defaultValue={customer?.address} />
+              <label>
+                ZIP code
+                <input
+                  name="zip"
+                  defaultValue={customer?.zip}
+                  maxLength={250}
+                />
+              </label>
+            </>
+          )}
           {(kind === "project" || kind === "quote") && (
             <>
               <label>
@@ -271,12 +393,65 @@ export function EntityForm({
                   maxLength={250}
                 />
               </label>
+              {kind === "quote" && (
+                <label>
+                  Customer contact
+                  <select
+                    name="contactId"
+                    value={contactId}
+                    onChange={(event) => {
+                      const id = event.target.value;
+                      setContactId(id);
+                      const selected = workspace.contacts.find(
+                        (contact) => contact.id === id,
+                      );
+                      if (selected) {
+                        setClientName(selected.name);
+                        setClientEmail(selected.email);
+                        setClientPhone(selected.phone);
+                        setClientAddress(contactAddress(selected));
+                        setAddressVersion((version) => version + 1);
+                      } else if (id === "__new__") {
+                        setClientName("");
+                        setClientEmail("");
+                        setClientPhone("");
+                        setClientAddress("");
+                        setAddressVersion((version) => version + 1);
+                      }
+                    }}
+                  >
+                    {entity && !contactId && (
+                      <option value="">No contact selected</option>
+                    )}
+                    <option value="__new__">+ Add a new customer</option>
+                    {availableCustomers
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {contact.name}
+                          {contact.email ? ` · ${contact.email}` : ""}
+                        </option>
+                      ))}
+                  </select>
+                  <small>
+                    Choosing a contact fills the customer details below.
+                  </small>
+                </label>
+              )}
               <div className="form-grid">
                 <label>
                   Client name
                   <input
                     name="client"
-                    defaultValue={projectValues.client}
+                    value={kind === "quote" ? clientName : undefined}
+                    defaultValue={
+                      kind === "quote" ? undefined : projectValues.client
+                    }
+                    onChange={
+                      kind === "quote"
+                        ? (event) => setClientName(event.target.value)
+                        : undefined
+                    }
                     placeholder="Client or family name"
                     maxLength={250}
                   />
@@ -307,7 +482,15 @@ export function EntityForm({
                     name="clientEmail"
                     type="email"
                     maxLength={250}
-                    defaultValue={projectValues.clientEmail}
+                    value={kind === "quote" ? clientEmail : undefined}
+                    defaultValue={
+                      kind === "quote" ? undefined : projectValues.clientEmail
+                    }
+                    onChange={
+                      kind === "quote"
+                        ? (event) => setClientEmail(event.target.value)
+                        : undefined
+                    }
                   />
                 </label>
                 <label>
@@ -316,34 +499,37 @@ export function EntityForm({
                     name="clientPhone"
                     type="tel"
                     maxLength={250}
-                    defaultValue={projectValues.clientPhone}
+                    value={kind === "quote" ? clientPhone : undefined}
+                    defaultValue={
+                      kind === "quote" ? undefined : projectValues.clientPhone
+                    }
+                    onChange={
+                      kind === "quote"
+                        ? (event) => setClientPhone(event.target.value)
+                        : undefined
+                    }
                   />
                 </label>
               </div>
-              <AddressInput defaultValue={projectValues.address} />
+              <AddressInput
+                key={
+                  kind === "quote"
+                    ? `${contactId}-${addressVersion}`
+                    : "project"
+                }
+                defaultValue={
+                  kind === "quote" ? clientAddress : projectValues.address
+                }
+              />
               {kind === "quote" && (
                 <>
-                  <label>
-                    Linked lead
-                    <select
+                  {(projectValues as Partial<Quote>).leadId && (
+                    <input
+                      type="hidden"
                       name="leadId"
-                      defaultValue={
-                        (projectValues as Partial<Quote>).leadId || ""
-                      }
-                    >
-                      <option value="">No linked lead</option>
-                      {workspace.leads
-                        .slice()
-                        .sort((a, b) =>
-                          b.submittedAt.localeCompare(a.submittedAt),
-                        )
-                        .map((lead) => (
-                          <option key={lead.id} value={lead.id}>
-                            {lead.name} · {lead.project} · {lead.status}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
+                      value={(projectValues as Partial<Quote>).leadId}
+                    />
+                  )}
                   <fieldset className="work-schedule-fields">
                     <legend>
                       Quote document <span>shown on the downloaded PDF</span>

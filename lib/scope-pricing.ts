@@ -5,6 +5,7 @@ export const pricingBases = [
   { value: "linear ft", label: "Per linear ft" },
   { value: "each", label: "Per item" },
   { value: "hours", label: "Per hour" },
+  { value: "days", label: "Per day" },
 ];
 
 export const salePricingBases = pricingBases.map((basis) =>
@@ -17,6 +18,7 @@ const measuredUnits: Record<string, { quantity: string; rate: string }> = {
   "linear ft": { quantity: "linear ft", rate: "linear ft" },
   each: { quantity: "items", rate: "item" },
   hours: { quantity: "hours", rate: "hour" },
+  days: { quantity: "days", rate: "day" },
 };
 
 export function quantityLabel(unit: string) {
