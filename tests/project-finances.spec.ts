@@ -530,7 +530,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await row
     .getByLabel("Subcontractor cost: Cost per sq ft for Tile installation")
     .fill("3");
-  const subCostGroup = row.locator(".scope-inspector-price-group").nth(1);
+  const subCostGroup = row.locator(".scope-inspector-price-group").nth(0);
   for (const [basis, costLabel] of [
     ["linear ft", "Cost per linear ft"],
     ["each", "Cost per item"],
@@ -555,15 +555,15 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Total items for material cost of Tile installation")
     .fill("2");
   await expect(
-    row.locator(".scope-inspector-price-group").nth(1).getByText("Total sq ft"),
+    row.locator(".scope-inspector-price-group").nth(0).getByText("Total sq ft"),
   ).toBeVisible();
   await expect(
-    row.locator(".scope-inspector-price-group").nth(2).getByText("Total items"),
+    row.locator(".scope-inspector-price-group").nth(1).getByText("Total items"),
   ).toBeVisible();
   await expect(
     row
       .locator(".scope-inspector-price-group")
-      .nth(2)
+      .nth(1)
       .getByText("Cost per item"),
   ).toBeVisible();
   await row
@@ -579,30 +579,36 @@ test("quote cost bases save independent quantities and collapse to profit summar
     .getByLabel("Material cost: Cost per item for Tile installation")
     .fill("50");
   await page.setViewportSize({ width: 1600, height: 900 });
-  for (const labels of [
-    [
-      "Number of jobs for Tile installation",
-      "Unit for Tile installation",
-      "Total sq ft for subcontractor cost of Tile installation",
-      "Subcontractor cost basis for Tile installation",
-      "Total items for material cost of Tile installation",
-      "Material cost basis for Tile installation",
-    ],
-    [
-      "Price per job for Tile installation",
-      "Subcontractor cost: Cost per sq ft for Tile installation",
-      "Material cost: Cost per item for Tile installation",
-    ],
-  ]) {
-    const positions = await Promise.all(
-      labels.map(async (name) => (await row.getByLabel(name).boundingBox())?.y),
-    );
-    expect(positions.every((y) => y !== undefined)).toBe(true);
-    expect(
-      Math.max(...(positions as number[])) -
-        Math.min(...(positions as number[])),
-    ).toBeLessThanOrEqual(2);
-  }
+  const subQuantity = await row
+    .getByLabel("Total sq ft for subcontractor cost of Tile installation")
+    .boundingBox();
+  const materialQuantity = await row
+    .getByLabel("Total items for material cost of Tile installation")
+    .boundingBox();
+  const subRate = await row
+    .getByLabel("Subcontractor cost: Cost per sq ft for Tile installation")
+    .boundingBox();
+  const materialRate = await row
+    .getByLabel("Material cost: Cost per item for Tile installation")
+    .boundingBox();
+  const customerQuantity = await row
+    .getByLabel("Number of jobs for Tile installation")
+    .boundingBox();
+  const customerRate = await row
+    .getByLabel("Price per job for Tile installation")
+    .boundingBox();
+  expect(
+    subQuantity &&
+      materialQuantity &&
+      subRate &&
+      materialRate &&
+      customerQuantity &&
+      customerRate,
+  ).toBeTruthy();
+  expect(Math.abs(subQuantity!.y - materialQuantity!.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(subRate!.y - materialRate!.y)).toBeLessThanOrEqual(2);
+  expect(customerQuantity!.y).toBeGreaterThan(subRate!.y);
+  expect(customerRate!.y).toBeGreaterThan(customerQuantity!.y);
   await row.getByRole("button", { name: "Save Tile installation" }).click();
 
   const summary = page.getByRole("button", { name: "Edit Tile installation" });
