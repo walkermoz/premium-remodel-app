@@ -3150,9 +3150,24 @@ small {
 .scope-row-selection input {
   width: 16px;
   height: 16px;
+  min-height: 0;
   margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   accent-color: var(--blue);
   cursor: pointer;
+}
+.scope-select-all input:focus,
+.scope-row-selection input:focus {
+  border: 0;
+  box-shadow: none;
+}
+.scope-select-all input:focus-visible,
+.scope-row-selection input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 .scope-row-selection {
   flex: 0 0 32px;
