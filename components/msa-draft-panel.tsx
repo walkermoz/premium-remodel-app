@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, FileSignature, Plus, Trash2 } from "lucide-react";
+import { FileSignature, Plus, Trash2 } from "lucide-react";
 import {
   defaultMsaContractTerms,
   defaultMsaPaymentSchedule,
@@ -41,8 +41,6 @@ export default function MsaDraftPanel({
   showSigning?: boolean;
   canSendAgreement?: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState("");
   const [historical, setHistorical] = useState<{
     price: number;
     scope: ReturnType<typeof msaPrefill>["scope"];
@@ -197,7 +195,6 @@ export default function MsaDraftPanel({
   function updateContractTerm(key: keyof MsaContractTerms, value: string) {
     setContractTerms((current) => ({ ...current, [key]: value }));
     setSaved(false);
-    setCopied(false);
     setSaveError("");
   }
 
@@ -206,7 +203,6 @@ export default function MsaDraftPanel({
       current.map((step) => (step.id === id ? { ...step, ...changes } : step)),
     );
     setSaved(false);
-    setCopied(false);
     setSaveError("");
   }
 
@@ -243,46 +239,6 @@ export default function MsaDraftPanel({
       );
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function copyPrefill() {
-    if (!validSchedule || !validContractTerms) {
-      setCopyError(
-        "Complete the contract terms and payment schedule before copying.",
-      );
-      return;
-    }
-    const text = [
-      "MASTER SERVICES AGREEMENT · STAFF DRAFT",
-      ...(hasUnsavedTerms ? ["UNSAVED PAYMENT OR PERMIT EDITS"] : []),
-      ...fields.map(([label, value]) => `${label}: ${value}`),
-      ...contractFields.map(
-        ([key, label]) => `${label}: ${contractTerms[key].trim()}`,
-      ),
-      `Permit responsibility: ${permit}`,
-      "",
-      "Exhibit C · Payment milestones",
-      ...steps.map(
-        (step, index) =>
-          `${index + 1}. ${step.milestone}: ${step.percent}%${amounts[index] !== undefined ? ` (${projectMoney(amounts[index])})` : ""}`,
-      ),
-      "",
-      "Exhibit B · Work included",
-      ...draft.scope.map(
-        (item, index) =>
-          `${index + 1}. ${item.section} — ${item.title}${item.details ? `: ${item.details}` : ""}`,
-      ),
-      "",
-      "STILL REQUIRES REVIEW",
-      ...draft.review.map((item) => `- ${item}`),
-    ].join("\n");
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setCopyError("");
-    } catch {
-      setCopyError("Could not copy. Check browser clipboard access.");
     }
   }
 
@@ -435,19 +391,11 @@ export default function MsaDraftPanel({
             <p>Draft information pulled from this quote.</p>
           </div>
         </div>
-        <button
-          className="button secondary small-button"
-          type="button"
-          onClick={() => void copyPrefill()}
-        >
-          <Copy size={15} /> {copied ? "Copied" : "Copy prefill"}
-        </button>
       </div>
       <p className={styles.warning}>
         This is preparation for the MSA, not a completed agreement. Confirm the
         details and payment terms before sending it for signature.
       </p>
-      {copyError && <p role="alert">{copyError}</p>}
       <dl className={styles.fields}>
         {fields.map(([label, value]) => (
           <div key={label}>
@@ -516,7 +464,6 @@ export default function MsaDraftPanel({
                     current.filter((row) => row.id !== step.id),
                   );
                   setSaved(false);
-                  setCopied(false);
                 }}
               >
                 <Trash2 size={16} aria-hidden="true" />
@@ -535,7 +482,6 @@ export default function MsaDraftPanel({
                 { id: crypto.randomUUID(), milestone: "", percent: 0 },
               ]);
               setSaved(false);
-              setCopied(false);
             }}
           >
             <Plus size={15} aria-hidden="true" /> Add checkpoint
@@ -552,7 +498,6 @@ export default function MsaDraftPanel({
             onChange={(event) => {
               setPermit(event.target.value as MsaPermitResponsibility);
               setSaved(false);
-              setCopied(false);
             }}
           >
             <option>Owner obtains and pays</option>
@@ -587,7 +532,6 @@ export default function MsaDraftPanel({
             onClick={() => {
               setContractTerms(defaultMsaContractTerms(project, draft.scope));
               setSaved(false);
-              setCopied(false);
             }}
           >
             Reset contract defaults
@@ -608,7 +552,6 @@ export default function MsaDraftPanel({
             onClick={() => {
               setSteps(defaultMsaPaymentSchedule(project));
               setSaved(false);
-              setCopied(false);
             }}
           >
             Reset payment defaults
