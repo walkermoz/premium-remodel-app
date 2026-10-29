@@ -12,11 +12,13 @@ export default function AddressInput({
   defaultValue = "",
   label = "Job address",
   name = "address",
+  readOnly = false,
   onSuggestion,
 }: {
   defaultValue?: string;
   label?: string;
   name?: string;
+  readOnly?: boolean;
   onSuggestion?: (suggestion: AddressSuggestion) => void;
 }) {
   const id = useId();
@@ -102,6 +104,7 @@ export default function AddressInput({
         maxLength={250}
         autoComplete="off"
         spellCheck={false}
+        readOnly={readOnly}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={showList}
@@ -110,6 +113,7 @@ export default function AddressInput({
           showList && active >= 0 ? `${id}-option-${active}` : undefined
         }
         onFocus={() => {
+          if (readOnly) return;
           if (query.trim().length >= 4) setOpen(true);
         }}
         onChange={(event) => {

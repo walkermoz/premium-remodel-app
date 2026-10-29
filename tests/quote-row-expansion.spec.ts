@@ -7,7 +7,8 @@ test("quote actions offer a price-book item or a custom row", async ({
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Quote action options");
-  await quote.getByLabel("Client name").fill("Test Customer");
+  await quote.getByLabel("Customer name").fill("Test Customer");
+  await quote.getByLabel("Email").fill("rows@example.com");
   await quote.getByRole("button", { name: "Create quote" }).click();
 
   const actions = page.locator(".scope-add-actions").getByRole("button");
@@ -31,7 +32,8 @@ test("quote work item stays open while building and only retracts on its toggle"
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Scope row persistence");
-  await quote.getByLabel("Client name").fill("Test Customer");
+  await quote.getByLabel("Customer name").fill("Test Customer");
+  await quote.getByLabel("Email").fill("rows-closed@example.com");
   await quote.getByRole("button", { name: "Create quote" }).click();
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();

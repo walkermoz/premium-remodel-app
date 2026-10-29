@@ -332,9 +332,9 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await expect(dialog.getByLabel("Prepared-by phone")).toHaveCount(0);
   await expect(dialog.getByLabel("Status")).toHaveCount(0);
   await dialog.getByLabel("Quote name").fill("Jason’s garage quote");
-  await dialog.getByLabel("Client name").fill("Jason");
-  await dialog.getByLabel("Client email").fill("jason@example.com");
-  await dialog.getByLabel("Client phone").fill("9195550100");
+  await dialog.getByLabel("Customer name").fill("Jason");
+  await dialog.getByLabel("Email").fill("jason@example.com");
+  await dialog.getByLabel("Phone").fill("9195550100");
   await dialog.getByRole("button", { name: "Create quote" }).click();
   await expect(
     page.getByRole("heading", { name: "Jason’s garage quote", exact: true }),
@@ -432,7 +432,8 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await page.getByRole("button", { name: "New quote" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Hourly labor test");
-  await dialog.getByLabel("Client name").fill("Test Homeowner");
+  await dialog.getByLabel("Customer name").fill("Test Homeowner");
+  await dialog.getByLabel("Email").fill("hourly@example.com");
   await dialog.getByRole("button", { name: "Create quote" }).click();
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
@@ -512,7 +513,8 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await page.getByRole("button", { name: "New quote" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Cost basis test");
-  await dialog.getByLabel("Client name").fill("Test Homeowner");
+  await dialog.getByLabel("Customer name").fill("Test Homeowner");
+  await dialog.getByLabel("Email").fill("cost-basis@example.com");
   await dialog.getByRole("button", { name: "Create quote" }).click();
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
@@ -660,7 +662,8 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await page.getByRole("button", { name: "New quote" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Grouped quote test");
-  await dialog.getByLabel("Client name").fill("Test Homeowner");
+  await dialog.getByLabel("Customer name").fill("Test Homeowner");
+  await dialog.getByLabel("Email").fill("grouped@example.com");
   await dialog.getByRole("button", { name: "Create quote" }).click();
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();

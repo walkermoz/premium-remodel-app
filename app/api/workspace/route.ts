@@ -204,6 +204,13 @@ async function save(request: Request, editing: boolean) {
       throw new HttpError(400, parsed.error.issues[0].message);
     let data = parsed.data as Record<string, unknown>;
     if (
+      kind === "contact" &&
+      !editing &&
+      !String(data.email || "").trim() &&
+      !String(data.phone || "").trim()
+    )
+      throw new HttpError(400, "Enter an email address or phone number.");
+    if (
       kind === "lead" &&
       !(await findRecord(user, String(data.contactId), "contact"))
     )

@@ -381,6 +381,13 @@ export default function WorkspaceApp({
         if (kind === "scope")
           data = preserveScopeCosts(data, existing as ScopeItem | undefined);
         if (kind !== "attachment") {
+          if (
+            kind === "contact" &&
+            !existing &&
+            !String(data.email || "").trim() &&
+            !String(data.phone || "").trim()
+          )
+            throw new Error("Enter an email address or phone number.");
           const legacyLead = kind === "lead" ? { ...data } : null;
           const parsed = schemas[kind].safeParse(
             legacyLead
