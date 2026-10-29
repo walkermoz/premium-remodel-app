@@ -51,7 +51,7 @@ test("quote rows reorder by dragging and keep their order after reload", async (
   await quote.getByRole("button", { name: "Create quote" }).click();
 
   for (const title of ["First task", "Second task", "Third task"]) {
-    await page.getByRole("button", { name: "Add row", exact: true }).click();
+    await page.getByRole("button", { name: "Add Custom", exact: true }).click();
     const row = page.locator(".scope-new-row");
     await row
       .getByRole("textbox", { name: "New work item", exact: true })

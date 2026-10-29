@@ -86,7 +86,7 @@ test("tile price book asks which contractor and snapshots the selected rate on a
   await quote.getByLabel("Client name").fill("Sample Customer");
   await quote.getByRole("button", { name: "Create quote" }).click();
 
-  await page.getByRole("button", { name: "Add from price book" }).click();
+  await page.getByRole("button", { name: "Add Item" }).click();
   const picker = page.getByRole("dialog", { name: "Add from price book" });
   await picker.getByLabel("Total sq ft").fill("250");
   await expect(picker).toContainText("Choose a contractor");
@@ -102,7 +102,7 @@ test("tile price book asks which contractor and snapshots the selected rate on a
   await picker.getByRole("button", { name: "Add to quote" }).click();
   await expect(picker).toBeHidden();
 
-  await page.getByRole("button", { name: "Add from price book" }).click();
+  await page.getByRole("button", { name: "Add Item" }).click();
   const second = page.getByRole("dialog", { name: "Add from price book" });
   await second.getByLabel("Total sq ft").fill("250");
   await second

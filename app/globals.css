@@ -3879,7 +3879,7 @@ small {
   text-align: left;
   cursor: pointer;
 }
-.scope-add-project-button {
+.scope-add-actions .scope-add-row-button + .scope-add-row-button {
   border-left: 1px solid var(--line);
 }
 .scope-add-row-button:hover,

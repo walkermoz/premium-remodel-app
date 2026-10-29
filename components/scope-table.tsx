@@ -5,7 +5,6 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  FolderPlus,
   GripVertical,
   LoaderCircle,
   Pencil,
@@ -15,11 +14,6 @@ import {
 } from "lucide-react";
 import type { ScopeItem, TaskStatus, Workspace } from "@/lib/types";
 import { pricebookScopeValues, type PricebookItem } from "@/lib/pricebook";
-import type {
-  BathroomQuestionnaireAnswers,
-  BathroomQuestionnaireProject,
-  GeneratedBathroomScopeRow,
-} from "@/lib/bathroom-questionnaire";
 import {
   projectMoney as money,
   scopeTotal,
@@ -35,8 +29,7 @@ import {
   rateFromTotal,
   rateLabel,
 } from "@/lib/scope-pricing";
-import { Badge, Empty, Modal } from "./ui";
-import BathroomQuestionnaire from "./bathroom-questionnaire";
+import { Badge, Empty } from "./ui";
 import PricebookPicker from "./pricebook-picker";
 import { readDemoPricebook } from "@/lib/demo-pricebook";
 import { moveQuoteScopeItem, orderedScopeItems } from "@/lib/scope-order";
@@ -187,11 +180,8 @@ export default function ScopeTable({
   showStatus = true,
   projectId,
   onSave,
-  onSaveMany,
   onReorder,
   onBulkPrice,
-  templateProject,
-  onSaveTemplateProject,
   pricebookEnabled = false,
   demoPricebook = false,
   showInternalCosts = true,
@@ -210,7 +200,6 @@ export default function ScopeTable({
     data: Record<string, unknown>,
     item?: ScopeItem,
   ) => Promise<unknown>;
-  onSaveMany?: (rows: Record<string, unknown>[]) => Promise<unknown>;
   onReorder?: (
     quoteId: string,
     items: ScopeItem[],
@@ -222,10 +211,6 @@ export default function ScopeTable({
     subMultiplier: number,
     materialMultiplier: number,
   ) => Promise<ScopeItem[]>;
-  templateProject?: Partial<BathroomQuestionnaireProject>;
-  onSaveTemplateProject?: (
-    project: BathroomQuestionnaireProject,
-  ) => Promise<unknown>;
   pricebookEnabled?: boolean;
   demoPricebook?: boolean;
   showInternalCosts?: boolean;
@@ -240,16 +225,12 @@ export default function ScopeTable({
     Object.fromEntries(orderedItems.map((item) => [item.id, draftFrom(item)])),
   );
   const [adding, setAdding] = useState(false);
-  const [addingProject, setAddingProject] = useState(false);
   const [newDraft, setNewDraft] = useState<ScopeDraft>(() => draftFrom());
   const [saving, setSaving] = useState<Set<string>>(() => new Set());
   const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [error, setError] = useState("");
-  const [templateOpen, setTemplateOpen] = useState(false);
-  const [templateSaving, setTemplateSaving] = useState(false);
-  const [templateError, setTemplateError] = useState("");
   const [sectionSaving, setSectionSaving] = useState(false);
   const [reorderBusy, setReorderBusy] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -269,11 +250,10 @@ export default function ScopeTable({
   const [pricebookBusy, setPricebookBusy] = useState(false);
   const [pricebookOpen, setPricebookOpen] = useState(false);
   const newTitle = useRef<HTMLInputElement>(null);
-  const newProjectName = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (adding) (addingProject ? newProjectName : newTitle).current?.focus();
-  }, [adding, addingProject]);
+    if (adding) newTitle.current?.focus();
+  }, [adding]);
 
   useEffect(() => {
     if (!pricebookEnabled) return;
@@ -359,27 +339,15 @@ export default function ScopeTable({
       `scope-project-accent scope-project-accent-${index % 6}`,
     ]),
   );
-  const newProjectAccentClass = `scope-project-accent scope-project-accent-${projectSections.length % 6}`;
   const lastItem = orderedItems.at(-1);
   const newRowAccentClass = compactQuoteRows
-    ? addingProject
-      ? newProjectAccentClass
-      : lastItem
-        ? projectAccentClasses.get(scopeSectionKey(lastItem))
-        : undefined
+    ? lastItem
+      ? projectAccentClasses.get(scopeSectionKey(lastItem))
+      : undefined
     : undefined;
-  let nextProjectNumber = projectSections.length + 1;
-  while (
-    projectSections.some(
-      ([, section]) => section.name === `Project #${nextProjectNumber}`,
-    )
-  )
-    nextProjectNumber++;
-  const nextProjectName = `Project #${nextProjectNumber}`;
 
   function cancelAdding() {
     setAdding(false);
-    setAddingProject(false);
     setNewDraft(draftFrom());
     setError("");
   }
@@ -486,12 +454,6 @@ export default function ScopeTable({
     setError("");
     try {
       const values = draftValues(draft);
-      if (!item && addingProject) {
-        const projectName = draft.sectionName.trim();
-        if (!projectName)
-          throw new Error("Enter a project name before saving its first item.");
-        values.sectionName = projectName;
-      }
       setSaving((current) => new Set(current).add(id));
       await onSave(
         {
@@ -562,13 +524,6 @@ export default function ScopeTable({
         .closest("tr[data-scope-editor-id]")
         ?.getAttribute("data-scope-editor-id") ===
         event.currentTarget.getAttribute("data-scope-editor-id")
-    )
-      return;
-    if (
-      !item &&
-      addingProject &&
-      event.relatedTarget instanceof Element &&
-      event.relatedTarget.closest(".scope-new-project-row")
     )
       return;
     // A new quote row stays in progress until its Save or Cancel button is used.
@@ -659,11 +614,6 @@ export default function ScopeTable({
       : ("after" as const);
   }
 
-  function resetTemplate() {
-    setTemplateOpen(false);
-    setTemplateError("");
-  }
-
   async function updateProjectGrouping(
     sectionKey: string,
     name: string | null,
@@ -698,57 +648,6 @@ export default function ScopeTable({
       );
     } finally {
       setSectionSaving(false);
-    }
-  }
-
-  async function addBathroomProject(
-    answers: BathroomQuestionnaireAnswers,
-    rows: GeneratedBathroomScopeRow[],
-  ) {
-    if (!inline || !projectId || !onSaveMany || templateSaving) return;
-    if (!rows.length) {
-      setTemplateError("Complete the questionnaire so there is work to add.");
-      return;
-    }
-    setTemplateSaving(true);
-    setTemplateError("");
-    try {
-      const sectionId = crypto.randomUUID();
-      const sectionName = answers.projectName.trim() || nextProjectName;
-      await onSaveTemplateProject?.({
-        projectName: sectionName,
-        customerName: answers.customerName,
-        customerPhone: answers.customerPhone,
-        customerEmail: answers.customerEmail,
-        address: answers.address,
-        preferredStartDate: answers.preferredStartDate,
-      });
-      await onSaveMany(
-        rows.map((row, index) => ({
-          projectId,
-          sectionId,
-          sectionName,
-          title: row.title,
-          details: row.details,
-          quantity: 1,
-          unit: row.unit,
-          estimate: 0,
-          subCost: 0,
-          materialCost: 0,
-          contractorId: "",
-          status: "To do",
-          position: nextPosition + index,
-        })),
-      );
-      resetTemplate();
-    } catch (saveError) {
-      setTemplateError(
-        saveError instanceof Error
-          ? saveError.message
-          : "The bathroom questionnaire could not be added to this quote.",
-      );
-    } finally {
-      setTemplateSaving(false);
     }
   }
 
@@ -1226,51 +1125,6 @@ export default function ScopeTable({
                 </Fragment>
               );
             })}
-            {inline && adding && addingProject && (
-              <tr
-                className={`scope-section-row scope-new-project-row ${newProjectAccentClass}`}
-              >
-                <td colSpan={showStatus ? 8 : 7}>
-                  <div className="scope-section-heading">
-                    <div className="scope-section-title">
-                      <span>Project</span>
-                      <div className="scope-section-edit">
-                        <input
-                          ref={newProjectName}
-                          aria-label="New project name"
-                          value={newDraft.sectionName}
-                          maxLength={250}
-                          disabled={saving.has("new")}
-                          onChange={(event) =>
-                            setNewDraft((current) => ({
-                              ...current,
-                              sectionName: event.target.value,
-                            }))
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              newTitle.current?.focus();
-                            }
-                            if (event.key === "Escape") cancelAdding();
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="scope-section-tools">
-                      <button
-                        type="button"
-                        className="icon-button"
-                        aria-label="Cancel new project"
-                        onClick={cancelAdding}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            )}
             {inline &&
               adding &&
               (compactQuoteRows ? (
@@ -1331,12 +1185,22 @@ export default function ScopeTable({
               <tr className="scope-add-row">
                 <td colSpan={showStatus ? 8 : 7}>
                   <div className="scope-add-actions">
+                    {pricebookEnabled && (
+                      <button
+                        type="button"
+                        className="scope-add-row-button"
+                        disabled={pricebookBusy}
+                        onClick={() => setPricebookOpen(true)}
+                      >
+                        <Plus size={15} />
+                        Add Item
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="scope-add-row-button"
                       onClick={() => {
                         setError("");
-                        setAddingProject(false);
                         setNewDraft({
                           ...draftFrom(),
                           sectionId:
@@ -1352,49 +1216,8 @@ export default function ScopeTable({
                       }}
                     >
                       <Plus size={15} />
-                      Add row
+                      Add Custom
                     </button>
-                    {compactQuoteRows && (
-                      <button
-                        type="button"
-                        className="scope-add-row-button scope-add-project-button"
-                        onClick={() => {
-                          setError("");
-                          setNewDraft({
-                            ...draftFrom(),
-                            sectionId: crypto.randomUUID(),
-                            sectionName: nextProjectName,
-                          });
-                          setAddingProject(true);
-                          setAdding(true);
-                        }}
-                      >
-                        <FolderPlus size={15} />
-                        Add project
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="scope-add-row-button scope-add-project-button"
-                      onClick={() => {
-                        setTemplateError("");
-                        setTemplateOpen(true);
-                      }}
-                    >
-                      <FolderPlus size={15} />
-                      Use Project Template
-                    </button>
-                    {pricebookEnabled && (
-                      <button
-                        type="button"
-                        className="scope-add-row-button"
-                        disabled={pricebookBusy}
-                        onClick={() => setPricebookOpen(true)}
-                      >
-                        <Plus size={15} />
-                        Add from price book
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -1420,23 +1243,6 @@ export default function ScopeTable({
           </tfoot>
         </table>
       </div>
-      {templateOpen && (
-        <Modal
-          title="Bathroom questionnaire"
-          subtitle="Use the project details and selections to create a consistent, itemized quote."
-          onClose={() => {
-            if (!templateSaving) resetTemplate();
-          }}
-        >
-          <BathroomQuestionnaire
-            project={{ ...templateProject, projectName: nextProjectName }}
-            busy={templateSaving}
-            error={templateError}
-            onCancel={resetTemplate}
-            onSubmit={(answers, rows) => void addBathroomProject(answers, rows)}
-          />
-        </Modal>
-      )}
       {pricebookOpen && (
         <PricebookPicker
           items={pricebookItems}

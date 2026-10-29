@@ -231,7 +231,6 @@ export function QuoteDetail({
   onBack,
   onEdit,
   onSave,
-  onSaveScopeBatch,
   onReorderScope,
   onPriceScope,
   onAccept,
@@ -252,7 +251,6 @@ export function QuoteDetail({
     data: Record<string, unknown>,
     entity?: Entity,
   ) => Promise<Entity>;
-  onSaveScopeBatch: (rows: Record<string, unknown>[]) => Promise<ScopeItem[]>;
   onReorderScope: (
     quoteId: string,
     items: ScopeItem[],
@@ -710,30 +708,7 @@ export function QuoteDetail({
             showStatus={false}
             projectId={quote.id}
             defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
-            templateProject={{
-              projectName: "",
-              customerName: quote.client,
-              customerPhone: quote.clientPhone || "",
-              customerEmail: quote.clientEmail || "",
-              address: quote.address,
-              preferredStartDate: quote.startDate,
-            }}
-            onSaveTemplateProject={(project) =>
-              onSave(
-                "quote",
-                {
-                  ...quote,
-                  client: project.customerName,
-                  clientPhone: project.customerPhone,
-                  clientEmail: project.customerEmail,
-                  address: project.address,
-                  startDate: project.preferredStartDate,
-                },
-                quote,
-              )
-            }
             onSave={(data, item) => onSave("scope", data, item)}
-            onSaveMany={onSaveScopeBatch}
             onReorder={onReorderScope}
             onBulkPrice={onPriceScope}
             onDelete={(item) => onDelete("scope", item)}
