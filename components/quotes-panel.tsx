@@ -47,6 +47,7 @@ import QuoteWorkflowStepper, {
   type QuoteWorkflowStep,
 } from "./quote-workflow-stepper";
 import MsaSigningPanel from "./msa-signing-panel";
+import RoomScansPanel from "./room-scans-panel";
 
 export default function QuotesPanel({
   workspace,
@@ -780,6 +781,9 @@ export function QuoteDetail({
           </div>
           <p className="scope-description">{quote.description}</p>
         </section>
+      )}
+      {!demo && workflowStep === "quote" && (
+        <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
       )}
       {(handoffDemo || workflowStep === "quote") && (
         <section className="content-section">

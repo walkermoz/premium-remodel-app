@@ -14,6 +14,15 @@ npx expo run:ios
 
 Background location requires a native development or release build. It does not run in Expo Go.
 
+## Room scanning
+
+The quote workspace can create a private 20-minute room-scan session. Opening
+the QR code or deep link launches this app's native RoomPlan capture flow on a
+LiDAR-equipped iPhone or iPad running iOS 16 or later. The app uploads the USDZ
+model and floor-plan preview directly to private Supabase storage, then saves
+the measured room to its quote. RoomPlan is a native module and does not run in
+Expo Go; use an EAS development, preview, or production build.
+
 ## Location behavior
 
 - A teammate must tap **Start shift** and approve the operating system prompts.

@@ -25,7 +25,7 @@ test("quote actions offer a price-book item or a custom row", async ({
   await expect(page.locator(".scope-new-row")).toBeVisible();
 });
 
-test("quote work item stays open while building and only retracts on its toggle", async ({
+test("quote item stays open while building and only retracts on its toggle", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
@@ -39,12 +39,12 @@ test("quote work item stays open while building and only retracts on its toggle"
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const newRow = page.locator(".scope-new-row");
   await newRow
-    .getByRole("textbox", { name: "New work item", exact: true })
+    .getByRole("textbox", { name: "New item", exact: true })
     .fill("Kitchen cabinets");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
   await expect(newRow).toBeVisible();
   await expect(
-    newRow.getByRole("textbox", { name: "New work item", exact: true }),
+    newRow.getByRole("textbox", { name: "New item", exact: true }),
   ).toHaveValue("Kitchen cabinets");
   await newRow.getByLabel("Price per job for Kitchen cabinets").fill("1200");
   await newRow.getByRole("button", { name: "Save Kitchen cabinets" }).click();

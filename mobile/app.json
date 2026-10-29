@@ -17,7 +17,10 @@
       "bundleIdentifier": "com.premiumremodel.field",
       "buildNumber": "1",
       "infoPlist": {
-        "UIBackgroundModes": ["location"],
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "NSCameraUsageDescription": "Premium Remodel uses the camera and LiDAR sensor to create room measurements and 3D models for quotes.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -64,6 +67,14 @@
           "imageWidth": 280,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
         }
       ]
     ],

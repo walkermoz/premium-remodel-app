@@ -3,15 +3,36 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Linking } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import FieldApp from "./src/components/FieldApp";
 import LoginScreen from "./src/components/LoginScreen";
 import { hasConfiguration } from "./src/lib/config";
 import { supabase } from "./src/lib/supabase";
 import { colors } from "./src/theme";
+import RoomScanFlow from "./src/components/RoomScanFlow";
+
+type RoomScanLink = { token: string; server: string };
+
+function parseRoomScanLink(value: string | null): RoomScanLink | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "premiumremodelfield:" || url.hostname !== "room-scan")
+      return null;
+    const token = url.searchParams.get("token") || "";
+    const server = new URL(url.searchParams.get("server") || "");
+    if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return null;
+    if (server.protocol !== "https:" && !__DEV__) return null;
+    return { token, server: server.origin };
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [roomScan, setRoomScan] = useState<RoomScanLink | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -19,6 +40,18 @@ export default function App() {
       setSession(next),
     );
     return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      const parsed = parseRoomScanLink(url);
+      if (parsed) setRoomScan(parsed);
+    });
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      const parsed = parseRoomScanLink(url);
+      if (parsed) setRoomScan(parsed);
+    });
+    return () => subscription.remove();
   }, []);
 
   if (!hasConfiguration()) {
@@ -38,7 +71,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
-      {session === undefined ? (
+      {roomScan ? (
+        <RoomScanFlow
+          token={roomScan.token}
+          server={roomScan.server}
+          onClose={() => setRoomScan(null)}
+        />
+      ) : session === undefined ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.blue} size="large" />
         </View>
