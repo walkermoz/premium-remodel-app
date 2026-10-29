@@ -969,7 +969,14 @@ export default function ScopeTable({
                             >
                               <span>
                                 <small>Work item</small>
-                                <strong>{draft.title}</strong>
+                                <span className="scope-summary-title-line">
+                                  <strong>{draft.title}</strong>
+                                  {item.customerVisible === false && (
+                                    <span className="scope-internal-price-badge">
+                                      Internal only
+                                    </span>
+                                  )}
+                                </span>
                               </span>
                               <span>
                                 <small>Scope</small>

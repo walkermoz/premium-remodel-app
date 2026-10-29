@@ -528,6 +528,34 @@ export default function BusinessSettings({
               </label>
             </div>
             <label>
+              Customer quote price detail
+              <select
+                value={
+                  config.quotePreferences.showCustomerLineItemPrices
+                    ? "itemized"
+                    : "total"
+                }
+                disabled={!admin}
+                onChange={(event) =>
+                  setConfig((current) => ({
+                    ...current,
+                    quotePreferences: {
+                      ...current.quotePreferences,
+                      showCustomerLineItemPrices:
+                        event.target.value === "itemized",
+                    },
+                  }))
+                }
+              >
+                <option value="total">Scope and project total only</option>
+                <option value="itemized">Itemized line prices</option>
+              </select>
+              <small className="footnote">
+                Controls the client portal and quote PDF. Internal pricing stays
+                visible in the workspace.
+              </small>
+            </label>
+            <label>
               Payment method for online links
               <select
                 value={config.quotePreferences.paymentProvider}

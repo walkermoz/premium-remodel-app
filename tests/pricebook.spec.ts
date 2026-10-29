@@ -18,6 +18,7 @@ const item: PricebookItem = {
   category: "Bathrooms",
   unit: "sq ft",
   customerRateCents: 25000,
+  customerVisible: true,
   subUnit: "sq ft",
   subRateCents: 10000,
   materialUnit: "job",
@@ -46,6 +47,7 @@ test("a quote copies independent price and cost bases without following later ca
     materialCostQuantity: 1,
     pricebookItemId: item.id,
     pricebookRevision: 2,
+    customerVisible: true,
   });
   expect(
     schemas.scope.parse({
@@ -57,6 +59,23 @@ test("a quote copies independent price and cost bases without following later ca
   ).toMatchObject(quoteLine);
   item.customerRateCents = 26000;
   expect(quoteLine.estimate).toBe(62500);
+});
+
+test("internal price-book items stay in the price while copying customer visibility", () => {
+  const overhead = {
+    ...item,
+    name: "General company overhead",
+    unit: "days" as const,
+    customerRateCents: 170000,
+    customerVisible: false,
+  };
+  expect(pricebookScopeValues(overhead, 3)).toMatchObject({
+    title: "General company overhead",
+    quantity: 3,
+    unit: "days",
+    estimate: 5100,
+    customerVisible: false,
+  });
 });
 
 test("a tile item asks for a contractor and snapshots the selected per-square-foot rate", () => {

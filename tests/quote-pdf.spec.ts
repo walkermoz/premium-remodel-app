@@ -152,3 +152,66 @@ test("quote PDF omits a removed project heading but retains its work item", asyn
     await loadingTask.destroy();
   }
 });
+
+test("internal price components count toward the PDF total without appearing as line items", async () => {
+  const logo = await readFile(
+    path.join(process.cwd(), "public", "images", "logo.png"),
+  );
+  const bytes = await buildQuotePdf(
+    quote,
+    [
+      scopeItem(0),
+      {
+        ...scopeItem(1),
+        title: "General company overhead",
+        estimate: 1700,
+        customerVisible: false,
+      },
+    ],
+    logo,
+  );
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const loadingTask = getDocument({ data: bytes });
+  const document = await loadingTask.promise;
+  try {
+    const page = await document.getPage(1);
+    const text = (await page.getTextContent()).items
+      .filter((item): item is typeof item & { str: string } => "str" in item)
+      .map((item) => item.str)
+      .join(" ");
+    expect(text).toContain("$2,700.00");
+    expect(text).not.toContain("General company overhead");
+  } finally {
+    await loadingTask.destroy();
+  }
+});
+
+test("scope-only quote PDFs omit individual and section price labels", async () => {
+  const logo = await readFile(
+    path.join(process.cwd(), "public", "images", "logo.png"),
+  );
+  const bytes = await buildQuotePdf(
+    quote,
+    [scopeItem(0)],
+    logo,
+    [],
+    undefined,
+    { showLineItemPrices: false },
+  );
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const loadingTask = getDocument({ data: bytes });
+  const document = await loadingTask.promise;
+  try {
+    const page = await document.getPage(1);
+    const text = (await page.getTextContent()).items
+      .filter((item): item is typeof item & { str: string } => "str" in item)
+      .map((item) => item.str)
+      .join(" ");
+    expect(text).toContain("TOTAL PROJECT INVESTMENT");
+    expect(text).toContain("Scope item 1");
+    expect(text).not.toContain("LINE TOTAL");
+    expect(text).not.toContain("SECTION TOTAL");
+  } finally {
+    await loadingTask.destroy();
+  }
+});

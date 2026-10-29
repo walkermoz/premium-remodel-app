@@ -195,8 +195,17 @@ export default function PricebookPicker({
           {selected ? (
             <>
               <span className="pricebook-code">{selected.code}</span>
+              {!selected.customerVisible && (
+                <span className="pricebook-internal-badge">Internal only</span>
+              )}
               <h3>{selected.name}</h3>
               <p>{selected.description || "No default scope description."}</p>
+              {!selected.customerVisible && (
+                <p className="pricebook-internal-note">
+                  Included in the quote total and hidden from the customer’s
+                  line-item scope.
+                </p>
+              )}
               <div className="pricebook-picker-pricing">
                 <div>
                   <span>{rateLabel(selected.unit)}</span>

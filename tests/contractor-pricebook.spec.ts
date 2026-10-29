@@ -10,6 +10,7 @@ test("price-book categories can be selected or added while editing an item", asy
   await expect(category).toHaveValue("General");
   await expect(category.locator("option")).toHaveText([
     "General",
+    "Overhead",
     "Tile",
     "Add new category…",
   ]);
@@ -56,12 +57,75 @@ test("contractor rates can be maintained on a price-book item", async ({
   );
   const saved = await page.evaluate(() =>
     JSON.parse(
-      localStorage.getItem("premium-remodel-demo-pricebook-v1") || "[]",
+      localStorage.getItem("premium-remodel-demo-pricebook-v2") || "[]",
     ),
   );
-  expect(saved[0].contractorRates[1]).toMatchObject({
+  const tile = saved.find(
+    (entry: { name: string }) => entry.name === "Tile installation",
+  );
+  expect(tile.contractorRates[1]).toMatchObject({
     contractorId: "c6",
     rateCents: 2100,
+  });
+});
+
+test("general overhead is a hidden daily price component", async ({ page }) => {
+  await page.goto("/demo?view=Price+book");
+  await page.getByRole("button", { name: /General company overhead/ }).click();
+  const inspector = page.getByLabel("Selected price-book item");
+  await expect(inspector).toContainText("Internal only");
+  await expect(inspector).toContainText("$1,700.00");
+  await expect(inspector).toContainText("Price per day");
+  await page.getByRole("button", { name: "Edit item" }).click();
+  const editor = page.getByRole("dialog", { name: "Edit price-book item" });
+  await expect(
+    editor.getByRole("checkbox", {
+      name: "Show as a line item on the customer quote",
+    }),
+  ).not.toBeChecked();
+  await editor.getByRole("button", { name: "Cancel" }).click();
+
+  await page.getByRole("button", { name: "Quotes", exact: true }).click();
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const quote = page.getByRole("dialog", { name: "New quote" });
+  await quote.getByLabel("Quote name").fill("Overhead example");
+  await quote.getByLabel("Customer name").fill("Sample Customer");
+  await quote.getByLabel("Email").fill("overhead@example.com");
+  await quote.getByRole("button", { name: "Create quote" }).click();
+  await page.getByRole("button", { name: "Add Item" }).click();
+  const picker = page.getByRole("dialog", { name: "Add from price book" });
+  await picker
+    .getByRole("button", { name: /General company overhead/ })
+    .click();
+  await expect(picker).toContainText("hidden from the customer");
+  await picker.getByLabel("Total days").fill("2");
+  await expect(picker.locator(".pricebook-picker-total")).toContainText(
+    "$3,400.00",
+  );
+  await picker.getByRole("button", { name: "Add to quote" }).click();
+  await expect(page.locator(".scope-summary-row")).toContainText(
+    "Internal only",
+  );
+  await expect(
+    page.getByText("Scope total · quote price").locator(".."),
+  ).toContainText("$3,400");
+
+  const stored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("premium-remodel-sample-v1") || "{}"),
+  );
+  const created = stored.quotes.find(
+    (entry: { name: string }) => entry.name === "Overhead example",
+  );
+  expect(
+    stored.scope.find(
+      (entry: { projectId: string }) => entry.projectId === created.id,
+    ),
+  ).toMatchObject({
+    title: "General company overhead",
+    unit: "days",
+    quantity: 2,
+    estimate: 3400,
+    customerVisible: false,
   });
 });
 

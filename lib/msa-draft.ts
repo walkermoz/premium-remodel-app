@@ -15,6 +15,7 @@ export function acceptedScopeSnapshot(
     sectionName?: string;
     estimate: number;
     position?: number;
+    customerVisible?: boolean;
   }>,
   category: string,
 ): AcceptedScopeItem[] {
@@ -25,6 +26,7 @@ export function acceptedScopeSnapshot(
       title: item.title.trim(),
       details: item.details?.trim() || "",
       amount: item.estimate,
+      ...(item.customerVisible === false ? { customerVisible: false } : {}),
     }));
 }
 

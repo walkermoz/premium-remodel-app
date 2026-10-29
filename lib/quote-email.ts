@@ -218,6 +218,10 @@ export async function sendQuoteEmail(
       logo,
       photos,
       business.profile,
+      {
+        showLineItemPrices:
+          business.quotePreferences.showCustomerLineItemPrices,
+      },
     );
     if (pdf.length > 20 * 1024 * 1024)
       throw new HttpError(413, "This quote PDF is too large to email.");

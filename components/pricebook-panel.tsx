@@ -18,6 +18,7 @@ type Draft = {
   category: string;
   unit: string;
   customerRate: string;
+  customerVisible: boolean;
   subUnit: string;
   subRate: string;
   materialUnit: string;
@@ -30,6 +31,7 @@ const blank: Draft = {
   category: "General",
   unit: "job",
   customerRate: "0",
+  customerVisible: true,
   subUnit: "job",
   subRate: "0",
   materialUnit: "job",
@@ -54,6 +56,7 @@ function fromItem(item: PricebookItem): Draft {
     category: item.category || "General",
     unit: item.unit,
     customerRate: String(item.customerRateCents / 100),
+    customerVisible: item.customerVisible,
     subUnit: item.subUnit,
     subRate: String(item.subRateCents / 100),
     materialUnit: item.materialUnit,
@@ -141,7 +144,7 @@ export default function PricebookPanel({
     setEditorOpen(true);
   }
   function field(
-    key: Exclude<keyof Draft, "contractorRates">,
+    key: Exclude<keyof Draft, "contractorRates" | "customerVisible">,
     label: string,
     type = "text",
   ) {
@@ -198,6 +201,7 @@ export default function PricebookPanel({
           ) || categoryName,
         unit: draft.unit,
         customerRateCents: cents(draft.customerRate),
+        customerVisible: draft.customerVisible,
         subUnit: draft.subUnit,
         subRateCents: cents(draft.subRate),
         materialUnit: draft.materialUnit,
@@ -410,6 +414,9 @@ export default function PricebookPanel({
               aria-label="Selected price-book item"
             >
               <span className="pricebook-code">{selected.code}</span>
+              {!selected.customerVisible && (
+                <span className="pricebook-internal-badge">Internal only</span>
+              )}
               <h2>{selected.name}</h2>
               <p>{selected.description || "No default scope description."}</p>
               <dl>
@@ -554,6 +561,26 @@ export default function PricebookPanel({
                     "number",
                   )}
                 </div>
+                <label className="pricebook-visibility-setting">
+                  <input
+                    type="checkbox"
+                    checked={draft.customerVisible}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        customerVisible: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>
+                    <strong>Show as a line item on the customer quote</strong>
+                    <small>
+                      Turn this off for overhead or other internal price
+                      components. The amount still counts toward the quote
+                      total.
+                    </small>
+                  </span>
+                </label>
               </fieldset>
               <fieldset>
                 <legend>Subcontractor cost</legend>

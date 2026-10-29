@@ -6,6 +6,7 @@ import {
   type PDFPage,
 } from "pdf-lib";
 import type { Quote, QuotePhoto, ScopeItem } from "./types";
+import { appearsOnCustomerQuote } from "./customer-quote-scope";
 import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
@@ -200,7 +201,12 @@ function drawFooter(
   );
 }
 
-function drawTableHeader(page: PDFPage, bold: PDFFont, top: number) {
+function drawTableHeader(
+  page: PDFPage,
+  bold: PDFFont,
+  top: number,
+  showLineItemPrices: boolean,
+) {
   page.drawRectangle({
     x: LEFT,
     y: PAGE_HEIGHT - top - 23,
@@ -209,7 +215,7 @@ function drawTableHeader(page: PDFPage, bold: PDFFont, top: number) {
     color: colors.pale,
   });
   drawTop(page, "SCOPE OF WORK", 54, top + 5, bold, 8);
-  drawRight(page, "LINE TOTAL", 558, top + 5, bold, 8);
+  if (showLineItemPrices) drawRight(page, "LINE TOTAL", 558, top + 5, bold, 8);
 }
 
 function quoteSectionKey(item: ScopeItem) {
@@ -234,7 +240,9 @@ export async function buildQuotePdf(
     website: "https://premiumremodel.com",
     phone: "(919) 454-4012",
   },
+  display: { showLineItemPrices?: boolean } = {},
 ) {
+  const showLineItemPrices = display.showLineItemPrices !== false;
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -251,6 +259,7 @@ export async function buildQuotePdf(
     })
     .map(({ item }) => item);
   const total = items.reduce((sum, item) => sum + item.estimate, 0);
+  const customerItems = items.filter(appearsOnCustomerQuote);
   const sectionTotals = new Map<string, { name: string; total: number }>();
   for (const item of items) {
     const key = quoteSectionKey(item);
@@ -343,14 +352,14 @@ export async function buildQuotePdf(
   drawRight(page, money(total), 558, 263, bold, 17, colors.white);
 
   let tableTop = 301;
-  drawTableHeader(page, bold, tableTop);
+  drawTableHeader(page, bold, tableTop, showLineItemPrices);
   let rowTop = tableTop + 23;
   const rowBottomLimit = 572;
   let itemIndex = 0;
   let lastSectionKey = "";
 
-  while (itemIndex < items.length) {
-    const item = items[itemIndex];
+  while (itemIndex < customerItems.length) {
+    const item = customerItems[itemIndex];
     const sectionKey = quoteSectionKey(item);
     const section = sectionTotals.get(sectionKey);
     let needsSectionHeader =
@@ -374,7 +383,7 @@ export async function buildQuotePdf(
       drawTop(page, `${heading} - SCOPE CONTINUED`, LEFT, 44, bold, 13);
       drawTop(page, meta, LEFT, 65, regular, 7.5, colors.muted);
       tableTop = 92;
-      drawTableHeader(page, bold, tableTop);
+      drawTableHeader(page, bold, tableTop, showLineItemPrices);
       rowTop = tableTop + 23;
       needsSectionHeader = item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID;
     }
@@ -395,15 +404,16 @@ export async function buildQuotePdf(
         8,
         colors.blue,
       );
-      drawRight(
-        page,
-        `SECTION TOTAL  ${money(section.total)}`,
-        558,
-        rowTop + 5,
-        bold,
-        8,
-        colors.blue,
-      );
+      if (showLineItemPrices)
+        drawRight(
+          page,
+          `SECTION TOTAL  ${money(section.total)}`,
+          558,
+          rowTop + 5,
+          bold,
+          8,
+          colors.blue,
+        );
       rowTop += 21;
     }
     if (itemIndex % 2 === 1)
@@ -428,7 +438,8 @@ export async function buildQuotePdf(
         colors.muted,
       ),
     );
-    drawRight(page, money(item.estimate), 558, rowTop + 6, regular, 9);
+    if (showLineItemPrices)
+      drawRight(page, money(item.estimate), 558, rowTop + 6, regular, 9);
     page.drawLine({
       start: { x: LEFT, y: PAGE_HEIGHT - rowTop - rowHeight },
       end: { x: RIGHT, y: PAGE_HEIGHT - rowTop - rowHeight },

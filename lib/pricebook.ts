@@ -20,6 +20,7 @@ export const pricebookInput = z
     category: z.string().trim().max(100).default(""),
     unit: pricebookUnit,
     customerRateCents: z.number().int().min(0).max(100_000_000),
+    customerVisible: z.boolean().default(true),
     subUnit: pricebookUnit,
     subRateCents: z.number().int().min(0).max(100_000_000),
     materialUnit: pricebookUnit,
@@ -68,6 +69,7 @@ export function mapPricebookItem(row: Record<string, unknown>): PricebookItem {
     category: String(row.category || ""),
     unit: pricebookUnit.parse(row.unit),
     customerRateCents: Number(row.customer_rate_cents),
+    customerVisible: row.customer_visible !== false,
     subUnit: pricebookUnit.parse(row.sub_unit),
     subRateCents: Number(row.sub_rate_cents),
     materialUnit: pricebookUnit.parse(row.material_unit),
@@ -108,6 +110,7 @@ export function pricebookScopeValues(
     materialCostQuantity: materialQuantity,
     pricebookItemId: item.id,
     pricebookRevision: item.revision,
+    customerVisible: item.customerVisible,
     ...(selectedRate ? { contractorId: selectedRate.contractorId } : {}),
   };
 }
