@@ -626,7 +626,7 @@ export function EntityForm({
                       Quote document <span>shown on the downloaded PDF</span>
                     </legend>
                     <label>
-                      Notes & payment
+                      Notes
                       <textarea
                         name="quoteNotes"
                         rows={3}
@@ -634,7 +634,7 @@ export function EntityForm({
                         defaultValue={
                           (projectValues as Partial<Quote>).quoteNotes || ""
                         }
-                        placeholder="Add quote-specific labor, material, or payment notes."
+                        placeholder="Add any notes for this quote."
                       />
                     </label>
                   </fieldset>
@@ -694,16 +694,24 @@ export function EntityForm({
                   />
                 </label>
               )}
-              <label>
-                Full scope of work
-                <textarea
+              {kind === "project" ? (
+                <label>
+                  Full scope of work
+                  <textarea
+                    name="description"
+                    rows={4}
+                    defaultValue={projectValues.description}
+                    placeholder="Describe the work, materials, and details for this project."
+                    maxLength={15000}
+                  />
+                </label>
+              ) : (
+                <input
+                  type="hidden"
                   name="description"
-                  rows={4}
-                  defaultValue={projectValues.description}
-                  placeholder="Describe the work, materials, and details for this project."
-                  maxLength={15000}
+                  value={projectValues.description || ""}
                 />
-              </label>
+              )}
               <input
                 name="cover"
                 type="hidden"

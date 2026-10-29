@@ -209,6 +209,8 @@ test("scope-only quote PDFs omit individual and section price labels", async () 
       .join(" ");
     expect(text).toContain("TOTAL PROJECT INVESTMENT");
     expect(text).toContain("Scope item 1");
+    expect(text).toContain("Notes");
+    expect(text).not.toContain("Notes & payment");
     expect(text).not.toContain("LINE TOTAL");
     expect(text).not.toContain("SECTION TOTAL");
   } finally {
