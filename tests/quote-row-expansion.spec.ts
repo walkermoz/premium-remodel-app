@@ -46,6 +46,11 @@ test("quote work item stays open while building and only retracts on its toggle"
   await expect(
     newRow.getByRole("textbox", { name: "New work item", exact: true }),
   ).toHaveValue("Kitchen cabinets");
+  await newRow
+    .getByRole("button", {
+      name: "Override customer price for Kitchen cabinets",
+    })
+    .click();
   await newRow.getByLabel("Price per job for Kitchen cabinets").fill("1200");
   await newRow.getByRole("button", { name: "Save Kitchen cabinets" }).click();
   await expect(newRow).toHaveCount(0);
@@ -54,6 +59,11 @@ test("quote work item stays open while building and only retracts on its toggle"
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   const editor = page.locator(".scope-inspector-row:not(.scope-new-row)");
+  await editor
+    .getByRole("button", {
+      name: "Edit customer price override for Kitchen cabinets",
+    })
+    .click();
   await editor.getByLabel("Price per job for Kitchen cabinets").fill("1300");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
