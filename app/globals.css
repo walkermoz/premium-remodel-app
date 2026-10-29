@@ -5820,18 +5820,25 @@ small {
   color: var(--blue);
 }
 .lead-row {
-  display: block;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
   width: 100%;
-  padding: 15px 14px;
-  border: 0;
   border-bottom: 1px solid var(--line);
+  background: transparent;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.lead-row-open {
+  min-width: 0;
+  padding: 15px 8px 15px 14px;
+  border: 0;
   background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    background 0.15s,
-    box-shadow 0.15s;
 }
 .lead-row:last-child {
   border-bottom: 0;
@@ -5854,7 +5861,6 @@ small {
 .lead-row-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
 .lead-row-top strong {
@@ -5871,6 +5877,45 @@ small {
 }
 .lead-row-body small {
   font-size: 8px;
+}
+.lead-row-side {
+  display: flex;
+  min-width: 42px;
+  padding: 12px 8px 10px 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-direction: column;
+  gap: 5px;
+}
+.lead-row-side .lead-status {
+  align-self: flex-end;
+}
+.row-junk-action {
+  align-self: center;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--theme-text-muted, #8294a2);
+  cursor: pointer;
+}
+.row-junk-action:hover,
+.row-junk-action:focus-visible {
+  border-color: color-mix(in srgb, var(--red) 28%, var(--line));
+  background: color-mix(in srgb, var(--red) 9%, transparent);
+  color: var(--red);
+}
+.row-junk-action.restore:hover,
+.row-junk-action.restore:focus-visible {
+  border-color: color-mix(in srgb, var(--blue) 28%, var(--line));
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 .lead-status {
   display: inline-flex;

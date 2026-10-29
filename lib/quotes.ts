@@ -61,5 +61,7 @@ export function preserveProjectHistory(
     result.msaPermitResponsibility = current.msaPermitResponsibility;
   if (current && !("msaContractTerms" in data))
     result.msaContractTerms = current.msaContractTerms;
+  if (current && "junkedAt" in current && !("junkedAt" in data))
+    result.junkedAt = (current as Quote).junkedAt;
   return result;
 }

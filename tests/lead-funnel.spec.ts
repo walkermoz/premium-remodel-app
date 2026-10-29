@@ -110,6 +110,9 @@ test("leads UI offers future, archive, and junk without an all tab", async ({
   await page.goto("/demo?view=Leads");
   await expect(page.getByRole("heading", { name: "Leads." })).toBeVisible();
   await expect(page.getByRole("button", { name: /Active/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Move Taylor Reed to junk" }),
+  ).toBeVisible();
   const detail = page.getByRole("article", { name: "Taylor Reed lead" });
   await expect(detail.getByLabel("Disposition")).toHaveCount(0);
   await expect(detail.getByLabel("Approval")).toHaveCount(0);
@@ -168,5 +171,8 @@ test("leads UI offers future, archive, and junk without an all tab", async ({
     .click();
   await expect(
     page.getByRole("article", { name: "Taylor Reed lead" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Restore Taylor Reed to active leads" }),
   ).toBeVisible();
 });

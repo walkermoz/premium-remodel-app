@@ -171,6 +171,7 @@ export const schemas = {
     .object({
       ...projectFields,
       status: z.enum(quoteStatuses),
+      junkedAt: z.iso.datetime().nullable().optional(),
       importedFrom: short.optional(),
       importedSources: z.array(short).max(5).optional(),
       importedAt: z.iso.datetime().optional(),

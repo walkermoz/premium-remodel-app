@@ -1667,6 +1667,7 @@ export default function WorkspaceApp({
                   onNew={() => setEditor({ kind: "quote" })}
                   onOpen={(id) => navigate("Quotes", id)}
                   onImport={importQuotes}
+                  onSaveQuote={(data, quote) => save("quote", data, quote)}
                   demo={demo}
                 />
               )}

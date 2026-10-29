@@ -11,6 +11,8 @@ import {
   MapPin,
   Phone,
   Plus,
+  RotateCcw,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import {
@@ -235,32 +237,62 @@ export default function LeadsPanel({
             </div>
             {visible.map((lead) => {
               const disposition = leadDisposition(lead);
+              const isJunk = disposition === "Junk";
               return (
-                <button
+                <div
                   key={lead.id}
                   className={`lead-row ${selected?.id === lead.id ? "selected" : ""}`}
-                  onClick={() => setSelectedId(lead.id)}
                 >
-                  <span className="lead-row-body">
-                    <span className="lead-row-top">
-                      <strong>{lead.name}</strong>
-                      <span className="lead-status">{lead.status}</span>
+                  <button
+                    type="button"
+                    className="lead-row-open"
+                    onClick={() => setSelectedId(lead.id)}
+                  >
+                    <span className="lead-row-body">
+                      <span className="lead-row-top">
+                        <strong>{lead.name}</strong>
+                      </span>
+                      <span>{lead.project}</span>
+                      <small>
+                        {disposition !== "Active" ? `${disposition} · ` : ""}
+                        {lead.leadAttribution?.lastTouch.source
+                          ? `${leadSourceName(lead.leadAttribution.lastTouch)} · `
+                          : ""}
+                        {new Date(lead.submittedAt).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </small>
                     </span>
-                    <span>{lead.project}</span>
-                    <small>
-                      {disposition !== "Active" ? `${disposition} · ` : ""}
-                      {lead.leadAttribution?.lastTouch.source
-                        ? `${leadSourceName(lead.leadAttribution.lastTouch)} · `
-                        : ""}
-                      {new Date(lead.submittedAt).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </small>
+                  </button>
+                  <span className="lead-row-side">
+                    <span className="lead-status">{lead.status}</span>
+                    <button
+                      type="button"
+                      className={`row-junk-action ${isJunk ? "restore" : ""}`}
+                      aria-label={
+                        isJunk
+                          ? `Restore ${lead.name} to active leads`
+                          : `Move ${lead.name} to junk`
+                      }
+                      title={isJunk ? "Restore to Active" : "Move to Junk"}
+                      disabled={saving}
+                      onClick={() =>
+                        void patchLead(lead, {
+                          disposition: isJunk ? "Active" : "Junk",
+                        })
+                      }
+                    >
+                      {isJunk ? (
+                        <RotateCcw size={16} aria-hidden="true" />
+                      ) : (
+                        <Trash2 size={16} aria-hidden="true" />
+                      )}
+                    </button>
                   </span>
-                </button>
+                </div>
               );
             })}
           </section>

@@ -423,6 +423,27 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await expect(page.locator(".quote-row")).toContainText(
     "Jason’s garage quote",
   );
+  await page
+    .getByRole("button", { name: "Move Jason’s garage quote to junk" })
+    .click();
+  await expect(page.locator(".quote-row")).toHaveCount(0);
+  await page
+    .locator(".quote-filters")
+    .getByRole("button", { name: /^Junk/ })
+    .click();
+  await expect(page.locator(".quote-row")).toContainText(
+    "Jason’s garage quote",
+  );
+  await page
+    .getByRole("button", { name: "Restore Jason’s garage quote to quotes" })
+    .click();
+  await page
+    .locator(".quote-filters")
+    .getByRole("button", { name: /^All quotes/ })
+    .click();
+  await expect(page.locator(".quote-row")).toContainText(
+    "Jason’s garage quote",
+  );
 });
 
 test("per-unit quote rates calculate and persist the line total", async ({

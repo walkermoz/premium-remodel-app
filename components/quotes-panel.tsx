@@ -2,7 +2,6 @@
 import { useState } from "react";
 import {
   ArrowLeft,
-  ArrowUpRight,
   Check,
   Download,
   FileText,
@@ -12,6 +11,8 @@ import {
   Phone,
   Plus,
   FileUp,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 import {
   quoteStatuses,
@@ -47,6 +48,7 @@ export default function QuotesPanel({
   onNew,
   onOpen,
   onImport,
+  onSaveQuote,
   demo,
 }: {
   workspace: Workspace;
@@ -57,25 +59,38 @@ export default function QuotesPanel({
     quotes: ImportedQuote[],
     options: { combine: boolean; combinedName: string },
   ) => Promise<void>;
+  onSaveQuote: (
+    data: Record<string, unknown>,
+    quote: Quote,
+  ) => Promise<unknown>;
   demo: boolean;
 }) {
   const [filter, setFilter] = useState("All quotes");
   const [importOpen, setImportOpen] = useState(false);
+  const [savingId, setSavingId] = useState("");
+  const [actionError, setActionError] = useState("");
   const quotes = workspace.quotes || [];
+  const activeQuotes = quotes.filter((quote) => !quote.junkedAt);
   const visible = quotes
     .filter(
       (quote) =>
-        (filter === "All quotes" || quote.status === filter) &&
+        (filter === "Junk"
+          ? Boolean(quote.junkedAt)
+          : !quote.junkedAt &&
+            (filter === "All quotes" || quote.status === filter)) &&
         `${quote.name} ${quote.client} ${quote.address} ${quote.clientEmail || ""} ${quote.clientPhone || ""}`
           .toLowerCase()
           .includes(search.trim().toLowerCase()),
     )
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const sent = quotes.filter((quote) => quote.status === "Sent");
-  const sentCount = quotes.filter((quote) => Boolean(quote.quoteSentAt)).length;
+  const sent = activeQuotes.filter((quote) => quote.status === "Sent");
+  const sentCount = activeQuotes.filter((quote) =>
+    Boolean(quote.quoteSentAt),
+  ).length;
   const wonCount =
     workspace.projects.filter((project) => Boolean(project.quoteAcceptedAt))
-      .length + quotes.filter((quote) => quote.status === "Accepted").length;
+      .length +
+    activeQuotes.filter((quote) => quote.status === "Accepted").length;
   const closeRate =
     sentCount > 0 ? Math.round((wonCount / sentCount) * 1000) / 10 : 0;
   return (
@@ -138,7 +153,7 @@ export default function QuotesPanel({
         </article>
       </div>
       <div className="filter-tabs quote-filters" aria-label="Filter quotes">
-        {["All quotes", ...quoteStatuses].map((status) => (
+        {["All quotes", ...quoteStatuses, "Junk"].map((status) => (
           <button
             key={status}
             className={status === filter ? "active" : ""}
@@ -148,49 +163,94 @@ export default function QuotesPanel({
             {status}
             <span>
               {status === "All quotes"
-                ? quotes.length
-                : quotes.filter((quote) => quote.status === status).length}
+                ? activeQuotes.length
+                : status === "Junk"
+                  ? quotes.filter((quote) => Boolean(quote.junkedAt)).length
+                  : activeQuotes.filter((quote) => quote.status === status)
+                      .length}
             </span>
           </button>
         ))}
       </div>
       {visible.length ? (
         <div className="quote-list">
-          {visible.map((quote) => (
-            <button
-              className="quote-row"
-              key={quote.id}
-              onClick={() => onOpen(quote.id)}
-            >
-              <div className="quote-row-info">
-                <strong>{quote.name}</strong>
-                <span>{quote.client || "No client added"}</span>
-                <small>
-                  <MapPin size={12} />
-                  {quote.address || "No address added"}
-                </small>
-              </div>
-              <div className="quote-row-price">
-                <strong>
-                  {projectMoney(scopeTotal(workspace.scope, quote.id))}
-                </strong>
-                <span>Scope total</span>
-              </div>
-              <div className="quote-row-status">
-                <span
-                  className={`quote-status quote-status-${quote.status.toLowerCase()}`}
+          {visible.map((quote) => {
+            const isJunk = Boolean(quote.junkedAt);
+            return (
+              <div className="quote-row" key={quote.id}>
+                <button
+                  type="button"
+                  className="quote-row-open"
+                  onClick={() => onOpen(quote.id)}
                 >
-                  {quote.status}
-                </span>
-                <small>
-                  {quote.status === "Sent" && quote.quoteSentAt
-                    ? `Sent ${dateLabel(quote.quoteSentAt)}`
-                    : `Updated ${dateLabel(quote.updatedAt)}`}
-                </small>
+                  <div className="quote-row-info">
+                    <strong>{quote.name}</strong>
+                    <span>{quote.client || "No client added"}</span>
+                    <small>
+                      <MapPin size={12} />
+                      {quote.address || "No address added"}
+                    </small>
+                  </div>
+                  <div className="quote-row-price">
+                    <strong>
+                      {projectMoney(scopeTotal(workspace.scope, quote.id))}
+                    </strong>
+                    <span>Scope total</span>
+                  </div>
+                  <div className="quote-row-status">
+                    <span
+                      className={`quote-status quote-status-${quote.status.toLowerCase()}`}
+                    >
+                      {quote.status}
+                    </span>
+                    <small>
+                      {quote.status === "Sent" && quote.quoteSentAt
+                        ? `Sent ${dateLabel(quote.quoteSentAt)}`
+                        : `Updated ${dateLabel(quote.updatedAt)}`}
+                    </small>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`row-junk-action ${isJunk ? "restore" : ""}`}
+                  aria-label={
+                    isJunk
+                      ? `Restore ${quote.name} to quotes`
+                      : `Move ${quote.name} to junk`
+                  }
+                  title={isJunk ? "Restore to Quotes" : "Move to Junk"}
+                  disabled={savingId === quote.id}
+                  onClick={async () => {
+                    setSavingId(quote.id);
+                    setActionError("");
+                    try {
+                      await onSaveQuote(
+                        {
+                          ...quote,
+                          junkedAt: isJunk ? null : new Date().toISOString(),
+                        },
+                        quote,
+                      );
+                    } catch (error) {
+                      setActionError(
+                        error instanceof Error
+                          ? error.message
+                          : "Could not update this quote.",
+                      );
+                    } finally {
+                      setSavingId("");
+                    }
+                  }}
+                >
+                  {isJunk ? (
+                    <RotateCcw size={16} aria-hidden="true" />
+                  ) : (
+                    <Trash2 size={16} aria-hidden="true" />
+                  )}
+                </button>
               </div>
-              <ArrowUpRight size={18} />
-            </button>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <Empty
@@ -211,6 +271,11 @@ export default function QuotesPanel({
             </button>
           }
         />
+      )}
+      {actionError && (
+        <div className="alert quote-list-alert" role="alert">
+          {actionError}
+        </div>
       )}
       {importOpen && (
         <QuoteImportDialog

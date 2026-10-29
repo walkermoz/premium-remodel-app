@@ -138,6 +138,8 @@ export const quoteStatuses = [
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export interface Quote extends Omit<Project, "status"> {
   status: QuoteStatus;
+  /** Removed from the working quote pipeline without deleting its history. */
+  junkedAt?: string | null;
   /** Customer contact selected when the quote was prepared. */
   contactId?: string;
   /** Selected images shown to the customer in the quote and PDF. */

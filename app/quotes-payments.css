@@ -247,17 +247,26 @@
 .quote-row {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 125px 165px 18px;
+  grid-template-columns: minmax(0, 1fr) 42px;
   align-items: center;
-  gap: 22px;
-  padding: 22px;
-  text-align: left;
+  gap: 6px;
   background: transparent;
   color: var(--ink);
-  border: 0;
   border-bottom: 1px solid var(--line);
-  cursor: pointer;
   transition: background 0.15s ease;
+}
+.quote-row-open {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 125px 165px;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+  padding: 22px 8px 22px 22px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .quote-row:last-child {
   border-bottom: 0;
@@ -459,15 +468,16 @@
 }
 @media (max-width: 760px) {
   .quote-row {
+    grid-template-columns: minmax(0, 1fr) 38px;
+    gap: 4px;
+  }
+  .quote-row-open {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 18px 14px;
-    padding: 18px;
+    padding: 18px 6px 18px 18px;
   }
   .quote-row-price {
     align-items: flex-end;
-  }
-  .quote-row > svg {
-    justify-self: end;
   }
   .quote-row-status {
     flex-direction: row;
