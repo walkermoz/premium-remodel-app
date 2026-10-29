@@ -421,7 +421,7 @@ export default function MsaDraftPanel({
           {steps.map((step, index) => (
             <div className={styles.milestone} key={step.id}>
               <label>
-                Checkpoint {index + 1}
+                {index === 0 ? "Deposit" : `Checkpoint ${index}`}
                 <input
                   type="text"
                   maxLength={200}
@@ -457,7 +457,9 @@ export default function MsaDraftPanel({
               <button
                 type="button"
                 className={styles.remove}
-                aria-label={`Remove checkpoint ${index + 1}`}
+                aria-label={
+                  index === 0 ? "Remove deposit" : `Remove checkpoint ${index}`
+                }
                 disabled={steps.length === 1}
                 onClick={() => {
                   setSteps((current) =>
