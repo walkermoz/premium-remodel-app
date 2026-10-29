@@ -9775,6 +9775,10 @@ small {
   color: var(--theme-text-secondary, #698094);
   font-size: 11px;
 }
+.pricebook-category-field {
+  display: grid;
+  gap: 10px;
+}
 .pricebook-editor-body textarea {
   min-height: 72px;
   resize: vertical;
