@@ -143,6 +143,10 @@ function draftNumber(value: string) {
   return Number.isFinite(number) && number >= 0 ? number : 0;
 }
 
+function blankZeroCost(value: string) {
+  return value.trim() && Number(value) === 0 ? "" : value;
+}
+
 function draftValuesForMath(draft: ScopeDraft) {
   return {
     title: draft.title,
@@ -2321,7 +2325,7 @@ function QuoteCostGroup({
             min="0"
             max="1000000000"
             step={unit === "job" ? "0.01" : "any"}
-            value={unit === "job" ? total : rate}
+            value={blankZeroCost(unit === "job" ? total : rate)}
             disabled={disabled}
             onChange={(event) => {
               const nextRate = event.target.value;
@@ -2506,7 +2510,7 @@ function CostCell({
               min="0"
               max="1000000000"
               step={unit === "job" ? "0.01" : "any"}
-              value={unit === "job" ? total : rate}
+              value={blankZeroCost(unit === "job" ? total : rate)}
               disabled={disabled}
               onChange={(event) => {
                 const nextRate = event.target.value;

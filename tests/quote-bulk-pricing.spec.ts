@@ -53,6 +53,12 @@ test("select all applies cost-based pricing and saves quote prices", async ({
       "Material cost",
       "Customer price",
     ]);
+    await expect(
+      row.getByLabel("Subcontractor cost: Total cost for new work item"),
+    ).toHaveValue("");
+    await expect(
+      row.getByLabel("Material cost: Total cost for new work item"),
+    ).toHaveValue("");
     await row
       .getByRole("textbox", { name: "New work item", exact: true })
       .fill(title);
