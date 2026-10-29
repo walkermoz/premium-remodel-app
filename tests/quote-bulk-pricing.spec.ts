@@ -93,3 +93,68 @@ test("select all applies cost-based pricing and saves quote prices", async ({
   await expect(summaries.nth(0)).toContainText("$255");
   await expect(summaries.nth(1)).toContainText("$90");
 });
+
+test("day and hour expense rates feed cost-based quote pricing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1400 });
+  await page.goto("/demo?view=Quotes");
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const quote = page.getByRole("dialog", { name: "New quote" });
+  await quote.getByLabel("Quote name").fill("Time-based expense example");
+  await quote.getByLabel("Client name").fill("Test Customer");
+  await quote.getByRole("button", { name: "Create quote" }).click();
+
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const row = page.locator(".scope-new-row");
+  await row
+    .getByRole("textbox", { name: "New work item", exact: true })
+    .fill("Site supervision");
+  await row
+    .getByLabel("Subcontractor cost basis for Site supervision")
+    .selectOption("days");
+  await row
+    .getByLabel("Total days for subcontractor cost of Site supervision")
+    .fill("2");
+  await row
+    .getByLabel("Subcontractor cost: Cost per day for Site supervision")
+    .fill("200");
+  await row
+    .getByLabel("Material cost basis for Site supervision")
+    .selectOption("hours");
+  await row
+    .getByLabel("Total hours for material cost of Site supervision")
+    .fill("4");
+  await row
+    .getByLabel("Material cost: Cost per hour for Site supervision")
+    .fill("25");
+  await row.getByLabel("Unit for Site supervision").selectOption("days");
+  await row.getByLabel("Total days for Site supervision").fill("2");
+  await row.getByLabel("Price per day for Site supervision").fill("450");
+  await row.getByRole("button", { name: "Save Site supervision" }).click();
+
+  await page.getByRole("checkbox", { name: "Select Site supervision" }).check();
+  await expect(page.getByText("Selected items price: $790")).toBeVisible();
+  await page.getByRole("button", { name: "Apply pricing" }).click();
+  await expect(page.locator(".scope-summary-row").first()).toContainText(
+    "$790",
+  );
+
+  await page.reload();
+  await expect(page.locator(".scope-summary-row").first()).toContainText(
+    "$790",
+  );
+  await page.getByRole("button", { name: "Edit Site supervision" }).click();
+  await expect(page.getByLabel("Total days for Site supervision")).toHaveValue(
+    "2",
+  );
+  await expect(
+    page.getByLabel("Price per day for Site supervision"),
+  ).toHaveValue("395");
+  await expect(
+    page.getByLabel("Total days for subcontractor cost of Site supervision"),
+  ).toHaveValue("2");
+  await expect(
+    page.getByLabel("Total hours for material cost of Site supervision"),
+  ).toHaveValue("4");
+});

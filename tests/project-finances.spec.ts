@@ -535,6 +535,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
     ["linear ft", "Cost per linear ft"],
     ["each", "Cost per item"],
     ["hours", "Cost per hour"],
+    ["days", "Cost per day"],
     ["job", "Total cost"],
     ["sq ft", "Cost per sq ft"],
   ] as const) {

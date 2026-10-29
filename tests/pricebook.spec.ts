@@ -6,6 +6,7 @@ import {
   type PricebookItem,
 } from "../lib/pricebook";
 import { schemas } from "../lib/schemas";
+import { costRateLabel, quantityLabel, rateLabel } from "../lib/scope-pricing";
 
 const item: PricebookItem = {
   id: "c64abf34-46e8-49c7-a3f1-0fa642e7b6de",
@@ -95,4 +96,41 @@ test("a tile item asks for a contractor and snapshots the selected per-square-fo
   });
   expect(first.estimate - first.subCost - first.materialCost).toBe(2000);
   expect(second.estimate - second.subCost - second.materialCost).toBe(1500);
+});
+
+test("daily price-book rates calculate quote prices and costs", () => {
+  const daily = {
+    ...item,
+    unit: "days" as const,
+    customerRateCents: 30000,
+    subUnit: "days" as const,
+    subRateCents: 20000,
+    materialUnit: "days" as const,
+    materialRateCents: 1000,
+  };
+  expect(quantityLabel("days")).toBe("Total days");
+  expect(rateLabel("days")).toBe("Price per day");
+  expect(costRateLabel("days")).toBe("Cost per day");
+  expect(quantityLabel("hours")).toBe("Total hours");
+  expect(costRateLabel("hours")).toBe("Cost per hour");
+  const line = pricebookScopeValues(daily, 2.5);
+  expect(line).toMatchObject({
+    quantity: 2.5,
+    unit: "days",
+    estimate: 750,
+    subCost: 500,
+    subCostUnit: "days",
+    subCostQuantity: 2.5,
+    materialCost: 25,
+    materialCostUnit: "days",
+    materialCostQuantity: 2.5,
+  });
+  expect(
+    schemas.scope.parse({
+      projectId: "quote-1",
+      ...line,
+      contractorId: "",
+      status: "To do",
+    }),
+  ).toMatchObject(line);
 });

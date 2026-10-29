@@ -6,6 +6,7 @@ export const pricebookUnit = z.enum([
   "linear ft",
   "each",
   "hours",
+  "days",
 ]);
 export const contractorPricebookRate = z.object({
   contractorId: z.uuid(),

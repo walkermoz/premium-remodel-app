@@ -358,12 +358,12 @@ export const schemas = {
     estimate: amount,
     subCost: amount,
     subCostUnit: z
-      .enum(["job", "sq ft", "linear ft", "each", "hours"])
+      .enum(["job", "sq ft", "linear ft", "each", "hours", "days"])
       .optional(),
     subCostQuantity: z.number().min(0).max(1_000_000_000).optional(),
     materialCost: amount.default(0),
     materialCostUnit: z
-      .enum(["job", "sq ft", "linear ft", "each", "hours"])
+      .enum(["job", "sq ft", "linear ft", "each", "hours", "days"])
       .optional(),
     materialCostQuantity: z.number().min(0).max(1_000_000_000).optional(),
     pricebookItemId: z.uuid().optional(),
