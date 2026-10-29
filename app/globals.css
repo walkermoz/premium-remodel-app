@@ -3521,6 +3521,61 @@ small {
   opacity: 0.55;
   text-decoration: none;
 }
+.scope-price-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.scope-automatic-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 36px;
+  color: var(--ink);
+}
+.scope-automatic-price strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.scope-automatic-price small {
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 10px;
+}
+.scope-manual-price {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 36px;
+}
+.scope-manual-price strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.scope-manual-price small {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 700;
+}
+.scope-customer-price-override {
+  position: relative;
+  max-width: 520px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--blue) 4%, var(--surface));
+}
+.scope-price-override-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .scope-inspector-basis-row {
   display: grid;
   grid-template-columns: minmax(72px, 0.8fr) minmax(108px, 1.2fr);
