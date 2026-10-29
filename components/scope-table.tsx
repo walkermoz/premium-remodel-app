@@ -1829,6 +1829,41 @@ function CompactQuoteEditor({
   const itemName = draft.title || "new work item";
   const totalCosts =
     draftNumber(draft.subCost) + draftNumber(draft.materialCost);
+  const automaticCustomerPrice = calculatedQuotePrice(
+    {
+      subCost: draftNumber(draft.subCost),
+      materialCost: draftNumber(draft.materialCost),
+    },
+    DEFAULT_SUB_MULTIPLIER,
+    DEFAULT_MATERIAL_MULTIPLIER,
+  );
+  const [customerPriceOverride, setCustomerPriceOverride] = useState(
+    () =>
+      !showInternalCosts ||
+      Math.abs(draftNumber(draft.estimate) - automaticCustomerPrice) >= 0.005,
+  );
+  const [customerPriceEditorOpen, setCustomerPriceEditorOpen] = useState(
+    () => !showInternalCosts,
+  );
+
+  function automaticPricePatch(
+    subCost: string,
+    materialCost: string,
+    quantity = draft.quantity,
+  ): Partial<ScopeDraft> {
+    const estimate = calculatedQuotePrice(
+      {
+        subCost: draftNumber(subCost),
+        materialCost: draftNumber(materialCost),
+      },
+      DEFAULT_SUB_MULTIPLIER,
+      DEFAULT_MATERIAL_MULTIPLIER,
+    );
+    return {
+      estimate: String(estimate),
+      rate: String(rateFromTotal(estimate, draftNumber(quantity))),
+    };
+  }
 
   return (
     <tr
@@ -1961,6 +1996,9 @@ function CompactQuoteEditor({
                       subCostQuantity: cost.quantity,
                       subCostRate: cost.rate,
                       subCost: cost.total,
+                      ...(!customerPriceOverride
+                        ? automaticPricePatch(cost.total, draft.materialCost)
+                        : {}),
                     })
                   }
                 />
@@ -1981,120 +2019,173 @@ function CompactQuoteEditor({
                       materialCostQuantity: cost.quantity,
                       materialCostRate: cost.rate,
                       materialCost: cost.total,
+                      ...(!customerPriceOverride
+                        ? automaticPricePatch(draft.subCost, cost.total)
+                        : {}),
                     })
                   }
                 />
-                <div className="scope-inspector-price-group scope-inspector-customer-price">
+                <div
+                  className={`scope-inspector-price-group scope-inspector-customer-price${customerPriceOverride ? " is-override" : " is-automatic"}`}
+                >
                   <div className="scope-inspector-group-heading">
                     <span className="scope-inspector-group-title">
                       Customer price
                     </span>
                     {showInternalCosts && (
-                      <button
-                        type="button"
-                        className="scope-apply-default-pricing"
-                        disabled={saving}
-                        title={`Sub costs × ${DEFAULT_SUB_MULTIPLIER} + material costs × ${DEFAULT_MATERIAL_MULTIPLIER}`}
-                        aria-label={`Apply default pricing for ${itemName}`}
-                        onClick={() => {
-                          const estimate = calculatedQuotePrice(
-                            {
-                              subCost: draftNumber(draft.subCost),
-                              materialCost: draftNumber(draft.materialCost),
-                            },
-                            DEFAULT_SUB_MULTIPLIER,
-                            DEFAULT_MATERIAL_MULTIPLIER,
-                          );
-                          onChange({
-                            estimate: String(estimate),
-                            rate: String(
-                              rateFromTotal(
-                                estimate,
-                                draftNumber(draft.quantity),
-                              ),
-                            ),
-                          });
-                        }}
-                      >
-                        Apply default
-                      </button>
+                      <span className="scope-price-actions">
+                        {customerPriceOverride && (
+                          <button
+                            type="button"
+                            className="scope-apply-default-pricing"
+                            disabled={saving}
+                            aria-expanded={customerPriceEditorOpen}
+                            aria-label={`${customerPriceEditorOpen ? "Hide" : "Edit"} customer price override for ${itemName}`}
+                            onClick={() =>
+                              setCustomerPriceEditorOpen((open) => !open)
+                            }
+                          >
+                            {customerPriceEditorOpen
+                              ? "Hide price editor"
+                              : "Edit override"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="scope-apply-default-pricing"
+                          disabled={saving}
+                          aria-expanded={customerPriceEditorOpen}
+                          aria-label={
+                            customerPriceOverride
+                              ? `Use automatic pricing for ${itemName}`
+                              : `Override customer price for ${itemName}`
+                          }
+                          onClick={() => {
+                            if (customerPriceOverride) {
+                              onChange(
+                                automaticPricePatch(
+                                  draft.subCost,
+                                  draft.materialCost,
+                                ),
+                              );
+                              setCustomerPriceOverride(false);
+                              setCustomerPriceEditorOpen(false);
+                            } else {
+                              setCustomerPriceOverride(true);
+                              setCustomerPriceEditorOpen(true);
+                            }
+                          }}
+                        >
+                          {customerPriceOverride
+                            ? "Use automatic pricing"
+                            : "Override price"}
+                        </button>
+                      </span>
                     )}
                   </div>
-                  <div className="scope-inspector-basis-row">
-                    <label>
-                      <span>{quantityLabel(draft.unit)}</span>
-                      <input
-                        className="scope-cell-input scope-number-input"
-                        aria-label={`${quantityLabel(draft.unit)} for ${itemName}`}
-                        type="number"
-                        min="0"
-                        max="1000000000"
-                        step={
-                          draft.unit === "job" || draft.unit === "each"
-                            ? "1"
-                            : "0.01"
-                        }
-                        value={draft.quantity}
-                        disabled={saving}
-                        onChange={(event) => {
-                          const quantity = event.target.value;
-                          onChange({
-                            quantity,
-                            estimate: String(
-                              lineTotal(Number(quantity), Number(draft.rate)),
-                            ),
-                          });
-                        }}
-                      />
-                    </label>
-                    <label>
-                      <span>Price by</span>
-                      <select
-                        className="scope-cell-select"
-                        aria-label={`Unit for ${itemName}`}
-                        value={draft.unit}
-                        disabled={saving}
-                        onChange={(event) =>
-                          onChange({
-                            unit: event.target.value,
-                            quantity: "1",
-                            rate: draft.estimate,
-                          })
-                        }
-                      >
-                        {salePricingBases.map((unit) => (
-                          <option key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <label className="scope-inspector-rate">
-                    <span>{rateLabel(draft.unit)}</span>
-                    <span className="scope-pricing-rate">
-                      <span aria-hidden="true">$</span>
-                      <input
-                        className="scope-cell-input scope-money-input"
-                        aria-label={`${rateLabel(draft.unit)} for ${itemName}`}
-                        type="number"
-                        min="0"
-                        max="1000000000"
-                        step="any"
-                        value={draft.rate}
-                        disabled={saving}
-                        onChange={(event) => {
-                          const rate = event.target.value;
-                          onChange({
-                            rate,
-                            estimate: String(
-                              lineTotal(Number(draft.quantity), Number(rate)),
-                            ),
-                          });
-                        }}
-                      />
-                    </span>
-                  </label>
+                  {!customerPriceOverride ? (
+                    <div className="scope-automatic-price">
+                      <strong>{money(automaticCustomerPrice)}</strong>
+                      <small>
+                        Automatically calculated: sub × {DEFAULT_SUB_MULTIPLIER}{" "}
+                        + materials × {DEFAULT_MATERIAL_MULTIPLIER}
+                      </small>
+                    </div>
+                  ) : !customerPriceEditorOpen ? (
+                    <div className="scope-manual-price">
+                      <strong>{money(draftNumber(draft.estimate))}</strong>
+                      <small>Manual override</small>
+                    </div>
+                  ) : (
+                    <div className="scope-customer-price-override">
+                      {showInternalCosts && (
+                        <span className="scope-price-override-badge">
+                          Manual override
+                        </span>
+                      )}
+                      <div className="scope-inspector-basis-row">
+                        <label>
+                          <span>{quantityLabel(draft.unit)}</span>
+                          <input
+                            className="scope-cell-input scope-number-input"
+                            aria-label={`${quantityLabel(draft.unit)} for ${itemName}`}
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step={
+                              draft.unit === "job" || draft.unit === "each"
+                                ? "1"
+                                : "0.01"
+                            }
+                            value={draft.quantity}
+                            disabled={saving}
+                            onChange={(event) => {
+                              const quantity = event.target.value;
+                              onChange({
+                                quantity,
+                                estimate: String(
+                                  lineTotal(
+                                    Number(quantity),
+                                    Number(draft.rate),
+                                  ),
+                                ),
+                              });
+                            }}
+                          />
+                        </label>
+                        <label>
+                          <span>Price by</span>
+                          <select
+                            className="scope-cell-select"
+                            aria-label={`Unit for ${itemName}`}
+                            value={draft.unit}
+                            disabled={saving}
+                            onChange={(event) =>
+                              onChange({
+                                unit: event.target.value,
+                                quantity: "1",
+                                rate: draft.estimate,
+                              })
+                            }
+                          >
+                            {salePricingBases.map((unit) => (
+                              <option key={unit.value} value={unit.value}>
+                                {unit.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="scope-inspector-rate">
+                        <span>{rateLabel(draft.unit)}</span>
+                        <span className="scope-pricing-rate">
+                          <span aria-hidden="true">$</span>
+                          <input
+                            className="scope-cell-input scope-money-input"
+                            aria-label={`${rateLabel(draft.unit)} for ${itemName}`}
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="any"
+                            value={draft.rate}
+                            disabled={saving}
+                            onChange={(event) => {
+                              const rate = event.target.value;
+                              onChange({
+                                rate,
+                                estimate: String(
+                                  lineTotal(
+                                    Number(draft.quantity),
+                                    Number(rate),
+                                  ),
+                                ),
+                              });
+                            }}
+                          />
+                        </span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

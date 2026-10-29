@@ -130,16 +130,27 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
   await row
     .getByLabel("Material cost: Cost per hour for Site supervision")
     .fill("25");
+  await row
+    .getByRole("button", {
+      name: "Override customer price for Site supervision",
+    })
+    .click();
   await row.getByLabel("Unit for Site supervision").selectOption("days");
   await row.getByLabel("Total days for Site supervision").fill("2");
   await row
     .getByRole("button", {
-      name: "Apply default pricing for Site supervision",
+      name: "Use automatic pricing for Site supervision",
     })
     .click();
   await expect(
+    row.getByRole("button", {
+      name: "Override customer price for Site supervision",
+    }),
+  ).toBeVisible();
+  await expect(
     row.getByLabel("Price per day for Site supervision"),
-  ).toHaveValue("395");
+  ).toHaveCount(0);
+  await expect(row.locator(".scope-automatic-price")).toContainText("$790");
   await expect(row.getByText("Quote price").locator("..")).toContainText(
     "$790",
   );
@@ -157,16 +168,99 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
     "$790",
   );
   await page.getByRole("button", { name: "Edit Site supervision" }).click();
-  await expect(page.getByLabel("Total days for Site supervision")).toHaveValue(
-    "2",
-  );
+  await expect(page.locator(".scope-automatic-price")).toContainText("$790");
   await expect(
     page.getByLabel("Price per day for Site supervision"),
-  ).toHaveValue("395");
+  ).toHaveCount(0);
   await expect(
     page.getByLabel("Total days for subcontractor cost of Site supervision"),
   ).toHaveValue("2");
   await expect(
     page.getByLabel("Total hours for material cost of Site supervision"),
   ).toHaveValue("4");
+  await page
+    .getByRole("button", {
+      name: "Override customer price for Site supervision",
+    })
+    .click();
+  await expect(page.getByLabel("Total days for Site supervision")).toHaveValue(
+    "2",
+  );
+  await expect(
+    page.getByLabel("Price per day for Site supervision"),
+  ).toHaveValue("395");
+});
+
+test("a customer price override stays fixed until automatic pricing is restored", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1400 });
+  await page.goto("/demo?view=Quotes");
+  await page.getByRole("button", { name: "New quote" }).first().click();
+  const quote = page.getByRole("dialog", { name: "New quote" });
+  await quote.getByLabel("Quote name").fill("Customer price override example");
+  await quote.getByLabel("Customer name").fill("Test Customer");
+  await quote.getByLabel("Email").fill("override@example.com");
+  await quote.getByRole("button", { name: "Create quote" }).click();
+
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
+  let row = page.locator(".scope-new-row");
+  await row
+    .getByRole("textbox", { name: "New work item", exact: true })
+    .fill("Override pricing");
+  await row
+    .getByLabel("Subcontractor cost: Total cost for Override pricing")
+    .fill("100");
+  await row
+    .getByLabel("Material cost: Total cost for Override pricing")
+    .fill("50");
+  await expect(row.locator(".scope-automatic-price")).toContainText("$225");
+  await expect(
+    row.getByLabel("Price per job for Override pricing"),
+  ).toHaveCount(0);
+
+  await row
+    .getByRole("button", {
+      name: "Override customer price for Override pricing",
+    })
+    .click();
+  await row.getByLabel("Price per job for Override pricing").fill("300");
+  await row
+    .getByLabel("Subcontractor cost: Total cost for Override pricing")
+    .fill("200");
+  await expect(row.getByText("Quote price").locator("..")).toContainText(
+    "$300",
+  );
+  await row.getByRole("button", { name: "Save Override pricing" }).click();
+
+  await page.reload();
+  await page.getByRole("button", { name: "Edit Override pricing" }).click();
+  row = page.locator(".scope-inspector-row");
+  await expect(row.locator(".scope-manual-price")).toContainText("$300");
+  await expect(
+    row.getByLabel("Price per job for Override pricing"),
+  ).toHaveCount(0);
+  await row
+    .getByRole("button", {
+      name: "Edit customer price override for Override pricing",
+    })
+    .click();
+  await expect(
+    row.getByLabel("Price per job for Override pricing"),
+  ).toHaveValue("300");
+  await row
+    .getByRole("button", {
+      name: "Use automatic pricing for Override pricing",
+    })
+    .click();
+  await expect(row.locator(".scope-automatic-price")).toContainText("$395");
+  await expect(row.getByText("Quote price").locator("..")).toContainText(
+    "$395",
+  );
+  await row.getByRole("button", { name: "Save Override pricing" }).click();
+
+  await page.reload();
+  await expect(page.locator(".scope-summary-row").first()).toContainText(
+    "$395",
+  );
 });
