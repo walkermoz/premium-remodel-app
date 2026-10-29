@@ -820,7 +820,7 @@ export default function ScopeTable({
                 />
               </label>
               <span className="scope-bulk-preview">
-                New quote total:{" "}
+                Selected items price:{" "}
                 <strong>
                   {multipliersValid ? money(selectedPricingTotal) : "—"}
                 </strong>

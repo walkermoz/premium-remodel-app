@@ -74,7 +74,7 @@ test("select all applies cost-based pricing and saves quote prices", async ({
   });
   await selectAll.check();
   await expect(page.getByText("2 selected")).toBeVisible();
-  await expect(page.getByText("New quote total: $315")).toBeVisible();
+  await expect(page.getByText("Selected items price: $315")).toBeVisible();
   await page.getByRole("button", { name: "Apply pricing" }).click();
   await expect(selectAll).not.toBeChecked();
   const summaries = page.locator(".scope-summary-row");
@@ -88,6 +88,7 @@ test("select all applies cost-based pricing and saves quote prices", async ({
   await page
     .getByRole("spinbutton", { name: "Subcontractor cost multiplier" })
     .fill("2");
+  await expect(page.getByText("Selected items price: $255")).toBeVisible();
   await page.getByRole("button", { name: "Apply pricing" }).click();
   await expect(summaries.nth(0)).toContainText("$255");
   await expect(summaries.nth(1)).toContainText("$90");
