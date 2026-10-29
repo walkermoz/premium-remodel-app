@@ -27,7 +27,7 @@ type Draft = {
 const blank: Draft = {
   name: "",
   description: "",
-  category: "",
+  category: "General",
   unit: "job",
   customerRate: "0",
   subUnit: "job",
@@ -51,7 +51,7 @@ function fromItem(item: PricebookItem): Draft {
   return {
     name: item.name,
     description: item.description,
-    category: item.category,
+    category: item.category || "General",
     unit: item.unit,
     customerRate: String(item.customerRateCents / 100),
     subUnit: item.subUnit,
@@ -81,6 +81,7 @@ export default function PricebookPanel({
   const [selectedId, setSelectedId] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(blank);
+  const [addingCategory, setAddingCategory] = useState(false);
   const [editing, setEditing] = useState<PricebookItem | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -111,6 +112,13 @@ export default function PricebookPanel({
     () => ["All", ...new Set(items.map((item) => item.category || "General"))],
     [items],
   );
+  const editorCategories = useMemo(
+    () =>
+      [...new Set(["General", ...categories.slice(1)])].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [categories],
+  );
   const filtered = items.filter(
     (item) =>
       (category === "All" || (item.category || "General") === category) &&
@@ -121,12 +129,14 @@ export default function PricebookPanel({
   function openNew() {
     setEditing(null);
     setDraft(blank);
+    setAddingCategory(false);
     setError("");
     setEditorOpen(true);
   }
   function openEdit(item: PricebookItem) {
     setEditing(item);
     setDraft(fromItem(item));
+    setAddingCategory(false);
     setError("");
     setEditorOpen(true);
   }
@@ -176,10 +186,16 @@ export default function PricebookPanel({
     setError("");
     setMessage("");
     try {
+      const categoryName = draft.category.trim();
+      if (!categoryName) throw new Error("Enter a category.");
       const payload = {
         name: draft.name.trim(),
         description: draft.description.trim(),
-        category: draft.category.trim(),
+        category:
+          editorCategories.find(
+            (existing) =>
+              existing.toLocaleLowerCase() === categoryName.toLocaleLowerCase(),
+          ) || categoryName,
         unit: draft.unit,
         customerRateCents: cents(draft.customerRate),
         subUnit: draft.subUnit,
@@ -230,6 +246,7 @@ export default function PricebookPanel({
       setSearch("");
       setSelectedId(body.id);
       setDraft(blank);
+      setAddingCategory(false);
       setEditing(null);
       setEditorOpen(false);
       setMessage("Price-book item saved.");
@@ -472,7 +489,48 @@ export default function PricebookPanel({
               )}
               <div className="form-grid">
                 {field("name", "Work item")}
-                {field("category", "Category")}
+                <div className="pricebook-category-field">
+                  <label>
+                    Category
+                    <select
+                      aria-label="Category"
+                      value={addingCategory ? "__add_new__" : draft.category}
+                      onChange={(event) => {
+                        const isNew = event.target.value === "__add_new__";
+                        setAddingCategory(isNew);
+                        setDraft((current) => ({
+                          ...current,
+                          category: isNew ? "" : event.target.value,
+                        }));
+                      }}
+                    >
+                      {editorCategories.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                      <option value="__add_new__">Add new category…</option>
+                    </select>
+                  </label>
+                  {addingCategory && (
+                    <label>
+                      New category
+                      <input
+                        aria-label="New category"
+                        autoFocus
+                        maxLength={100}
+                        value={draft.category}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            category: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
               <label>
                 Default scope description

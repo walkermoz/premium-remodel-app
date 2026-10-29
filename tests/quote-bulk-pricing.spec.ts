@@ -45,7 +45,7 @@ test("select all applies cost-based pricing and saves quote prices", async ({
     ["Tile work", "100", "50"],
     ["Fixtures", "40", "20"],
   ]) {
-    await page.getByRole("button", { name: "Add row", exact: true }).click();
+    await page.getByRole("button", { name: "Add Custom", exact: true }).click();
     const row = page.locator(".scope-new-row");
     await expect(row.locator(".scope-inspector-group-title")).toHaveText([
       "Sub cost",
@@ -105,7 +105,7 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
   await quote.getByLabel("Client name").fill("Test Customer");
   await quote.getByRole("button", { name: "Create quote" }).click();
 
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
   await row
     .getByRole("textbox", { name: "New work item", exact: true })

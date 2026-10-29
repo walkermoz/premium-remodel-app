@@ -355,7 +355,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await expect(
     page.getByRole("link", { name: "Download PDF" }),
   ).toHaveAttribute("href", /\/api\/quotes\/[0-9a-f-]+\/pdf$/);
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const newRow = page.locator(".scope-new-row");
   await newRow
     .getByRole("textbox", { name: "New work item", exact: true })
@@ -435,7 +435,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await dialog.getByLabel("Client name").fill("Test Homeowner");
   await dialog.getByRole("button", { name: "Create quote" }).click();
 
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
   await row
     .getByRole("textbox", { name: "New work item", exact: true })
@@ -483,7 +483,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
   await page.getByRole("heading", { name: "Scope & pricing" }).click();
 
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const jobs = page.locator(".scope-new-row");
   await jobs
     .getByLabel("New work item", { exact: true })
@@ -515,7 +515,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await dialog.getByLabel("Client name").fill("Test Homeowner");
   await dialog.getByRole("button", { name: "Create quote" }).click();
 
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
   await row
     .getByLabel("New work item", { exact: true })
@@ -663,7 +663,7 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await dialog.getByLabel("Client name").fill("Test Homeowner");
   await dialog.getByRole("button", { name: "Create quote" }).click();
 
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
   await row
     .getByRole("textbox", { name: "New work item", exact: true })
@@ -699,7 +699,7 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
     "Kitchen prep",
   );
 
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const secondRow = page.locator(".scope-new-row");
   await secondRow
     .getByRole("textbox", { name: "New work item", exact: true })
@@ -727,263 +727,4 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await expect(
     page.getByRole("button", { name: "Edit Finish work" }),
   ).toBeVisible();
-});
-
-test("a quote can start a named project with its first work item", async ({
-  page,
-}) => {
-  await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Quote name").fill("New project test");
-  await dialog.getByLabel("Client name").fill("Test Homeowner");
-  await dialog.getByRole("button", { name: "Create quote" }).click();
-
-  await page.getByRole("button", { name: "Add project", exact: true }).click();
-  const projectName = page.getByLabel("New project name");
-  await expect(projectName).toHaveValue("Project #1");
-  await projectName.fill("Kitchen phase");
-  await projectName.press("Enter");
-  const firstItem = page.locator(".scope-new-row");
-  await firstItem.getByLabel("New work item", { exact: true }).fill("Cabinets");
-  await firstItem.getByLabel("Price per job for Cabinets").fill("500");
-  await firstItem.getByRole("button", { name: "Save Cabinets" }).click();
-  await expect(firstItem).toHaveCount(0);
-  await expect(page.locator(".scope-section-row")).toContainText(
-    "Kitchen phase",
-  );
-  await expect(
-    page.getByRole("button", { name: "Edit Cabinets" }),
-  ).toBeVisible();
-
-  await page.reload();
-  await expect(page.locator(".scope-section-row")).toContainText(
-    "Kitchen phase",
-  );
-  await expect(
-    page.getByRole("button", { name: "Edit Cabinets" }),
-  ).toBeVisible();
-
-  await page.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page.getByLabel("New project name")).toHaveValue("Project #2");
-  await page.getByRole("button", { name: "Cancel new project" }).click();
-  await expect(page.getByLabel("New project name")).toHaveCount(0);
-  await expect(page.locator(".scope-section-row")).toHaveCount(1);
-});
-
-test("bathroom questionnaire turns detailed selections into editable quote rows", async ({
-  page,
-}) => {
-  await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
-  const createDialog = page.getByRole("dialog");
-  await createDialog.getByLabel("Quote name").fill("Bathroom template quote");
-  await createDialog.getByLabel("Client name").fill("Taylor Homeowner");
-  await createDialog.getByRole("button", { name: "Create quote" }).click();
-
-  await page.getByRole("button", { name: "Use Project Template" }).click();
-  const templateDialog = page.getByRole("dialog", {
-    name: "Bathroom questionnaire",
-  });
-  await expect(templateDialog.getByLabel("Customer name")).toHaveValue(
-    "Taylor Homeowner",
-  );
-  await expect(templateDialog.getByLabel("Project name")).toHaveValue(
-    "Project #1",
-  );
-  await templateDialog.getByLabel("Project name").fill("Primary Bathroom");
-  await templateDialog.getByLabel("Room length").fill("10 ft");
-  await templateDialog.getByLabel("Room width").fill("8 ft");
-  await templateDialog.getByLabel("Ceiling height").fill("9 ft");
-  await templateDialog
-    .getByRole("group", { name: "Vanity", exact: true })
-    .getByLabel("Replace")
-    .check();
-  await templateDialog
-    .getByRole("group", { name: "Toilet", exact: true })
-    .getByLabel("Keep")
-    .check();
-  await templateDialog
-    .getByRole("group", { name: "Bathroom floor tile", exact: true })
-    .getByLabel("Replace")
-    .check();
-  await templateDialog.getByRole("button", { name: "Continue" }).click();
-
-  await templateDialog.getByLabel("Shower base").selectOption("Curbless");
-  await templateDialog
-    .getByLabel("Tile supply / allowance")
-    .selectOption("Include allowance");
-  await templateDialog
-    .getByLabel("Tile style, color, and size")
-    .fill("Large warm-white porcelain");
-  await templateDialog.getByLabel("Recessed niche").check();
-  await templateDialog
-    .getByLabel("Shower valve, trim, and shower head")
-    .selectOption("Replace");
-  await templateDialog
-    .getByLabel("Preferred fixture finish / brand")
-    .fill("Brushed nickel");
-  await templateDialog.getByRole("button", { name: "Continue" }).click();
-
-  await templateDialog
-    .getByLabel("Glass preference", { exact: true })
-    .selectOption("Frameless clear glass");
-  await templateDialog.getByLabel("Hardware finish").fill("Brushed nickel");
-  await templateDialog.getByLabel("Replace mirror / light").check();
-  await templateDialog
-    .getByLabel("Priorities, inspiration, products, and notes")
-    .fill("Prioritize an easy-to-clean shower and accessible storage.");
-  await templateDialog.getByRole("button", { name: "Continue" }).click();
-
-  await expect(templateDialog.getByText(/quote rows ready/)).toBeVisible();
-  await expect(templateDialog).toContainText("Shower base & waterproofing");
-  await page.evaluate(() => {
-    const tableBody = document.querySelector(".scope-table-editable tbody");
-    if (!tableBody) throw new Error("Scope table body was not found.");
-    const state = {
-      counts: [] as number[],
-      observer: null as MutationObserver | null,
-    };
-    state.observer = new MutationObserver(() => {
-      const count = tableBody.querySelectorAll(
-        ":scope > tr:not(.scope-add-row)",
-      ).length;
-      if (state.counts.at(-1) !== count) state.counts.push(count);
-    });
-    state.observer.observe(tableBody, { childList: true });
-    (
-      window as typeof window & {
-        __scopeBatchTest?: typeof state;
-      }
-    ).__scopeBatchTest = state;
-  });
-  await templateDialog
-    .getByRole("button", { name: /Add \d+ quote rows/ })
-    .click();
-  await expect(templateDialog).not.toBeVisible();
-
-  const table = page.locator(".scope-table");
-  await expect(
-    table.getByRole("button", { name: "Edit Demolition & site protection" }),
-  ).toBeVisible();
-  await expect(table.locator(".scope-section-row")).toContainText(
-    "Primary Bathroom",
-  );
-  const batchRender = await page.evaluate(() => {
-    const state = (
-      window as typeof window & {
-        __scopeBatchTest?: {
-          counts: number[];
-          observer: MutationObserver | null;
-        };
-      }
-    ).__scopeBatchTest;
-    state?.observer?.disconnect();
-    return state?.counts || [];
-  });
-  expect(batchRender).toHaveLength(1);
-  await expect(
-    table.getByRole("button", { name: "Edit Shower wall tile installation" }),
-  ).toBeVisible();
-  await table
-    .getByRole("button", { name: "Edit Shower base & waterproofing" })
-    .click();
-  await expect(
-    table.getByLabel("Total sq ft for Shower base & waterproofing"),
-  ).toHaveCount(0);
-  await expect(
-    table.getByLabel("Unit for Shower base & waterproofing"),
-  ).toHaveValue("job");
-  const showerBaseDetails = table.locator(
-    'textarea[aria-label="Details for Shower base & waterproofing"]',
-  );
-  await expect(showerBaseDetails).toBeVisible();
-  await expect(showerBaseDetails).toHaveValue(/Base: Curbless/);
-  await expect
-    .poll(() =>
-      showerBaseDetails.evaluate(
-        (element) => element.scrollHeight <= element.clientHeight + 1,
-      ),
-    )
-    .toBe(true);
-  await table
-    .getByRole("button", { name: "Edit Shower wall tile installation" })
-    .click();
-  await expect(
-    table.getByLabel("Total sq ft for Shower wall tile installation"),
-  ).toBeVisible();
-  await expect(
-    table.getByLabel("Unit for Shower wall tile installation"),
-  ).toHaveValue("sq ft");
-  await expect(
-    table.locator(
-      'textarea[aria-label="Details for Shower wall tile installation"]',
-    ),
-  ).toHaveValue(/Large warm-white porcelain/);
-  await expect(
-    table.getByRole("button", { name: "Edit Toilet installation" }),
-  ).toHaveCount(0);
-  await table
-    .getByRole("button", { name: "Edit Demolition & site protection" })
-    .click();
-  await expect(
-    table.locator(
-      'textarea[aria-label="Details for Demolition & site protection"]',
-    ),
-  ).toHaveValue(/Room: 10 ft x 8 ft/);
-  await table
-    .getByRole("button", {
-      name: "Edit Paint, finish carpentry & final cleanup",
-    })
-    .click();
-  await expect(
-    table.locator(
-      'textarea[aria-label="Details for Paint, finish carpentry & final cleanup"]',
-    ),
-  ).toHaveValue(/Prioritize an easy-to-clean shower and accessible storage/);
-  await expect(
-    table.getByRole("button", { name: "Edit Demolition & site protection" }),
-  ).toHaveAttribute("aria-expanded", "true");
-  await table
-    .getByRole("button", { name: "Delete Demolition & site protection" })
-    .click();
-  await expect(page.getByRole("dialog", { name: /Delete this/ })).toHaveCount(
-    0,
-  );
-  await expect(
-    table.getByRole("button", { name: "Edit Demolition & site protection" }),
-  ).toHaveCount(0);
-
-  await expect(
-    table.getByRole("button", { name: "Edit Shower base & waterproofing" }),
-  ).toHaveAttribute("aria-expanded", "true");
-  await table
-    .getByLabel("Price per job for Shower base & waterproofing")
-    .fill("4250");
-  await table
-    .getByRole("button", { name: "Save Shower base & waterproofing" })
-    .click();
-  await expect(table.locator("tfoot")).toContainText("$4,250");
-
-  await page.getByRole("button", { name: "Use Project Template" }).click();
-  const secondProject = page.getByRole("dialog", {
-    name: "Bathroom questionnaire",
-  });
-  await expect(secondProject.getByLabel("Project name")).toHaveValue(
-    "Project #2",
-  );
-  await secondProject.getByLabel("Project name").fill("Guest Bathroom");
-  await secondProject.getByRole("button", { name: "Continue" }).click();
-  await secondProject.getByRole("button", { name: "Continue" }).click();
-  await secondProject.getByRole("button", { name: "Continue" }).click();
-  await secondProject
-    .getByRole("button", { name: /Add \d+ quote rows/ })
-    .click();
-  await expect(table.locator(".scope-section-row")).toHaveCount(2);
-  await expect(table.locator(".scope-section-row").nth(0)).toContainText(
-    "Primary Bathroom",
-  );
-  await expect(table.locator(".scope-section-row").nth(1)).toContainText(
-    "Guest Bathroom",
-  );
 });

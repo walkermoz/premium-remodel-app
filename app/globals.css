@@ -3150,9 +3150,24 @@ small {
 .scope-row-selection input {
   width: 16px;
   height: 16px;
+  min-height: 0;
   margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   accent-color: var(--blue);
   cursor: pointer;
+}
+.scope-select-all input:focus,
+.scope-row-selection input:focus {
+  border: 0;
+  box-shadow: none;
+}
+.scope-select-all input:focus-visible,
+.scope-row-selection input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 .scope-row-selection {
   flex: 0 0 32px;
@@ -3864,7 +3879,7 @@ small {
   text-align: left;
   cursor: pointer;
 }
-.scope-add-project-button {
+.scope-add-actions .scope-add-row-button + .scope-add-row-button {
   border-left: 1px solid var(--line);
 }
 .scope-add-row-button:hover,
@@ -9759,6 +9774,10 @@ small {
   gap: 7px;
   color: var(--theme-text-secondary, #698094);
   font-size: 11px;
+}
+.pricebook-category-field {
+  display: grid;
+  gap: 10px;
 }
 .pricebook-editor-body textarea {
   min-height: 72px;
