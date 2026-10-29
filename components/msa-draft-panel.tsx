@@ -697,16 +697,6 @@ export default function MsaDraftPanel({
           <p>No items are recorded for this project.</p>
         )}
       </details>
-      <details className={styles.details}>
-        <summary>
-          Still needed before signing <span>{draft.review.length} items</span>
-        </summary>
-        <ul>
-          {draft.review.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </details>
     </section>
   );
 }
