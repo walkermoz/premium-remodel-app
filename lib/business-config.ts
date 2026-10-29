@@ -45,6 +45,7 @@ export function defaultBusinessConfig(
     quotePreferences: {
       showInternalCosts: true,
       showPriceBookPicker: false,
+      showCustomerLineItemPrices: !premium,
       paymentProvider: premium ? "stripe" : "manual",
     },
     navigation: [...navigationPages],

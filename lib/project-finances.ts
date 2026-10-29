@@ -75,6 +75,10 @@ export function preserveScopeCosts(
       input.pricebookRevision === undefined
         ? current?.pricebookRevision
         : input.pricebookRevision,
+    customerVisible:
+      input.customerVisible === undefined
+        ? (current?.customerVisible ?? true)
+        : input.customerVisible,
     subCostUnit:
       input.subCostUnit === undefined
         ? current?.subCostUnit

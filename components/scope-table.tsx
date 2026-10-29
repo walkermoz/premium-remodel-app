@@ -969,7 +969,14 @@ export default function ScopeTable({
                             >
                               <span>
                                 <small>Work item</small>
-                                <strong>{draft.title}</strong>
+                                <span className="scope-summary-title-line">
+                                  <strong>{draft.title}</strong>
+                                  {item.customerVisible === false && (
+                                    <span className="scope-internal-price-badge">
+                                      Internal only
+                                    </span>
+                                  )}
+                                </span>
                               </span>
                               <span>
                                 <small>Scope</small>
@@ -1978,9 +1985,41 @@ function CompactQuoteEditor({
                   }
                 />
                 <div className="scope-inspector-price-group scope-inspector-customer-price">
-                  <span className="scope-inspector-group-title">
-                    Customer price
-                  </span>
+                  <div className="scope-inspector-group-heading">
+                    <span className="scope-inspector-group-title">
+                      Customer price
+                    </span>
+                    {showInternalCosts && (
+                      <button
+                        type="button"
+                        className="scope-apply-default-pricing"
+                        disabled={saving}
+                        title={`Sub costs × ${DEFAULT_SUB_MULTIPLIER} + material costs × ${DEFAULT_MATERIAL_MULTIPLIER}`}
+                        aria-label={`Apply default pricing for ${itemName}`}
+                        onClick={() => {
+                          const estimate = calculatedQuotePrice(
+                            {
+                              subCost: draftNumber(draft.subCost),
+                              materialCost: draftNumber(draft.materialCost),
+                            },
+                            DEFAULT_SUB_MULTIPLIER,
+                            DEFAULT_MATERIAL_MULTIPLIER,
+                          );
+                          onChange({
+                            estimate: String(estimate),
+                            rate: String(
+                              rateFromTotal(
+                                estimate,
+                                draftNumber(draft.quantity),
+                              ),
+                            ),
+                          });
+                        }}
+                      >
+                        Apply default
+                      </button>
+                    )}
+                  </div>
                   <div className="scope-inspector-basis-row">
                     <label>
                       <span>{quantityLabel(draft.unit)}</span>

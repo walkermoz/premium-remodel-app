@@ -38,7 +38,8 @@ test("select all applies cost-based pricing and saves quote prices", async ({
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Bulk pricing example");
-  await quote.getByLabel("Client name").fill("Test Customer");
+  await quote.getByLabel("Customer name").fill("Test Customer");
+  await quote.getByLabel("Email").fill("bulk@example.com");
   await quote.getByRole("button", { name: "Create quote" }).click();
 
   for (const [title, subCost, materialCost] of [
@@ -102,7 +103,8 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Time-based expense example");
-  await quote.getByLabel("Client name").fill("Test Customer");
+  await quote.getByLabel("Customer name").fill("Test Customer");
+  await quote.getByLabel("Email").fill("time@example.com");
   await quote.getByRole("button", { name: "Create quote" }).click();
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
@@ -130,7 +132,17 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
     .fill("25");
   await row.getByLabel("Unit for Site supervision").selectOption("days");
   await row.getByLabel("Total days for Site supervision").fill("2");
-  await row.getByLabel("Price per day for Site supervision").fill("450");
+  await row
+    .getByRole("button", {
+      name: "Apply default pricing for Site supervision",
+    })
+    .click();
+  await expect(
+    row.getByLabel("Price per day for Site supervision"),
+  ).toHaveValue("395");
+  await expect(row.getByText("Quote price").locator("..")).toContainText(
+    "$790",
+  );
   await row.getByRole("button", { name: "Save Site supervision" }).click();
 
   await page.getByRole("checkbox", { name: "Select Site supervision" }).check();

@@ -100,6 +100,7 @@ export const businessConfigSchema = z.object({
   quotePreferences: z.object({
     showInternalCosts: z.boolean().default(true),
     showPriceBookPicker: z.boolean().default(false),
+    showCustomerLineItemPrices: z.boolean().default(true),
     paymentProvider: z.enum(["stripe", "manual"]).default("stripe"),
   }),
   navigation: z

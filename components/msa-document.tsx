@@ -207,15 +207,17 @@ export default function MsaDocument({
         </p>
         <h3>Work included</h3>
         <ul>
-          {agreement.scope.map((item, index) => (
-            <li key={index}>
-              <strong>
-                {item.section} · {item.title}
-              </strong>
-              {item.details ? ` — ${item.details}` : ""}{" "}
-              <span>{money(item.amount)}</span>
-            </li>
-          ))}
+          {agreement.scope
+            .filter((item) => item.customerVisible !== false)
+            .map((item, index) => (
+              <li key={index}>
+                <strong>
+                  {item.section} · {item.title}
+                </strong>
+                {item.details ? ` — ${item.details}` : ""}{" "}
+                <span>{money(item.amount)}</span>
+              </li>
+            ))}
         </ul>
         <p>
           <strong>Work excluded:</strong> {agreement.terms.exclusions}

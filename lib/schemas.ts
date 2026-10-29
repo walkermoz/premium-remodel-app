@@ -368,6 +368,7 @@ export const schemas = {
     materialCostQuantity: z.number().min(0).max(1_000_000_000).optional(),
     pricebookItemId: z.uuid().optional(),
     pricebookRevision: z.number().int().positive().optional(),
+    customerVisible: z.boolean().default(true),
     contractorId: short,
     status: taskStatus,
   }),

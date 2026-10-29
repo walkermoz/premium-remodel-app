@@ -34,6 +34,10 @@ export async function GET(
       logo,
       photos,
       business.profile,
+      {
+        showLineItemPrices:
+          business.quotePreferences.showCustomerLineItemPrices,
+      },
     );
     const fileName = quotePdfFileName(quote, business.profile.name).replace(
       /["\\]/g,

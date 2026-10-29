@@ -19,6 +19,7 @@ import { workTypes, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
 import { contactAddress, customerContacts } from "@/lib/contacts";
 import { projectMoney } from "@/lib/project-finances";
+import CustomerContactPicker from "./customer-contact-picker";
 import {
   lineTotal,
   quantityLabel,
@@ -67,21 +68,27 @@ export function EntityForm({
     ...project,
   } as Partial<Project | Quote>;
   const customer = entity as Contact | undefined;
-  const [contactId, setContactId] = useState(
-    String(
-      (projectValues as Partial<Quote>).contactId ||
-        (kind === "quote" && !entity ? "__new__" : ""),
-    ),
+  const initialContactId = String(
+    (projectValues as Partial<Quote>).contactId ||
+      (kind === "quote" && !entity ? "__new__" : ""),
   );
-  const [clientName, setClientName] = useState(projectValues.client || "");
+  const initialCustomer = workspace.contacts.find(
+    (contact) => contact.id === initialContactId,
+  );
+  const [contactId, setContactId] = useState(initialContactId);
+  const [clientName, setClientName] = useState(
+    initialCustomer?.name || projectValues.client || "",
+  );
   const [clientEmail, setClientEmail] = useState(
-    projectValues.clientEmail || "",
+    initialCustomer?.email || projectValues.clientEmail || "",
   );
   const [clientPhone, setClientPhone] = useState(
-    projectValues.clientPhone || "",
+    initialCustomer?.phone || projectValues.clientPhone || "",
   );
   const [clientAddress, setClientAddress] = useState(
-    projectValues.address || "",
+    initialCustomer
+      ? contactAddress(initialCustomer)
+      : projectValues.address || "",
   );
   const [addressVersion, setAddressVersion] = useState(0);
   const availableCustomers = customerContacts(
@@ -91,6 +98,7 @@ export function EntityForm({
   const selectedCustomer = workspace.contacts.find(
     (contact) => contact.id === contactId,
   );
+  const customerEditable = contactId === "__new__" || !contactId;
   if (
     selectedCustomer &&
     !availableCustomers.some((contact) => contact.id === selectedCustomer.id)
@@ -200,7 +208,14 @@ export function EntityForm({
       data.firstName = String(data.firstName || "").trim();
       data.lastName = String(data.lastName || "").trim();
       data.name = [data.firstName, data.lastName].filter(Boolean).join(" ");
+      data.email = String(data.email || "").trim();
+      data.phone = String(data.phone || "").trim();
       data.source = customer?.source || "Manual";
+      if (!entity && !data.email && !data.phone) {
+        setError("Enter an email address or phone number.");
+        setBusy(false);
+        return;
+      }
     }
     if (kind === "quote") data.status = projectValues.status || "Draft";
     if (kind === "quote") {
@@ -208,6 +223,16 @@ export function EntityForm({
         const name = String(data.client || "").trim();
         if (!name) {
           setError("Enter the customer's name to create their contact.");
+          setBusy(false);
+          return;
+        }
+        if (
+          !String(data.clientEmail || "").trim() &&
+          !String(data.clientPhone || "").trim()
+        ) {
+          setError(
+            "Enter an email address or phone number for the new contact.",
+          );
           setBusy(false);
           return;
         }
@@ -332,7 +357,10 @@ export function EntityForm({
       >
         <div className="form-fields">
           {kind === "contact" && (
-            <>
+            <fieldset className="customer-record-fields">
+              <legend>
+                Customer <span>contact record</span>
+              </legend>
               <div className="form-grid">
                 <label>
                   First name
@@ -352,24 +380,31 @@ export function EntityForm({
                   />
                 </label>
               </div>
-              <label>
-                Email
-                <input
-                  name="email"
-                  type="email"
-                  defaultValue={customer?.email}
-                  maxLength={250}
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  name="phone"
-                  type="tel"
-                  defaultValue={customer?.phone}
-                  maxLength={250}
-                />
-              </label>
+              <div className="form-grid">
+                <label>
+                  Email
+                  <input
+                    name="email"
+                    type="email"
+                    defaultValue={customer?.email}
+                    maxLength={250}
+                    aria-describedby="contact-method-help"
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    name="phone"
+                    type="tel"
+                    defaultValue={customer?.phone}
+                    maxLength={250}
+                    aria-describedby="contact-method-help"
+                  />
+                </label>
+              </div>
+              <p className="contact-method-help" id="contact-method-help">
+                Enter at least one: email or phone.
+              </p>
               <AddressInput label="Address" defaultValue={customer?.address} />
               <label>
                 ZIP code
@@ -379,28 +414,66 @@ export function EntityForm({
                   maxLength={250}
                 />
               </label>
-            </>
+            </fieldset>
           )}
           {(kind === "project" || kind === "quote") && (
             <>
-              <label>
-                {kind === "quote" ? "Quote name" : "Project name"}
-                <input
-                  name="name"
-                  defaultValue={projectValues.name}
-                  placeholder="e.g. Oakwood kitchen remodel"
-                  required
-                  maxLength={250}
-                />
-              </label>
-              {kind === "quote" && (
+              {kind === "quote" ? (
+                <div className="form-grid">
+                  <label>
+                    Quote name
+                    <input
+                      name="name"
+                      defaultValue={projectValues.name}
+                      placeholder="e.g. Oakwood kitchen remodel"
+                      required
+                      maxLength={250}
+                    />
+                  </label>
+                  <label>
+                    Project type
+                    <select
+                      name="category"
+                      defaultValue={projectValues.category || "Kitchen"}
+                    >
+                      {[
+                        "Kitchen",
+                        "Bathroom",
+                        "Basement",
+                        "Outdoor",
+                        "Whole home",
+                        "Other",
+                      ].map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : (
                 <label>
-                  Customer contact
-                  <select
-                    name="contactId"
+                  Project name
+                  <input
+                    name="name"
+                    defaultValue={projectValues.name}
+                    placeholder="e.g. Oakwood kitchen remodel"
+                    required
+                    maxLength={250}
+                  />
+                </label>
+              )}
+              {kind === "quote" ? (
+                <fieldset className="customer-record-fields">
+                  <legend>
+                    Customer <span>contact record</span>
+                  </legend>
+                  <CustomerContactPicker
+                    label="Find or add a contact"
+                    contacts={availableCustomers.sort((a, b) =>
+                      a.name.localeCompare(b.name),
+                    )}
                     value={contactId}
-                    onChange={(event) => {
-                      const id = event.target.value;
+                    allowEmpty={Boolean(entity)}
+                    onChange={(id) => {
                       setContactId(id);
                       const selected = workspace.contacts.find(
                         (contact) => contact.id === id,
@@ -419,108 +492,126 @@ export function EntityForm({
                         setAddressVersion((version) => version + 1);
                       }
                     }}
-                  >
-                    {entity && !contactId && (
-                      <option value="">No contact selected</option>
-                    )}
-                    <option value="__new__">+ Add a new customer</option>
-                    {availableCustomers
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((contact) => (
-                        <option key={contact.id} value={contact.id}>
-                          {contact.name}
-                          {contact.email ? ` · ${contact.email}` : ""}
-                        </option>
-                      ))}
-                  </select>
-                  <small>
-                    Choosing a contact fills the customer details below.
-                  </small>
-                </label>
+                  />
+                  <p className="customer-record-help">
+                    {customerEditable
+                      ? "Enter the customer once. Saving this quote creates their contact record too."
+                      : "These quote details come from the selected contact."}
+                  </p>
+                  <label>
+                    Customer name
+                    <input
+                      name="client"
+                      value={clientName}
+                      onChange={(event) => setClientName(event.target.value)}
+                      placeholder="Customer or family name"
+                      maxLength={250}
+                      readOnly={!customerEditable}
+                    />
+                  </label>
+                  <div className="form-grid">
+                    <label>
+                      Email
+                      <input
+                        name="clientEmail"
+                        type="email"
+                        maxLength={250}
+                        value={clientEmail}
+                        onChange={(event) => setClientEmail(event.target.value)}
+                        readOnly={!customerEditable}
+                        aria-describedby={
+                          customerEditable
+                            ? "quote-contact-method-help"
+                            : undefined
+                        }
+                      />
+                    </label>
+                    <label>
+                      Phone
+                      <input
+                        name="clientPhone"
+                        type="tel"
+                        maxLength={250}
+                        value={clientPhone}
+                        onChange={(event) => setClientPhone(event.target.value)}
+                        readOnly={!customerEditable}
+                        aria-describedby={
+                          customerEditable
+                            ? "quote-contact-method-help"
+                            : undefined
+                        }
+                      />
+                    </label>
+                  </div>
+                  {customerEditable && (
+                    <p
+                      className="contact-method-help"
+                      id="quote-contact-method-help"
+                    >
+                      Enter at least one: email or phone.
+                    </p>
+                  )}
+                  <AddressInput
+                    key={`${contactId}-${addressVersion}`}
+                    label="Address"
+                    defaultValue={clientAddress}
+                    readOnly={!customerEditable}
+                  />
+                </fieldset>
+              ) : (
+                <>
+                  <div className="form-grid">
+                    <label>
+                      Client name
+                      <input
+                        name="client"
+                        defaultValue={projectValues.client}
+                        placeholder="Client or family name"
+                        maxLength={250}
+                      />
+                    </label>
+                    <label>
+                      Project type
+                      <select
+                        name="category"
+                        defaultValue={projectValues.category || "Kitchen"}
+                      >
+                        {[
+                          "Kitchen",
+                          "Bathroom",
+                          "Basement",
+                          "Outdoor",
+                          "Whole home",
+                          "Other",
+                        ].map((t) => (
+                          <option key={t}>{t}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="form-grid">
+                    <label>
+                      Client email
+                      <input
+                        name="clientEmail"
+                        type="email"
+                        maxLength={250}
+                        defaultValue={projectValues.clientEmail}
+                      />
+                    </label>
+                    <label>
+                      Client phone
+                      <input
+                        name="clientPhone"
+                        type="tel"
+                        maxLength={250}
+                        defaultValue={projectValues.clientPhone}
+                      />
+                    </label>
+                  </div>
+                  <AddressInput defaultValue={projectValues.address} />
+                </>
               )}
-              <div className="form-grid">
-                <label>
-                  Client name
-                  <input
-                    name="client"
-                    value={kind === "quote" ? clientName : undefined}
-                    defaultValue={
-                      kind === "quote" ? undefined : projectValues.client
-                    }
-                    onChange={
-                      kind === "quote"
-                        ? (event) => setClientName(event.target.value)
-                        : undefined
-                    }
-                    placeholder="Client or family name"
-                    maxLength={250}
-                  />
-                </label>
-                <label>
-                  Project type
-                  <select
-                    name="category"
-                    defaultValue={projectValues.category || "Kitchen"}
-                  >
-                    {[
-                      "Kitchen",
-                      "Bathroom",
-                      "Basement",
-                      "Outdoor",
-                      "Whole home",
-                      "Other",
-                    ].map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="form-grid">
-                <label>
-                  Client email
-                  <input
-                    name="clientEmail"
-                    type="email"
-                    maxLength={250}
-                    value={kind === "quote" ? clientEmail : undefined}
-                    defaultValue={
-                      kind === "quote" ? undefined : projectValues.clientEmail
-                    }
-                    onChange={
-                      kind === "quote"
-                        ? (event) => setClientEmail(event.target.value)
-                        : undefined
-                    }
-                  />
-                </label>
-                <label>
-                  Client phone
-                  <input
-                    name="clientPhone"
-                    type="tel"
-                    maxLength={250}
-                    value={kind === "quote" ? clientPhone : undefined}
-                    defaultValue={
-                      kind === "quote" ? undefined : projectValues.clientPhone
-                    }
-                    onChange={
-                      kind === "quote"
-                        ? (event) => setClientPhone(event.target.value)
-                        : undefined
-                    }
-                  />
-                </label>
-              </div>
-              <AddressInput
-                key={
-                  kind === "quote"
-                    ? `${contactId}-${addressVersion}`
-                    : "project"
-                }
-                defaultValue={
-                  kind === "quote" ? clientAddress : projectValues.address
-                }
-              />
               {kind === "quote" && (
                 <>
                   {(projectValues as Partial<Quote>).leadId && (

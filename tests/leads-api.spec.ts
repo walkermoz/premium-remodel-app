@@ -221,17 +221,15 @@ test("a lead creates a quote with its available details filled in", async ({
   await expect(dialog.getByLabel("Quote name")).toHaveValue(
     "Taylor Reed · Kitchen Remodel",
   );
-  await expect(dialog.getByLabel("Client name")).toHaveValue("Taylor Reed");
+  await expect(dialog.getByLabel("Customer name")).toHaveValue("Taylor Reed");
   await expect(dialog.getByLabel("Project type")).toHaveValue("Kitchen");
-  await expect(dialog.getByLabel("Client email")).toHaveValue(
-    "taylor@example.com",
-  );
-  await expect(dialog.getByLabel("Client phone")).toHaveValue("+19195550142");
+  await expect(dialog.getByLabel("Email")).toHaveValue("taylor@example.com");
+  await expect(dialog.getByLabel("Phone")).toHaveValue("+19195550142");
   await expect(dialog.getByLabel("Address")).toHaveValue(
     "1214 Willowbrook Drive, Cary, NC, 27513",
   );
-  await expect(dialog.getByLabel("Customer contact")).toHaveValue(
-    "00000000-0000-4000-8000-000000000101",
+  await expect(dialog.getByLabel("Find or add a contact")).toHaveValue(
+    "Taylor Reed",
   );
   await expect(dialog.getByLabel("Linked lead")).toHaveCount(0);
   await expect(dialog.getByLabel("Full scope of work")).toHaveValue(

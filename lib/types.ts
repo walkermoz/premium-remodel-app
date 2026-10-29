@@ -50,6 +50,8 @@ export interface AcceptedScopeItem {
   title: string;
   details: string;
   amount: number;
+  /** Internal price components remain in the contract total without appearing in customer scope. */
+  customerVisible?: boolean;
 }
 export interface MsaContractTerms {
   exclusions: string;
@@ -208,6 +210,8 @@ export interface ScopeItem extends Base {
   /** Catalog provenance; saved prices remain a snapshot when the catalog changes. */
   pricebookItemId?: string;
   pricebookRevision?: number;
+  /** False keeps this amount in quote totals but omits the line from customer documents. */
+  customerVisible?: boolean;
   contractorId: string;
   status: TaskStatus;
 }

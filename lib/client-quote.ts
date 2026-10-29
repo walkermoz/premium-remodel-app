@@ -43,6 +43,7 @@ const itemSchema = z.object({
   sectionId: z.string().optional(),
   sectionName: z.string().optional(),
   position: z.number().optional(),
+  customerVisible: z.boolean().optional(),
 });
 const snapshotSchema = z.object({
   quote: quoteSchema

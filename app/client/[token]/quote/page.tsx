@@ -46,6 +46,7 @@ import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "@/lib/scope-projects";
+import { appearsOnCustomerQuote } from "@/lib/customer-quote-scope";
 import ClientNewRequestForm from "./client-new-request-form";
 import CustomerAcceptance from "./customer-acceptance";
 import MsaAcceptance from "./msa-acceptance";
@@ -551,14 +552,21 @@ export default async function ClientQuotePage({
     name: string;
     items: Array<{ item: (typeof items)[number]; striped: boolean }>;
   }> = [];
-  items.forEach((item, index) => {
-    const name = item.sectionName?.trim() || DEFAULT_QUOTE_PROJECT_NAME;
+  items.forEach((item) => {
     const key = item.sectionId?.trim()
       ? `id:${item.sectionId.trim()}`
       : item.sectionName?.trim()
         ? `name:${item.sectionName.trim().toLowerCase()}`
         : "ungrouped";
     sectionTotals.set(key, (sectionTotals.get(key) || 0) + item.estimate);
+  });
+  items.filter(appearsOnCustomerQuote).forEach((item, index) => {
+    const name = item.sectionName?.trim() || DEFAULT_QUOTE_PROJECT_NAME;
+    const key = item.sectionId?.trim()
+      ? `id:${item.sectionId.trim()}`
+      : item.sectionName?.trim()
+        ? `name:${item.sectionName.trim().toLowerCase()}`
+        : "ungrouped";
     if (sections.at(-1)?.key !== key) sections.push({ key, name, items: [] });
     sections.at(-1)!.items.push({ item, striped: index % 2 === 1 });
   });
@@ -710,17 +718,22 @@ export default async function ClientQuotePage({
               <section className={styles.scope} aria-label="Scope of work">
                 <div className={styles.scopeHeader}>
                   <h2>Scope of work</h2>
-                  <span>Line total</span>
+                  {business.quotePreferences.showCustomerLineItemPrices && (
+                    <span>Line total</span>
+                  )}
                 </div>
                 {sections.map((section, index) => (
                   <div key={`${section.key}-${index}`}>
                     {section.key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}` && (
                       <div className={styles.sectionHeader}>
                         <h3>Project&nbsp; | &nbsp;{section.name}</h3>
-                        <span>
-                          Section total&nbsp;{" "}
-                          {money(sectionTotals.get(section.key) || 0)}
-                        </span>
+                        {business.quotePreferences
+                          .showCustomerLineItemPrices && (
+                          <span>
+                            Section total&nbsp;{" "}
+                            {money(sectionTotals.get(section.key) || 0)}
+                          </span>
+                        )}
                       </div>
                     )}
                     {section.items.map(({ item, striped }) => (
@@ -732,7 +745,10 @@ export default async function ClientQuotePage({
                           <strong>{item.title}</strong>
                           {item.details && <p>{item.details}</p>}
                         </div>
-                        <span>{money(item.estimate)}</span>
+                        {business.quotePreferences
+                          .showCustomerLineItemPrices && (
+                          <span>{money(item.estimate)}</span>
+                        )}
                       </div>
                     ))}
                   </div>
