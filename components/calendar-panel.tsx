@@ -332,8 +332,8 @@ export default function CalendarPanel({
               <summary>
                 {unscheduled.length}{" "}
                 {unscheduled.length === 1
-                  ? "work item without a date"
-                  : "work items without dates"}
+                  ? "item without a date"
+                  : "items without dates"}
               </summary>
               <ul>
                 {unscheduled.map((task) => (
@@ -367,7 +367,8 @@ export default function CalendarPanel({
               <ul>{selected.map((entry) => agendaEntry(entry))}</ul>
             ) : (
               <p className="calendar-empty-day">
-                Nothing scheduled. Add work for this day or choose another date.
+                Nothing scheduled. Add an item for this day or choose another
+                date.
               </p>
             )}
           </section>

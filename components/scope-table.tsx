@@ -112,7 +112,7 @@ function numberValue(value: string, label: string) {
 
 function draftValues(draft: ScopeDraft) {
   const title = draft.title.trim();
-  if (!title) throw new Error("Add a work item name before saving this row.");
+  if (!title) throw new Error("Add an item name before saving this row.");
   return {
     sectionId: draft.sectionId,
     sectionName: draft.sectionName,
@@ -279,11 +279,11 @@ export default function ScopeTable({
     return (
       <Empty
         title="Build out your scope"
-        text="Break the job into work items, with a price, subcontractor cost, and material cost for each."
+        text="Break the job into items, with a price, subcontractor cost, and material cost for each."
         action={
           <button className="button secondary" onClick={onAdd}>
             <Plus size={16} />
-            Add scope item
+            Add item
           </button>
         }
       />
@@ -750,7 +750,7 @@ export default function ScopeTable({
           ) : (
             <thead>
               <tr>
-                <th>Work item / contractor</th>
+                <th>Item / contractor</th>
                 <th>Pricing basis</th>
                 <th>Price / rate</th>
                 <th>Sub cost</th>
@@ -968,7 +968,7 @@ export default function ScopeTable({
                               }
                             >
                               <span>
-                                <small>Work item</small>
+                                <small>Item</small>
                                 <span className="scope-summary-title-line">
                                   <strong>{draft.title}</strong>
                                   {item.customerVisible === false && (
@@ -1484,13 +1484,13 @@ function EditableRow({
       onKeyDown={onKeyDown}
     >
       <td>
-        {compact && <span className="scope-field-label">Work item</span>}
+        {compact && <span className="scope-field-label">Item</span>}
         <input
           ref={titleRef}
           autoFocus={focusTitle}
           className="scope-cell-input scope-title-input"
-          aria-label={newRow ? "New work item" : `Work item ${draft.title}`}
-          placeholder="Work item"
+          aria-label={newRow ? "New item" : `Item ${draft.title}`}
+          placeholder="Item"
           maxLength={250}
           value={draft.title}
           disabled={saving}
@@ -1500,7 +1500,7 @@ function EditableRow({
           <>
             <textarea
               className="scope-cell-input scope-details-input"
-              aria-label={`Details for ${draft.title || "new work item"}`}
+              aria-label={`Details for ${draft.title || "new item"}`}
               placeholder="Scope details"
               rows={detailRowCount(draft.details)}
               maxLength={15000}
@@ -1510,7 +1510,7 @@ function EditableRow({
             />
             <select
               className="scope-cell-select scope-contractor-select"
-              aria-label={`Contractor for ${draft.title || "new work item"}`}
+              aria-label={`Contractor for ${draft.title || "new item"}`}
               value={draft.contractorId}
               disabled={saving}
               onChange={(event) =>
@@ -1551,7 +1551,7 @@ function EditableRow({
             )}
             <input
               className="scope-cell-input scope-number-input"
-              aria-label={`${quantityLabel(draft.unit)} for ${draft.title || "new work item"}`}
+              aria-label={`${quantityLabel(draft.unit)} for ${draft.title || "new item"}`}
               type="number"
               min="0"
               max="1000000000"
@@ -1575,7 +1575,7 @@ function EditableRow({
             {compact && <span className="scope-field-label">Price by</span>}
             <select
               className="scope-cell-select scope-unit-select"
-              aria-label={`Unit for ${draft.title || "new work item"}`}
+              aria-label={`Unit for ${draft.title || "new item"}`}
               value={draft.unit}
               disabled={saving}
               onChange={(event) => {
@@ -1601,7 +1601,7 @@ function EditableRow({
                 <span aria-hidden="true">$</span>
                 <input
                   className="scope-cell-input scope-money-input"
-                  aria-label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+                  aria-label={`${rateLabel(draft.unit)} for ${draft.title || "new item"}`}
                   type="number"
                   min="0"
                   max="1000000000"
@@ -1630,7 +1630,7 @@ function EditableRow({
       </td>
       {!compact && (
         <MoneyCell
-          label={`${rateLabel(draft.unit)} for ${draft.title || "new work item"}`}
+          label={`${rateLabel(draft.unit)} for ${draft.title || "new item"}`}
           value={draft.rate}
           hint={`Line total ${money(draftNumber(draft.estimate))}`}
           step="any"
@@ -1649,7 +1649,7 @@ function EditableRow({
         heading="Sub cost"
         compact={compact}
         label="Subcontractor cost"
-        itemName={draft.title || "new work item"}
+        itemName={draft.title || "new item"}
         unit={draft.subCostUnit}
         quantity={draft.subCostQuantity}
         rate={draft.subCostRate}
@@ -1670,7 +1670,7 @@ function EditableRow({
         heading="Material cost"
         compact={compact}
         label="Material cost"
-        itemName={draft.title || "new work item"}
+        itemName={draft.title || "new item"}
         unit={draft.materialCostUnit}
         quantity={draft.materialCostQuantity}
         rate={draft.materialCostRate}
@@ -1695,7 +1695,7 @@ function EditableRow({
         {compact && <span className="scope-field-label">Profit</span>}
         <output
           className="scope-calculated-value"
-          aria-label={`Profit for ${draft.title || "new work item"}`}
+          aria-label={`Profit for ${draft.title || "new item"}`}
         >
           {money(difference)}
         </output>
@@ -1707,7 +1707,7 @@ function EditableRow({
             className={`scope-status-select scope-status-${draft.status
               .toLowerCase()
               .replaceAll(" ", "-")}`}
-            aria-label={`Status for ${draft.title || "new work item"}`}
+            aria-label={`Status for ${draft.title || "new item"}`}
             value={draft.status}
             disabled={saving}
             onChange={(event) =>
@@ -1770,7 +1770,7 @@ function EditableRow({
                 <span>Scope details</span>
                 <textarea
                   className="scope-cell-input scope-details-input"
-                  aria-label={`Details for ${draft.title || "new work item"}`}
+                  aria-label={`Details for ${draft.title || "new item"}`}
                   rows={1}
                   maxLength={15000}
                   value={draft.details}
@@ -1826,7 +1826,7 @@ function CompactQuoteEditor({
   onBlur,
   onKeyDown,
 }: Parameters<typeof EditableRow>[0] & { showInternalCosts?: boolean }) {
-  const itemName = draft.title || "new work item";
+  const itemName = draft.title || "new item";
   const totalCosts =
     draftNumber(draft.subCost) + draftNumber(draft.materialCost);
 
@@ -1842,15 +1842,13 @@ function CompactQuoteEditor({
         <div className="scope-inspector">
           <div className="scope-inspector-header">
             <label className="scope-inspector-title">
-              <span>Work item</span>
+              <span>Item</span>
               <input
                 ref={titleRef}
                 autoFocus={focusTitle}
                 className="scope-cell-input scope-title-input"
-                aria-label={
-                  newRow ? "New work item" : `Work item ${draft.title}`
-                }
-                placeholder="Work item"
+                aria-label={newRow ? "New item" : `Item ${draft.title}`}
+                placeholder="Item"
                 maxLength={250}
                 value={draft.title}
                 disabled={saving}

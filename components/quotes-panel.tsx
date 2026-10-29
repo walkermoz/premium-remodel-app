@@ -41,6 +41,12 @@ import QuotePhotosPanel from "./quote-photos-panel";
 import QuoteImportDialog from "./quote-import-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
+import QuoteProjectHandoffDemo from "./quote-project-handoff-demo";
+import { QUOTE_HANDOFF_DEMO_ID } from "@/lib/demo-quote-handoff";
+import QuoteWorkflowStepper, {
+  type QuoteWorkflowStep,
+} from "./quote-workflow-stepper";
+import MsaSigningPanel from "./msa-signing-panel";
 
 export default function QuotesPanel({
   workspace,
@@ -374,6 +380,18 @@ export function QuoteDetail({
   const dueCents = Math.max(0, depositCents - paidCents);
   const readyForProjects =
     signedScope && signedMsa && depositCents > 0 && dueCents === 0;
+  const handoffDemo = quote.id === QUOTE_HANDOFF_DEMO_ID;
+  const [workflowStep, setWorkflowStep] = useState<QuoteWorkflowStep>(() =>
+    readyForProjects ? "project" : quote.quoteSentAt ? "completion" : "quote",
+  );
+  const quoteDetailsReady = Boolean(
+    quote.client.trim() && quote.clientEmail?.trim() && items.length,
+  );
+  const agreementDetailsReady = Boolean(
+    quote.msaPaymentSchedule?.length &&
+    quote.msaPermitResponsibility &&
+    quote.msaContractTerms,
+  );
   async function recordCheck(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (checkBusy) return;
@@ -489,6 +507,31 @@ export function QuoteDetail({
       setSendBusy(false);
     }
   }
+  const msaDraftPanel =
+    items.length && config.features.agreements ? (
+      <MsaDraftPanel
+        key={`${quote.id}:${JSON.stringify(quote.msaPaymentSchedule)}:${quote.msaPermitResponsibility || ""}:${JSON.stringify(quote.msaContractTerms)}`}
+        project={quote}
+        items={items}
+        signer={user}
+        showSigning={false}
+        canSendAgreement={signedScope}
+        onSaveTerms={async (terms) => {
+          const response = await fetch(
+            `/api/msa/${encodeURIComponent(quote.id)}/terms`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ updatedAt: quote.updatedAt, ...terms }),
+            },
+          );
+          const result = await response.json();
+          if (!response.ok)
+            throw new Error(result.error || "Could not save MSA terms.");
+          await onSent();
+        }}
+      />
+    ) : null;
   return (
     <div className="quote-detail">
       <button className="back-link" onClick={onBack}>
@@ -522,15 +565,18 @@ export function QuoteDetail({
           </div>
         </div>
         <div className="project-actions quote-header-actions">
-          {!demo && quote.clientEmail && !signedScope && (
-            <button
-              className="button primary"
-              disabled={busy || sendBusy}
-              onClick={() => void openEmail()}
-            >
-              <Mail size={15} /> Email quote
-            </button>
-          )}
+          {!demo &&
+            quote.clientEmail &&
+            !signedScope &&
+            workflowStep === "completion" && (
+              <button
+                className="button primary"
+                disabled={busy || sendBusy}
+                onClick={() => void openEmail()}
+              >
+                <Mail size={15} /> Email quote
+              </button>
+            )}
           <div className="quote-header-status">
             <select
               aria-label="Quote status"
@@ -564,22 +610,13 @@ export function QuoteDetail({
             <Download size={15} />
             Download PDF
           </a>
-          {!signedScope && (
+          {!signedScope && (handoffDemo || workflowStep === "quote") && (
             <button
               className="button secondary"
               disabled={busy}
               onClick={() => onEdit({ kind: "quote", entity: quote })}
             >
               <Pencil size={15} /> Edit quote
-            </button>
-          )}
-          {readyForProjects && !demo && (
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={() => void change(() => onAccept(quote))}
-            >
-              <Check size={16} /> {busy ? "Saving…" : "Move to Projects"}
             </button>
           )}
         </div>
@@ -670,7 +707,7 @@ export function QuoteDetail({
           <div className="quote-overview-metric quote-price">
             <span>Scope total · quote price</span>
             <strong>{projectMoney(finances.total)}</strong>
-            <small>{items.length} scope items</small>
+            <small>{items.length} items</small>
           </div>
           {config.quotePreferences.showInternalCosts && (
             <div className="quote-overview-metric">
@@ -719,7 +756,24 @@ export function QuoteDetail({
           </div>
         )}
       </div>
-      {quote.description && (
+      {handoffDemo && quote.quoteSentAt && (
+        <QuoteProjectHandoffDemo
+          quote={quote}
+          itemCount={items.length}
+          fileCount={files.length}
+          agreementDetails={msaDraftPanel}
+        />
+      )}
+      {!handoffDemo && (
+        <QuoteWorkflowStepper
+          active={workflowStep}
+          agreementReady={quoteDetailsReady}
+          completionReady={agreementDetailsReady}
+          projectReady={readyForProjects}
+          onSelect={setWorkflowStep}
+        />
+      )}
+      {(handoffDemo || workflowStep === "quote") && quote.description && (
         <section className="content-section">
           <div className="section-heading">
             <h2>Scope brief</h2>
@@ -727,86 +781,205 @@ export function QuoteDetail({
           <p className="scope-description">{quote.description}</p>
         </section>
       )}
-      <section className="content-section">
-        <div className="section-heading">
-          <div>
-            <h2>Scope & pricing</h2>
-            <p>
-              {signedScope
-                ? "Signed scope is locked."
-                : "Edit a row, or drag its handle to change the quote order."}
-            </p>
+      {(handoffDemo || workflowStep === "quote") && (
+        <section className="content-section">
+          <div className="section-heading">
+            <div>
+              <h2>Scope & pricing</h2>
+              <p>
+                {signedScope
+                  ? "Signed scope is locked."
+                  : "Edit a row, or drag its handle to change the quote order."}
+              </p>
+            </div>
           </div>
-        </div>
-        {signedScope ? (
-          <table className="scope-table" aria-label="Signed quote scope">
-            <thead>
-              <tr>
-                <th>Work item</th>
-                <th>Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <strong>{item.title}</strong>
-                    {item.details && <small>{item.details}</small>}
-                  </td>
-                  <td>{projectMoney(item.estimate)}</td>
+          {signedScope ? (
+            <table className="scope-table" aria-label="Signed quote scope">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Price</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <ScopeTable
-            items={items}
-            workspace={workspace}
-            pricebookEnabled={
-              config.features.priceBook &&
-              config.quotePreferences.showPriceBookPicker
-            }
-            demoPricebook={demo}
-            showInternalCosts={config.quotePreferences.showInternalCosts}
-            inline
-            compactQuoteRows
-            showStatus={false}
-            projectId={quote.id}
-            defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
-            onSave={(data, item) => onSave("scope", data, item)}
-            onReorder={onReorderScope}
-            onBulkPrice={onPriceScope}
-            onDelete={(item) => onDelete("scope", item)}
-          />
-        )}
-      </section>
-      {signedScope && config.features.agreements && (
-        <MsaDraftPanel
-          key={`${quote.id}:${JSON.stringify(quote.msaPaymentSchedule)}:${quote.msaPermitResponsibility || ""}:${JSON.stringify(quote.msaContractTerms)}`}
-          project={quote}
-          items={items}
-          signer={user}
-          onSaveTerms={async (terms) => {
-            const response = await fetch(
-              `/api/msa/${encodeURIComponent(quote.id)}/terms`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ updatedAt: quote.updatedAt, ...terms }),
-              },
-            );
-            const result = await response.json();
-            if (!response.ok)
-              throw new Error(result.error || "Could not save MSA terms.");
-            await onSent();
-          }}
-        />
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.title}</strong>
+                      {item.details && <small>{item.details}</small>}
+                    </td>
+                    <td>{projectMoney(item.estimate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <ScopeTable
+              items={items}
+              workspace={workspace}
+              pricebookEnabled={
+                config.features.priceBook &&
+                config.quotePreferences.showPriceBookPicker
+              }
+              demoPricebook={demo}
+              showInternalCosts={config.quotePreferences.showInternalCosts}
+              inline
+              compactQuoteRows
+              showStatus={false}
+              projectId={quote.id}
+              defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
+              onSave={(data, item) => onSave("scope", data, item)}
+              onReorder={onReorderScope}
+              onBulkPrice={onPriceScope}
+              onDelete={(item) => onDelete("scope", item)}
+            />
+          )}
+        </section>
+      )}
+      {!handoffDemo && workflowStep === "agreement" && (
+        <section className="workflow-live-step" aria-label="Agreement details">
+          <header>
+            <span className="project-handoff-eyebrow">Step 2</span>
+            <h2>Agreement details</h2>
+            <p>
+              Confirm payment milestones, contract terms, dates, and parties
+              before anything is sent for signature.
+            </p>
+          </header>
+          {msaDraftPanel || (
+            <div className="alert">Add at least one quote item first.</div>
+          )}
+          <footer>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setWorkflowStep("quote")}
+            >
+              Back to quote
+            </button>
+            <button
+              type="button"
+              className="button primary"
+              disabled={!agreementDetailsReady}
+              onClick={() => setWorkflowStep("completion")}
+            >
+              Continue to send & complete
+            </button>
+          </footer>
+        </section>
+      )}
+      {!handoffDemo && workflowStep === "completion" && (
+        <section className="workflow-live-step" aria-label="Send and complete">
+          <header>
+            <span className="project-handoff-eyebrow">Step 3</span>
+            <h2>Send & complete</h2>
+            <p>
+              Deliver the quote through email and the client portal, then track
+              the quote signature, service agreement, and deposit here.
+            </p>
+          </header>
+          <div
+            className="handoff-communication"
+            aria-label="Customer delivery and communication"
+          >
+            <div>
+              <span className="handoff-communication-icon">
+                <Mail size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <small>Email delivery</small>
+                <strong>
+                  {quote.quoteSentAt
+                    ? `Sent to ${quote.clientEmail}`
+                    : "Ready to send with the quote PDF attached"}
+                </strong>
+              </div>
+            </div>
+            <div>
+              <span className="handoff-communication-icon">
+                <FileText size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <small>Client portal</small>
+                <strong>
+                  {quote.quoteSentAt
+                    ? "Private quote link active"
+                    : "Created when the quote is emailed"}
+                </strong>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="button primary"
+              disabled={!quote.clientEmail || sendBusy}
+              onClick={() => void openEmail()}
+            >
+              <Mail size={15} />
+              {quote.quoteSentAt ? "Resend quote" : "Email quote"}
+            </button>
+          </div>
+          <div className="workflow-completion-status-grid">
+            <section className="workflow-status-row">
+              <span className={signedScope ? "is-complete" : ""}>
+                {signedScope ? <Check size={14} /> : "1"}
+              </span>
+              <div>
+                <strong>Quote accepted and signed</strong>
+                <small>
+                  {signedScope
+                    ? `Signed by ${quote.quoteAcceptedBy || quote.client}`
+                    : quote.quoteSentAt
+                      ? "Waiting for the customer in the portal"
+                      : "Email the quote to begin"}
+                </small>
+              </div>
+            </section>
+            <section className="workflow-status-row">
+              <span className={signedMsa ? "is-complete" : ""}>
+                {signedMsa ? <Check size={14} /> : "2"}
+              </span>
+              <div>
+                <strong>Service agreement signed</strong>
+                <small>
+                  {signedMsa
+                    ? `Signed by ${quote.msaAgreement?.customerSignature?.name || quote.client}`
+                    : signedScope
+                      ? "Staff signature and customer signature required"
+                      : "Unlocks after quote acceptance"}
+                </small>
+              </div>
+            </section>
+            <section className="workflow-status-row">
+              <span className={readyForProjects ? "is-complete" : ""}>
+                {readyForProjects ? <Check size={14} /> : "3"}
+              </span>
+              <div>
+                <strong>Deposit received</strong>
+                <small>
+                  {readyForProjects
+                    ? "Required deposit recorded"
+                    : signedMsa
+                      ? `${projectMoney(dueCents / 100)} remaining`
+                      : "Available after agreement signature"}
+                </small>
+              </div>
+            </section>
+          </div>
+          {config.features.agreements && (
+            <MsaSigningPanel
+              quote={quote}
+              signerName={user.name}
+              onSent={onSent}
+            />
+          )}
+        </section>
       )}
       {config.features.agreements &&
         signedMsa &&
         dueCents > 0 &&
         user.role === "admin" &&
-        !demo && (
+        !demo &&
+        workflowStep === "completion" && (
           <section className="content-section" aria-label="Check deposit">
             <div className="section-heading">
               <h2>Check deposit</h2>
@@ -857,41 +1030,103 @@ export function QuoteDetail({
             </form>
           </section>
         )}
-      <section className="content-section">
-        <div className="section-heading">
-          <div>
-            <h2>Quote photos</h2>
+      {!handoffDemo && workflowStep === "project" && (
+        <section className="workflow-live-step" aria-label="Create project">
+          <header>
+            <span className="project-handoff-eyebrow">Step 4</span>
+            <h2>Create project</h2>
             <p>
-              Choose before and example photos to show your customer, or create
-              a finished concept.
+              The signed quote, agreement, deposit, customer, files, and items
+              will move together into Projects.
             </p>
-            {quote.quoteSentAt && (
-              <p>Resend the quote to update photos in the customer copy.</p>
-            )}
+          </header>
+          <div className="workflow-project-review">
+            <div>
+              <span>Project</span>
+              <strong>{quote.name}</strong>
+              <small>{quote.address}</small>
+            </div>
+            <div>
+              <span>Customer</span>
+              <strong>{quote.client}</strong>
+              <small>{quote.clientEmail}</small>
+            </div>
+            <div>
+              <span>Contract</span>
+              <strong>
+                {projectMoney(quote.contractPrice || finances.total)}
+              </strong>
+              <small>{items.length} items ready for Planning</small>
+            </div>
           </div>
-        </div>
-        <QuotePhotosPanel
-          quote={quote}
-          files={files}
-          demo={demo}
-          onSave={(photos) =>
-            onSave("quote", { ...quote, quotePhotos: photos }, quote)
-          }
-          onUpload={(file) => onUpload(file, quote.id)}
-          onDelete={(file) => onDelete("attachment", file)}
-          admin={user.role === "admin"}
-        />
-        <FilesPanel
-          files={files.filter((file) => !file.mime.startsWith("image/"))}
-          admin={user.role === "admin"}
-          demo={demo}
-          hideEmpty
-          onUpload={async (file) => {
-            await onUpload(file, quote.id);
-          }}
-          onDelete={(file) => onDelete("attachment", file)}
-        />
-      </section>
+          <ul className="workflow-project-items" aria-label="Project items">
+            {items.map((item, index) => (
+              <li key={item.id}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <small>{item.sectionName || quote.category}</small>
+                </div>
+                <Check size={15} aria-label="Ready" />
+              </li>
+            ))}
+          </ul>
+          <footer>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setWorkflowStep("completion")}
+            >
+              Back to completion
+            </button>
+            <button
+              type="button"
+              className="button primary"
+              disabled={busy || !readyForProjects}
+              onClick={() => void change(() => onAccept(quote))}
+            >
+              <Check size={16} /> {busy ? "Creating…" : "Create project"}
+            </button>
+          </footer>
+        </section>
+      )}
+      {(handoffDemo || workflowStep === "quote") && (
+        <section className="content-section">
+          <div className="section-heading">
+            <div>
+              <h2>Quote photos</h2>
+              <p>
+                Choose before and example photos to show your customer, or
+                create a finished concept.
+              </p>
+              {quote.quoteSentAt && (
+                <p>Resend the quote to update photos in the customer copy.</p>
+              )}
+            </div>
+          </div>
+          <QuotePhotosPanel
+            quote={quote}
+            files={files}
+            demo={demo}
+            onSave={(photos) =>
+              onSave("quote", { ...quote, quotePhotos: photos }, quote)
+            }
+            onUpload={(file) => onUpload(file, quote.id)}
+            onDelete={(file) => onDelete("attachment", file)}
+            admin={user.role === "admin"}
+          />
+          <FilesPanel
+            files={files.filter((file) => !file.mime.startsWith("image/"))}
+            admin={user.role === "admin"}
+            demo={demo}
+            hideEmpty
+            onUpload={async (file) => {
+              await onUpload(file, quote.id);
+            }}
+            onDelete={(file) => onDelete("attachment", file)}
+          />
+        </section>
+      )}
     </div>
   );
 }

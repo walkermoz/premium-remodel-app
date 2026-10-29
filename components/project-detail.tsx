@@ -169,7 +169,7 @@ export default function ProjectDetail({
       [],
       [
         "Project section",
-        "Work item",
+        "Item",
         "Scope details",
         "Quantity",
         "Unit",
@@ -358,7 +358,7 @@ export default function ProjectDetail({
           ))}
         </select>
         <span className="muted">
-          {done} of {tasks.length} work items complete
+          {done} of {tasks.length} items complete
         </span>
         <span className="mini-progress">
           <i style={{ width: `${progress}%` }} />
@@ -377,7 +377,7 @@ export default function ProjectDetail({
         <div>
           <span>Scope total · project price</span>
           <strong>{money(estimated)}</strong>
-          <small>{items.length} work items</small>
+          <small>{items.length} items</small>
           {legacyDifference !== 0 && (
             <p className="scope-price-warning">
               <TriangleAlert size={14} aria-hidden="true" />
@@ -542,7 +542,7 @@ export default function ProjectDetail({
                     Scope of work{" "}
                     <span className="count-pill">{items.length}</span>
                   </h2>
-                  <p>Your job master sheet, broken down by work item.</p>
+                  <p>Your job master sheet, broken down by item.</p>
                 </div>
                 <button
                   className="button secondary small-button"
@@ -596,11 +596,11 @@ export default function ProjectDetail({
             <div className="section-heading">
               <div>
                 <h2>Scope & cost breakdown</h2>
-                <p>Amounts are totals for each work item, not unit prices.</p>
+                <p>Amounts are totals for each item, not unit prices.</p>
               </div>
               <button className="button primary" onClick={addScope}>
                 <Plus size={16} />
-                Add scope item
+                Add item
               </button>
             </div>
             {scopeTable}

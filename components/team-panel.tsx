@@ -264,7 +264,7 @@ export default function TeamPanel({
         ))}
       </div>
       <p className="footnote">
-        Team members can manage all company projects, tasks, contractors, and
+        Team members can manage all company projects, items, contractors, and
         updates. The administrator also manages access and file deletion.
       </p>
       {error && !showInvite && <div className="alert">{error}</div>}

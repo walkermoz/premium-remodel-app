@@ -14,9 +14,9 @@ import type { AuditAction, AuditEvent } from "@/lib/audit";
 const labels: Record<string, string> = {
   project: "project",
   quote: "quote",
-  task: "work item",
+  task: "item",
   contractor: "contractor",
-  scope: "scope item",
+  scope: "item",
   comment: "note",
   attachment: "file",
   activity: "activity",
@@ -191,38 +191,37 @@ export default function WorkspaceHistorySettings({ demo }: { demo: boolean }) {
         ) : entries.length ? (
           <>
             <ol className="workspace-history-list">
-              {(expanded
-                ? entries
-                : entries.slice(0, INITIAL_VISIBLE)
-              ).map((entry) => (
-                <li key={entry.id}>
-                  <span
-                    className={`history-action history-action-${entry.action}`}
-                  >
-                    <ActionIcon action={entry.action} />
-                  </span>
-                  <div>
-                    <p>
-                      <strong>{entry.actorName}</strong> {actionText(entry)}
-                    </p>
-                    <span className="history-subject">{entry.subject}</span>
-                    {entry.changedFields.length > 0 && (
-                      <span className="history-changes">
-                        Changed:{" "}
-                        {entry.changedFields
-                          .map((field) => fieldLabels[field] || field)
-                          .join(", ")}
-                      </span>
-                    )}
-                    <small title={entry.actorEmail || undefined}>
-                      <Clock3 size={11} aria-hidden="true" />
-                      <time dateTime={entry.occurredAt}>
-                        {new Date(entry.occurredAt).toLocaleString()}
-                      </time>
-                    </small>
-                  </div>
-                </li>
-              ))}
+              {(expanded ? entries : entries.slice(0, INITIAL_VISIBLE)).map(
+                (entry) => (
+                  <li key={entry.id}>
+                    <span
+                      className={`history-action history-action-${entry.action}`}
+                    >
+                      <ActionIcon action={entry.action} />
+                    </span>
+                    <div>
+                      <p>
+                        <strong>{entry.actorName}</strong> {actionText(entry)}
+                      </p>
+                      <span className="history-subject">{entry.subject}</span>
+                      {entry.changedFields.length > 0 && (
+                        <span className="history-changes">
+                          Changed:{" "}
+                          {entry.changedFields
+                            .map((field) => fieldLabels[field] || field)
+                            .join(", ")}
+                        </span>
+                      )}
+                      <small title={entry.actorEmail || undefined}>
+                        <Clock3 size={11} aria-hidden="true" />
+                        <time dateTime={entry.occurredAt}>
+                          {new Date(entry.occurredAt).toLocaleString()}
+                        </time>
+                      </small>
+                    </div>
+                  </li>
+                ),
+              )}
             </ol>
             <div className="workspace-history-actions">
               {(entries.length > INITIAL_VISIBLE || hasMore) && (

@@ -154,7 +154,7 @@ export default function UpcomingPanel({
           }
         >
           <Plus size={16} />
-          Add work
+          Add item
         </button>
       </div>
       <div className="upcoming-filters">
@@ -213,7 +213,7 @@ export default function UpcomingPanel({
         )}
       </div>
       <p className="upcoming-context">
-        Tasks, visits, and project milestones{" "}
+        Items, visits, and project milestones{" "}
         <span>· Times in Eastern Time</span>
       </p>
       {view === "Calendar" ? (
@@ -246,7 +246,7 @@ export default function UpcomingPanel({
                   ? "Add your first project from Projects."
                   : hasFilters
                     ? "Try another project, type, or status."
-                    : "Add a task, inspection, delivery, or contractor visit to get started."}
+                    : "Add an item, inspection, delivery, or contractor visit to get started."}
               </p>
             </div>
           )}

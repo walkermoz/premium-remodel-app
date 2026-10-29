@@ -270,7 +270,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
           </>
         )}
         <p className="generation-note calendar-sync-note">
-          Project dates, tasks, inspections, deliveries, contractor visits, and
+          Project dates, items, inspections, deliveries, contractor visits, and
           consultations sync automatically. Edit scheduling in the workspace;
           Google Calendar is a read-only copy of the workspace plan.
         </p>

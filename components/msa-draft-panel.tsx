@@ -27,6 +27,8 @@ export default function MsaDraftPanel({
   items,
   onSaveTerms,
   signer,
+  showSigning = true,
+  canSendAgreement = true,
 }: {
   project: Project | Quote;
   items: ScopeItem[];
@@ -36,6 +38,8 @@ export default function MsaDraftPanel({
     msaContractTerms: MsaContractTerms;
   }) => Promise<void>;
   signer: { name: string };
+  showSigning?: boolean;
+  canSendAgreement?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
@@ -51,10 +55,11 @@ export default function MsaDraftPanel({
     0,
   );
   const needsHistorical =
-    !project.acceptedQuoteScope?.length ||
-    !project.contractPrice ||
-    Math.round((recordedTotal || 0) * 100) !==
-      Math.round((project.contractPrice || 0) * 100);
+    canSendAgreement &&
+    (!project.acceptedQuoteScope?.length ||
+      !project.contractPrice ||
+      Math.round((recordedTotal || 0) * 100) !==
+        Math.round((project.contractPrice || 0) * 100));
   useEffect(() => {
     if (!needsHistorical) return;
     let active = true;
@@ -427,7 +432,7 @@ export default function MsaDraftPanel({
           <FileSignature size={21} aria-hidden="true" />
           <div>
             <h2>Master services agreement</h2>
-            <p>Draft information pulled from this accepted quote.</p>
+            <p>Draft information pulled from this quote.</p>
           </div>
         </div>
         <button
@@ -616,111 +621,117 @@ export default function MsaDraftPanel({
           </p>
         )}
       </div>
-      <div className={styles.terms}>
-        <h3>Sign and send</h3>
-        <>
-          {needsHistorical && historical && (
-            <div>
-              <p>
-                The saved accepted-scope fields need verification. The agreement
-                will use the original client quote snapshot:{" "}
-                {historical.scope.length} items totaling{" "}
-                {projectMoney(historical.price)}.
+      {showSigning && (
+        <div className={styles.terms}>
+          <h3>Sign and send</h3>
+          <>
+            {needsHistorical && historical && (
+              <div>
+                <p>
+                  The saved accepted-scope fields need verification. The
+                  agreement will use the original client quote snapshot:{" "}
+                  {historical.scope.length} items totaling{" "}
+                  {projectMoney(historical.price)}.
+                </p>
+                <ul>
+                  {historical.scope.map((item, index) => (
+                    <li key={index}>
+                      {item.section} · {item.title} —{" "}
+                      {projectMoney(item.amount)}
+                    </li>
+                  ))}
+                </ul>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={confirmedHistorical}
+                    onChange={(event) =>
+                      setConfirmedHistorical(event.target.checked)
+                    }
+                  />{" "}
+                  I checked this scope and price against the accepted quote.
+                </label>
+              </div>
+            )}
+            {historicalError && (
+              <p role="alert" className={styles.error}>
+                {historicalError}
               </p>
-              <ul>
-                {historical.scope.map((item, index) => (
-                  <li key={index}>
-                    {item.section} · {item.title} — {projectMoney(item.amount)}
-                  </li>
-                ))}
-              </ul>
+            )}
+            <p>
+              Confirm the legal property owner, then sign as the staff member
+              sending the agreement.
+            </p>
+            {needsQuotedTerms && (
+              <p role="alert" className={styles.error}>
+                Open Other contract terms and replace the quoted exclusion or
+                allowance review prompts with the actual accepted terms before
+                sending.
+              </p>
+            )}
+            <div className={styles.contractTerms}>
               <label>
+                Legal owner name
                 <input
-                  type="checkbox"
-                  checked={confirmedHistorical}
-                  onChange={(event) =>
-                    setConfirmedHistorical(event.target.checked)
-                  }
-                />{" "}
-                I checked this scope and price against the accepted quote.
+                  value={owner}
+                  maxLength={150}
+                  onChange={(event) => setOwner(event.target.value)}
+                />
+              </label>
+              <label>
+                Owner email
+                <input
+                  type="email"
+                  value={ownerEmail}
+                  maxLength={320}
+                  onChange={(event) => setOwnerEmail(event.target.value)}
+                />
+              </label>
+              <label>
+                Signing staff member
+                <input value={signer.name} readOnly />
+              </label>
+              <label>
+                Staff title
+                <input
+                  value={signerTitle}
+                  maxLength={100}
+                  placeholder="e.g. CEO & Owner"
+                  onChange={(event) => setSignerTitle(event.target.value)}
+                />
               </label>
             </div>
-          )}
-          {historicalError && (
-            <p role="alert" className={styles.error}>
-              {historicalError}
-            </p>
-          )}
-          <p>
-            Confirm the legal property owner, then sign as the staff member
-            sending the agreement.
-          </p>
-          {needsQuotedTerms && (
-            <p role="alert" className={styles.error}>
-              Open Other contract terms and replace the quoted exclusion or
-              allowance review prompts with the actual accepted terms before
-              sending.
-            </p>
-          )}
-          <div className={styles.contractTerms}>
-            <label>
-              Legal owner name
-              <input
-                value={owner}
-                maxLength={150}
-                onChange={(event) => setOwner(event.target.value)}
-              />
-            </label>
-            <label>
-              Owner email
-              <input
-                type="email"
-                value={ownerEmail}
-                maxLength={320}
-                onChange={(event) => setOwnerEmail(event.target.value)}
-              />
-            </label>
-            <label>
-              Signing staff member
-              <input value={signer.name} readOnly />
-            </label>
-            <label>
-              Staff title
-              <input
-                value={signerTitle}
-                maxLength={100}
-                placeholder="e.g. CEO & Owner"
-                onChange={(event) => setSignerTitle(event.target.value)}
-              />
-            </label>
-          </div>
-          <p>Staff signature</p>
-          <MsaSignaturePad onChange={setSignatureStrokes} disabled={sending} />
-          <button
-            type="button"
-            className="button primary small-button"
-            disabled={
-              sending ||
-              !validSchedule ||
-              !validContractTerms ||
-              needsQuotedTerms ||
-              hasUnsavedTerms ||
-              (needsHistorical && (!historical || !confirmedHistorical)) ||
-              !owner.trim() ||
-              !signerTitle.trim() ||
-              !ownerEmail.trim()
-            }
-            onClick={() => void sendAgreement()}
-          >
-            {sending ? "Sending…" : "Sign and email MSA"}
-          </button>
-          {sendError && (
-            <p role="alert" className={styles.error}>
-              {sendError}
-            </p>
-          )}
-        </>
-      </div>
+            <p>Staff signature</p>
+            <MsaSignaturePad
+              onChange={setSignatureStrokes}
+              disabled={sending}
+            />
+            <button
+              type="button"
+              className="button primary small-button"
+              disabled={
+                sending ||
+                !validSchedule ||
+                !validContractTerms ||
+                needsQuotedTerms ||
+                hasUnsavedTerms ||
+                (needsHistorical && (!historical || !confirmedHistorical)) ||
+                !owner.trim() ||
+                !signerTitle.trim() ||
+                !ownerEmail.trim()
+              }
+              onClick={() => void sendAgreement()}
+            >
+              {sending ? "Sending…" : "Sign and email MSA"}
+            </button>
+            {sendError && (
+              <p role="alert" className={styles.error}>
+                {sendError}
+              </p>
+            )}
+          </>
+        </div>
+      )}
       <details className={styles.details}>
         <summary>
           Scope for Exhibit B{" "}
@@ -740,7 +751,7 @@ export default function MsaDraftPanel({
             ))}
           </ol>
         ) : (
-          <p>No scope items are recorded for this project.</p>
+          <p>No items are recorded for this project.</p>
         )}
       </details>
       <details className={styles.details}>

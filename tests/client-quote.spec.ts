@@ -70,6 +70,25 @@ cloudTest(
     });
     expect(scope.status()).toBe(201);
     const scopeItem = await scope.json();
+    const draftTerms = await api.post(`/api/msa/${quote.id}/terms`, {
+      headers: origin,
+      data: {
+        updatedAt: quote.updatedAt,
+        msaPaymentSchedule: defaultMsaPaymentSchedule(quote),
+        msaPermitResponsibility: "Owner obtains and pays",
+        msaContractTerms: defaultMsaContractTerms(quote, [
+          {
+            section: "Bathroom",
+            title: "Shower waterproofing",
+            details: "Waterproof shower.",
+            amount: 1850,
+          },
+        ]),
+      },
+    });
+    expect(draftTerms.status()).toBe(200);
+    const quoteWithDraftTerms = await draftTerms.json();
+    quote.updatedAt = quoteWithDraftTerms.updatedAt;
     const linkResponse = await api.post("/api/client-links", {
       headers: origin,
       data: { projectId: quote.id, kind: "quote" },

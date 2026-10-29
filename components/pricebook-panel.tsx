@@ -365,8 +365,8 @@ export default function PricebookPanel({
         <div className="pricebook-empty-state">
           <h2>No price-book items yet</h2>
           <p>
-            Save a standard work item once, then add it to quotes with the
-            quantity for each job.
+            Save a standard item once, then add it to quotes with the quantity
+            for each job.
           </p>
           {user.role === "admin" && (
             <button
@@ -384,7 +384,7 @@ export default function PricebookPanel({
         <div className="pricebook-workspace">
           <div className="pricebook-list" aria-label="Price-book items">
             <div className="pricebook-list-head">
-              <span>Work item</span>
+              <span>Item</span>
               <span>Quote rate</span>
             </div>
             {filtered.map((item) => (
@@ -495,7 +495,7 @@ export default function PricebookPanel({
                 </div>
               )}
               <div className="form-grid">
-                {field("name", "Work item")}
+                {field("name", "Item")}
                 <div className="pricebook-category-field">
                   <label>
                     Category

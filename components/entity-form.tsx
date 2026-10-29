@@ -139,9 +139,9 @@ export function EntityForm({
   const names = {
     project: "project",
     quote: "quote",
-    task: "work",
+    task: "item",
     contractor: "contact",
-    scope: "scope item",
+    scope: "item",
     contact: "customer contact",
   };
   const contractor = (label = "Assigned contractor", canCreate = false) => (
@@ -723,7 +723,7 @@ export function EntityForm({
             <>
               {projectSelect}
               <label>
-                Work title
+                Item title
                 <input
                   name="title"
                   defaultValue={task?.title}
@@ -733,14 +733,16 @@ export function EntityForm({
                 />
               </label>
               <label>
-                Work type
+                Item type
                 <select
                   name="workType"
                   value={workType}
                   onChange={(e) => setWorkType(e.target.value as WorkType)}
                 >
                   {workTypes.map((type) => (
-                    <option key={type}>{type}</option>
+                    <option key={type} value={type}>
+                      {type === "Task" ? "Item" : type}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -879,7 +881,7 @@ export function EntityForm({
             <>
               {projectSelect}
               <label>
-                Work item
+                Item
                 <input
                   name="title"
                   defaultValue={item?.title}

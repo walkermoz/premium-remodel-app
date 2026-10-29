@@ -231,7 +231,7 @@ export default function JobActivity({
                       className="text-button"
                       onClick={() => onTask(task)}
                     >
-                      View work item
+                      View item
                     </button>
                   )}
                 </div>

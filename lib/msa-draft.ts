@@ -201,7 +201,7 @@ export function msaPrefill(
   if (!scope.length) review.unshift("Add the detailed scope of work.");
   else if (!hasAcceptedScope)
     review.unshift(
-      "This older project has no accepted-quote scope snapshot. Compare the current scope with the signed quote before preparing the MSA.",
+      "Review the current quote items and price before sending anything for signature.",
     );
 
   return {

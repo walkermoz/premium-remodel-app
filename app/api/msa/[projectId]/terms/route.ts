@@ -67,15 +67,10 @@ export async function POST(
     if (error) throw error;
     if (!row) throw new HttpError(404, "Quote not found.");
     const quote = row.data as Quote;
-    if (
-      quote.status !== "Accepted" ||
-      !quote.quoteAcceptance ||
-      quote.msaAgreement ||
-      !quote.acceptedQuoteScope?.length
-    )
+    if (quote.msaAgreement)
       throw new HttpError(
         409,
-        "The quote must be signed and the MSA must not have been sent.",
+        "The MSA has already been prepared and its terms are locked.",
       );
     if (row.updated_at !== input.updatedAt)
       throw new HttpError(

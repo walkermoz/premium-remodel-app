@@ -373,6 +373,1210 @@
 .quote-header-contact span {
   color: var(--muted);
 }
+.quote-workflow-stepper {
+  margin: 0 0 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.quote-workflow-stepper > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.quote-workflow-stepper > header span {
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.quote-workflow-stepper > header strong {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 550;
+}
+.quote-workflow-stepper ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.quote-workflow-stepper li {
+  min-width: 0;
+  border-right: 1px solid var(--line);
+}
+.quote-workflow-stepper li:last-child {
+  border-right: 0;
+}
+.quote-workflow-stepper li.is-active {
+  box-shadow: inset 0 -3px var(--blue);
+  background: color-mix(in srgb, var(--blue) 5%, var(--surface));
+}
+.quote-workflow-stepper button {
+  display: flex;
+  width: 100%;
+  min-height: 76px;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 15px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.quote-workflow-stepper button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+.quote-workflow-stepper button > span {
+  display: inline-flex;
+  width: 25px;
+  height: 25px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+.quote-workflow-stepper .is-complete button > span,
+.quote-workflow-stepper .is-active button > span {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+.quote-workflow-stepper button > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.quote-workflow-stepper button strong {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+.quote-workflow-stepper button small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+.workflow-preparation-step {
+  margin: 0 0 34px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--line));
+  border-radius: 10px;
+  background: var(--surface);
+}
+.workflow-preparation-step > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 26px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-preparation-step h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  letter-spacing: -0.3px;
+}
+.workflow-preparation-step header p {
+  max-width: 660px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.workflow-step-complete {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 700;
+}
+.workflow-quote-review,
+.workflow-agreement-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  min-height: 210px;
+}
+.workflow-quote-review > dl,
+.workflow-agreement-review > dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 18px 26px;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-quote-review > dl > div,
+.workflow-agreement-review > dl > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 18px;
+  border-right: 1px solid var(--line);
+}
+.workflow-quote-review > dl > div:first-child,
+.workflow-agreement-review > dl > div:first-child {
+  padding-left: 0;
+}
+.workflow-quote-review > dl > div:last-child,
+.workflow-agreement-review > dl > div:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+.workflow-quote-review dt,
+.workflow-agreement-review dt {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.workflow-quote-review dd,
+.workflow-agreement-review dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.workflow-quote-review > ul {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 2px 26px 12px;
+  list-style: none;
+}
+.workflow-quote-review > ul li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-quote-review > ul li > span {
+  display: inline-flex;
+  width: 21px;
+  height: 21px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 700;
+}
+.workflow-quote-review li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.workflow-quote-review li strong,
+.workflow-quote-review li b {
+  color: var(--ink);
+  font-size: 11px;
+}
+.workflow-quote-review li small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.workflow-agreement-terms {
+  grid-column: 1 / -1;
+  padding: 20px 26px 22px;
+}
+.workflow-agreement-terms > span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.workflow-agreement-terms ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.workflow-agreement-terms li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 10px;
+}
+.workflow-agreement-terms li svg {
+  flex: none;
+  color: var(--blue);
+}
+.workflow-preparation-step > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 26px;
+  border-top: 1px solid var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.workflow-preparation-step > footer p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.workflow-agreement-content {
+  margin: -20px 0 34px;
+}
+.workflow-live-step {
+  margin: 0 0 34px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--line));
+  border-radius: 10px;
+  background: var(--surface);
+}
+.workflow-live-step > header {
+  padding: 24px 26px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-live-step > header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  letter-spacing: -0.3px;
+}
+.workflow-live-step > header p {
+  max-width: 720px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.workflow-live-step > [aria-label="MSA preparation"],
+.workflow-live-step > [aria-label="Master services agreement"] {
+  margin: 20px 22px;
+}
+.workflow-live-step > footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 15px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.workflow-completion-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+.workflow-status-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px 20px;
+  border-right: 1px solid var(--line);
+}
+.workflow-status-row:last-child {
+  border-right: 0;
+}
+.workflow-status-row > span {
+  display: inline-flex;
+  width: 27px;
+  height: 27px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+.workflow-status-row > span.is-complete {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+.workflow-status-row > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.workflow-status-row strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+.workflow-status-row small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+.workflow-completion-panel {
+  margin: 20px 22px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+.workflow-completion-panel.is-waiting {
+  background: var(--theme-surface-soft, var(--bg));
+}
+.workflow-completion-panel > header {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.workflow-completion-panel > header h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+.workflow-completion-panel > header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.workflow-completion-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.workflow-completion-panel > dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.workflow-completion-panel dt,
+.workflow-project-review span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.workflow-completion-panel dd {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 650;
+}
+.workflow-signing-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.workflow-signing-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+.workflow-signature-label {
+  margin: 18px 0 7px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+.workflow-completion-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+.workflow-project-review {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+.workflow-project-review > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  padding: 18px 22px;
+  border-right: 1px solid var(--line);
+}
+.workflow-project-review > div:last-child {
+  border-right: 0;
+}
+.workflow-project-review strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+.workflow-project-review small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workflow-project-items {
+  margin: 0;
+  padding: 2px 22px 18px;
+  list-style: none;
+}
+.workflow-project-items li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 54px;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-project-items li > span {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 700;
+}
+.workflow-project-items li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.workflow-project-items strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+.workflow-project-items small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.workflow-project-items li > svg {
+  color: var(--blue);
+}
+.project-handoff-demo,
+.handoff-created-demo {
+  margin: 0 0 34px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.project-handoff-demo.is-ready {
+  border-color: color-mix(in srgb, var(--blue) 36%, var(--line));
+}
+.handoff-demo-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 12px 9px 26px;
+  border-bottom: 1px solid var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.handoff-demo-toolbar > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.handoff-demo-toolbar > div {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.handoff-demo-toolbar button {
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.handoff-demo-toolbar button.active {
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 650;
+}
+.project-handoff-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 24px 26px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.project-handoff-eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.project-handoff-header h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.35px;
+}
+.project-handoff-header p {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.project-handoff-progress {
+  width: min(210px, 28%);
+  flex: none;
+  padding-top: 4px;
+}
+.project-handoff-progress strong {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 650;
+  text-align: right;
+}
+.project-handoff-progress > span {
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--theme-surface-soft, var(--bg));
+}
+.project-handoff-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+  transition: width 220ms ease;
+}
+.handoff-communication {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0;
+  padding: 14px 26px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--blue) 4%, var(--surface));
+}
+.handoff-communication > div {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding-right: 20px;
+  margin-right: 20px;
+  border-right: 1px solid var(--line);
+}
+.handoff-communication-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.handoff-communication > div > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.handoff-communication small {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.handoff-communication strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.handoff-communication .text-button {
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 650;
+}
+.handoff-communication > .button {
+  min-height: 34px;
+  white-space: nowrap;
+}
+.project-handoff-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(270px, 0.8fr);
+  min-height: 286px;
+}
+.project-handoff-readiness {
+  min-width: 0;
+  padding: 22px 26px 0;
+}
+.project-handoff-transfer {
+  min-width: 0;
+  padding: 22px 24px;
+  border-left: 1px solid var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.project-handoff-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+.project-handoff-section-heading > span {
+  display: inline-flex;
+  width: 23px;
+  height: 23px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--blue) 34%, var(--line));
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 750;
+}
+.project-handoff-section-heading > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.project-handoff-section-heading strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.project-handoff-section-heading small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.project-handoff-steps {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.project-handoff-steps li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 74px;
+  border-bottom: 1px solid var(--line);
+}
+.project-handoff-step-icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.project-handoff-steps li.is-complete .project-handoff-step-icon {
+  border-color: color-mix(in srgb, var(--blue) 22%, var(--line));
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+.project-handoff-steps li > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+.project-handoff-steps li > div strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+.project-handoff-steps li > div span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.project-handoff-step-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+.project-handoff-steps li.is-complete .project-handoff-step-state {
+  color: var(--blue);
+}
+.project-handoff-transfer-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 17px 0 0;
+}
+.project-handoff-transfer-list > div {
+  min-width: 0;
+  padding: 13px 12px 13px 0;
+  border-top: 1px solid var(--line);
+}
+.project-handoff-transfer-list dt {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.project-handoff-transfer-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.project-handoff-destination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--blue);
+}
+.project-handoff-destination > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.project-handoff-destination span {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.project-handoff-destination strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+.project-handoff-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 20px 26px;
+  border-top: 1px solid var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.project-handoff-footer .button {
+  flex: none;
+}
+.project-handoff-modal {
+  width: min(720px, calc(100vw - 32px));
+}
+.project-handoff-modal-body {
+  padding: 22px 24px 26px;
+}
+.project-handoff-modal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(250px, 0.75fr);
+  gap: 28px;
+}
+.project-handoff-modal-grid h3 {
+  margin: 0 0 15px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.project-handoff-modal-grid > aside {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+.project-handoff-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.project-handoff-summary > div {
+  min-width: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.project-handoff-summary dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.project-handoff-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.project-handoff-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 15px;
+  color: var(--blue);
+}
+.project-handoff-note svg {
+  flex: none;
+  margin-top: 1px;
+}
+.project-handoff-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.project-handoff-note strong {
+  color: var(--ink);
+}
+.project-handoff-action-modal {
+  width: min(680px, calc(100vw - 32px));
+}
+.handoff-action-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.handoff-action-close {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.handoff-action-close:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.handoff-action-body {
+  padding: 22px 24px 26px;
+}
+.handoff-action-choices {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+.handoff-action-choice {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 15px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.handoff-action-choice:hover,
+.handoff-action-choice.is-primary {
+  background: color-mix(in srgb, var(--blue-soft) 58%, transparent);
+}
+.handoff-action-choice > span {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--theme-surface-soft, var(--bg));
+  color: var(--blue);
+}
+.handoff-action-choice > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.handoff-action-choice strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+.handoff-action-choice small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.handoff-action-choice > svg {
+  color: var(--muted);
+}
+.handoff-action-form {
+  display: grid;
+  gap: 17px;
+}
+.handoff-mode-intro {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--blue);
+}
+.handoff-mode-intro > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.handoff-mode-intro strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+.handoff-mode-intro span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.handoff-action-form > label,
+.handoff-action-form .form-grid > label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+.handoff-signature-pad {
+  position: relative;
+  display: flex;
+  min-height: 150px;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  padding: 20px;
+  border: 1px dashed color-mix(in srgb, var(--blue) 46%, var(--line));
+  border-radius: 8px;
+  background: var(--theme-surface-soft, var(--bg));
+  color: var(--muted);
+}
+.handoff-signature-pad span {
+  position: relative;
+  z-index: 1;
+  padding: 0 8px;
+  background: var(--theme-surface-soft, var(--bg));
+  font-size: 10px;
+}
+.handoff-signature-pad i {
+  position: absolute;
+  right: 34px;
+  bottom: 25px;
+  left: 34px;
+  height: 1px;
+  background: var(--line);
+}
+.handoff-confirmation-check {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: flex-start;
+  gap: 9px !important;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.handoff-confirmation-check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+.handoff-created-demo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 28px;
+  border-color: color-mix(in srgb, var(--blue) 36%, var(--line));
+}
+.handoff-created-icon {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+}
+.handoff-created-copy h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.handoff-created-copy > p {
+  max-width: 650px;
+  margin: 8px 0 17px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.handoff-created-next {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.handoff-created-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.handoff-created-flow {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.75fr);
+  gap: 28px;
+  margin-top: 4px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.handoff-created-items header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 10px;
+}
+.handoff-created-items h3,
+.handoff-created-plan h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  letter-spacing: -0.15px;
+}
+.handoff-created-items header > strong {
+  flex: none;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 700;
+}
+.handoff-created-items ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.handoff-created-items li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--line);
+}
+.handoff-created-items li > span {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 750;
+}
+.handoff-created-items li > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.handoff-created-items li strong {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 650;
+}
+.handoff-created-items li small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.handoff-created-items li > svg {
+  color: var(--blue);
+}
+.handoff-created-plan {
+  padding-left: 28px;
+  border-left: 1px solid var(--line);
+}
+.handoff-created-plan > p {
+  margin: 8px 0 18px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.handoff-demo-reset {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.handoff-demo-reset:hover {
+  color: var(--blue);
+}
 .quote-overview {
   display: flex;
   align-items: center;
@@ -455,6 +1659,15 @@
   white-space: nowrap;
 }
 @media (max-width: 1000px) {
+  .quote-workflow-stepper ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .quote-workflow-stepper li:nth-child(2) {
+    border-right: 0;
+  }
+  .quote-workflow-stepper li:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
   .quote-overview {
     flex-direction: column;
     align-items: stretch;
@@ -462,6 +1675,26 @@
   .quote-overview-photos {
     padding-top: 18px;
     padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .project-handoff-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .handoff-communication {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .handoff-communication > div:nth-child(2) {
+    margin-right: 0;
+    padding-right: 0;
+    border-right: 0;
+  }
+  .handoff-communication > .button {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-top: 12px;
+  }
+  .project-handoff-transfer {
     border-top: 1px solid var(--line);
     border-left: 0;
   }
@@ -486,6 +1719,80 @@
   }
 }
 @media (max-width: 600px) {
+  .quote-workflow-stepper > header,
+  .workflow-preparation-step > header,
+  .workflow-preparation-step > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .quote-workflow-stepper ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quote-workflow-stepper li,
+  .quote-workflow-stepper li:nth-child(2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .quote-workflow-stepper li:last-child {
+    border-bottom: 0;
+  }
+  .quote-workflow-stepper button {
+    min-height: 62px;
+  }
+  .handoff-communication {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px 20px 16px;
+  }
+  .handoff-communication > div,
+  .handoff-communication > div:nth-child(2) {
+    margin: 0;
+    padding: 12px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .handoff-communication > .button {
+    grid-column: auto;
+    justify-self: stretch;
+  }
+  .workflow-quote-review > dl,
+  .workflow-agreement-review > dl,
+  .workflow-agreement-terms ul,
+  .workflow-completion-status-grid,
+  .workflow-completion-panel > dl,
+  .workflow-signing-fields,
+  .workflow-project-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workflow-status-row,
+  .workflow-project-review > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .workflow-status-row:last-child,
+  .workflow-project-review > div:last-child {
+    border-bottom: 0;
+  }
+  .workflow-completion-panel > header {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+  .workflow-completion-panel > header > .button {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .workflow-live-step > footer {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .workflow-quote-review > dl > div,
+  .workflow-agreement-review > dl > div {
+    padding: 11px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .workflow-quote-review > dl > div:last-child,
+  .workflow-agreement-review > dl > div:last-child {
+    border-bottom: 0;
+  }
   .quote-detail .quote-header-actions {
     justify-content: flex-start;
   }
@@ -544,9 +1851,71 @@
   .quote-overview-metric > strong {
     font-size: 21px;
   }
+  .handoff-demo-toolbar,
+  .project-handoff-header,
+  .project-handoff-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .handoff-demo-toolbar > div {
+    align-self: flex-start;
+  }
+  .project-handoff-progress {
+    width: 100%;
+  }
+  .project-handoff-progress strong {
+    text-align: left;
+  }
+  .project-handoff-steps li {
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 16px 0;
+  }
+  .project-handoff-step-state {
+    grid-column: 2;
+  }
+  .project-handoff-footer .button {
+    justify-content: center;
+    width: 100%;
+  }
+  .project-handoff-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .project-handoff-readiness,
+  .project-handoff-transfer {
+    padding: 20px;
+  }
+  .project-handoff-modal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .project-handoff-modal-grid > aside {
+    padding-top: 20px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .handoff-created-demo {
+    grid-template-columns: 44px minmax(0, 1fr);
+    padding: 22px;
+  }
+  .handoff-created-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .handoff-created-plan {
+    padding-top: 22px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .handoff-demo-reset {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .quote-row {
+    transition: none;
+  }
+  .project-handoff-progress i {
     transition: none;
   }
 }

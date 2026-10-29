@@ -27,11 +27,11 @@ export default function TaskList({
     return (
       <Empty
         title="Your upcoming work is clear"
-        text="Add the next steps and assign them to your contractors."
+        text="Add the next items and assign them to your contractors."
         action={
           <button className="button secondary" onClick={onAdd}>
             <Plus size={16} />
-            Add work
+            Add item
           </button>
         }
       />
@@ -63,7 +63,7 @@ export default function TaskList({
                 {task.title}
               </button>
               <span className="task-work-kind">
-                {workType(task)}
+                {workType(task) === "Task" ? "Item" : workType(task)}
                 {workTime(task) ? ` · ${workTime(task)} ET` : ""}
               </span>
               {onProject && project && (

@@ -40,6 +40,7 @@ import {
   Footprints,
 } from "lucide-react";
 import { demoWorkspace } from "@/lib/demo";
+import { quoteProjectHandoffDemoWorkspace } from "@/lib/demo-quote-handoff";
 import { contractorServices } from "@/lib/contractor-services";
 import { contactPhotoUrl } from "@/lib/contact-photo";
 import { calculatedQuotePrice } from "@/lib/quote-bulk-pricing";
@@ -129,10 +130,12 @@ export default function WorkspaceApp({
   user,
   config,
   demo = false,
+  demoScenario,
 }: {
   user: User;
   config: BusinessConfig;
   demo?: boolean;
+  demoScenario?: "quote-project-handoff";
 }) {
   const locationSharing = useLocationSharing(user, demo);
   const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
@@ -205,6 +208,12 @@ export default function WorkspaceApp({
     const version = syncVersion.current;
     try {
       if (demo) {
+        if (demoScenario === "quote-project-handoff") {
+          commit(quoteProjectHandoffDemoWorkspace());
+          setLoadError("");
+          setLoaded(true);
+          return;
+        }
         const stored = localStorage.getItem(demoKey);
         if (stored) {
           const parsed = JSON.parse(stored);
@@ -251,7 +260,7 @@ export default function WorkspaceApp({
           : "Could not load the workspace. Please try again.",
       );
     }
-  }, [demo, commit]);
+  }, [demo, demoScenario, commit]);
   useEffect(() => {
     const timer = setTimeout(() => void refresh(), 0);
     const updateDay = () => setContractToday(workToday());
@@ -628,7 +637,7 @@ export default function WorkspaceApp({
               quote: "Quote created",
               task: "Work added",
               contractor: "Contact added",
-              scope: "Scope item added",
+              scope: "Item added",
               comment: "Note added",
               attachment: "File uploaded",
               activity: "Activity logged",
@@ -1823,7 +1832,7 @@ export default function WorkspaceApp({
                           className={lateTasks.length ? "attention-text" : ""}
                         >
                           {lateTasks.length
-                            ? `${lateTasks.length} overdue work items`
+                            ? `${lateTasks.length} overdue items`
                             : "Everything is on track"}
                           <ArrowUpRight size={12} />
                         </small>
@@ -1992,7 +2001,7 @@ export default function WorkspaceApp({
                         Upcoming<span className="heading-dot">.</span>
                       </h1>
                       <p>
-                        Tasks, inspections, deliveries, and visits across your
+                        Items, inspections, deliveries, and visits across your
                         company.
                       </p>
                     </div>
@@ -2131,7 +2140,7 @@ export default function WorkspaceApp({
                           <div className="contractor-assignments">
                             <span>
                               {assignedTasks.length} assigned{" "}
-                              {assignedTasks.length === 1 ? "task" : "tasks"}
+                              {assignedTasks.length === 1 ? "item" : "items"}
                             </span>
                             {assignedTasks.slice(0, 3).map((task) => (
                               <div
@@ -2300,7 +2309,7 @@ export default function WorkspaceApp({
       )}
       {deleting && (
         <Modal
-          title={`Delete this ${deleting.kind === "attachment" ? "file" : deleting.kind === "comment" ? "note" : deleting.kind === "activity" ? "activity" : deleting.kind === "alert" ? "alert" : "work item"}?`}
+          title={`Delete this ${deleting.kind === "attachment" ? "file" : deleting.kind === "comment" ? "note" : deleting.kind === "activity" ? "activity" : deleting.kind === "alert" ? "alert" : "item"}?`}
           subtitle="This removes it for everyone in your workspace and cannot be undone."
           onClose={() => {
             if (!deleteBusy) setDeleting(null);

@@ -4,16 +4,22 @@ import { BusinessProvider } from "@/components/business-context";
 export default async function Demo({
   searchParams,
 }: {
-  searchParams: Promise<{ as?: string }>;
+  searchParams: Promise<{ as?: string; scenario?: string }>;
 }) {
   const config = defaultBusinessConfig();
   config.features.priceBook = true;
   config.quotePreferences.showPriceBookPicker = true;
-  const doorKnocker = (await searchParams).as === "doorknocker";
+  const params = await searchParams;
+  const doorKnocker = params.as === "doorknocker";
+  const demoScenario =
+    params.scenario === "quote-project-handoff"
+      ? "quote-project-handoff"
+      : undefined;
   return (
     <BusinessProvider config={config}>
       <WorkspaceApp
         demo
+        demoScenario={demoScenario}
         config={config}
         user={{
           id: "demo",
