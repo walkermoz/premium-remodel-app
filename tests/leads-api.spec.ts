@@ -232,7 +232,9 @@ test("a lead creates a quote with its available details filled in", async ({
     "Taylor Reed",
   );
   await expect(dialog.getByLabel("Linked lead")).toHaveCount(0);
-  await expect(dialog.getByLabel("Full scope of work")).toHaveValue(
+  await expect(dialog.getByLabel("Notes", { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel("Full scope of work")).toHaveCount(0);
+  await expect(dialog.locator('input[name="description"]')).toHaveValue(
     /update our cabinets, countertops, lighting, and flooring/i,
   );
 

@@ -473,7 +473,7 @@ export async function buildQuotePdf(
     pages.push(page);
     notesTop = 54;
   }
-  drawTop(page, "Notes & payment", LEFT, notesTop, bold, 11.5, colors.blue);
+  drawTop(page, "Notes", LEFT, notesTop, bold, 11.5, colors.blue);
   let cursor = notesTop + 22;
   if (quote.quoteNotes) {
     cursor = drawParagraph(page, quote.quoteNotes, cursor, regular);
