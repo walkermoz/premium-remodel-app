@@ -19,9 +19,7 @@ cloudTest(
     await expect(
       page.getByRole("heading", { name: "Your next project starts here" }),
     ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Contacts", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Contacts", exact: true }).click();
     await page
       .getByRole("button", { name: "Add contact", exact: true })
       .first()
@@ -50,6 +48,7 @@ cloudTest(
     await expect(dialog.getByLabel("Assigned contractor")).toHaveCount(0);
     await dialog.getByRole("button", { name: "Create project" }).click();
     await expect(dialog).not.toBeVisible();
+    await page.getByRole("button", { name: "Planning", exact: true }).click();
     await page.getByRole("heading", { name: "Real test kitchen" }).click();
     await expect(
       page.getByRole("heading", { name: "Project brief" }),
@@ -96,6 +95,7 @@ cloudTest(
           new Intl.NumberFormat("en-US", {
             style: "currency",
             currency: "USD",
+            minimumFractionDigits: 0,
             maximumFractionDigits: 2,
           }).format(Number(item.estimate)),
         );
@@ -309,6 +309,8 @@ cloudTest(
     await member.getByLabel("Password", { exact: true }).fill(password);
     await member.getByLabel("Confirm password", { exact: true }).fill(password);
     await member.getByRole("button", { name: "Join workspace" }).click();
+    await member.getByRole("button", { name: "Projects", exact: true }).click();
+    await member.getByRole("button", { name: "Planning", exact: true }).click();
     await expect(
       member.getByRole("heading", { name: "Kitchen updated by teammate" }),
     ).toBeVisible();
@@ -428,6 +430,8 @@ cloudTest(
     await page.getByLabel("Work email").fill(company.email);
     await page.getByLabel("Password", { exact: true }).fill(newPassword);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByRole("button", { name: "Projects", exact: true }).click();
+    await page.getByRole("button", { name: "Planning", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Kitchen updated by teammate" }),
     ).toBeVisible();
@@ -491,9 +495,7 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Contacts", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Contacts." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Contacts." })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

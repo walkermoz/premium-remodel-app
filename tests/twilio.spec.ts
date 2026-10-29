@@ -78,7 +78,9 @@ cloudTest(
       name: "Phone & texting",
       exact: true,
     });
-    await expect(section).toContainText("Twilio is not connected.");
+    await expect(section).toContainText(
+      "The platform-managed phone account is not configured yet.",
+    );
     const sid = `AC${"a".repeat(32)}`;
     let fail = false;
     await page.route("**/api/twilio/config", (route) =>
@@ -159,8 +161,16 @@ cloudTest(
       .from("profiles")
       .update({ role: "crew" })
       .eq("organization_id", company.organizationId)
-      .eq("email", company.email);
+      .eq("email", company.email)
+      .select("id")
+      .single();
     expect(changed.error).toBeNull();
+    const membership = await company.admin
+      .from("remodel_memberships")
+      .update({ role: "crew" })
+      .eq("organization_id", company.organizationId)
+      .eq("profile_id", changed.data!.id);
+    expect(membership.error).toBeNull();
     expect((await api.get("/api/twilio/config")).status()).toBe(403);
     expect(
       (
