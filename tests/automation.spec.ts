@@ -95,5 +95,47 @@ cloudTest(
         }),
       ]),
     );
+
+    const historyResponse = await api.get(
+      "/api/automations/website-leads/runs",
+    );
+    expect(historyResponse.status()).toBe(200);
+    const history = await historyResponse.json();
+    expect(history.recentCount).toBe(2);
+    expect(history.attentionCount).toBe(0);
+    expect(history.runs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "completed",
+          steps: expect.arrayContaining([
+            expect.objectContaining({ key: "contact", status: "created" }),
+            expect.objectContaining({ key: "lead", status: "created" }),
+            expect.objectContaining({ key: "email", status: "skipped" }),
+            expect.objectContaining({ key: "team", status: "skipped" }),
+          ]),
+        }),
+        expect.objectContaining({
+          status: "completed",
+          steps: expect.arrayContaining([
+            expect.objectContaining({ key: "contact", status: "reused" }),
+          ]),
+        }),
+      ]),
+    );
+
+    const removedLeadId = workspace.leads[0].id;
+    const removed = await company.admin
+      .from("remodel_records")
+      .delete()
+      .eq("organization_id", company.organizationId)
+      .eq("kind", "lead")
+      .eq("id", removedLeadId);
+    expect(removed.error).toBeNull();
+    const retainedHistory = await (
+      await api.get("/api/automations/website-leads/runs")
+    ).json();
+    expect(retainedHistory.runs.some((run: { leadId: string }) =>
+      run.leadId === removedLeadId,
+    )).toBe(true);
   },
 );

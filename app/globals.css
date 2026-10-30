@@ -5173,7 +5173,10 @@ small {
   font-size: 11px;
   font-weight: 650;
   cursor: grab;
-  transition: border-color 0.14s, background 0.14s, opacity 0.14s,
+  transition:
+    border-color 0.14s,
+    background 0.14s,
+    opacity 0.14s,
     transform 0.14s;
 }
 .role-tab-sort-row > svg {
@@ -10851,22 +10854,87 @@ small {
   line-height: 1.2;
 }
 .automation-connector {
-  width: 26px;
-  height: 38px;
-  margin: 0 auto;
-  border-left: 1px solid #8da2b1;
-  color: #617f94;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 54px;
+  place-items: center;
+  color: #4c7895;
 }
-.automation-connector svg {
-  transform: translate(-8px, 2px);
-  padding: 2px;
+.automation-connector::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: #a9bfcd;
+  content: "";
+}
+.automation-connector-arrow {
+  z-index: 1;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid #a9bfcd;
+  border-radius: 50%;
   background: var(--theme-canvas, #edf2f5);
+  box-shadow: 0 1px 3px #18344a0d;
 }
-.automation-connector.is-branch svg {
-  transform: translate(-8px, 3px);
+.automation-connector.is-branch {
+  height: 72px;
+}
+.automation-connector.is-branch::before {
+  bottom: 36px;
+}
+.automation-connector.is-branch::after {
+  position: absolute;
+  top: 35px;
+  right: calc(25% - 3px);
+  left: calc(25% - 3px);
+  height: 2px;
+  background: #a9bfcd;
+  content: "";
+}
+.automation-branch-label {
+  position: absolute;
+  z-index: 1;
+  top: 25px;
+  left: 50%;
+  padding: 4px 8px;
+  border: 1px solid #a9bfcd;
+  border-radius: 4px;
+  background: var(--theme-canvas, #edf2f5);
+  color: #4c718b;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.automation-branch-arm {
+  position: absolute;
+  top: 35px;
+  bottom: 8px;
+  width: 2px;
+  background: #a9bfcd;
+}
+.automation-branch-arm.is-left {
+  left: calc(25% - 3px);
+}
+.automation-branch-arm.is-right {
+  right: calc(25% - 3px);
+}
+.automation-branch-arm::after {
+  position: absolute;
+  bottom: -1px;
+  left: -3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #6e9ab3;
+  border-bottom: 2px solid #6e9ab3;
+  content: "";
+  transform: rotate(45deg);
 }
 .automation-branch-grid {
   display: grid;
@@ -10978,15 +11046,60 @@ small {
   color: var(--theme-text-muted, #82919c);
   font-size: 9px;
 }
+.automation-runs-tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--theme-text-muted, #82919c);
+  font-size: 9px;
+}
+.automation-runs-tools button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--blue);
+  cursor: pointer;
+}
+.automation-runs-tools button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.automation-attention-count {
+  color: #b87529 !important;
+}
 .automation-run-list {
   padding: 7px 15px;
 }
 .automation-run {
-  padding: 13px 0;
   border-bottom: 1px solid var(--line);
+}
+.automation-run-summary {
+  width: 100%;
+  padding: 13px 0;
+  border: 0;
+  background: transparent;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
+  grid-template-columns: 22px minmax(0, 1fr) 14px;
   gap: 9px;
+  align-items: start;
+  text-align: left;
+  cursor: pointer;
+}
+.automation-run-summary > svg {
+  margin-top: 3px;
+  color: var(--theme-text-muted, #82919c);
+  transition: transform 160ms ease;
+}
+.automation-run-summary > svg.is-open {
+  transform: rotate(180deg);
+}
+.automation-run-summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 .automation-run-status {
   width: 20px;
@@ -10997,26 +11110,80 @@ small {
   background: #dff3e8;
   color: #27875a;
 }
-.automation-run > div {
+.automation-run-status.is-needs_attention {
+  background: #fff0d9;
+  color: #a9651c;
+}
+.automation-run-status.is-running {
+  background: #deebf8;
+  color: var(--blue);
+}
+.automation-run-summary-copy {
   min-width: 0;
   display: grid;
   gap: 3px;
 }
-.automation-run strong,
-.automation-run span,
-.automation-run time {
+.automation-run-summary-copy strong,
+.automation-run-summary-copy span,
+.automation-run-summary-copy time {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.automation-run strong {
+.automation-run-summary-copy strong {
   color: var(--navy);
   font-size: 10px;
 }
-.automation-run span,
-.automation-run time {
+.automation-run-summary-copy span,
+.automation-run-summary-copy time {
   color: var(--theme-text-muted, #82919c);
   font-size: 9px;
+}
+.automation-run-details {
+  padding: 0 0 14px 31px;
+  color: var(--navy);
+  font-size: 10px;
+}
+.automation-run-details > strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.automation-run-details ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.automation-run-details li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+}
+.automation-run-details li b {
+  color: var(--blue);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.automation-run-details li small {
+  grid-column: 1 / -1;
+  color: var(--theme-text-muted, #82919c);
+  line-height: 1.4;
+}
+.automation-runs-error {
+  margin: 12px 15px;
+  color: #b14545;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.automation-runs-more {
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 10px;
+  cursor: pointer;
 }
 .automation-runs-empty {
   padding: 45px 25px;
@@ -11084,6 +11251,16 @@ small {
   .automation-branch-grid,
   .automation-run-list {
     grid-template-columns: 1fr;
+  }
+  .automation-connector.is-branch {
+    height: 56px;
+  }
+  .automation-connector.is-branch::before {
+    bottom: 0;
+  }
+  .automation-connector.is-branch::after,
+  .automation-branch-arm {
+    display: none;
   }
   .automation-node {
     grid-template-columns: 32px minmax(0, 1fr);

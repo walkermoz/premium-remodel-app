@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  AlertCircle,
   ArrowDown,
   BellRing,
   Check,
+  ChevronDown,
   CircleDot,
   Clock3,
-  GitBranch,
   Inbox,
   MailCheck,
   RefreshCw,
@@ -16,6 +17,7 @@ import {
   UsersRound,
   Workflow,
 } from "lucide-react";
+import type { AutomationRun } from "@/lib/automation-runs";
 import {
   defaultWebsiteLeadAutomation,
   websiteLeadDispositions,
@@ -51,8 +53,21 @@ function Toggle({
 
 function FlowConnector({ branch = false }: { branch?: boolean }) {
   return (
-    <div className={`automation-connector ${branch ? "is-branch" : ""}`}>
-      {branch ? <GitBranch size={15} /> : <ArrowDown size={15} />}
+    <div
+      className={`automation-connector ${branch ? "is-branch" : ""}`}
+      aria-hidden="true"
+    >
+      {branch ? (
+        <>
+          <span className="automation-branch-label">IN PARALLEL</span>
+          <span className="automation-branch-arm is-left" />
+          <span className="automation-branch-arm is-right" />
+        </>
+      ) : (
+        <span className="automation-connector-arrow">
+          <ArrowDown size={14} strokeWidth={2.1} />
+        </span>
+      )}
     </div>
   );
 }
@@ -74,8 +89,46 @@ export default function AutomationPanel({
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [openedAt] = useState(() => Date.now());
+  const [runs, setRuns] = useState<AutomationRun[]>([]);
+  const [runCount, setRunCount] = useState(0);
+  const [recentCount, setRecentCount] = useState(0);
+  const [attentionCount, setAttentionCount] = useState(0);
+  const [runsLoading, setRunsLoading] = useState(!demo);
+  const [runsError, setRunsError] = useState("");
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const editable = !demo && user.role === "admin";
+
+  const loadRuns = useCallback(
+    async (offset = 0) => {
+      if (demo) return;
+      setRunsLoading(true);
+      setRunsError("");
+      try {
+        const response = await fetch(
+          `/api/automations/website-leads/runs?offset=${offset}`,
+          { cache: "no-store" },
+        );
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error || "Could not load workflow runs.");
+        setRuns((current) =>
+          offset ? [...current, ...(data.runs as AutomationRun[])] : data.runs,
+        );
+        setRunCount(data.total);
+        setRecentCount(data.recentCount);
+        setAttentionCount(data.attentionCount);
+      } catch (reason) {
+        setRunsError(
+          reason instanceof Error
+            ? reason.message
+            : "Could not load workflow runs.",
+        );
+      } finally {
+        setRunsLoading(false);
+      }
+    },
+    [demo],
+  );
 
   useEffect(() => {
     if (demo) return;
@@ -103,20 +156,43 @@ export default function AutomationPanel({
     };
   }, [demo]);
 
-  const executions = useMemo(
-    () =>
-      leads
-        .filter(
-          (lead) =>
-            lead.emailAcknowledgement ||
-            /website|web form/i.test(lead.source || ""),
-        )
-        .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
-    [leads],
-  );
-  const recentCount = executions.filter(
-    (lead) => Date.parse(lead.submittedAt) >= openedAt - 30 * 86_400_000,
-  ).length;
+  useEffect(() => {
+    if (demo) return;
+    queueMicrotask(() => void loadRuns());
+    const refresh = () => {
+      if (!document.hidden) void loadRuns();
+    };
+    const timer = window.setInterval(refresh, 30_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [demo, loadRuns]);
+
+  const demoRuns: AutomationRun[] = demo
+    ? leads
+        .filter((lead) => /website|web form/i.test(lead.source || ""))
+        .map((lead) => ({
+          id: lead.id,
+          leadId: lead.id,
+          subject: lead.name,
+          project: lead.project,
+          status: "completed" as const,
+          steps: [
+            {
+              key: "contact" as const,
+              label: "Customer contact",
+              status: "created" as const,
+            },
+            { key: "lead" as const, label: "Lead", status: "created" as const },
+          ],
+          startedAt: lead.submittedAt,
+          completedAt: lead.submittedAt,
+        }))
+    : [];
+  const visibleRuns = demo ? demoRuns : runs;
+  const visibleRecentCount = demo ? demoRuns.length : recentCount;
 
   function update(patch: Partial<WebsiteLeadAutomation>) {
     setAutomation((current) => ({ ...current, ...patch }));
@@ -225,10 +301,15 @@ export default function AutomationPanel({
           </button>
           <div className="automation-library-summary">
             <span>Last 30 days</span>
-            <strong>{recentCount}</strong>
+            <strong>{visibleRecentCount}</strong>
             <small>
-              {recentCount === 1 ? "lead captured" : "leads captured"}
+              {visibleRecentCount === 1 ? "run recorded" : "runs recorded"}
             </small>
+            {!demo && attentionCount > 0 && (
+              <small className="automation-attention-count">
+                {attentionCount} need attention
+              </small>
+            )}
           </div>
         </aside>
 
@@ -434,34 +515,106 @@ export default function AutomationPanel({
               <Clock3 size={17} />
               <strong>Recent runs</strong>
             </div>
-            <span>{executions.length} total</span>
+            <div className="automation-runs-tools">
+              <span>{demo ? visibleRuns.length : runCount} total</span>
+              {!demo && (
+                <button
+                  type="button"
+                  aria-label="Refresh workflow runs"
+                  title="Refresh runs"
+                  disabled={runsLoading}
+                  onClick={() => void loadRuns()}
+                >
+                  <RefreshCw size={14} className={runsLoading ? "spin" : ""} />
+                </button>
+              )}
+            </div>
           </div>
-          {executions.length ? (
+          {runsError && (
+            <p className="automation-runs-error" role="alert">
+              {runsError}
+            </p>
+          )}
+          {visibleRuns.length ? (
             <div className="automation-run-list">
-              {executions.slice(0, 6).map((lead) => (
-                <div className="automation-run" key={lead.id}>
-                  <span className="automation-run-status">
-                    <Check size={12} />
-                  </span>
-                  <div>
-                    <strong>{lead.name || "Website customer"}</strong>
-                    <span>{lead.project || "Project inquiry"}</span>
-                    <time dateTime={lead.submittedAt}>
-                      {new Date(lead.submittedAt).toLocaleString([], {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </time>
-                  </div>
+              {visibleRuns.map((run) => (
+                <div className="automation-run" key={run.id}>
+                  <button
+                    className="automation-run-summary"
+                    type="button"
+                    aria-expanded={expandedRunId === run.id}
+                    onClick={() =>
+                      setExpandedRunId((current) =>
+                        current === run.id ? null : run.id,
+                      )
+                    }
+                  >
+                    <span
+                      className={`automation-run-status is-${run.status}`}
+                      aria-hidden="true"
+                    >
+                      {run.status === "needs_attention" ? (
+                        <AlertCircle size={13} />
+                      ) : run.status === "running" ? (
+                        <Clock3 size={13} />
+                      ) : (
+                        <Check size={13} />
+                      )}
+                    </span>
+                    <span className="automation-run-summary-copy">
+                      <strong>{run.subject || "Website customer"}</strong>
+                      <span>{run.project || "Project inquiry"}</span>
+                      <time dateTime={run.startedAt}>
+                        {new Date(run.startedAt).toLocaleString([], {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={expandedRunId === run.id ? "is-open" : ""}
+                    />
+                  </button>
+                  {expandedRunId === run.id && (
+                    <div className="automation-run-details">
+                      <strong>
+                        {run.status === "needs_attention"
+                          ? "Needs attention"
+                          : run.status === "running"
+                            ? "Running"
+                            : "Completed"}
+                      </strong>
+                      <ol>
+                        {run.steps.map((step) => (
+                          <li key={step.key}>
+                            <span>{step.label}</span>
+                            <b>{step.status.replaceAll("_", " ")}</b>
+                            {step.detail && <small>{step.detail}</small>}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
                 </div>
               ))}
+              {!demo && visibleRuns.length < runCount && (
+                <button
+                  className="automation-runs-more"
+                  type="button"
+                  disabled={runsLoading}
+                  onClick={() => void loadRuns(visibleRuns.length)}
+                >
+                  {runsLoading ? "Loading…" : "Load more runs"}
+                </button>
+              )}
             </div>
           ) : (
             <div className="automation-runs-empty">
               <Workflow size={22} />
-              <strong>No runs yet</strong>
+              <strong>{runsLoading ? "Loading runs…" : "No runs yet"}</strong>
               <p>
                 New website inquiries will appear here after they are captured.
               </p>

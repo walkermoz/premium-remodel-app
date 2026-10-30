@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { apiError, limitAttempts } from "@/lib/auth";
+import {
+  finishWebsiteLeadRun,
+  startWebsiteLeadRun,
+  type AutomationRunStep,
+} from "@/lib/automation-runs";
 import { getWebsiteLeadAutomation } from "@/lib/automation-store";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
 import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
@@ -171,6 +176,22 @@ export async function POST(request: Request) {
     );
     if (insertError) throw insertError;
 
+    const runSteps: AutomationRunStep[] = [
+      {
+        key: "contact",
+        label: "Customer contact",
+        status: matchedContact ? "reused" : "created",
+      },
+      { key: "lead", label: "Lead", status: "created" },
+    ];
+    const runId = await startWebsiteLeadRun({
+      organizationId,
+      leadId: lead.id,
+      subject: lead.name,
+      project: lead.project,
+      steps: runSteps,
+    });
+
     const [notificationResult, acknowledgementResult] =
       await Promise.allSettled([
         automation.sendTeamNotification
@@ -178,6 +199,7 @@ export async function POST(request: Request) {
           : Promise.resolve({
               status: "skipped" as const,
               attemptedAt: new Date().toISOString(),
+              detail: "Disabled by automation",
             }),
         automation.sendAcknowledgement
           ? sendWebsiteLeadAcknowledgement({
@@ -194,11 +216,35 @@ export async function POST(request: Request) {
     const notification =
       notificationResult.status === "fulfilled"
         ? notificationResult.value
-        : { status: "failed", attemptedAt: new Date().toISOString() };
+        : {
+            status: "failed" as const,
+            attemptedAt: new Date().toISOString(),
+            detail: "Notification action failed unexpectedly",
+          };
     const emailAcknowledgement =
       acknowledgementResult.status === "fulfilled"
         ? acknowledgementResult.value
-        : { status: "failed", attemptedAt: new Date().toISOString() };
+        : {
+            status: "failed" as const,
+            attemptedAt: new Date().toISOString(),
+            detail: "Email action failed unexpectedly",
+          };
+    runSteps.push(
+      {
+        key: "email",
+        label: "Customer confirmation",
+        status: emailAcknowledgement.status,
+        ...(emailAcknowledgement.detail
+          ? { detail: emailAcknowledgement.detail }
+          : {}),
+      },
+      {
+        key: "team",
+        label: "Team notification",
+        status: notification.status,
+        ...(notification.detail ? { detail: notification.detail } : {}),
+      },
+    );
     const updatedAt = new Date().toISOString();
     const { error: updateError } = await admin
       .from("remodel_records")
@@ -216,6 +262,14 @@ export async function POST(request: Request) {
       .eq("id", lead.id);
     if (updateError)
       console.error("Could not store the lead notification status.");
+    if (updateError)
+      runSteps.push({
+        key: "record",
+        label: "Delivery status record",
+        status: "failed",
+        detail: "The lead was saved, but its delivery status was not updated.",
+      });
+    await finishWebsiteLeadRun({ organizationId, runId, steps: runSteps });
 
     response = Response.json({ received: true }, { status: 201 });
   } catch (error) {
