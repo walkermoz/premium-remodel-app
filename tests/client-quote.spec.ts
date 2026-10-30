@@ -95,6 +95,29 @@ cloudTest(
     });
     expect(linkResponse.status()).toBe(201);
     const link = await linkResponse.json();
+    // Email delivery marks the quote Sent after the frozen customer snapshot
+    // is created. This operational timestamp change must not invalidate the
+    // exact quote the customer received.
+    const emailedAt = new Date(
+      Date.parse(quoteWithDraftTerms.updatedAt) + 1000,
+    ).toISOString();
+    const sentQuote = {
+      ...quoteWithDraftTerms,
+      status: "Sent",
+      quoteSentAt: emailedAt,
+      updatedAt: emailedAt,
+    };
+    const markedSent = await company.admin
+      .from("remodel_records")
+      .update({
+        data: sentQuote,
+        updated_at: emailedAt,
+      })
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .eq("kind", "quote")
+      .eq("updated_at", quoteWithDraftTerms.updatedAt);
+    expect(markedSent.error).toBeNull();
     const client = await browser.newContext();
     const signEndpoint = link.url
       .replace("/client/", "/api/client-quote/")
@@ -102,6 +125,49 @@ cloudTest(
     const pdfEndpoint = link.url
       .replace("/client/", "/api/client-quote/")
       .replace(/\/quote$/, "/pdf");
+    const changedAt = new Date(Date.parse(emailedAt) + 1000).toISOString();
+    const changed = await company.admin
+      .from("remodel_records")
+      .update({
+        data: {
+          ...sentQuote,
+          description: "Changed after the customer received the quote",
+          updatedAt: changedAt,
+        },
+        updated_at: changedAt,
+      })
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .eq("kind", "quote")
+      .eq("updated_at", emailedAt);
+    expect(changed.error).toBeNull();
+    const staleContent = await client.request.post(signEndpoint, {
+      headers: origin,
+      data: {
+        signedName: "Walker Portal Test",
+        quoteUpdatedAt: quote.updatedAt,
+        signatureStrokes: [
+          [
+            [0.1, 0.1],
+            [0.3, 0.3],
+          ],
+        ],
+        acceptedTerms: true,
+      },
+    });
+    expect(staleContent.status()).toBe(409);
+    const restoredAt = new Date(Date.parse(changedAt) + 1000).toISOString();
+    const restored = await company.admin
+      .from("remodel_records")
+      .update({
+        data: { ...sentQuote, updatedAt: restoredAt },
+        updated_at: restoredAt,
+      })
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .eq("kind", "quote")
+      .eq("updated_at", changedAt);
+    expect(restored.error).toBeNull();
     const unsignedPdf = await client.request.get(pdfEndpoint);
     expect(unsignedPdf.status()).toBe(200);
     const missingConsent = await client.request.post(signEndpoint, {
@@ -181,7 +247,7 @@ cloudTest(
       page.getByRole("heading", { name: "Before this becomes a project" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Master services agreement" }),
+      page.getByRole("heading", { name: "Sign and send the prepared MSA" }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Accept quote" }),

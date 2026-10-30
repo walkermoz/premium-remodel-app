@@ -121,7 +121,7 @@ export async function readClientQuoteSource(
 
   const quoteResult = await admin
     .from("remodel_records")
-    .select("kind,data")
+    .select("kind,data,updated_at")
     .eq("organization_id", link.organization_id)
     .eq("id", link.project_id)
     .maybeSingle();
@@ -209,6 +209,8 @@ export async function readClientQuoteSource(
   return {
     view,
     organizationId: link.organization_id as string,
+    currentQuote: record.data as Quote,
+    recordUpdatedAt: record.updated_at as string,
     // Kept on the server for the same customer-facing PDF used in the dashboard.
     pdfQuote: {
       ...snapshot.data.quote,

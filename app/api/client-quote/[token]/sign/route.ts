@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { apiError, checkOrigin, HttpError, limitAttempts } from "@/lib/auth";
 import { readClientQuoteSource } from "@/lib/client-quote";
@@ -18,6 +19,16 @@ const signInput = z.object({
   signatureStrokes: signatureStrokesSchema,
   acceptedTerms: z.literal(true),
 });
+
+function contractualQuote(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const comparable = { ...value } as Record<string, unknown>;
+  delete comparable.updatedAt;
+  delete comparable.quoteSentAt;
+  for (const [key, item] of Object.entries(comparable))
+    if (item === undefined) delete comparable[key];
+  return comparable;
+}
 
 export async function POST(
   request: Request,
@@ -46,6 +57,13 @@ export async function POST(
     }
     if (input.quoteUpdatedAt !== source.pdfQuote.updatedAt)
       throw new HttpError(409, "This quote changed. Refresh before signing.");
+    if (
+      !isDeepStrictEqual(
+        contractualQuote(source.currentQuote),
+        contractualQuote(source.pdfQuote),
+      )
+    )
+      throw new HttpError(409, "This quote changed. Refresh before signing.");
 
     // Recheck revocation close to the write so a previously opened tab cannot
     // accept a quote through a link that has since been replaced.
@@ -59,7 +77,7 @@ export async function POST(
     if (!activeLink.data) throw new HttpError(404, "Quote link not found.");
 
     const now = new Date(
-      Math.max(Date.now(), Date.parse(source.pdfQuote.updatedAt) + 1),
+      Math.max(Date.now(), Date.parse(source.recordUpdatedAt) + 1),
     ).toISOString();
     const ip = (
       request.headers.get("x-vercel-forwarded-for") ||
@@ -93,6 +111,8 @@ export async function POST(
     };
     const acceptedQuote = {
       ...source.pdfQuote,
+      quoteSentAt:
+        source.currentQuote.quoteSentAt || source.pdfQuote.quoteSentAt,
       status: "Accepted" as const,
       quoteAcceptedAt: now,
       quoteAcceptedBy: `client-link:${linkId}`,
@@ -114,7 +134,7 @@ export async function POST(
       .eq("organization_id", source.organizationId)
       .eq("id", source.pdfQuote.id)
       .eq("kind", "quote")
-      .eq("updated_at", source.pdfQuote.updatedAt)
+      .eq("updated_at", source.recordUpdatedAt)
       .select("id");
     if (error) throw error;
     if (!data?.length)
