@@ -1,5 +1,26 @@
 import { requireOptionalNativeModule } from "expo-modules-core";
 
+export type RoomScanObjectCategory =
+  | "bathtub"
+  | "bed"
+  | "cabinet"
+  | "chair"
+  | "dishwasher"
+  | "fireplace"
+  | "object"
+  | "oven"
+  | "refrigerator"
+  | "shelf"
+  | "sink"
+  | "sofa"
+  | "stairs"
+  | "storage"
+  | "stove"
+  | "table"
+  | "television"
+  | "toilet"
+  | "washerDryer";
+
 export type RoomScanCapture = {
   schemaVersion: 1;
   roomName: string;
@@ -23,6 +44,7 @@ export type RoomScanCapture = {
   surfaces: Array<{
     id: string;
     kind: "wall" | "door" | "window" | "opening" | "object";
+    category?: RoomScanObjectCategory;
     widthFt: number;
     heightFt: number;
     depthFt: number;

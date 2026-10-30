@@ -137,6 +137,40 @@
   line-height: 1.6;
 }
 
+.detectedObjects {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.detectedObjects > strong {
+  font-size: 12px;
+}
+
+.detectedObjects > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.detectedObjects span {
+  padding: 6px 9px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.detectedObjects small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .downloads {
   margin-top: 15px;
 }

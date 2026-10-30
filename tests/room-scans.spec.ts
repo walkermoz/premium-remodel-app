@@ -135,6 +135,17 @@ cloudTest(
             depthFt: 0.2,
             confidence: "high",
           },
+          ...(["bathtub", "toilet", "sink", "cabinet"] as const).map(
+            (category) => ({
+              id: randomUUID(),
+              kind: "object" as const,
+              category,
+              widthFt: category === "bathtub" ? 5 : 2.5,
+              heightFt: category === "cabinet" ? 3 : 2,
+              depthFt: 2,
+              confidence: "high" as const,
+            }),
+          ),
         ],
       };
       const finalized = await page.request.post(capturePath, { data: capture });
@@ -144,6 +155,12 @@ cloudTest(
         quoteId,
         roomName: "Primary bathroom",
         measurements: { floorAreaSqFt: 96.4 },
+        detectedObjects: [
+          { category: "bathtub", count: 1 },
+          { category: "cabinet", count: 1 },
+          { category: "sink", count: 1 },
+          { category: "toilet", count: 1 },
+        ],
       });
 
       const listed = await page.request.get(
@@ -169,6 +186,11 @@ cloudTest(
       const scans = page.getByRole("region", { name: "Room scans" });
       await expect(scans).toContainText("Primary bathroom");
       await expect(scans).toContainText("96.4 sq ft");
+      await expect(scans).toContainText("Detected fixtures & objects");
+      await expect(scans).toContainText("Bathtub");
+      await expect(scans).toContainText("Toilet");
+      await expect(scans).toContainText("Sink");
+      await expect(scans).toContainText("Cabinet");
       await expect(
         scans.getByRole("img", { name: /Floor plan/ }),
       ).toBeVisible();

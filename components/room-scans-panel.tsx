@@ -12,7 +12,10 @@ import {
   Trash2,
 } from "lucide-react";
 import QRCode from "qrcode";
-import type { RoomScanSummary } from "@/lib/room-scan-types";
+import type {
+  RoomScanObjectCategory,
+  RoomScanSummary,
+} from "@/lib/room-scan-types";
 import RoomScanModelViewer from "./room-scan-model-viewer";
 import styles from "./room-scans-panel.module.css";
 
@@ -25,6 +28,28 @@ type ScanSession = {
 function measurement(value: number, suffix: string) {
   return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${suffix}`;
 }
+
+const objectLabels: Record<RoomScanObjectCategory, string> = {
+  bathtub: "Bathtub",
+  bed: "Bed",
+  cabinet: "Cabinet",
+  chair: "Chair",
+  dishwasher: "Dishwasher",
+  fireplace: "Fireplace",
+  object: "Other object",
+  oven: "Oven",
+  refrigerator: "Refrigerator",
+  shelf: "Shelf",
+  sink: "Sink",
+  sofa: "Sofa",
+  stairs: "Stairs",
+  storage: "Storage",
+  stove: "Stove",
+  table: "Table",
+  television: "Television",
+  toilet: "Toilet",
+  washerDryer: "Washer / dryer",
+};
 
 export default function RoomScansPanel({
   quoteId,
@@ -263,7 +288,30 @@ export default function RoomScansPanel({
                   windows · {scan.measurements.openings} openings ·{" "}
                   {measurement(scan.measurements.perimeterFt, "ft perimeter")}
                 </p>
+                {scan.detectedObjects.length ? (
+                  <div className={styles.detectedObjects}>
+                    <strong>Detected fixtures & objects</strong>
+                    <div>
+                      {scan.detectedObjects.map(({ category, count }) => (
+                        <span key={category}>
+                          {count > 1 ? `${count} × ` : ""}
+                          {objectLabels[category]}
+                        </span>
+                      ))}
+                    </div>
+                    <small>
+                      A vanity may appear as a sink and cabinet. Verify detected
+                      items before using them for scope or pricing.
+                    </small>
+                  </div>
+                ) : null}
                 <div className={styles.downloads}>
+                  <a
+                    className="button secondary small-button"
+                    href={`/api/room-scans/${encodeURIComponent(scan.id)}/asset?kind=preview&download=1`}
+                  >
+                    <Download size={14} /> 2D plan
+                  </a>
                   <a
                     className="button secondary small-button"
                     href={`/api/room-scans/${encodeURIComponent(scan.id)}/asset?kind=model`}

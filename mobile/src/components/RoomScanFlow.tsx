@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import RoomPlanScanner, {
   type RoomScanCapture,
+  type RoomScanObjectCategory,
   type RoomScanResult,
 } from "../../modules/room-plan-scanner";
 import { colors } from "../theme";
@@ -28,6 +29,40 @@ type CaptureSession = {
     headers: Record<string, string>;
   };
 };
+
+const objectLabels: Record<RoomScanObjectCategory, string> = {
+  bathtub: "Bathtub",
+  bed: "Bed",
+  cabinet: "Cabinet",
+  chair: "Chair",
+  dishwasher: "Dishwasher",
+  fireplace: "Fireplace",
+  object: "Other object",
+  oven: "Oven",
+  refrigerator: "Refrigerator",
+  shelf: "Shelf",
+  sink: "Sink",
+  sofa: "Sofa",
+  stairs: "Stairs",
+  storage: "Storage",
+  stove: "Stove",
+  table: "Table",
+  television: "Television",
+  toilet: "Toilet",
+  washerDryer: "Washer / dryer",
+};
+
+function detectedObjects(capture: RoomScanCapture) {
+  const counts = new Map<RoomScanObjectCategory, number>();
+  for (const surface of capture.surfaces) {
+    if (surface.kind !== "object" || !surface.category) continue;
+    counts.set(surface.category, (counts.get(surface.category) || 0) + 1);
+  }
+  return [...counts.entries()].map(([category, count]) => ({
+    category,
+    count,
+  }));
+}
 
 async function responsePayload(response: Response) {
   const payload = await response.json().catch(() => ({}));
@@ -104,7 +139,8 @@ export default function RoomScanFlow({
     try {
       setResult(await RoomPlanScanner.startScan(roomName.trim()));
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Scan cancelled.";
+      const message =
+        cause instanceof Error ? cause.message : "Scan cancelled.";
       if (!/cancel/i.test(message)) setError(message);
     } finally {
       setBusy(false);
@@ -117,11 +153,7 @@ export default function RoomScanFlow({
     setError("");
     try {
       await Promise.all([
-        upload(
-          session.uploads.model,
-          result.modelUri,
-          session.uploads.headers,
-        ),
+        upload(session.uploads.model, result.modelUri, session.uploads.headers),
         upload(
           session.uploads.preview,
           result.previewUri,
@@ -140,7 +172,9 @@ export default function RoomScanFlow({
       ]);
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "The room scan could not be saved.",
+        cause instanceof Error
+          ? cause.message
+          : "The room scan could not be saved.",
       );
     } finally {
       setBusy(false);
@@ -222,6 +256,29 @@ export default function RoomScanFlow({
                 value={`${result.capture.measurements.perimeterFt} ft`}
               />
             </View>
+            {detectedObjects(result.capture).length ? (
+              <View style={styles.detectedCard}>
+                <Text style={styles.detectedTitle}>
+                  Detected fixtures & objects
+                </Text>
+                <View style={styles.detectedItems}>
+                  {detectedObjects(result.capture).map(
+                    ({ category, count }) => (
+                      <View style={styles.detectedItem} key={category}>
+                        <Text style={styles.detectedItemText}>
+                          {count > 1 ? `${count} × ` : ""}
+                          {objectLabels[category]}
+                        </Text>
+                      </View>
+                    ),
+                  )}
+                </View>
+                <Text style={styles.detectedNote}>
+                  RoomPlan records cabinets as storage. A vanity may appear as a
+                  sink and cabinet.
+                </Text>
+              </View>
+            ) : null}
             <Text style={styles.reviewNote}>
               Review the floor plan now. Critical measurements should still be
               checked before materials are ordered.
@@ -415,8 +472,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   metricLabel: { color: colors.muted, fontSize: 12 },
-  metricValue: { color: colors.ink, fontSize: 17, fontWeight: "900", marginTop: 4 },
-  reviewNote: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 16 },
+  metricValue: {
+    color: colors.ink,
+    fontSize: 17,
+    fontWeight: "900",
+    marginTop: 4,
+  },
+  detectedCard: {
+    padding: 14,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
+  detectedTitle: { color: colors.ink, fontSize: 13, fontWeight: "900" },
+  detectedItems: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  detectedItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.background,
+  },
+  detectedItemText: { color: colors.ink, fontSize: 12, fontWeight: "800" },
+  detectedNote: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 10,
+  },
+  reviewNote: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 16,
+  },
   error: {
     color: colors.red,
     backgroundColor: "#fff1f1",

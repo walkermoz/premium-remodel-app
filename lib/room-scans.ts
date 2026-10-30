@@ -5,10 +5,7 @@ import { z } from "zod";
 import { HttpError, type WorkspaceUser } from "./auth";
 import { supabaseAdmin } from "./supabase/server";
 import { supabaseConfig } from "./supabase/config";
-import type {
-  RoomScanCapture,
-  RoomScanSummary,
-} from "./room-scan-types";
+import type { RoomScanCapture, RoomScanSummary } from "./room-scan-types";
 import type { Quote } from "./types";
 
 const bucket = "remodel-files";
@@ -17,6 +14,27 @@ const maxModelBytes = 48 * 1024 * 1024;
 const maxPreviewBytes = 8 * 1024 * 1024;
 
 const finiteMeasurement = z.number().finite().min(0).max(1_000_000);
+const roomScanObjectCategorySchema = z.enum([
+  "bathtub",
+  "bed",
+  "cabinet",
+  "chair",
+  "dishwasher",
+  "fireplace",
+  "object",
+  "oven",
+  "refrigerator",
+  "shelf",
+  "sink",
+  "sofa",
+  "stairs",
+  "storage",
+  "stove",
+  "table",
+  "television",
+  "toilet",
+  "washerDryer",
+]);
 export const roomScanCaptureSchema = z.object({
   schemaVersion: z.literal(1),
   roomName: z.string().trim().min(1).max(120),
@@ -42,6 +60,7 @@ export const roomScanCaptureSchema = z.object({
       z.object({
         id: z.string().trim().min(1).max(100),
         kind: z.enum(["wall", "door", "window", "opening", "object"]),
+        category: roomScanObjectCategorySchema.optional(),
         widthFt: finiteMeasurement,
         heightFt: finiteMeasurement,
         depthFt: finiteMeasurement,
@@ -61,6 +80,17 @@ function scanFolder(organizationId: string, quoteId: string, scanId: string) {
 
 function toSummary(row: Record<string, unknown>): RoomScanSummary {
   const capture = row.capture as RoomScanCapture;
+  const objectCounts = new Map<
+    NonNullable<RoomScanCapture["surfaces"][number]["category"]>,
+    number
+  >();
+  for (const surface of capture.surfaces) {
+    if (surface.kind !== "object" || !surface.category) continue;
+    objectCounts.set(
+      surface.category,
+      (objectCounts.get(surface.category) || 0) + 1,
+    );
+  }
   return {
     id: String(row.id),
     quoteId: String(row.quote_id),
@@ -70,14 +100,14 @@ function toSummary(row: Record<string, unknown>): RoomScanSummary {
     createdByName: String(row.created_by_name),
     device: capture.device,
     measurements: capture.measurements,
+    detectedObjects: [...objectCounts.entries()]
+      .map(([category, count]) => ({ category, count }))
+      .sort((left, right) => left.category.localeCompare(right.category)),
     surfaceCount: capture.surfaces.length,
   };
 }
 
-export async function createRoomScanSession(
-  user: WorkspaceUser,
-  quote: Quote,
-) {
+export async function createRoomScanSession(user: WorkspaceUser, quote: Quote) {
   const token = randomBytes(32).toString("base64url");
   const id = randomUUID();
   const scanId = randomUUID();
@@ -268,10 +298,7 @@ export async function finalizeRoomScan(
   return toSummary(inserted.data);
 }
 
-export async function listRoomScans(
-  organizationId: string,
-  quoteId: string,
-) {
+export async function listRoomScans(organizationId: string, quoteId: string) {
   const { data, error } = await supabaseAdmin()
     .from("remodel_room_scans")
     .select("*")

@@ -21,7 +21,9 @@ export async function GET(
     const { id } = await context.params;
     const scan = await findRoomScan(user.organizationId, id);
     if (!scan) throw new HttpError(404, "Room scan not found.");
-    const kind = new URL(request.url).searchParams.get("kind") || "preview";
+    const requestUrl = new URL(request.url);
+    const kind = requestUrl.searchParams.get("kind") || "preview";
+    const download = requestUrl.searchParams.get("download") === "1";
     if (!(kind in paths)) throw new HttpError(400, "Unknown room-scan asset.");
     const path = String(scan[paths[kind as keyof typeof paths]]);
     if (!path.startsWith(`${user.organizationId}/${scan.quote_id}/room-scans/`))
@@ -34,7 +36,9 @@ export async function GET(
             ? `${scan.room_name}.json`
             : kind === "model"
               ? `${scan.room_name}.usdz`
-              : false,
+              : download
+                ? `${scan.room_name}-2d-plan.png`
+                : false,
       });
     if (signed.error) throw signed.error;
     return Response.redirect(signed.data.signedUrl, 302);

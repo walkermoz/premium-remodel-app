@@ -1,9 +1,31 @@
 export type RoomScanSurfaceKind =
-  | "wall"
-  | "door"
-  | "window"
-  | "opening"
-  | "object";
+  "wall" | "door" | "window" | "opening" | "object";
+
+export type RoomScanObjectCategory =
+  | "bathtub"
+  | "bed"
+  | "cabinet"
+  | "chair"
+  | "dishwasher"
+  | "fireplace"
+  | "object"
+  | "oven"
+  | "refrigerator"
+  | "shelf"
+  | "sink"
+  | "sofa"
+  | "stairs"
+  | "storage"
+  | "stove"
+  | "table"
+  | "television"
+  | "toilet"
+  | "washerDryer";
+
+export interface RoomScanDetectedObject {
+  category: RoomScanObjectCategory;
+  count: number;
+}
 
 export interface RoomScanMeasurements {
   floorAreaSqFt: number;
@@ -20,6 +42,7 @@ export interface RoomScanMeasurements {
 export interface RoomScanSurface {
   id: string;
   kind: RoomScanSurfaceKind;
+  category?: RoomScanObjectCategory;
   widthFt: number;
   heightFt: number;
   depthFt: number;
@@ -48,5 +71,6 @@ export interface RoomScanSummary {
   createdByName: string;
   device: RoomScanCapture["device"];
   measurements: RoomScanMeasurements;
+  detectedObjects: RoomScanDetectedObject[];
   surfaceCount: number;
 }

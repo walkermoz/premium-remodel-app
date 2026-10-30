@@ -159,7 +159,7 @@ private enum RoomScanExporter {
     let grossWallAreaMeters = room.walls.reduce(0) {
       $0 + Double($1.dimensions.x * $1.dimensions.y)
     }
-    let bounds = planBounds(room.walls)
+    let bounds = planBounds(room)
     let widthMeters = max(bounds.maxX - bounds.minX, 0)
     let depthMeters = max(bounds.maxY - bounds.minY, 0)
     let floorAreaMeters = measuredFloorArea(
@@ -272,11 +272,51 @@ private enum RoomScanExporter {
     return [
       "id": value.identifier.uuidString,
       "kind": "object",
+      "category": objectCategory(value),
       "widthFt": rounded(Double(value.dimensions.x) * feetPerMeter),
       "heightFt": rounded(Double(value.dimensions.y) * feetPerMeter),
       "depthFt": rounded(Double(value.dimensions.z) * feetPerMeter),
       "confidence": confidence(value.confidence)
     ]
+  }
+
+  private static func objectCategory(_ value: CapturedRoom.Object) -> String {
+    switch value.category {
+    case .bathtub: return "bathtub"
+    case .bed: return "bed"
+    case .chair: return "chair"
+    case .dishwasher: return "dishwasher"
+    case .fireplace: return "fireplace"
+    case .oven: return "oven"
+    case .refrigerator: return "refrigerator"
+    case .sink: return "sink"
+    case .sofa: return "sofa"
+    case .stairs: return "stairs"
+    case .storage:
+      if #available(iOS 17.0, *), let storageType = storageType(value) {
+        return storageType
+      }
+      return "storage"
+    case .stove: return "stove"
+    case .table: return "table"
+    case .television: return "television"
+    case .toilet: return "toilet"
+    case .washerDryer: return "washerDryer"
+    @unknown default: return "object"
+    }
+  }
+
+  @available(iOS 17.0, *)
+  private static func storageType(_ value: CapturedRoom.Object) -> String? {
+    for attribute in value.attributes {
+      guard let storage = attribute as? StorageType else { continue }
+      switch storage {
+      case .cabinet: return "cabinet"
+      case .shelf: return "shelf"
+      @unknown default: return nil
+      }
+    }
+    return nil
   }
 
   private struct Bounds {
@@ -298,10 +338,48 @@ private enum RoomScanExporter {
     return ((centerX - dx, centerY - dy), (centerX + dx, centerY + dy))
   }
 
-  private static func planBounds(_ walls: [CapturedRoom.Surface]) -> Bounds {
-    let points = walls.flatMap { wall -> [(Double, Double)] in
+  private static func planPoint(
+    _ localPoint: SIMD3<Float>,
+    transform: simd_float4x4
+  ) -> (Double, Double) {
+    let worldPoint = transform * SIMD4<Float>(
+      localPoint.x,
+      localPoint.y,
+      localPoint.z,
+      1
+    )
+    return (Double(worldPoint.x), Double(worldPoint.z))
+  }
+
+  @available(iOS 17.0, *)
+  private static func floorPolygons(_ room: CapturedRoom) -> [[(Double, Double)]] {
+    return room.floors.compactMap { floor in
+      let points = floor.polygonCorners.map {
+        planPoint($0, transform: floor.transform)
+      }
+      return points.count >= 3 ? points : nil
+    }
+  }
+
+  private static func objectCorners(_ object: CapturedRoom.Object) -> [(Double, Double)] {
+    let halfWidth = object.dimensions.x / 2
+    let halfDepth = object.dimensions.z / 2
+    return [
+      SIMD3<Float>(-halfWidth, 0, -halfDepth),
+      SIMD3<Float>(halfWidth, 0, -halfDepth),
+      SIMD3<Float>(halfWidth, 0, halfDepth),
+      SIMD3<Float>(-halfWidth, 0, halfDepth)
+    ].map { planPoint($0, transform: object.transform) }
+  }
+
+  private static func planBounds(_ room: CapturedRoom) -> Bounds {
+    var points = room.walls.flatMap { wall -> [(Double, Double)] in
       let pair = endpoints(wall)
       return [pair.0, pair.1]
+    }
+    points.append(contentsOf: room.objects.flatMap { objectCorners($0) })
+    if #available(iOS 17.0, *) {
+      points.append(contentsOf: floorPolygons(room).flatMap { $0 })
     }
     guard let first = points.first else {
       return Bounds(minX: -1, maxX: 1, minY: -1, maxY: 1)
@@ -336,15 +414,100 @@ private enum RoomScanExporter {
           y: drawing.midY + CGFloat((value.1 - (bounds.minY + bounds.maxY) / 2) * scale)
         )
       }
-      cg.setLineCap(.round)
-      cg.setLineWidth(14)
-      UIColor(red: 0.09, green: 0.31, blue: 0.52, alpha: 1).setStroke()
-      for wall in room.walls {
-        let pair = endpoints(wall)
-        cg.move(to: point(pair.0))
-        cg.addLine(to: point(pair.1))
-        cg.strokePath()
+
+      var polygons: [[(Double, Double)]] = []
+      if #available(iOS 17.0, *) {
+        polygons = floorPolygons(room)
       }
+      UIColor(red: 0.88, green: 0.93, blue: 0.97, alpha: 1).setFill()
+      for polygon in polygons {
+        guard let first = polygon.first else { continue }
+        cg.beginPath()
+        cg.move(to: point(first))
+        for vertex in polygon.dropFirst() {
+          cg.addLine(to: point(vertex))
+        }
+        cg.closePath()
+        cg.fillPath()
+      }
+
+      for object in room.objects {
+        let corners = objectCorners(object)
+        guard let first = corners.first else { continue }
+        cg.beginPath()
+        cg.move(to: point(first))
+        for corner in corners.dropFirst() {
+          cg.addLine(to: point(corner))
+        }
+        cg.closePath()
+        UIColor(red: 0.73, green: 0.84, blue: 0.93, alpha: 0.8).setFill()
+        UIColor(red: 0.24, green: 0.48, blue: 0.68, alpha: 1).setStroke()
+        cg.setLineWidth(4)
+        cg.drawPath(using: .fillStroke)
+
+        let center = corners.reduce((0.0, 0.0)) {
+          ($0.0 + $1.0, $0.1 + $1.1)
+        }
+        let centerPoint = point((
+          center.0 / Double(corners.count),
+          center.1 / Double(corners.count)
+        ))
+        let label = objectDisplayName(objectCategory(object)) as NSString
+        let attributes: [NSAttributedString.Key: Any] = [
+          .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
+          .foregroundColor: UIColor(red: 0.05, green: 0.18, blue: 0.28, alpha: 1)
+        ]
+        let labelSize = label.size(withAttributes: attributes)
+        label.draw(
+          at: CGPoint(
+            x: centerPoint.x - labelSize.width / 2,
+            y: centerPoint.y - labelSize.height / 2
+          ),
+          withAttributes: attributes
+        )
+      }
+
+      func drawSurfaces(
+        _ surfaces: [CapturedRoom.Surface],
+        color: UIColor,
+        width: CGFloat,
+        dash: [CGFloat] = []
+      ) {
+        cg.setLineCap(.round)
+        cg.setLineWidth(width)
+        cg.setLineDash(phase: 0, lengths: dash)
+        color.setStroke()
+        for surface in surfaces {
+          let pair = endpoints(surface)
+          cg.move(to: point(pair.0))
+          cg.addLine(to: point(pair.1))
+          cg.strokePath()
+        }
+        cg.setLineDash(phase: 0, lengths: [])
+      }
+
+      cg.setLineCap(.round)
+      drawSurfaces(
+        room.walls,
+        color: UIColor(red: 0.09, green: 0.31, blue: 0.52, alpha: 1),
+        width: 14
+      )
+      drawSurfaces(
+        room.openings,
+        color: UIColor(red: 0.52, green: 0.60, blue: 0.66, alpha: 1),
+        width: 9,
+        dash: [14, 10]
+      )
+      drawSurfaces(
+        room.windows,
+        color: UIColor(red: 0.12, green: 0.62, blue: 0.84, alpha: 1),
+        width: 10
+      )
+      drawSurfaces(
+        room.doors,
+        color: UIColor(red: 0.18, green: 0.58, blue: 0.36, alpha: 1),
+        width: 11
+      )
       let title = roomName as NSString
       title.draw(at: CGPoint(x: 90, y: 48), withAttributes: [
         .font: UIFont.systemFont(ofSize: 34, weight: .bold),
@@ -360,6 +523,30 @@ private enum RoomScanExporter {
         .font: UIFont.systemFont(ofSize: 18),
         .foregroundColor: UIColor(red: 0.36, green: 0.44, blue: 0.50, alpha: 1)
       ])
+    }
+  }
+
+  private static func objectDisplayName(_ category: String) -> String {
+    switch category {
+    case "bathtub": return "Bathtub"
+    case "bed": return "Bed"
+    case "cabinet": return "Cabinet"
+    case "chair": return "Chair"
+    case "dishwasher": return "Dishwasher"
+    case "fireplace": return "Fireplace"
+    case "oven": return "Oven"
+    case "refrigerator": return "Refrigerator"
+    case "shelf": return "Shelf"
+    case "sink": return "Sink"
+    case "sofa": return "Sofa"
+    case "stairs": return "Stairs"
+    case "storage": return "Storage"
+    case "stove": return "Stove"
+    case "table": return "Table"
+    case "television": return "Television"
+    case "toilet": return "Toilet"
+    case "washerDryer": return "Washer / dryer"
+    default: return "Object"
     }
   }
 }
