@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { apiError, limitAttempts } from "@/lib/auth";
+import { apiError, HttpError, limitAttempts } from "@/lib/auth";
 import {
   finishWebsiteLeadRun,
   startWebsiteLeadRun,
@@ -43,6 +43,52 @@ function cors(response: Response, origin: string) {
   }
   response.headers.set("Cache-Control", "private, no-store");
   return response;
+}
+
+async function existingSubmission(
+  organizationId: string,
+  submissionId: string,
+  expected: {
+    name: string;
+    email: string;
+    phone: string;
+    project: string;
+    description: string;
+  },
+): Promise<boolean> {
+  const admin = supabaseAdmin();
+  const { data: leadRow, error: leadError } = await admin
+    .from("remodel_records")
+    .select("data")
+    .eq("organization_id", organizationId)
+    .eq("kind", "lead")
+    .eq("id", submissionId)
+    .maybeSingle();
+  if (leadError) throw leadError;
+  if (!leadRow) return false;
+  const lead = leadRow.data as Lead;
+  const { data: contactRow, error: contactError } = await admin
+    .from("remodel_records")
+    .select("data")
+    .eq("organization_id", organizationId)
+    .eq("kind", "contact")
+    .eq("id", lead.contactId)
+    .maybeSingle();
+  if (contactError) throw contactError;
+  const contact = contactRow?.data as Contact | undefined;
+  if (
+    !contact ||
+    lead.name !== expected.name ||
+    lead.project !== expected.project ||
+    lead.projectDescription !== expected.description ||
+    contact.email.toLowerCase() !== expected.email ||
+    contact.phone !== expected.phone
+  )
+    throw new HttpError(
+      409,
+      "Submission ID was already used for another lead.",
+    );
+  return true;
 }
 
 async function findMatchingContact(
@@ -106,6 +152,25 @@ export async function POST(request: Request) {
       data.first_name ||
       (data.last_name ? "" : data.email || data.phone || "Website lead");
     const lastName = data.last_name || "";
+    const name = `${firstName} ${lastName}`.trim();
+    const email = data.email?.toLowerCase() || "";
+    const phone = data.phone || "";
+    const duplicateInput = {
+      name,
+      email,
+      phone,
+      project: data.project || "Project not specified",
+      description: data.project_description || "",
+    };
+    if (
+      data.submission_id &&
+      (await existingSubmission(
+        organizationId,
+        data.submission_id,
+        duplicateInput,
+      ))
+    )
+      return cors(Response.json({ received: true, duplicate: true }), origin);
     const forwarded =
       request.headers.get("x-vercel-forwarded-for") ||
       request.headers.get("x-forwarded-for") ||
@@ -120,13 +185,10 @@ export async function POST(request: Request) {
 
     const admin = supabaseAdmin();
     const automation = await getWebsiteLeadAutomation(organizationId);
-    const email = data.email?.toLowerCase() || "";
-    const phone = data.phone || "";
     const matchedContact = automation.matchExistingContacts
       ? await findMatchingContact(organizationId, email, phone)
       : null;
     const now = new Date().toISOString();
-    const name = `${firstName} ${lastName}`.trim();
     const contact: Contact = matchedContact || {
       id: randomUUID(),
       firstName,
@@ -141,11 +203,11 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
     const lead: Lead = {
-      id: randomUUID(),
+      id: data.submission_id || randomUUID(),
       contactId: contact.id,
       name,
-      project: data.project || "Project not specified",
-      projectDescription: data.project_description || "",
+      project: duplicateInput.project,
+      projectDescription: duplicateInput.description,
       status: automation.initialStage,
       disposition: automation.initialDisposition,
       approvalState: "none",
@@ -174,7 +236,19 @@ export async function POST(request: Request) {
         updated_at: now,
       })),
     );
-    if (insertError) throw insertError;
+    if (insertError) {
+      if (
+        data.submission_id &&
+        insertError.code === "23505" &&
+        (await existingSubmission(
+          organizationId,
+          data.submission_id,
+          duplicateInput,
+        ))
+      )
+        return cors(Response.json({ received: true, duplicate: true }), origin);
+      throw insertError;
+    }
 
     const runSteps: AutomationRunStep[] = [
       {
@@ -183,6 +257,17 @@ export async function POST(request: Request) {
         status: matchedContact ? "reused" : "created",
       },
       { key: "lead", label: "Lead", status: "created" },
+      {
+        key: "email",
+        label: "Customer confirmation",
+        status:
+          automation.sendAcknowledgement && data.email ? "pending" : "skipped",
+      },
+      {
+        key: "team",
+        label: "Team notification",
+        status: automation.sendTeamNotification ? "pending" : "skipped",
+      },
     ];
     const runId = await startWebsiteLeadRun({
       organizationId,
@@ -229,22 +314,20 @@ export async function POST(request: Request) {
             attemptedAt: new Date().toISOString(),
             detail: "Email delivery could not be confirmed",
           };
-    runSteps.push(
-      {
-        key: "email",
-        label: "Customer confirmation",
-        status: emailAcknowledgement.status,
-        ...(emailAcknowledgement.detail
-          ? { detail: emailAcknowledgement.detail }
-          : {}),
-      },
-      {
-        key: "team",
-        label: "Team notification",
-        status: notification.status,
-        ...(notification.detail ? { detail: notification.detail } : {}),
-      },
-    );
+    runSteps[2] = {
+      key: "email",
+      label: "Customer confirmation",
+      status: emailAcknowledgement.status,
+      ...(emailAcknowledgement.detail
+        ? { detail: emailAcknowledgement.detail }
+        : {}),
+    };
+    runSteps[3] = {
+      key: "team",
+      label: "Team notification",
+      status: notification.status,
+      ...(notification.detail ? { detail: notification.detail } : {}),
+    };
     const updatedAt = new Date().toISOString();
     const { error: updateError } = await admin
       .from("remodel_records")

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import { test, expect, password } from "./supabase-fixture";
 import { buildDiscordLeadMessage } from "@/lib/discord-leads";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
@@ -46,6 +47,56 @@ test("website lead intake keeps validated attribution separate from unknown fiel
       .leadAttribution,
   ).toBeUndefined();
 });
+
+cloudTest(
+  "repeated website submissions keep one lead and one automation run",
+  async ({ company, page, request }) => {
+    const submissionId = randomUUID();
+    const lead = {
+      ...payload,
+      submission_id: submissionId,
+      email: `retry-${submissionId}@example.com`,
+    };
+    const headers = {
+      Origin: websiteOrigin,
+      "x-forwarded-for": `playwright-idempotency-${submissionId}`,
+    };
+    const responses = await Promise.all([
+      request.post("/api/leads", { headers, data: lead }),
+      request.post("/api/leads", { headers, data: lead }),
+    ]);
+    expect(responses.map((response) => response.status()).sort()).toEqual([
+      200, 201,
+    ]);
+    expect(
+      (
+        await request.post("/api/leads", {
+          headers,
+          data: { ...lead, project: "Bathroom Remodel" },
+        })
+      ).status(),
+    ).toBe(409);
+
+    const api = page.request;
+    expect(
+      (
+        await api.post("/api/auth", {
+          headers: { Origin: "http://localhost:3100" },
+          data: { action: "login", email: company.email, password },
+        })
+      ).status(),
+    ).toBe(200);
+    const workspace = await (await api.get("/api/workspace")).json();
+    expect(workspace.contacts).toHaveLength(1);
+    expect(workspace.leads).toHaveLength(1);
+    expect(workspace.leads[0].id).toBe(submissionId);
+    const history = await (
+      await api.get("/api/automations/website-leads/runs")
+    ).json();
+    expect(history.runs).toHaveLength(1);
+    expect(history.runs[0].leadId).toBe(submissionId);
+  },
+);
 
 test("Discord lead notification preserves the form details safely", () => {
   const message = buildDiscordLeadMessage(

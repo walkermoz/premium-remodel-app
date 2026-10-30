@@ -74,7 +74,10 @@ cloudTest(
       expect(
         (
           await request.post("/api/leads", {
-            headers: { Origin: "https://www.premiumremodel.com" },
+            headers: {
+              Origin: "https://www.premiumremodel.com",
+              "x-forwarded-for": `playwright-automation-${lead.email}`,
+            },
             data: { ...lead, project },
           })
         ).status(),
@@ -208,6 +211,52 @@ cloudTest(
     });
     expect(release.error).toBeNull();
     expect(release.data).toBe(true);
+
+    const staleRun = await company.admin
+      .from("remodel_automation_runs")
+      .insert({
+        organization_id: company.organizationId,
+        automation_key: "website-lead-intake",
+        lead_id: workspace.leads[1].id,
+        subject: workspace.leads[1].name,
+        project: workspace.leads[1].project,
+        status: "running",
+        started_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+        last_activity_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+        steps: [
+          { key: "lead", label: "Lead", status: "created" },
+          { key: "email", label: "Customer confirmation", status: "pending" },
+          { key: "team", label: "Team notification", status: "retrying" },
+        ],
+      })
+      .select("id")
+      .single();
+    expect(staleRun.error).toBeNull();
+    const reconciled = await (
+      await api.get("/api/automations/website-leads/runs")
+    ).json();
+    expect(
+      reconciled.runs.find(
+        (run: { id: string }) => run.id === staleRun.data!.id,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        status: "needs_attention",
+        steps: expect.arrayContaining([
+          expect.objectContaining({ key: "email", status: "unknown" }),
+          expect.objectContaining({ key: "team", status: "unknown" }),
+          expect.objectContaining({ key: "record", status: "unknown" }),
+        ]),
+      }),
+    );
+    expect(
+      (
+        await api.post(
+          `/api/automations/website-leads/runs/${staleRun.data!.id}/retry`,
+          { headers: origin, data: { step: "email" } },
+        )
+      ).status(),
+    ).toBe(409);
 
     const removedLeadId = workspace.leads[0].id;
     const removed = await company.admin

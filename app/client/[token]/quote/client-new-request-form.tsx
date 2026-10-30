@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -83,8 +83,10 @@ export default function ClientNewRequestForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const submissionId = useRef<string | null>(null);
 
   function update(name: keyof RequestForm, value: string) {
+    submissionId.current = null;
     setForm((previous) => ({ ...previous, [name]: value }));
     if (error) setError("");
   }
@@ -102,11 +104,13 @@ export default function ClientNewRequestForm({
     setSubmitting(true);
     setError("");
     try {
+      submissionId.current ||= crypto.randomUUID();
       const [firstName, ...lastNameParts] = form.name.trim().split(/\s+/);
       const response = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          submission_id: submissionId.current,
           first_name: firstName,
           last_name: lastNameParts.join(" "),
           email: form.email.trim(),
@@ -243,9 +247,10 @@ export default function ClientNewRequestForm({
                 id={appointmentSmsId}
                 type="checkbox"
                 checked={appointmentSmsOptIn}
-                onChange={(event) =>
-                  setAppointmentSmsOptIn(event.target.checked)
-                }
+                onChange={(event) => {
+                  submissionId.current = null;
+                  setAppointmentSmsOptIn(event.target.checked);
+                }}
               />{" "}
               Receive text messages about appointment
             </label>
@@ -254,7 +259,10 @@ export default function ClientNewRequestForm({
                 id={marketingSmsId}
                 type="checkbox"
                 checked={marketingSmsOptIn}
-                onChange={(event) => setMarketingSmsOptIn(event.target.checked)}
+                onChange={(event) => {
+                  submissionId.current = null;
+                  setMarketingSmsOptIn(event.target.checked);
+                }}
               />{" "}
               Receive text messages about marketing promotions
             </label>

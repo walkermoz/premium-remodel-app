@@ -11,6 +11,7 @@ export type AutomationRunStep = {
     | "sent"
     | "skipped"
     | "failed"
+    | "pending"
     | "retrying"
     | "unknown"
     | "not_configured";
@@ -66,7 +67,7 @@ export async function finishWebsiteLeadRun(input: {
 }) {
   if (!input.runId) return;
   const needsAttention = input.steps.some((step) =>
-    ["failed", "unknown", "not_configured"].includes(step.status),
+    ["failed", "unknown", "not_configured", "pending"].includes(step.status),
   );
   const { error } = await supabaseAdmin()
     .from("remodel_automation_runs")
@@ -82,6 +83,11 @@ export async function finishWebsiteLeadRun(input: {
 
 export async function listWebsiteLeadRuns(organizationId: string, offset = 0) {
   const admin = supabaseAdmin();
+  const { error: reconcileError } = await admin.rpc(
+    "remodel_reconcile_stale_automation_runs",
+    { p_organization_id: organizationId },
+  );
+  if (reconcileError) throw reconcileError;
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   const [page, recent, attention] = await Promise.all([
     admin

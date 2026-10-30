@@ -13,6 +13,7 @@ function optionalField<T extends z.ZodType>(schema: T) {
 
 const leadInput = z
   .object({
+    submission_id: optionalField(z.uuid()),
     first_name: optionalField(z.string().trim().min(1).max(100)),
     last_name: optionalField(z.string().trim().min(1).max(100)),
     email: optionalField(z.email().max(250)),
