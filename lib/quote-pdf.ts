@@ -8,7 +8,7 @@ import {
 import type { Quote, QuotePhoto, ScopeItem } from "./types";
 import { appearsOnCustomerQuote } from "./customer-quote-scope";
 import {
-  DEFAULT_QUOTE_PROJECT_NAME,
+  customerQuoteSectionName,
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "./scope-projects";
 
@@ -226,10 +226,6 @@ function quoteSectionKey(item: ScopeItem) {
       : "ungrouped";
 }
 
-function quoteSectionName(item: ScopeItem, fallback: string) {
-  return item.sectionName?.trim() || fallback;
-}
-
 export async function buildQuotePdf(
   quote: Quote,
   scope: ScopeItem[],
@@ -265,7 +261,7 @@ export async function buildQuotePdf(
     const key = quoteSectionKey(item);
     const current = sectionTotals.get(key);
     sectionTotals.set(key, {
-      name: quoteSectionName(item, DEFAULT_QUOTE_PROJECT_NAME),
+      name: customerQuoteSectionName(item.sectionName),
       total: (current?.total || 0) + item.estimate,
     });
   }
@@ -364,7 +360,8 @@ export async function buildQuotePdf(
     const section = sectionTotals.get(sectionKey);
     let needsSectionHeader =
       item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID &&
-      sectionKey !== lastSectionKey;
+      sectionKey !== lastSectionKey &&
+      Boolean(section?.name);
     const titleLines = wrap(item.title, regular, 9, 390);
     const allDetailLines = item.details
       ? wrap(item.details, regular, 7.2, 425)
@@ -385,7 +382,8 @@ export async function buildQuotePdf(
       tableTop = 92;
       drawTableHeader(page, bold, tableTop, showLineItemPrices);
       rowTop = tableTop + 23;
-      needsSectionHeader = item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID;
+      needsSectionHeader =
+        item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID && Boolean(section?.name);
     }
     if (needsSectionHeader && section) {
       page.drawRectangle({
@@ -397,7 +395,7 @@ export async function buildQuotePdf(
       });
       drawTop(
         page,
-        `PROJECT  |  ${section.name.toUpperCase()}`,
+        section.name.toUpperCase(),
         54,
         rowTop + 5,
         bold,

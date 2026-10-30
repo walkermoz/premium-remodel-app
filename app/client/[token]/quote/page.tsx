@@ -43,7 +43,7 @@ import MsaDocument from "@/components/msa-document";
 import { savedPaymentMethods } from "@/lib/client-wallet";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import {
-  DEFAULT_QUOTE_PROJECT_NAME,
+  customerQuoteSectionName,
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "@/lib/scope-projects";
 import { appearsOnCustomerQuote } from "@/lib/customer-quote-scope";
@@ -561,7 +561,7 @@ export default async function ClientQuotePage({
     sectionTotals.set(key, (sectionTotals.get(key) || 0) + item.estimate);
   });
   items.filter(appearsOnCustomerQuote).forEach((item, index) => {
-    const name = item.sectionName?.trim() || DEFAULT_QUOTE_PROJECT_NAME;
+    const name = customerQuoteSectionName(item.sectionName);
     const key = item.sectionId?.trim()
       ? `id:${item.sectionId.trim()}`
       : item.sectionName?.trim()
@@ -724,18 +724,19 @@ export default async function ClientQuotePage({
                 </div>
                 {sections.map((section, index) => (
                   <div key={`${section.key}-${index}`}>
-                    {section.key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}` && (
-                      <div className={styles.sectionHeader}>
-                        <h3>Project&nbsp; | &nbsp;{section.name}</h3>
-                        {business.quotePreferences
-                          .showCustomerLineItemPrices && (
-                          <span>
-                            Section total&nbsp;{" "}
-                            {money(sectionTotals.get(section.key) || 0)}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {section.name &&
+                      section.key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}` && (
+                        <div className={styles.sectionHeader}>
+                          <h3>{section.name}</h3>
+                          {business.quotePreferences
+                            .showCustomerLineItemPrices && (
+                            <span>
+                              Section total&nbsp;{" "}
+                              {money(sectionTotals.get(section.key) || 0)}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     {section.items.map(({ item, striped }) => (
                       <div
                         className={`${styles.item} ${striped ? styles.striped : ""}`}

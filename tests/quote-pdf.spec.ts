@@ -120,7 +120,7 @@ test("selected before and concept photos are included on a labeled quote page", 
   expect(text).toContain("Warm spa concept");
 });
 
-test("quote PDF omits a removed project heading but retains its work item", async () => {
+test("quote PDF omits placeholder and removed project headings but retains their work items", async () => {
   const logo = await readFile(
     path.join(process.cwd(), "public", "images", "logo.png"),
   );
@@ -145,9 +145,42 @@ test("quote PDF omits a removed project heading but retains its work item", asyn
       .filter((item): item is typeof item & { str: string } => "str" in item)
       .map((item) => item.str)
       .join(" ");
-    expect(text).toContain("PROJECT | PROJECT #1");
+    expect(text).not.toContain("PROJECT | PROJECT #1");
+    expect(text).not.toContain("PROJECT #1");
+    expect(text).toContain("Scope item 1");
     expect(text).toContain("Scope item 2");
     expect(text).not.toContain("PROJECT | SCOPE ITEMS");
+  } finally {
+    await loadingTask.destroy();
+  }
+});
+
+test("quote PDF shows a custom scope heading without the project prefix", async () => {
+  const logo = await readFile(
+    path.join(process.cwd(), "public", "images", "logo.png"),
+  );
+  const bytes = await buildQuotePdf(
+    quote,
+    [
+      {
+        ...scopeItem(0),
+        sectionId: "kitchen",
+        sectionName: "Kitchen phase",
+      },
+    ],
+    logo,
+  );
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const loadingTask = getDocument({ data: bytes });
+  const document = await loadingTask.promise;
+  try {
+    const page = await document.getPage(1);
+    const text = (await page.getTextContent()).items
+      .filter((item): item is typeof item & { str: string } => "str" in item)
+      .map((item) => item.str)
+      .join(" ");
+    expect(text).toContain("KITCHEN PHASE");
+    expect(text).not.toContain("PROJECT | KITCHEN PHASE");
   } finally {
     await loadingTask.destroy();
   }

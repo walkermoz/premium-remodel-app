@@ -121,6 +121,10 @@ cloudTest(
     const customerPage = await client.newPage();
     await customerPage.goto(link.url);
     await expect(
+      customerPage.getByText("Project #1", { exact: true }),
+    ).toHaveCount(0);
+    await expect(customerPage.getByText("Shower waterproofing")).toBeVisible();
+    await expect(
       customerPage.getByRole("textbox", { name: "Print name" }),
     ).toHaveValue("Walker Portal Test");
     await expect(customerPage.getByText("Date", { exact: true })).toBeVisible();
