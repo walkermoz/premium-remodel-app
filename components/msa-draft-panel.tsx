@@ -502,6 +502,7 @@ export default function MsaDraftPanel({
               setSaved(false);
             }}
           >
+            <option>No permit required</option>
             <option>Owner obtains and pays</option>
             <option>Premium Remodel obtains; owner pays fees</option>
             <option>Premium Remodel obtains and pays</option>

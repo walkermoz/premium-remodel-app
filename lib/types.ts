@@ -62,6 +62,7 @@ export interface MsaContractTerms {
   plans: string;
 }
 export type MsaPermitResponsibility =
+  | "No permit required"
   | "Owner obtains and pays"
   | "Premium Remodel obtains; owner pays fees"
   | "Premium Remodel obtains and pays";

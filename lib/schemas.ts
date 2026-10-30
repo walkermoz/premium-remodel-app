@@ -273,6 +273,7 @@ export const schemas = {
         .optional(),
       msaPermitResponsibility: z
         .enum([
+          "No permit required",
           "Owner obtains and pays",
           "Premium Remodel obtains; owner pays fees",
           "Premium Remodel obtains and pays",

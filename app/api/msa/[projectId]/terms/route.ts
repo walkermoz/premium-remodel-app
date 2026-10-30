@@ -27,6 +27,7 @@ const termsSchema = z.object({
       "Payment milestones must have unique IDs and total 100%.",
     ),
   msaPermitResponsibility: z.enum([
+    "No permit required",
     "Owner obtains and pays",
     "Premium Remodel obtains; owner pays fees",
     "Premium Remodel obtains and pays",
