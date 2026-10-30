@@ -346,6 +346,8 @@ export function QuoteDetail({
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState("");
   const [sendRequestId, setSendRequestId] = useState("");
+  const clientFirstName = quote.client.trim().split(/\s+/)[0] || "there";
+  const senderFirstName = user.name.trim().split(/\s+/)[0] || "The team";
   const [checkBusy, setCheckBusy] = useState(false);
   const [checkError, setCheckError] = useState("");
   const [checkRequestId, setCheckRequestId] = useState(() =>
@@ -660,7 +662,7 @@ export function QuoteDetail({
                 Subject
                 <input
                   name="subject"
-                  defaultValue={`${config.profile.name} Quote${quote.quoteNumber ? ` #${quote.quoteNumber}` : ""}`}
+                  defaultValue={`Quote for ${quote.name}`}
                   required
                   maxLength={180}
                 />
@@ -669,7 +671,7 @@ export function QuoteDetail({
                 Message
                 <textarea
                   name="message"
-                  defaultValue={`Hi ${quote.client || "there"},\n\nAttached is your ${config.profile.name} quote. You can also view it in your client portal using the link below. Please review it and reply with any questions.\n\nThanks,\n${config.profile.name} Team`}
+                  defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. You can also use the button below to open it in your client portal, review the details, and sign online when you’re ready.\n\nIf you have any questions or would like to talk through the quote, just reply to this email or give me a call.\n\nLooking forward to taking care of this project for you!\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
                   required
                   rows={7}
                   maxLength={5000}
