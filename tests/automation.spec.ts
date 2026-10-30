@@ -30,6 +30,94 @@ test("automation workspace visualizes the website lead workflow", async ({
 });
 
 cloudTest(
+  "workflow settings keep history and reject stale edits",
+  async ({ company, page }) => {
+    const api = page.request;
+    expect(
+      (
+        await api.post("/api/auth", {
+          headers: origin,
+          data: { action: "login", email: company.email, password },
+        })
+      ).status(),
+    ).toBe(200);
+
+    const url = "/api/automations/website-leads";
+    const historyUrl = `${url}/revisions`;
+    const initial = await (await api.get(url)).json();
+    expect(initial.revision).toBe(0);
+    expect((await (await api.get(historyUrl)).json()).revisions).toEqual([]);
+
+    const firstResponse = await api.put(url, {
+      headers: origin,
+      data: { ...initial, sourceLabel: "Website version one" },
+    });
+    expect(firstResponse.status()).toBe(200);
+    const first = await firstResponse.json();
+    expect(first.revision).toBe(1);
+
+    const competing = await Promise.all([
+      api.put(url, {
+        headers: origin,
+        data: { ...first, sourceLabel: "Website version two" },
+      }),
+      api.put(url, {
+        headers: origin,
+        data: { ...first, sourceLabel: "Overwritten from old tab" },
+      }),
+    ]);
+    expect(competing.map((response) => response.status()).sort()).toEqual([
+      200, 409,
+    ]);
+    const current = await (await api.get(url)).json();
+    expect(current.revision).toBe(2);
+    expect(current.sourceLabel).not.toBe("Website version one");
+
+    const unchangedResponse = await api.put(url, {
+      headers: origin,
+      data: current,
+    });
+    expect(unchangedResponse.status()).toBe(200);
+    expect((await unchangedResponse.json()).revision).toBe(2);
+
+    const savedHistory = (await (await api.get(historyUrl)).json()).revisions;
+    expect(savedHistory).toHaveLength(2);
+    expect(
+      savedHistory.map((item: { revision: number }) => item.revision),
+    ).toEqual([2, 1]);
+    expect(savedHistory[1].definition.sourceLabel).toBe("Website version one");
+    expect(savedHistory[1].actorName).toBe("Workspace Owner");
+
+    const restoreResponse = await api.put(url, {
+      headers: origin,
+      data: { ...savedHistory[1].definition, revision: current.revision },
+    });
+    expect(restoreResponse.status()).toBe(200);
+    expect(await restoreResponse.json()).toEqual(
+      expect.objectContaining({
+        revision: 3,
+        sourceLabel: "Website version one",
+      }),
+    );
+    const restoredHistory = (await (await api.get(historyUrl)).json())
+      .revisions;
+    expect(
+      restoredHistory.map((item: { revision: number }) => item.revision),
+    ).toEqual([3, 2, 1]);
+    await page.goto("/?view=Automation");
+    await expect(
+      page.getByRole("heading", { name: "Automation." }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "History" }).click();
+    const historyPanel = page.getByRole("region", { name: "Workflow history" });
+    await expect(historyPanel.getByText("Version 3")).toBeVisible();
+    await expect(
+      historyPanel.getByText("Workspace Owner", { exact: false }).first(),
+    ).toBeVisible();
+  },
+);
+
+cloudTest(
   "website lead automation controls contact matching and lead defaults",
   async ({ company, page, request }) => {
     const api = page.request;

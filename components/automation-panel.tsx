@@ -26,6 +26,13 @@ import {
 } from "@/lib/automation-config";
 import type { Lead, User } from "@/lib/types";
 
+type AutomationRevision = {
+  revision: number;
+  definition: WebsiteLeadAutomation;
+  actorName: string;
+  changedAt: string;
+};
+
 function Toggle({
   checked,
   disabled,
@@ -97,6 +104,11 @@ export default function AutomationPanel({
   const [runsError, setRunsError] = useState("");
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [retryingStep, setRetryingStep] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [history, setHistory] = useState<AutomationRevision[]>([]);
+  const [restoring, setRestoring] = useState(false);
   const editable = !demo && user.role === "admin";
 
   const loadRuns = useCallback(
@@ -202,6 +214,33 @@ export default function AutomationPanel({
     setError("");
   }
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const response = await fetch("/api/automations/website-leads/revisions", {
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not load workflow history.");
+      setHistory(data.revisions);
+    } catch (reason) {
+      setHistoryError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not load workflow history.",
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  function toggleHistory() {
+    if (!historyOpen) void loadHistory();
+    setHistoryOpen((current) => !current);
+  }
+
   async function save() {
     if (!editable || !dirty) return;
     setSaving(true);
@@ -219,6 +258,7 @@ export default function AutomationPanel({
       setAutomation(data);
       setDirty(false);
       setMessage("Automation saved");
+      if (historyOpen) void loadHistory();
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -227,6 +267,45 @@ export default function AutomationPanel({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function restoreRevision(item: AutomationRevision) {
+    if (
+      !editable ||
+      dirty ||
+      restoring ||
+      item.revision === automation.revision
+    )
+      return;
+    setRestoring(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/automations/website-leads", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...item.definition,
+          revision: automation.revision,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not restore this version.");
+      setAutomation(data);
+      setMessage(
+        `Version ${item.revision} restored as version ${data.revision}`,
+      );
+      await loadHistory();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not restore this version.",
+      );
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -280,7 +359,7 @@ export default function AutomationPanel({
             <button
               className="button primary"
               type="button"
-              disabled={!dirty || saving || loading}
+              disabled={!dirty || saving || restoring || loading}
               onClick={() => void save()}
             >
               {saving ? (
@@ -317,7 +396,7 @@ export default function AutomationPanel({
               <span>Workflows</span>
               <strong>1</strong>
             </div>
-            <p>Published workflows run as soon as their trigger occurs.</p>
+            <p>Changes to this workflow are saved as versions.</p>
           </div>
           <button className="automation-list-item is-selected" type="button">
             <span className="automation-list-icon">
@@ -355,8 +434,77 @@ export default function AutomationPanel({
                 onChange={(event) => update({ name: event.target.value })}
               />
             </div>
-            <span className="automation-version">Published</span>
+            <div className="automation-builder-controls">
+              <span className="automation-version">
+                {automation.revision
+                  ? `Version ${automation.revision}`
+                  : "Default settings"}
+              </span>
+              {!demo && (
+                <button
+                  type="button"
+                  className="automation-history-trigger"
+                  aria-expanded={historyOpen}
+                  onClick={toggleHistory}
+                >
+                  History
+                </button>
+              )}
+            </div>
           </div>
+
+          {historyOpen && (
+            <section
+              className="automation-history"
+              aria-label="Workflow history"
+            >
+              <div className="automation-history-heading">
+                <strong>Saved versions</strong>
+                <span>Restore an earlier version to make it current.</span>
+              </div>
+              {historyError && <p role="alert">{historyError}</p>}
+              {historyLoading ? (
+                <p>Loading history…</p>
+              ) : history.length ? (
+                <ol>
+                  {history.map((item) => (
+                    <li key={item.revision}>
+                      <div>
+                        <strong>Version {item.revision}</strong>
+                        <span>
+                          {item.actorName} ·{" "}
+                          {new Date(item.changedAt).toLocaleString()}
+                        </span>
+                        <small>
+                          {item.definition.initialStage} ·{" "}
+                          {item.definition.initialDisposition} · Email{" "}
+                          {item.definition.sendAcknowledgement ? "on" : "off"}
+                          {" · "}Team{" "}
+                          {item.definition.sendTeamNotification ? "on" : "off"}
+                        </small>
+                      </div>
+                      {editable && item.revision !== automation.revision && (
+                        <button
+                          type="button"
+                          disabled={dirty || restoring || saving}
+                          title={
+                            dirty
+                              ? "Save or discard unsaved changes first"
+                              : undefined
+                          }
+                          onClick={() => void restoreRevision(item)}
+                        >
+                          {restoring ? "Restoring…" : "Restore"}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p>No saved versions yet.</p>
+              )}
+            </section>
+          )}
 
           {loading ? (
             <div className="automation-loading">
