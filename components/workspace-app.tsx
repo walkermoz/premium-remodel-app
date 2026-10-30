@@ -38,6 +38,7 @@ import {
   FileText,
   Inbox,
   Footprints,
+  Workflow,
 } from "lucide-react";
 import { demoWorkspace } from "@/lib/demo";
 import { quoteProjectHandoffDemoWorkspace } from "@/lib/demo-quote-handoff";
@@ -111,12 +112,14 @@ import type { NavigationPage } from "@/lib/business-config-schema";
 import OrganizationSwitcher from "./organization-switcher";
 import PricebookPanel from "./pricebook-panel";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
+import AutomationPanel from "./automation-panel";
 type Page =
   | "Overview"
   | "Projects"
   | "Quotes"
   | "Price book"
   | "Leads"
+  | "Automation"
   | "Contacts"
   | "Door knocking"
   | "Upcoming"
@@ -1245,6 +1248,7 @@ export default function WorkspaceApp({
             icon: Inbox,
             count: workspace.leads.length,
           },
+          { name: "Automation", icon: Workflow },
           { name: "Contacts", icon: Users },
           { name: "Door knocking", icon: Footprints },
           { name: "Upcoming", icon: CalendarDays, count: openTasks.length },
@@ -1713,6 +1717,13 @@ export default function WorkspaceApp({
                       initialValues: quotePrefillFromLead(lead, contact),
                     });
                   }}
+                />
+              )}
+              {page === "Automation" && (
+                <AutomationPanel
+                  user={user}
+                  leads={workspace.leads}
+                  demo={demo}
                 />
               )}
               {page === "Contacts" && (

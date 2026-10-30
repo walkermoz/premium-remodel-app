@@ -13,8 +13,8 @@ const recordTabs: Record<EntityKind, NavigationPage[]> = {
   attachment: ["Projects", "Quotes"],
   activity: ["Overview", "Projects", "Quotes"],
   alert: ["Settings"],
-  contact: ["Contacts", "Leads", "Quotes", "Door knocking"],
-  lead: ["Overview", "Leads", "Quotes", "Door knocking"],
+  contact: ["Contacts", "Leads", "Quotes", "Door knocking", "Automation"],
+  lead: ["Overview", "Leads", "Quotes", "Door knocking", "Automation"],
   door_visit: ["Door knocking"],
 };
 const recordEditTabs: Record<EntityKind, NavigationPage[]> = {

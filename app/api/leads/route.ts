@@ -1,8 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { apiError, limitAttempts } from "@/lib/auth";
+import { getWebsiteLeadAutomation } from "@/lib/automation-store";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
 import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import type { Contact, Lead } from "@/lib/types";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
 
 export const runtime = "nodejs";
@@ -35,6 +38,32 @@ function cors(response: Response, origin: string) {
   }
   response.headers.set("Cache-Control", "private, no-store");
   return response;
+}
+
+async function findMatchingContact(
+  organizationId: string,
+  email: string,
+  phone: string,
+): Promise<Contact | null> {
+  const admin = supabaseAdmin();
+  for (const [field, value] of [
+    ["email", email],
+    ["phone", phone],
+  ] as const) {
+    if (!value) continue;
+    const { data, error } = await admin
+      .from("remodel_records")
+      .select("data")
+      .eq("organization_id", organizationId)
+      .eq("kind", "contact")
+      .eq(`data->>${field}`, value)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return data.data as Contact;
+  }
+  return null;
 }
 
 export function OPTIONS(request: Request) {
@@ -85,32 +114,82 @@ export async function POST(request: Request) {
     await Promise.all(limits);
 
     const admin = supabaseAdmin();
-    const { data: created, error } = await admin.rpc(
-      "remodel_receive_website_lead",
-      {
-        p_organization: organizationId,
-        p_first_name: firstName,
-        p_last_name: lastName,
-        p_email: data.email?.toLowerCase() || "",
-        p_phone: data.phone || "",
-        p_zip: data.zip || "",
-        p_address: data.address || "",
-        p_project: data.project || "Project not specified",
-        p_project_description: data.project_description || "",
-      },
+    const automation = await getWebsiteLeadAutomation(organizationId);
+    const email = data.email?.toLowerCase() || "";
+    const phone = data.phone || "";
+    const matchedContact = automation.matchExistingContacts
+      ? await findMatchingContact(organizationId, email, phone)
+      : null;
+    const now = new Date().toISOString();
+    const name = `${firstName} ${lastName}`.trim();
+    const contact: Contact = matchedContact || {
+      id: randomUUID(),
+      firstName,
+      lastName,
+      name,
+      email,
+      phone,
+      zip: data.zip || "",
+      address: data.address || "",
+      source: automation.sourceLabel,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const lead: Lead = {
+      id: randomUUID(),
+      contactId: contact.id,
+      name,
+      project: data.project || "Project not specified",
+      projectDescription: data.project_description || "",
+      status: automation.initialStage,
+      disposition: automation.initialDisposition,
+      approvalState: "none",
+      smsAppointmentOptIn: data.sms_appointment_opt_in,
+      smsMarketingOptIn: data.sms_marketing_opt_in,
+      otherSubmittedFields,
+      ...(leadAttribution ? { leadAttribution } : {}),
+      source: automation.sourceLabel,
+      submittedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const records = [
+      ...(!matchedContact ? [{ kind: "contact", entity: contact }] : []),
+      { kind: "lead", entity: lead },
+    ];
+    const { error: insertError } = await admin.from("remodel_records").insert(
+      records.map(({ kind, entity }) => ({
+        id: entity.id,
+        organization_id: organizationId,
+        created_by: null,
+        updated_by: null,
+        kind,
+        project_id: null,
+        data: entity,
+        updated_at: now,
+      })),
     );
-    if (error) throw error;
-    if (!created?.[0]) throw new Error("Lead intake did not return a record.");
+    if (insertError) throw insertError;
 
-    const leadId = String(created[0].lead_id);
     const [notificationResult, acknowledgementResult] =
       await Promise.allSettled([
-        sendDiscordLeadNotification(data),
-        sendWebsiteLeadAcknowledgement({
-          organizationId,
-          recipientEmail: data.email,
-          firstName: data.first_name,
-        }),
+        automation.sendTeamNotification
+          ? sendDiscordLeadNotification(data)
+          : Promise.resolve({
+              status: "skipped" as const,
+              attemptedAt: new Date().toISOString(),
+            }),
+        automation.sendAcknowledgement
+          ? sendWebsiteLeadAcknowledgement({
+              organizationId,
+              recipientEmail: data.email,
+              firstName: data.first_name,
+            })
+          : Promise.resolve({
+              status: "skipped" as const,
+              attemptedAt: new Date().toISOString(),
+              detail: "Disabled by automation",
+            }),
       ]);
     const notification =
       notificationResult.status === "fulfilled"
@@ -120,43 +199,23 @@ export async function POST(request: Request) {
       acknowledgementResult.status === "fulfilled"
         ? acknowledgementResult.value
         : { status: "failed", attemptedAt: new Date().toISOString() };
-    const { data: storedLead, error: readError } = await admin
+    const updatedAt = new Date().toISOString();
+    const { error: updateError } = await admin
       .from("remodel_records")
-      .select("data")
+      .update({
+        data: {
+          ...lead,
+          discordNotification: notification,
+          emailAcknowledgement,
+          updatedAt,
+        },
+        updated_at: updatedAt,
+      })
       .eq("organization_id", organizationId)
       .eq("kind", "lead")
-      .eq("id", leadId)
-      .single();
-    if (!readError && storedLead) {
-      const updatedAt = new Date().toISOString();
-      const leadData =
-        storedLead.data && typeof storedLead.data === "object"
-          ? storedLead.data
-          : {};
-      const { error: updateError } = await admin
-        .from("remodel_records")
-        .update({
-          data: {
-            ...leadData,
-            smsAppointmentOptIn: data.sms_appointment_opt_in,
-            smsMarketingOptIn: data.sms_marketing_opt_in,
-            otherSubmittedFields,
-            ...(leadAttribution ? { leadAttribution } : {}),
-            discordNotification: notification,
-            emailAcknowledgement,
-            disposition: "Active",
-            updatedAt,
-          },
-          updated_at: updatedAt,
-        })
-        .eq("organization_id", organizationId)
-        .eq("kind", "lead")
-        .eq("id", leadId);
-      if (updateError)
-        console.error("Could not store the lead notification status.");
-    } else {
-      console.error("Could not load the lead notification status record.");
-    }
+      .eq("id", lead.id);
+    if (updateError)
+      console.error("Could not store the lead notification status.");
 
     response = Response.json({ received: true }, { status: 201 });
   } catch (error) {

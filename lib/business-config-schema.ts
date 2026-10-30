@@ -7,6 +7,7 @@ export const navigationPages = [
   "Quotes",
   "Price book",
   "Leads",
+  "Automation",
   "Contacts",
   "Door knocking",
   "Upcoming",
