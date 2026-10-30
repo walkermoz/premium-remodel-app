@@ -128,12 +128,34 @@ cloudTest(
     await expect(
       page.getByAltText("Generated Kitchen · Coastal concept"),
     ).toBeVisible();
-    await page
-      .getByRole("slider", { name: "Before and after comparison" })
-      .fill("70");
+    const comparison = page.locator(".generate-canvas.is-comparison");
+    const comparisonBounds = await comparison.boundingBox();
+    expect(comparisonBounds).not.toBeNull();
+    await page.mouse.move(
+      comparisonBounds!.x + comparisonBounds!.width * 0.5,
+      comparisonBounds!.y + comparisonBounds!.height * 0.5,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      comparisonBounds!.x + comparisonBounds!.width * 0.7,
+      comparisonBounds!.y + comparisonBounds!.height * 0.5,
+    );
+    await page.mouse.up();
     await expect(
       page.getByAltText("Original space for comparison"),
     ).toHaveAttribute("style", /30%/);
+    await page.getByRole("button", { name: "Stacked", exact: true }).click();
+    const stackedFrames = page.locator(".generation-stack-frame");
+    await expect(stackedFrames).toHaveCount(2);
+    await expect(
+      stackedFrames.nth(0).getByAltText("Generated Kitchen · Coastal concept"),
+    ).toBeVisible();
+    await expect(
+      stackedFrames.nth(1).getByAltText("Original space", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Drag comparison", exact: true })
+      .click();
     const downloadEvent = page.waitForEvent("download");
     await page.getByRole("link", { name: "Download" }).click();
     expect((await downloadEvent).suggestedFilename()).toBe(

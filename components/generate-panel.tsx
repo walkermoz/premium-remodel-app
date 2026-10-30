@@ -1,5 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   Camera,
   Upload,
@@ -50,11 +54,15 @@ export default function GeneratePanel({
   const [preparing, setPreparing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [compare, setCompare] = useState(true);
+  const [comparisonView, setComparisonView] = useState<"drag" | "stacked">(
+    "drag",
+  );
   const [split, setSplit] = useState(50);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const previewPanel = useRef<HTMLDivElement>(null);
+  const comparisonCanvas = useRef<HTMLDivElement>(null);
+  const activeComparisonPointer = useRef<number | null>(null);
   const errorMessage = useRef<HTMLDivElement>(null);
   const uploadVersion = useRef(0);
   const request = useRef<AbortController | null>(null);
@@ -64,6 +72,54 @@ export default function GeneratePanel({
   const styles = stylesForProject(projectType);
   const model = modelOverride || config?.defaultModel || "";
   const modelAvailable = config?.models.some((item) => item.id === model);
+
+  function updateSplitFromPointer(clientX: number) {
+    const bounds = comparisonCanvas.current?.getBoundingClientRect();
+    if (!bounds || bounds.width === 0) return;
+    const nextSplit = ((clientX - bounds.left) / bounds.width) * 100;
+    setSplit(Math.min(100, Math.max(0, nextSplit)));
+  }
+
+  function startComparisonDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (comparisonView !== "drag") return;
+    activeComparisonPointer.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateSplitFromPointer(event.clientX);
+    event.preventDefault();
+  }
+
+  function moveComparisonDivider(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activeComparisonPointer.current !== event.pointerId) return;
+    updateSplitFromPointer(event.clientX);
+  }
+
+  function stopComparisonDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activeComparisonPointer.current !== event.pointerId) return;
+    activeComparisonPointer.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function moveComparisonWithKeyboard(
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+  ) {
+    const steps: Record<string, number> = {
+      ArrowLeft: -2,
+      ArrowDown: -2,
+      ArrowRight: 2,
+      ArrowUp: 2,
+    };
+    if (event.key === "Home" || event.key === "End") {
+      setSplit(event.key === "Home" ? 0 : 100);
+      event.preventDefault();
+      return;
+    }
+    if (steps[event.key] === undefined) return;
+    setSplit((current) =>
+      Math.min(100, Math.max(0, current + steps[event.key])),
+    );
+    event.preventDefault();
+  }
   useEffect(() => {
     if (error && active && window.innerWidth <= 760)
       errorMessage.current?.scrollIntoView({
@@ -178,7 +234,7 @@ export default function GeneratePanel({
         model: config?.models.find((item) => item.id === model)?.name || model,
         fileName: `premium-remodel-${projectType}-${styleId}.jpg`,
       });
-      setCompare(true);
+      setComparisonView("drag");
       setSplit(50);
     } catch (err) {
       if (!controller.signal.aborted)
@@ -467,37 +523,109 @@ export default function GeneratePanel({
               </a>
             )}
           </div>
-          <div className={`generate-canvas ${result ? "has-result" : ""}`}>
+          {result && (
+            <div
+              className="generation-view-controls"
+              role="group"
+              aria-label="Preview layout"
+            >
+              <button
+                type="button"
+                aria-pressed={comparisonView === "drag"}
+                onClick={() => setComparisonView("drag")}
+              >
+                <ArrowLeftRight size={15} />
+                Drag comparison
+              </button>
+              <button
+                type="button"
+                aria-pressed={comparisonView === "stacked"}
+                onClick={() => setComparisonView("stacked")}
+              >
+                Stacked
+              </button>
+            </div>
+          )}
+          <div
+            ref={comparisonCanvas}
+            className={`generate-canvas ${result ? "has-result" : ""} ${
+              result && comparisonView === "drag"
+                ? "is-comparison"
+                : result
+                  ? "is-stacked"
+                  : ""
+            }`}
+            onPointerDown={startComparisonDrag}
+            onPointerMove={moveComparisonDivider}
+            onPointerUp={stopComparisonDrag}
+            onPointerCancel={stopComparisonDrag}
+            onLostPointerCapture={() => {
+              activeComparisonPointer.current = null;
+            }}
+          >
             {result && photo ? (
-              <>
-                <img
-                  className="generation-image"
-                  src={result.url}
-                  alt={`Generated ${result.label} concept`}
-                />
-                {compare && (
-                  <>
+              comparisonView === "drag" ? (
+                <>
+                  <img
+                    className="generation-image"
+                    src={result.url}
+                    alt={`Generated ${result.label} concept`}
+                  />
+                  <img
+                    className="generation-image generation-before"
+                    src={photo.url}
+                    alt="Original space for comparison"
+                    style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
+                  />
+                  <button
+                    type="button"
+                    className="generation-divider"
+                    role="slider"
+                    aria-label="Before and after comparison divider"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(split)}
+                    aria-valuetext={`${Math.round(split)}% original`}
+                    style={{ left: `${split}%` }}
+                    onKeyDown={moveComparisonWithKeyboard}
+                  >
+                    <ArrowLeftRight size={18} />
+                  </button>
+                  <span className="generation-image-label before">
+                    Original
+                  </span>
+                  <span className="generation-image-label after">
+                    Renovated concept
+                  </span>
+                  <span className="sr-only">
+                    Drag the divider across the image, or use the arrow keys
+                    when the divider is focused.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="generation-stack-frame">
                     <img
-                      className="generation-image generation-before"
-                      src={photo.url}
-                      alt="Original space for comparison"
-                      style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
+                      className="generation-image"
+                      src={result.url}
+                      alt={`Generated ${result.label} concept`}
                     />
-                    <div
-                      className="generation-divider"
-                      style={{ left: `${split}%` }}
-                    >
-                      <ArrowLeftRight size={18} />
-                    </div>
+                    <span className="generation-image-label after">
+                      Renovated concept
+                    </span>
+                  </div>
+                  <div className="generation-stack-frame">
+                    <img
+                      className="generation-image"
+                      src={photo.url}
+                      alt="Original space"
+                    />
                     <span className="generation-image-label before">
                       Original
                     </span>
-                  </>
-                )}
-                <span className="generation-image-label after">
-                  Renovated concept
-                </span>
-              </>
+                  </div>
+                </>
+              )
             ) : (
               <div className="generation-empty">
                 <WandSparkles size={36} />
@@ -520,29 +648,6 @@ export default function GeneratePanel({
               </div>
             )}
           </div>
-          {result && (
-            <div className="generation-compare-controls">
-              <button
-                type="button"
-                className={`button secondary ${compare ? "is-active" : ""}`}
-                aria-pressed={compare}
-                onClick={() => setCompare(!compare)}
-              >
-                <ArrowLeftRight size={15} />
-                Compare original
-              </button>
-              {compare && (
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={split}
-                  aria-label="Before and after comparison"
-                  onChange={(event) => setSplit(Number(event.target.value))}
-                />
-              )}
-            </div>
-          )}
           <p className="generation-note">
             AI design concept. Final dimensions, materials and construction
             details need to be confirmed. Download previews you want to keep.
