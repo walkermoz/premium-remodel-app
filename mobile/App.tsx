@@ -35,11 +35,31 @@ export default function App() {
   const [roomScan, setRoomScan] = useState<RoomScanLink | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    let mounted = true;
+
+    async function restoreSession() {
+      const { data } = await supabase.auth.getSession();
+      let restoredSession = data.session;
+
+      if (
+        restoredSession?.expires_at &&
+        restoredSession.expires_at * 1000 <= Date.now() + 60_000
+      ) {
+        const refreshed = await supabase.auth.refreshSession();
+        if (refreshed.data.session) restoredSession = refreshed.data.session;
+      }
+
+      if (mounted) setSession(restoredSession);
+    }
+
+    void restoreSession();
     const { data } = supabase.auth.onAuthStateChange((_event, next) =>
-      setSession(next),
+      mounted && setSession(next),
     );
-    return () => data.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

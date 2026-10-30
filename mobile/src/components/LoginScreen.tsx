@@ -140,6 +140,9 @@ export default function LoginScreen() {
                 <Text style={styles.buttonText}>Sign in</Text>
               )}
             </Pressable>
+            <Text style={styles.sessionNote}>
+              You’ll stay signed in securely on this device until you sign out.
+            </Text>
           </View>
 
           <Text style={styles.privacy}>
@@ -236,6 +239,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.navy,
   },
   buttonText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+  sessionNote: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 17,
+    textAlign: "center",
+    marginTop: 12,
+  },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.45 },
   privacy: {
