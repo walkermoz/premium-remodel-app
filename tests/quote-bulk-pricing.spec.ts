@@ -54,7 +54,7 @@ test("select all applies cost-based pricing and saves quote prices", async ({
       "Customer price",
     ]);
     await row
-      .getByRole("textbox", { name: "New work item", exact: true })
+      .getByRole("textbox", { name: "New item", exact: true })
       .fill(title);
     await row
       .getByRole("spinbutton", {
@@ -110,7 +110,7 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
   await row
-    .getByRole("textbox", { name: "New work item", exact: true })
+    .getByRole("textbox", { name: "New item", exact: true })
     .fill("Site supervision");
   await row
     .getByLabel("Subcontractor cost basis for Site supervision")

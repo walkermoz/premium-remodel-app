@@ -247,7 +247,7 @@ test("material costs edit, persist, total and export on existing scope items", a
   const file = await downloaded;
   const csv = await readFile((await file.path())!, "utf8");
   expect(csv).toContain(
-    '"Project section","Work item","Scope details","Quantity","Unit","Price","Subcontractor cost","Material cost","Profit"',
+    '"Project section","Item","Scope details","Quantity","Unit","Price","Subcontractor cost","Material cost","Profit"',
   );
   expect(csv).toContain(
     '"Flooring","","1","job","600","200","150.25","249.75"',
@@ -358,7 +358,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const newRow = page.locator(".scope-new-row");
   await newRow
-    .getByRole("textbox", { name: "New work item", exact: true })
+    .getByRole("textbox", { name: "New item", exact: true })
     .fill("Garage framing");
   await newRow
     .getByLabel("Price per job for Garage framing", { exact: true })
@@ -412,12 +412,20 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   );
   await expect(page.getByLabel("Quote status")).toHaveValue("Sent");
   expect(new URL(page.url()).searchParams.get("project")).toBe(quoteId);
+  await page
+    .getByRole("navigation", { name: "Quote workflow" })
+    .getByRole("button", { name: /Quote & pricing/ })
+    .click();
   await expect(
     page.getByRole("button", { name: "Edit Garage framing" }),
   ).toBeVisible();
   await expect(page.locator(".scope-table tfoot")).toContainText("$5,100.15");
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
   await page.reload();
+  await page
+    .getByRole("navigation", { name: "Quote workflow" })
+    .getByRole("button", { name: /Quote & pricing/ })
+    .click();
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
   await page.getByRole("button", { name: "Quotes", exact: true }).click();
   await expect(page.locator(".quote-row")).toContainText(
@@ -460,7 +468,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
   await row
-    .getByRole("textbox", { name: "New work item", exact: true })
+    .getByRole("textbox", { name: "New item", exact: true })
     .fill("Labor");
   await expect(row.getByText("Price by", { exact: true })).toBeVisible();
   await expect(row.getByText("Number of jobs", { exact: true })).toBeVisible();
@@ -507,9 +515,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const jobs = page.locator(".scope-new-row");
-  await jobs
-    .getByLabel("New work item", { exact: true })
-    .fill("Permit packages");
+  await jobs.getByLabel("New item", { exact: true }).fill("Permit packages");
   await jobs.getByLabel("Number of jobs for Permit packages").fill("2");
   await jobs.getByLabel("Price per job for Permit packages").fill("150");
   await expect(
@@ -540,9 +546,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
-  await row
-    .getByLabel("New work item", { exact: true })
-    .fill("Tile installation");
+  await row.getByLabel("New item", { exact: true }).fill("Tile installation");
   await row.getByLabel("Price per job for Tile installation").fill("1000");
   await row
     .getByLabel("Subcontractor cost basis for Tile installation")
@@ -690,7 +694,7 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const row = page.locator(".scope-new-row");
   await row
-    .getByRole("textbox", { name: "New work item", exact: true })
+    .getByRole("textbox", { name: "New item", exact: true })
     .fill("Demo work");
   await row.getByLabel("Price per job for Demo work").fill("250");
   await row.getByRole("button", { name: "Save Demo work" }).click();
@@ -726,7 +730,7 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const secondRow = page.locator(".scope-new-row");
   await secondRow
-    .getByRole("textbox", { name: "New work item", exact: true })
+    .getByRole("textbox", { name: "New item", exact: true })
     .fill("Finish work");
   await secondRow.getByLabel("Price per job for Finish work").fill("50");
   await secondRow.getByRole("button", { name: "Save Finish work" }).click();

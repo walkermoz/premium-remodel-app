@@ -6,16 +6,16 @@ test("create a contractor within work, preserve the draft, and save the assignme
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/demo?view=Upcoming&layout=List");
-  await page.getByRole("button", { name: "Add work", exact: true }).click();
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog
     .getByRole("combobox", { name: "Project", exact: true })
     .selectOption("p1");
   await dialog
-    .getByLabel("Work title")
+    .getByLabel("Item title")
     .fill("Inspect the new bathroom plumbing");
   await dialog
-    .getByRole("combobox", { name: "Work type", exact: true })
+    .getByRole("combobox", { name: "Item type", exact: true })
     .selectOption("Inspection");
   await dialog.getByLabel("Scheduled date").fill("2026-10-15");
   await dialog.getByLabel("Start time", { exact: true }).fill("09:30");
@@ -34,7 +34,7 @@ test("create a contractor within work, preserve the draft, and save the assignme
     .selectOption("__new_contractor__");
   await expect(dialog).toHaveAccessibleName("New contractor");
   await expect(page.getByRole("dialog")).toHaveCount(1);
-  await expect(dialog.getByLabel("Work title")).not.toBeVisible();
+  await expect(dialog.getByLabel("Item title")).not.toBeVisible();
   await expect(dialog.getByLabel("Contact name")).toBeFocused();
   await dialog.getByLabel("Contact name").fill("Taylor Plumbing");
   await dialog
@@ -49,7 +49,7 @@ test("create a contractor within work, preserve the draft, and save the assignme
   await dialog
     .getByRole("button", { name: "Save & select contractor", exact: true })
     .click();
-  await expect(dialog).toHaveAccessibleName("New work");
+  await expect(dialog).toHaveAccessibleName("New item");
   const selected = dialog.getByRole("combobox", {
     name: "Assigned contractor",
     exact: true,
@@ -59,7 +59,7 @@ test("create a contractor within work, preserve the draft, and save the assignme
   );
   const contractorId = await selected.inputValue();
   await expect(selected).toBeFocused();
-  await expect(dialog.getByLabel("Work title")).toHaveValue(
+  await expect(dialog.getByLabel("Item title")).toHaveValue(
     "Inspect the new bathroom plumbing",
   );
   await expect(dialog.getByLabel("Scheduled date")).toHaveValue("2026-10-15");
@@ -79,7 +79,7 @@ test("create a contractor within work, preserve the draft, and save the assignme
     "Use the side entrance and check the upstairs bath.",
   );
   await dialog
-    .getByRole("button", { name: "Create work", exact: true })
+    .getByRole("button", { name: "Create item", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
   await page.reload();
@@ -127,7 +127,7 @@ test("cancel and failed contractor saves keep the work draft intact on mobile", 
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/demo?view=Projects&project=p1&tab=Upcoming&layout=List");
-  await page.getByRole("button", { name: "Add work", exact: true }).click();
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
   const dialog = page.getByRole("dialog");
   const assigned = dialog.getByRole("combobox", {
     name: "Assigned contractor",
@@ -142,7 +142,7 @@ test("cancel and failed contractor saves keep the work draft intact on mobile", 
   await expect(assigned).toHaveValue("c2");
   await assigned.selectOption("__new_contractor__");
   await page.keyboard.press("Escape");
-  await expect(dialog).toHaveAccessibleName("New work");
+  await expect(dialog).toHaveAccessibleName("New item");
   await expect(assigned).toHaveValue("c2");
   await assigned.selectOption("__new_contractor__");
   await dialog.getByLabel("Contact name").fill("Retry Contractor");
@@ -193,12 +193,12 @@ test("cancel and failed contractor saves keep the work draft intact on mobile", 
     fullPage: true,
   });
   await save.click();
-  await expect(dialog).toHaveAccessibleName("New work");
+  await expect(dialog).toHaveAccessibleName("New item");
   await expect(assigned.locator("option:checked")).toHaveText(
     "Retry Contractor · Tiling",
   );
   // The unfinished task has no title yet; creating a contact must still work.
-  await expect(dialog.getByLabel("Work title")).toHaveValue("");
+  await expect(dialog.getByLabel("Item title")).toHaveValue("");
   await expect(
     dialog.getByRole("combobox", { name: "Project", exact: true }),
   ).toHaveValue("p1");

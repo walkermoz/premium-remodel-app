@@ -16,7 +16,9 @@ test("price-book categories can be selected or added while editing an item", asy
   ]);
   await category.selectOption("__add_new__");
   await editor.getByLabel("New category").fill("Painting");
-  await editor.getByLabel("Work item").fill("Cabinet painting");
+  await editor
+    .getByRole("textbox", { name: "Item", exact: true })
+    .fill("Cabinet painting");
   await editor.getByRole("button", { name: "Create item" }).click();
   await expect(editor).toBeHidden();
   await expect(

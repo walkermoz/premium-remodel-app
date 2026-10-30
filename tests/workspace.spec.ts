@@ -79,7 +79,7 @@ cloudTest(
     ]) {
       await page.getByRole("button", { name: "Add item", exact: true }).click();
       dialog = page.getByRole("dialog");
-      await dialog.getByLabel("Work item", { exact: true }).fill(item.title);
+      await dialog.getByLabel("Item", { exact: true }).fill(item.title);
       await dialog
         .getByRole("combobox", { name: "Price by", exact: true })
         .selectOption(item.unit);
@@ -128,16 +128,16 @@ cloudTest(
     await page.getByRole("tab", { name: /^Upcoming/ }).click();
     await page.getByRole("button", { name: "List", exact: true }).click();
     await page
-      .getByRole("button", { name: "Add work", exact: true })
+      .getByRole("button", { name: "Add item", exact: true })
       .first()
       .click();
     dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Work title").fill("Install new flooring");
+    await dialog.getByLabel("Item title").fill("Install new flooring");
     await dialog.getByLabel("Due date").fill("2026-09-08");
     await dialog
       .getByLabel("Assigned contractor")
       .selectOption({ label: "Test Flooring Lead · Flooring" });
-    await dialog.getByRole("button", { name: "Create work" }).click();
+    await dialog.getByRole("button", { name: "Create item" }).click();
     await expect(dialog).not.toBeVisible();
     await page
       .getByRole("button", {

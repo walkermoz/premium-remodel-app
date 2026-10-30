@@ -156,15 +156,15 @@ test("project calendar creates dated tasks, moves deadlines, and preserves the t
     name: "Selected day schedule",
   });
   await grid.locator('[data-date="2026-09-12"] .calendar-day-number').click();
-  await page.getByRole("button", { name: "Add work", exact: true }).click();
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Due date")).toHaveValue("2026-09-12");
   await expect(
     dialog.getByRole("combobox", { name: "Project", exact: true }),
   ).toHaveValue("p1");
-  await dialog.getByLabel("Work title").fill("Deliver cabinets");
+  await dialog.getByLabel("Item title").fill("Deliver cabinets");
   await dialog
-    .getByRole("button", { name: "Create work", exact: true })
+    .getByRole("button", { name: "Create item", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
   await expect(grid.locator('[data-date="2026-09-12"]')).toContainText(
@@ -241,7 +241,7 @@ test("empty workspace calendar remains usable on phones", async ({ page }) => {
     page.getByText("Create a project to start scheduling work."),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Add work", exact: true }),
+    page.getByRole("button", { name: "Add item", exact: true }),
   ).toBeDisabled();
   await expect
     .poll(() =>
@@ -302,11 +302,11 @@ test("Upcoming groups work, retains filters across views, and supports legacy ta
   await expect(panel).not.toContainText("Finished demolition");
   await page.getByLabel("Filter by project").selectOption("p1");
   await page.getByLabel("Filter by work type").selectOption("Inspection");
-  await panel.getByRole("button", { name: "Add work", exact: true }).click();
+  await panel.getByRole("button", { name: "Add item", exact: true }).click();
   await expect(
     page
       .getByRole("dialog")
-      .getByRole("combobox", { name: "Work type", exact: true }),
+      .getByRole("combobox", { name: "Item type", exact: true }),
   ).toHaveValue("Inspection");
   await page
     .getByRole("dialog")
@@ -348,27 +348,27 @@ test("scheduled work saves times, validates ranges, and can be completed and rem
   await seed(page);
   await page.goto("/demo?view=Upcoming&layout=List");
   const panel = page.getByRole("region", { name: "Workspace upcoming work" });
-  await panel.getByRole("button", { name: "Add work", exact: true }).click();
+  await panel.getByRole("button", { name: "Add item", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog
     .getByRole("combobox", { name: "Project", exact: true })
     .selectOption("p2");
-  await dialog.getByLabel("Work title").fill("Cabinet delivery");
+  await dialog.getByLabel("Item title").fill("Cabinet delivery");
   await dialog
-    .getByRole("combobox", { name: "Work type", exact: true })
+    .getByRole("combobox", { name: "Item type", exact: true })
     .selectOption("Delivery");
   await dialog.getByLabel("Scheduled date").fill("2026-09-10");
   await dialog.getByLabel("Start time", { exact: true }).fill("13:00");
   await dialog.getByLabel("End time", { exact: true }).fill("12:00");
   await dialog
-    .getByRole("button", { name: "Create work", exact: true })
+    .getByRole("button", { name: "Create item", exact: true })
     .click();
   await expect(dialog.getByRole("alert")).toContainText(
     "End time must be later",
   );
   await dialog.getByLabel("End time", { exact: true }).fill("15:00");
   await dialog
-    .getByRole("button", { name: "Create work", exact: true })
+    .getByRole("button", { name: "Create item", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
   await expect(
@@ -382,7 +382,7 @@ test("scheduled work saves times, validates ranges, and can be completed and rem
     "13:00",
   );
   await expect(
-    dialog.getByRole("combobox", { name: "Work type", exact: true }),
+    dialog.getByRole("combobox", { name: "Item type", exact: true }),
   ).toHaveValue("Delivery");
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await panel.getByRole("button", { name: "Calendar", exact: true }).click();
