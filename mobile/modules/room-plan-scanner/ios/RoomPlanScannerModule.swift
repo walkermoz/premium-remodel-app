@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import RoomPlan
+import simd
 import UIKit
 
 public final class RoomPlanScannerModule: Module {
@@ -161,8 +162,12 @@ private enum RoomScanExporter {
     let bounds = planBounds(room.walls)
     let widthMeters = max(bounds.maxX - bounds.minX, 0)
     let depthMeters = max(bounds.maxY - bounds.minY, 0)
+    let floorAreaMeters = measuredFloorArea(
+      room: room,
+      fallback: widthMeters * depthMeters
+    )
     let measurements: [String: Any] = [
-      "floorAreaSqFt": rounded(widthMeters * depthMeters * squareFeetPerSquareMeter),
+      "floorAreaSqFt": rounded(floorAreaMeters * squareFeetPerSquareMeter),
       "wallAreaSqFt": rounded(max(grossWallAreaMeters - openingAreaMeters, 0) * squareFeetPerSquareMeter),
       "ceilingHeightFt": rounded(wallHeightMeters * feetPerMeter),
       "perimeterFt": rounded(wallWidthMeters * feetPerMeter),
@@ -202,6 +207,45 @@ private enum RoomScanExporter {
 
   private static func rounded(_ value: Double) -> Double {
     return (value * 10).rounded() / 10
+  }
+
+  private static func measuredFloorArea(room: CapturedRoom, fallback: Double) -> Double {
+    if #available(iOS 17.0, *), let polygonArea = capturedFloorArea(room), polygonArea > 0 {
+      return polygonArea
+    }
+    return fallback
+  }
+
+  @available(iOS 17.0, *)
+  private static func capturedFloorArea(_ room: CapturedRoom) -> Double? {
+    let areas = room.floors.compactMap { floor -> Double? in
+      let area = polygonArea(floor.polygonCorners)
+      return area.isFinite && area > 0.01 ? area : nil
+    }
+    guard !areas.isEmpty else { return nil }
+    return areas.reduce(0, +)
+  }
+
+  private static func polygonArea(_ corners: [SIMD3<Float>]) -> Double {
+    guard corners.count >= 3 else { return 0 }
+    var areaVector = SIMD3<Double>(repeating: 0)
+    for index in corners.indices {
+      let nextIndex = corners.index(after: index) == corners.endIndex
+        ? corners.startIndex
+        : corners.index(after: index)
+      let current = SIMD3<Double>(
+        Double(corners[index].x),
+        Double(corners[index].y),
+        Double(corners[index].z)
+      )
+      let next = SIMD3<Double>(
+        Double(corners[nextIndex].x),
+        Double(corners[nextIndex].y),
+        Double(corners[nextIndex].z)
+      )
+      areaVector += simd_cross(current, next)
+    }
+    return simd_length(areaVector) / 2
   }
 
   private static func confidence(_ value: CapturedRoom.Confidence) -> String {
