@@ -11170,6 +11170,26 @@ small {
   color: var(--theme-text-muted, #82919c);
   line-height: 1.4;
 }
+.automation-run-retry {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: 3px;
+  padding: 5px 9px;
+  border: 1px solid var(--blue);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.automation-run-retry:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+}
+.automation-run-retry:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
 .automation-runs-error {
   margin: 12px 15px;
   color: #b14545;

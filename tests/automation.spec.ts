@@ -123,6 +123,92 @@ cloudTest(
       ]),
     );
 
+    const retryRun = await company.admin
+      .from("remodel_automation_runs")
+      .insert({
+        organization_id: company.organizationId,
+        automation_key: "website-lead-intake",
+        lead_id: workspace.leads[1].id,
+        subject: workspace.leads[1].name,
+        project: workspace.leads[1].project,
+        status: "needs_attention",
+        steps: [
+          { key: "lead", label: "Lead", status: "created" },
+          { key: "email", label: "Customer confirmation", status: "failed" },
+          { key: "team", label: "Team notification", status: "unknown" },
+        ],
+      })
+      .select("id")
+      .single();
+    expect(retryRun.error).toBeNull();
+    const retryId = retryRun.data!.id;
+    const retryUrl = `/api/automations/website-leads/runs/${retryId}/retry`;
+    const retryResponse = await api.post(retryUrl, {
+      headers: origin,
+      data: { step: "email" },
+    });
+    expect(retryResponse.status()).toBe(200);
+    expect((await retryResponse.json()).status).toBe("not_configured");
+    const afterRetry = await (
+      await api.get("/api/automations/website-leads/runs")
+    ).json();
+    expect(
+      afterRetry.runs.find((run: { id: string }) => run.id === retryId),
+    ).toEqual(
+      expect.objectContaining({
+        status: "needs_attention",
+        steps: expect.arrayContaining([
+          expect.objectContaining({
+            key: "email",
+            status: "not_configured",
+            attempts: 2,
+          }),
+        ]),
+      }),
+    );
+    expect(
+      (
+        await api.post(retryUrl, {
+          headers: origin,
+          data: { step: "team" },
+        })
+      ).status(),
+    ).toBe(409);
+    const retryWorkspace = await (await api.get("/api/workspace")).json();
+    expect(
+      retryWorkspace.leads.find(
+        (item: { id: string }) => item.id === workspace.leads[1].id,
+      ).emailAcknowledgement.status,
+    ).toBe("not_configured");
+    expect(retryWorkspace.leads).toHaveLength(2);
+    expect(retryWorkspace.contacts).toHaveLength(1);
+
+    const claims = await Promise.all([
+      company.admin.rpc("remodel_claim_automation_retry", {
+        p_organization_id: company.organizationId,
+        p_run_id: retryId,
+        p_step_key: "email",
+      }),
+      company.admin.rpc("remodel_claim_automation_retry", {
+        p_organization_id: company.organizationId,
+        p_run_id: retryId,
+        p_step_key: "email",
+      }),
+    ]);
+    expect(claims.map((claim) => claim.error)).toEqual([null, null]);
+    expect(claims.map((claim) => claim.data).sort()).toEqual([false, true]);
+    const release = await company.admin.rpc("remodel_finish_automation_retry", {
+      p_organization_id: company.organizationId,
+      p_run_id: retryId,
+      p_step_key: "email",
+      p_result: {
+        status: "not_configured",
+        attemptedAt: new Date().toISOString(),
+      },
+    });
+    expect(release.error).toBeNull();
+    expect(release.data).toBe(true);
+
     const removedLeadId = workspace.leads[0].id;
     const removed = await company.admin
       .from("remodel_records")
@@ -134,8 +220,10 @@ cloudTest(
     const retainedHistory = await (
       await api.get("/api/automations/website-leads/runs")
     ).json();
-    expect(retainedHistory.runs.some((run: { leadId: string }) =>
-      run.leadId === removedLeadId,
-    )).toBe(true);
+    expect(
+      retainedHistory.runs.some(
+        (run: { leadId: string }) => run.leadId === removedLeadId,
+      ),
+    ).toBe(true);
   },
 );

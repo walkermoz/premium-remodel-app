@@ -11,9 +11,12 @@ export type AutomationRunStep = {
     | "sent"
     | "skipped"
     | "failed"
+    | "retrying"
     | "unknown"
     | "not_configured";
   detail?: string;
+  attempts?: number;
+  attemptedAt?: string;
 };
 
 export type AutomationRun = {

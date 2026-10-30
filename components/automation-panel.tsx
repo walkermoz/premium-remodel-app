@@ -96,6 +96,7 @@ export default function AutomationPanel({
   const [runsLoading, setRunsLoading] = useState(!demo);
   const [runsError, setRunsError] = useState("");
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [retryingStep, setRetryingStep] = useState<string | null>(null);
   const editable = !demo && user.role === "admin";
 
   const loadRuns = useCallback(
@@ -226,6 +227,35 @@ export default function AutomationPanel({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function retry(runId: string, step: "email" | "team") {
+    if (!editable || retryingStep) return;
+    setRetryingStep(`${runId}:${step}`);
+    setRunsError("");
+    try {
+      const response = await fetch(
+        `/api/automations/website-leads/runs/${encodeURIComponent(runId)}/retry`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ step }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not retry this action.");
+      await loadRuns();
+    } catch (reason) {
+      await loadRuns();
+      setRunsError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not retry this action.",
+      );
+    } finally {
+      setRetryingStep(null);
     }
   }
 
@@ -593,6 +623,35 @@ export default function AutomationPanel({
                             <span>{step.label}</span>
                             <b>{step.status.replaceAll("_", " ")}</b>
                             {step.detail && <small>{step.detail}</small>}
+                            {step.attempts && step.attempts > 1 && (
+                              <small>{step.attempts} attempts</small>
+                            )}
+                            {step.status === "unknown" && (
+                              <small>
+                                Delivery may have succeeded. Check the mailbox
+                                or team channel before sending again.
+                              </small>
+                            )}
+                            {editable &&
+                              (step.key === "email" || step.key === "team") &&
+                              (step.status === "failed" ||
+                                step.status === "not_configured") && (
+                                <button
+                                  className="automation-run-retry"
+                                  type="button"
+                                  disabled={Boolean(retryingStep)}
+                                  onClick={() =>
+                                    void retry(
+                                      run.id,
+                                      step.key as "email" | "team",
+                                    )
+                                  }
+                                >
+                                  {retryingStep === `${run.id}:${step.key}`
+                                    ? "Retrying…"
+                                    : "Retry action"}
+                                </button>
+                              )}
                           </li>
                         ))}
                       </ol>

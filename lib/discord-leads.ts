@@ -10,7 +10,7 @@ export interface DiscordLeadInput {
 }
 
 export interface DiscordNotificationResult {
-  status: "sent" | "failed" | "not_configured";
+  status: "sent" | "failed" | "unknown" | "not_configured";
   attemptedAt: string;
   detail?: string;
 }
@@ -116,13 +116,17 @@ export async function sendDiscordLeadNotification(
     });
     if (!response.ok) {
       return {
-        status: "failed",
+        status: response.status >= 500 ? "unknown" : "failed",
         attemptedAt,
         detail: `Discord returned HTTP ${response.status}`,
       };
     }
     return { status: "sent", attemptedAt };
   } catch {
-    return { status: "failed", attemptedAt, detail: "Delivery failed" };
+    return {
+      status: "unknown",
+      attemptedAt,
+      detail: "Delivery could not be confirmed",
+    };
   }
 }

@@ -217,17 +217,17 @@ export async function POST(request: Request) {
       notificationResult.status === "fulfilled"
         ? notificationResult.value
         : {
-            status: "failed" as const,
+            status: "unknown" as const,
             attemptedAt: new Date().toISOString(),
-            detail: "Notification action failed unexpectedly",
+            detail: "Notification delivery could not be confirmed",
           };
     const emailAcknowledgement =
       acknowledgementResult.status === "fulfilled"
         ? acknowledgementResult.value
         : {
-            status: "failed" as const,
+            status: "unknown" as const,
             attemptedAt: new Date().toISOString(),
-            detail: "Email action failed unexpectedly",
+            detail: "Email delivery could not be confirmed",
           };
     runSteps.push(
       {
