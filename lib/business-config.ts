@@ -4,12 +4,15 @@ import type { WorkspaceUser } from "./auth";
 import {
   businessConfigSchema,
   defaultRoleNavigation,
+  navigationFromRoles,
   navigationPages,
   type BusinessConfig,
+  type NavigationPage,
 } from "./business-config-schema";
 import { premiumAgreementEnabled } from "./agreements";
 import { isOriginalOrganization } from "./original-organization";
 import { hasTwilioConnection } from "./twilio-connection-store";
+import { workspaceGroups } from "./types";
 export { businessConfigSchema } from "./business-config-schema";
 export type { BusinessConfig } from "./business-config-schema";
 
@@ -84,6 +87,22 @@ export async function getBusinessConfigForOrganization(
   );
   defaults.features.twilio = twilioConnected;
   if (!saved.data) return defaults;
+  const legacyNavigation = saved.data.navigation?.length
+    ? saved.data.navigation
+    : defaults.navigation;
+  const savedRoles = saved.data.role_navigation || {};
+  const roleNavigation = Object.fromEntries(
+    workspaceGroups.map((group) => {
+      const configured =
+        (savedRoles[group] as NavigationPage[] | undefined) ||
+        defaults.roleNavigation[group];
+      const effective = configured.filter((page) =>
+        legacyNavigation.includes(page),
+      );
+      if (!effective.includes("Settings")) effective.push("Settings");
+      return [group, effective];
+    }),
+  ) as BusinessConfig["roleNavigation"];
   return businessConfigSchema.parse({
     profile: { ...defaults.profile, ...saved.data.profile },
     features: {
@@ -96,13 +115,8 @@ export async function getBusinessConfigForOrganization(
       ...defaults.quotePreferences,
       ...saved.data.quote_preferences,
     },
-    navigation: saved.data.navigation?.length
-      ? saved.data.navigation
-      : defaults.navigation,
-    roleNavigation: {
-      ...defaults.roleNavigation,
-      ...(saved.data.role_navigation || {}),
-    },
+    navigation: navigationFromRoles(roleNavigation),
+    roleNavigation,
   });
 }
 
@@ -111,6 +125,7 @@ export async function saveBusinessConfig(
   input: BusinessConfig,
 ) {
   const config = businessConfigSchema.parse(input);
+  config.navigation = navigationFromRoles(config.roleNavigation);
   // A copied Premium Remodel legal template must never be presented as another company's agreement.
   config.features.agreements = premiumAgreementEnabled(user.organizationId);
   config.features.twilio = await hasTwilioConnection(user.organizationId);

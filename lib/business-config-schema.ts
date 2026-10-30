@@ -24,6 +24,14 @@ export const doorKnockerPages: NavigationPage[] = [
   "Settings",
 ];
 
+export function navigationFromRoles(
+  roles: Record<(typeof workspaceGroups)[number], NavigationPage[]>,
+): NavigationPage[] {
+  return navigationPages.filter((page) =>
+    workspaceGroups.some((group) => roles[group].includes(page)),
+  );
+}
+
 export function defaultRoleNavigation(): Record<
   (typeof workspaceGroups)[number],
   NavigationPage[]
@@ -116,6 +124,10 @@ export const businessConfigSchema = z.object({
       z
         .array(z.enum(navigationPages))
         .max(navigationPages.length)
+        .refine(
+          (items) => new Set(items).size === items.length,
+          "A tab can appear only once for each role.",
+        )
         .refine(
           (items) => items.includes("Settings"),
           "Settings must remain available to every role.",

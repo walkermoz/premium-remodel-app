@@ -107,6 +107,7 @@ import CustomerContactsPanel from "./customer-contacts-panel";
 import DoorKnockingPanel, { type DoorVisitDraft } from "./door-knocking-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
 import type { BusinessConfig } from "@/lib/business-config";
+import type { NavigationPage } from "@/lib/business-config-schema";
 import OrganizationSwitcher from "./organization-switcher";
 import PricebookPanel from "./pricebook-panel";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
@@ -146,7 +147,7 @@ export default function WorkspaceApp({
   const [page, setPage] = useState<Page>(
     canOpenWorkspaceTab(config, user.group, "Overview")
       ? "Overview"
-      : (config.navigation.find((tab) =>
+      : (config.roleNavigation[user.group].find((tab) =>
           canOpenWorkspaceTab(config, user.group, tab),
         ) as Page | undefined) || "Settings",
   );
@@ -285,12 +286,12 @@ export default function WorkspaceApp({
           : legacyPage;
       setPage(
         (nextPage === "Activity" ||
-          config.navigation.includes(
-            nextPage as (typeof config.navigation)[number],
+          config.roleNavigation[user.group].includes(
+            nextPage as NavigationPage,
           )) &&
           canOpenWorkspaceTab(config, user.group, nextPage as Page)
           ? (nextPage as Page)
-          : (config.navigation.find((tab) =>
+          : (config.roleNavigation[user.group].find((tab) =>
               canOpenWorkspaceTab(config, user.group, tab),
             ) as Page | undefined) || "Settings",
       );
@@ -1254,10 +1255,24 @@ export default function WorkspaceApp({
     .filter((item) => canOpenWorkspaceTab(config, user.group, item.name))
     .sort(
       (a, b) =>
-        config.navigation.indexOf(
-          a.name as (typeof config.navigation)[number],
+        config.roleNavigation[user.group].indexOf(
+          a.name as NavigationPage,
         ) -
-        config.navigation.indexOf(b.name as (typeof config.navigation)[number]),
+        config.roleNavigation[user.group].indexOf(
+          b.name as NavigationPage,
+        ),
+    );
+  const companyMenuItems: { name: Page; icon: typeof Settings }[] = [
+    { name: "Team map", icon: MapPinned },
+    { name: "Team", icon: Users },
+    { name: "Settings", icon: Settings },
+  ];
+  const companyMenus = companyMenuItems
+    .filter((item) => canOpenWorkspaceTab(config, user.group, item.name))
+    .sort(
+      (a, b) =>
+        config.roleNavigation[user.group].indexOf(a.name as NavigationPage) -
+        config.roleNavigation[user.group].indexOf(b.name as NavigationPage),
     );
   function projectCard(project: Project) {
     const clock = contractClock(project, contractToday);
@@ -1416,31 +1431,16 @@ export default function WorkspaceApp({
         </nav>
         <span className="nav-label team-label">COMPANY</span>
         <nav aria-label="Company navigation">
-          {canOpenWorkspaceTab(config, user.group, "Team map") && (
+          {companyMenus.map((item) => (
             <button
-              className={`nav-item ${page === "Team map" ? "active" : ""}`}
-              onClick={() => navigate("Team map")}
+              key={item.name}
+              className={`nav-item ${page === item.name ? "active" : ""}`}
+              onClick={() => navigate(item.name)}
             >
-              <MapPinned size={18} />
-              Team map
+              <item.icon size={18} />
+              {item.name}
             </button>
-          )}
-          {canOpenWorkspaceTab(config, user.group, "Team") && (
-            <button
-              className={`nav-item ${page === "Team" ? "active" : ""}`}
-              onClick={() => navigate("Team")}
-            >
-              <Users size={18} />
-              Team
-            </button>
-          )}
-          <button
-            className={`nav-item ${page === "Settings" ? "active" : ""}`}
-            onClick={() => navigate("Settings")}
-          >
-            <Settings size={18} />
-            Settings
-          </button>
+          ))}
         </nav>
         <div className="sidebar-bottom">
           {config.profile.website && (

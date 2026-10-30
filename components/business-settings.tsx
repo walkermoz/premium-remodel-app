@@ -5,20 +5,8 @@ import BrandAssetPreview, {
   type BrandPreviewKind,
 } from "./brand-asset-preview";
 import type { BusinessConfig } from "@/lib/business-config";
-import {
-  doorKnockerPages,
-  navigationPages,
-} from "@/lib/business-config-schema";
-import { workspaceGroups, type WorkspaceGroup } from "@/lib/types";
-
-const roleLabels: Record<WorkspaceGroup, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  office: "Office",
-  crew: "Crew",
-  field: "Field",
-  doorknocker: "Door knocker",
-};
+import { navigationFromRoles } from "@/lib/business-config-schema";
+import RoleTabAccessEditor from "./role-tab-access-editor";
 
 const labels = {
   priceBook: "Price book",
@@ -32,7 +20,7 @@ const businessTabs: { id: BusinessTab; label: string }[] = [
   { id: "brand", label: "Brand" },
   { id: "details", label: "Business details" },
   { id: "quotes", label: "Quotes & payments" },
-  { id: "access", label: "Navigation & access" },
+  { id: "access", label: "Tab access by role" },
 ];
 
 export default function BusinessSettings({
@@ -47,7 +35,6 @@ export default function BusinessSettings({
   const [config, setConfig] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [selectedRole, setSelectedRole] = useState<WorkspaceGroup>("admin");
   const [activeTab, setActiveTab] = useState<BusinessTab>("brand");
   const [previewVersion, setPreviewVersion] = useState(0);
   const [previewAsset, setPreviewAsset] = useState<BrandPreviewKind | null>(
@@ -580,151 +567,23 @@ export default function BusinessSettings({
         {activeTab === "access" && (
           <div className="business-settings-content">
             <div className="business-panel-intro">
-              <h3>Navigation & access</h3>
+              <h3>Tab access by role</h3>
               <p>
-                Set the tabs available to your company, then refine access by
-                role.
+                Choose what each role sees in the left navigation and arrange
+                the tabs in the order they should appear.
               </p>
             </div>
-            <div>
-              <strong>Left navigation</strong>
-              <p className="footnote">
-                Choose the sections available to this company and their order.
-                Role access below further limits who sees each section.
-              </p>
-              <div className="business-navigation-list">
-                {navigationPages.map((name) => {
-                  const index = config.navigation.indexOf(name);
-                  return (
-                    <div className="member-row" key={name}>
-                      <label className="business-option">
-                        <input
-                          type="checkbox"
-                          checked={index >= 0}
-                          disabled={!admin || name === "Settings"}
-                          onChange={(event) =>
-                            setConfig((current) => ({
-                              ...current,
-                              navigation: event.target.checked
-                                ? [...current.navigation, name]
-                                : current.navigation.filter(
-                                    (entry) => entry !== name,
-                                  ),
-                            }))
-                          }
-                        />
-                        {name}
-                      </label>
-                      {admin && index >= 0 && (
-                        <div className="page-heading-actions">
-                          <button
-                            type="button"
-                            className="button secondary"
-                            disabled={index === 0}
-                            onClick={() =>
-                              setConfig((current) => {
-                                const navigation = [...current.navigation];
-                                [navigation[index - 1], navigation[index]] = [
-                                  navigation[index],
-                                  navigation[index - 1],
-                                ];
-                                return { ...current, navigation };
-                              })
-                            }
-                          >
-                            Up
-                          </button>
-                          <button
-                            type="button"
-                            className="button secondary"
-                            disabled={index === config.navigation.length - 1}
-                            onClick={() =>
-                              setConfig((current) => {
-                                const navigation = [...current.navigation];
-                                [navigation[index], navigation[index + 1]] = [
-                                  navigation[index + 1],
-                                  navigation[index],
-                                ];
-                                return { ...current, navigation };
-                              })
-                            }
-                          >
-                            Down
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <strong>Tab access by role</strong>
-              <p className="footnote">
-                Choose which workspace tabs each role can open. Door knocking is
-                assigned to door knockers by default. Settings stays available
-                to everyone.
-              </p>
-              <label>
-                Role
-                <select
-                  value={selectedRole}
-                  onChange={(event) =>
-                    setSelectedRole(event.target.value as WorkspaceGroup)
-                  }
-                >
-                  {workspaceGroups.map((group) => (
-                    <option key={group} value={group}>
-                      {roleLabels[group]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="business-navigation-list">
-                {navigationPages.map((name) => {
-                  const companyEnabled = config.navigation.includes(name);
-                  const fieldSupported =
-                    selectedRole !== "doorknocker" ||
-                    doorKnockerPages.includes(name);
-                  return (
-                    <div className="member-row" key={name}>
-                      <label className="business-option">
-                        <input
-                          type="checkbox"
-                          checked={config.roleNavigation[selectedRole].includes(
-                            name,
-                          )}
-                          disabled={
-                            !admin ||
-                            name === "Settings" ||
-                            !companyEnabled ||
-                            !fieldSupported
-                          }
-                          onChange={(event) =>
-                            setConfig((current) => ({
-                              ...current,
-                              roleNavigation: {
-                                ...current.roleNavigation,
-                                [selectedRole]: event.target.checked
-                                  ? [
-                                      ...current.roleNavigation[selectedRole],
-                                      name,
-                                    ]
-                                  : current.roleNavigation[selectedRole].filter(
-                                      (page) => page !== name,
-                                    ),
-                              },
-                            }))
-                          }
-                        />
-                        {name}
-                      </label>
-                      {!companyEnabled && <small>Off for company</small>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <RoleTabAccessEditor
+              roleNavigation={config.roleNavigation}
+              admin={admin}
+              onChange={(roleNavigation) =>
+                setConfig((current) => ({
+                  ...current,
+                  roleNavigation,
+                  navigation: navigationFromRoles(roleNavigation),
+                }))
+              }
+            />
           </div>
         )}
         {error && (

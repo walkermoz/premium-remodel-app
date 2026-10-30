@@ -39,7 +39,6 @@ export function canOpenWorkspaceTab(
 ): boolean {
   const tab = page === "Activity" ? "Overview" : page;
   if (tab === "Settings") return true;
-  if (!config.navigation.includes(tab)) return false;
   if (!config.roleNavigation[group].includes(tab)) return false;
   if (tab === "Door knocking") return config.features.doorKnocking;
   if (tab === "Price book") return config.features.priceBook;
