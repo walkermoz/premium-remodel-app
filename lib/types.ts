@@ -141,6 +141,8 @@ export interface Quote extends Omit<Project, "status"> {
   status: QuoteStatus;
   /** Removed from the working quote pipeline without deleting its history. */
   junkedAt?: string | null;
+  /** The portal was opened for an in-person signing without sending email. */
+  quoteOnsiteAt?: string;
   /** Customer contact selected when the quote was prepared. */
   contactId?: string;
   /** Selected images shown to the customer in the quote and PDF. */

@@ -9,10 +9,12 @@ import {
 } from "@/lib/msa-contract";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 import {
+  acceptedScopeSnapshot,
   defaultMsaContractTerms,
   defaultMsaPaymentSchedule,
 } from "@/lib/msa-draft";
-import type { Project } from "@/lib/types";
+import { preparedMsaMatchesQuote } from "@/lib/msa-quote-match";
+import type { Project, Quote, ScopeItem } from "@/lib/types";
 
 const at = "2026-10-23T15:00:00.000Z";
 const scope = [
@@ -95,6 +97,56 @@ test("refuses an agreement without a verified accepted quote", () => {
       at,
     ),
   ).toThrow(/verified accepted quote/);
+});
+
+test("an unsigned quote can be pre-signed by staff only when its MSA matches the quote", () => {
+  const item: ScopeItem = {
+    id: "33333333-3333-4333-8333-333333333333",
+    projectId: base.id,
+    createdAt: at,
+    updatedAt: at,
+    sectionName: "Bathroom",
+    title: "Tile installation",
+    details: "Floor and shower",
+    quantity: 1,
+    unit: "job",
+    estimate: 4900,
+    subCost: 0,
+    contractorId: "",
+    status: "To do",
+  };
+  const unsigned: Quote = {
+    ...base,
+    status: "Draft",
+    quoteAcceptedAt: undefined,
+    acceptedQuoteScope: undefined,
+    contractPrice: undefined,
+  };
+  const prepared = prepareMsa(
+    {
+      ...unsigned,
+      acceptedQuoteScope: acceptedScopeSnapshot([item], unsigned.category),
+      contractPrice: item.estimate,
+    },
+    [item],
+    {
+      owner: unsigned.client,
+      ownerEmail: unsigned.clientEmail!,
+      signerTitle: "Project manager",
+      signatureStrokes: strokes,
+    },
+    { id: "22222222-2222-4222-8222-222222222222", name: "Alex Staff" },
+    at,
+    { allowUnsignedQuote: true },
+  );
+  expect(
+    preparedMsaMatchesQuote({ ...unsigned, msaAgreement: prepared }, [item]),
+  ).toBe(true);
+  expect(
+    preparedMsaMatchesQuote({ ...unsigned, msaAgreement: prepared }, [
+      { ...item, estimate: 5100 },
+    ]),
+  ).toBe(false);
 });
 
 test("completed cancellation notice uses three conservative business days", () => {

@@ -1,0 +1,33 @@
+.signaturePad {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.canvas {
+  display: block;
+  width: min(100%, 540px);
+  height: 144px;
+  border: 1px solid #8ea8ba;
+  border-radius: 8px;
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.clear {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid #a8c0d0;
+  border-radius: 7px;
+  background: #f2f7fb;
+  color: #164a70;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.clear:hover:not(:disabled) {
+  background: #e1eef6;
+  border-color: #6b9ebe;
+}

@@ -240,6 +240,30 @@
   margin: 14px 0;
 }
 
+.preview {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid var(--line, #dce3e9);
+  border-radius: 10px;
+  background: #eef3f6;
+}
+
+.previewHeading {
+  max-width: 850px;
+  margin: 0 auto 16px;
+}
+
+.previewHeading h4 {
+  margin: 0 0 5px;
+  font-size: 16px;
+}
+
+.previewHeading p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .contractTerms label {
   display: grid;
   gap: 6px;
@@ -282,6 +306,10 @@
 
   .contractTerms {
     grid-template-columns: 1fr;
+  }
+
+  .preview {
+    padding: 12px;
   }
 
   .milestone {

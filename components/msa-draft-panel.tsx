@@ -18,6 +18,8 @@ import type {
 } from "@/lib/types";
 import { dateLabel } from "@/lib/utils";
 import { projectMoney } from "@/lib/project-finances";
+import { makeMsaPreview } from "@/lib/msa-preview";
+import MsaDocument from "./msa-document";
 import MsaSignaturePad from "./msa-signature-pad";
 import type { SignatureStroke } from "@/lib/types";
 import styles from "./msa-draft-panel.module.css";
@@ -29,6 +31,7 @@ export default function MsaDraftPanel({
   signer,
   showSigning = true,
   canSendAgreement = true,
+  prepareBeforeQuoteSignature = false,
 }: {
   project: Project | Quote;
   items: ScopeItem[];
@@ -40,6 +43,7 @@ export default function MsaDraftPanel({
   signer: { name: string };
   showSigning?: boolean;
   canSendAgreement?: boolean;
+  prepareBeforeQuoteSignature?: boolean;
 }) {
   const [historical, setHistorical] = useState<{
     price: number;
@@ -157,6 +161,21 @@ export default function MsaDraftPanel({
     /^Review (?:exclusions|the allowance amounts)/i.test(
       contractTerms.allowances,
     );
+  const previewAgreement =
+    draft.contractPrice && draft.scope.length && steps.length
+      ? makeMsaPreview({
+          project,
+          scope: draft.scope,
+          price: draft.contractPrice,
+          paymentSchedule: steps,
+          permitResponsibility: permit,
+          terms: contractTerms,
+          owner: owner.trim(),
+          ownerEmail: ownerEmail.trim(),
+          signerName: signer.name,
+          signerTitle: signerTitle.trim(),
+        })
+      : null;
   const price = draft.contractPrice
     ? projectMoney(draft.contractPrice)
     : "Needs a price";
@@ -266,7 +285,7 @@ export default function MsaDraftPanel({
 
   async function sendAgreement() {
     if (hasUnsavedTerms && project.msaAgreement?.status !== "prepared") {
-      setSendError("Save the MSA terms before signing and sending.");
+      setSendError("Save the MSA terms before signing.");
       return;
     }
     if (
@@ -280,7 +299,7 @@ export default function MsaDraftPanel({
     setSendError("");
     try {
       const response = await fetch(
-        `/api/msa/${encodeURIComponent(project.id)}/send`,
+        `/api/msa/${encodeURIComponent(project.id)}/${prepareBeforeQuoteSignature ? "prepare" : "send"}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -304,6 +323,28 @@ export default function MsaDraftPanel({
         cause instanceof Error
           ? cause.message
           : "Could not send the agreement.",
+      );
+      setSending(false);
+    }
+  }
+
+  async function revisePreparedAgreement() {
+    setSending(true);
+    setSendError("");
+    try {
+      const response = await fetch(
+        `/api/msa/${encodeURIComponent(project.id)}/prepare`,
+        { method: "DELETE" },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "Could not revise the agreement.");
+      window.location.reload();
+    } catch (cause) {
+      setSendError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not revise the agreement.",
       );
       setSending(false);
     }
@@ -366,18 +407,30 @@ export default function MsaDraftPanel({
         {agreement.status === "prepared" && (
           <>
             <p role="alert">
-              Email delivery was not confirmed. Check Gmail Sent before
-              retrying. This prepared agreement is frozen; project edits will
-              not change it.
+              {prepareBeforeQuoteSignature
+                ? "Staff has signed the agreement. It will appear immediately after the client signs the quote."
+                : "Email delivery was not confirmed. Check Gmail Sent before retrying. This prepared agreement is frozen; project edits will not change it."}
             </p>
-            <button
-              type="button"
-              className="button primary small-button"
-              disabled={sending}
-              onClick={() => void sendAgreement()}
-            >
-              {sending ? "Sending…" : "Retry sending MSA"}
-            </button>
+            {!prepareBeforeQuoteSignature && (
+              <button
+                type="button"
+                className="button primary small-button"
+                disabled={sending}
+                onClick={() => void sendAgreement()}
+              >
+                {sending ? "Sending…" : "Retry sending MSA"}
+              </button>
+            )}
+            {prepareBeforeQuoteSignature && project.status === "Draft" && (
+              <button
+                type="button"
+                className="button secondary small-button"
+                disabled={sending}
+                onClick={() => void revisePreparedAgreement()}
+              >
+                {sending ? "Opening…" : "Revise prepared MSA"}
+              </button>
+            )}
             {sendError && (
               <p role="alert" className={styles.error}>
                 {sendError}
@@ -387,8 +440,8 @@ export default function MsaDraftPanel({
         )}
         {agreement.status === "sent" && (
           <p>
-            Sent to {agreement.ownerEmail}. The customer can sign from their
-            private quote link.
+            Available to {agreement.ownerEmail} in the private quote portal. The
+            customer can sign from their quote link.
           </p>
         )}
         {agreement.status === "signed" && (
@@ -622,7 +675,9 @@ export default function MsaDraftPanel({
       </div>
       {showSigning && (
         <div className={styles.terms}>
-          <h3>Sign and send</h3>
+          <h3>
+            {prepareBeforeQuoteSignature ? "Sign and prepare" : "Sign and send"}
+          </h3>
           <>
             {needsHistorical && historical && (
               <div>
@@ -667,6 +722,18 @@ export default function MsaDraftPanel({
                 allowance review prompts with the actual accepted terms before
                 sending.
               </p>
+            )}
+            {previewAgreement && (
+              <div className={styles.preview}>
+                <div className={styles.previewHeading}>
+                  <h4>Agreement preview</h4>
+                  <p>
+                    Review the full scope, payments, terms, and cancellation
+                    notice with the customer before anyone signs.
+                  </p>
+                </div>
+                <MsaDocument agreement={previewAgreement} preview />
+              </div>
             )}
             <div className={styles.contractTerms}>
               <label>
@@ -721,7 +788,11 @@ export default function MsaDraftPanel({
               }
               onClick={() => void sendAgreement()}
             >
-              {sending ? "Sending…" : "Sign and email MSA"}
+              {sending
+                ? "Saving…"
+                : prepareBeforeQuoteSignature
+                  ? "Sign and prepare MSA"
+                  : "Sign and email MSA"}
             </button>
             {sendError && (
               <p role="alert" className={styles.error}>

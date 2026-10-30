@@ -648,7 +648,7 @@ export default async function ClientQuotePage({
                   {business.profile.name} Quote #{number}
                 </span>
                 <span className={styles.toolbarStatus}>
-                  {approved ? "Approved" : "Awaiting response"}
+                  {approved ? "Signed" : "Awaiting response"}
                 </span>
               </div>
               <div className={styles.toolbarActions}>

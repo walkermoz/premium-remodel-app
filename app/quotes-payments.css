@@ -315,6 +315,11 @@
   color: var(--theme-warning, #864805);
   background: var(--theme-surface-soft, #fff1d5);
 }
+.quote-row .quote-status-accepted {
+  padding: 4px 8px;
+  color: var(--blue);
+  border: 1px solid color-mix(in srgb, var(--blue) 46%, var(--line));
+}
 .quote-row .quote-status-declined {
   color: var(--red);
   background: var(--theme-surface-soft, #fcebea);
@@ -812,6 +817,28 @@
   color: var(--muted);
   font-size: 9px;
   font-weight: 650;
+}
+.workflow-msa-review {
+  margin-top: 22px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #edf2f5;
+}
+.workflow-msa-review-heading {
+  max-width: 850px;
+  margin: 0 auto 16px;
+}
+.workflow-msa-review-heading h4 {
+  margin: 0 0 5px;
+  color: #152f40;
+  font-size: 16px;
+}
+.workflow-msa-review-heading p {
+  margin: 0;
+  color: #50697a;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .workflow-completion-actions {
   display: flex;

@@ -59,6 +59,20 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
     page.getByRole("region", { name: "MSA preparation" }),
   ).toBeVisible();
   await expect(
+    page.getByRole("heading", { name: "Agreement preview" }),
+  ).toBeVisible();
+  const signaturePad = page.getByRole("img", { name: "Draw your signature" });
+  await signaturePad.scrollIntoViewIfNeeded();
+  const signatureBounds = await signaturePad.boundingBox();
+  expect(signatureBounds).not.toBeNull();
+  await page.mouse.move(signatureBounds!.x + 20, signatureBounds!.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(signatureBounds!.x + 150, signatureBounds!.y + 65);
+  await page.mouse.up();
+  await expect(signaturePad.locator("polyline")).toHaveCount(1);
+  await page.getByRole("button", { name: "Clear signature" }).click();
+  await expect(signaturePad.locator("polyline")).toHaveCount(0);
+  await expect(
     page.getByRole("heading", { name: "Sign and send" }),
   ).toHaveCount(0);
 
@@ -71,7 +85,7 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Agreement signature status" }),
-  ).toContainText("Waiting for quote acceptance");
+  ).toContainText("Sign and prepare the MSA in Agreement details");
   await expect(
     workflow.getByRole("button", { name: /Create project/ }),
   ).toBeDisabled();

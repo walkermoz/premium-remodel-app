@@ -8,6 +8,7 @@ import { parseClientPortalToken } from "@/lib/client-portal";
 import { signatureStrokesSchema } from "@/lib/quote-signature";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import { acceptedScopeSnapshot } from "@/lib/msa-draft";
+import { preparedMsaMatchesQuote } from "@/lib/msa-quote-match";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { QuoteAcceptance } from "@/lib/types";
 
@@ -25,6 +26,7 @@ function contractualQuote(value: unknown) {
   const comparable = { ...value } as Record<string, unknown>;
   delete comparable.updatedAt;
   delete comparable.quoteSentAt;
+  delete comparable.quoteOnsiteAt;
   for (const [key, item] of Object.entries(comparable))
     if (item === undefined) delete comparable[key];
   return comparable;
@@ -52,6 +54,7 @@ export async function POST(
         return Response.json({
           accepted: true,
           signedAt: source.view.acceptance.signedAt,
+          nextStep: source.view.msa?.status === "sent" ? "msa" : undefined,
         });
       throw new HttpError(409, "This quote has already been accepted.");
     }
@@ -109,10 +112,21 @@ export async function POST(
       ip,
       userAgent: (request.headers.get("user-agent") || "").slice(0, 300),
     };
+    const preparedMsa = source.currentQuote.msaAgreement;
+    if (
+      preparedMsa?.status === "prepared" &&
+      !preparedMsaMatchesQuote(source.currentQuote, source.pdfItems)
+    )
+      throw new HttpError(
+        409,
+        "The agreement no longer matches this quote. Ask Premium Remodel to update it before signing.",
+      );
+    const nextStep = preparedMsa?.status === "prepared" ? "msa" : undefined;
     const acceptedQuote = {
       ...source.pdfQuote,
       quoteSentAt:
         source.currentQuote.quoteSentAt || source.pdfQuote.quoteSentAt,
+      quoteOnsiteAt: source.currentQuote.quoteOnsiteAt,
       status: "Accepted" as const,
       quoteAcceptedAt: now,
       quoteAcceptedBy: `client-link:${linkId}`,
@@ -123,6 +137,10 @@ export async function POST(
         source.pdfQuote.category,
       ),
       quoteAcceptance: acceptance,
+      msaAgreement:
+        preparedMsa?.status === "prepared"
+          ? { ...preparedMsa, status: "sent" as const, sentAt: now }
+          : preparedMsa,
     };
     const { data, error } = await supabaseAdmin()
       .from("remodel_records")
@@ -144,7 +162,7 @@ export async function POST(
       source.pdfQuote.leadId,
     );
     return Response.json(
-      { accepted: true, signedAt: now },
+      { accepted: true, signedAt: now, nextStep },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

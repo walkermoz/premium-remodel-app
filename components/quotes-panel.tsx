@@ -346,6 +346,7 @@ export function QuoteDetail({
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState("");
   const [sendRequestId, setSendRequestId] = useState("");
+  const [onsiteBusy, setOnsiteBusy] = useState(false);
   const clientFirstName = quote.client.trim().split(/\s+/)[0] || "there";
   const senderFirstName = user.name.trim().split(/\s+/)[0] || "The team";
   const [checkBusy, setCheckBusy] = useState(false);
@@ -395,6 +396,10 @@ export function QuoteDetail({
     quote.msaPermitResponsibility &&
     quote.msaContractTerms,
   );
+  const agreementReadyForSharing =
+    !config.features.agreements ||
+    (agreementDetailsReady &&
+      (signedScope || quote.msaAgreement?.status === "prepared"));
   async function recordCheck(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (checkBusy) return;
@@ -444,6 +449,16 @@ export function QuoteDetail({
   }
   async function openEmail() {
     setError("");
+    if (
+      config.features.agreements &&
+      quote.msaAgreement?.status !== "prepared"
+    ) {
+      setError(
+        "Sign and prepare the MSA in Agreement details before emailing this quote.",
+      );
+      setWorkflowStep("agreement");
+      return;
+    }
     try {
       const response = await fetch("/api/google-mail", { cache: "no-store" });
       const data = await response.json();
@@ -462,6 +477,28 @@ export function QuoteDetail({
           ? caught.message
           : "Could not check company email.",
       );
+    }
+  }
+  async function startOnsiteSigning() {
+    if (onsiteBusy) return;
+    setOnsiteBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/onsite-signing`,
+        { method: "POST" },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "Could not start on-site signing.");
+      window.location.assign(result.url);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not start on-site signing.",
+      );
+      setOnsiteBusy(false);
     }
   }
   async function sendEmail(event: React.FormEvent<HTMLFormElement>) {
@@ -517,8 +554,9 @@ export function QuoteDetail({
         project={quote}
         items={items}
         signer={user}
-        showSigning={false}
+        showSigning={!signedScope}
         canSendAgreement={signedScope}
+        prepareBeforeQuoteSignature={!signedScope}
         onSaveTerms={async (terms) => {
           const response = await fetch(
             `/api/msa/${encodeURIComponent(quote.id)}/terms`,
@@ -602,7 +640,7 @@ export function QuoteDetail({
                 ))}
             </select>
             {quote.quoteSentAt && (
-              <small>Last sent {dateLabel(quote.quoteSentAt)}</small>
+              <small>Last shared {dateLabel(quote.quoteSentAt)}</small>
             )}
           </div>
           <a
@@ -611,7 +649,7 @@ export function QuoteDetail({
             download
           >
             <Download size={15} />
-            Download PDF
+            {signedScope ? "Download signed quote" : "Download PDF"}
           </a>
           {!signedScope && (handoffDemo || workflowStep === "quote") && (
             <button
@@ -771,7 +809,7 @@ export function QuoteDetail({
         <QuoteWorkflowStepper
           active={workflowStep}
           agreementReady={quoteDetailsReady}
-          completionReady={agreementDetailsReady}
+          completionReady={agreementReadyForSharing}
           projectReady={readyForProjects}
           onSelect={setWorkflowStep}
         />
@@ -863,7 +901,7 @@ export function QuoteDetail({
             <button
               type="button"
               className="button primary"
-              disabled={!agreementDetailsReady}
+              disabled={!agreementReadyForSharing}
               onClick={() => setWorkflowStep("completion")}
             >
               Continue to send & complete
@@ -893,7 +931,9 @@ export function QuoteDetail({
                 <small>Email delivery</small>
                 <strong>
                   {quote.quoteSentAt
-                    ? `Sent to ${quote.clientEmail}`
+                    ? quote.quoteOnsiteAt
+                      ? "Opened for on-site signing"
+                      : `Sent to ${quote.clientEmail}`
                     : "Ready to send with the quote PDF attached"}
                 </strong>
               </div>
@@ -911,15 +951,31 @@ export function QuoteDetail({
                 </strong>
               </div>
             </div>
-            <button
-              type="button"
-              className="button primary"
-              disabled={!quote.clientEmail || sendBusy}
-              onClick={() => void openEmail()}
-            >
-              <Mail size={15} />
-              {quote.quoteSentAt ? "Resend quote" : "Email quote"}
-            </button>
+            {!signedScope && (
+              <button
+                type="button"
+                className="button primary"
+                disabled={!quote.clientEmail || sendBusy}
+                onClick={() => void openEmail()}
+              >
+                <Mail size={15} />
+                {quote.quoteSentAt ? "Resend quote" : "Email quote"}
+              </button>
+            )}
+            {!signedScope && config.features.agreements && (
+              <button
+                type="button"
+                className="button secondary"
+                disabled={
+                  !quote.clientEmail ||
+                  quote.msaAgreement?.status !== "prepared" ||
+                  onsiteBusy
+                }
+                onClick={() => void startOnsiteSigning()}
+              >
+                {onsiteBusy ? "Opening…" : "Start on-site signing"}
+              </button>
+            )}
           </div>
           <div className="workflow-completion-status-grid">
             <section className="workflow-status-row">
@@ -930,7 +986,7 @@ export function QuoteDetail({
                 <strong>Quote accepted and signed</strong>
                 <small>
                   {signedScope
-                    ? `Signed by ${quote.quoteAcceptedBy || quote.client}`
+                    ? `Signed by ${quote.quoteAcceptance?.signedName || quote.client}`
                     : quote.quoteSentAt
                       ? "Waiting for the customer in the portal"
                       : "Email the quote to begin"}
@@ -946,9 +1002,13 @@ export function QuoteDetail({
                 <small>
                   {signedMsa
                     ? `Signed by ${quote.msaAgreement?.customerSignature?.name || quote.client}`
-                    : signedScope
-                      ? "Staff signature and customer signature required"
-                      : "Unlocks after quote acceptance"}
+                    : quote.msaAgreement?.status === "sent"
+                      ? "Waiting for the customer in the portal"
+                      : quote.msaAgreement?.status === "prepared"
+                        ? "Staff signed; ready after quote signature"
+                        : signedScope
+                          ? "Staff signature and customer signature required"
+                          : "Prepare the MSA before sharing the quote"}
                 </small>
               </div>
             </section>
@@ -968,6 +1028,45 @@ export function QuoteDetail({
               </div>
             </section>
           </div>
+          {signedScope && (
+            <section
+              className="workflow-completion-panel"
+              aria-label="Signed documents"
+            >
+              <header>
+                <span className="workflow-completion-icon">
+                  <FileText size={18} aria-hidden="true" />
+                </span>
+                <div>
+                  <span className="project-handoff-eyebrow">Documents</span>
+                  <h3>Signed documents</h3>
+                  <p>
+                    {signedMsa
+                      ? "Open the signed quote and service agreement from this quote."
+                      : "The signed quote is ready. The service agreement will appear here after the customer signs it."}
+                  </p>
+                </div>
+                <a
+                  className="button secondary"
+                  href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf?view=1`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View signed quote
+                </a>
+                {signedMsa && (
+                  <a
+                    className="button secondary"
+                    href={`/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View signed MSA
+                  </a>
+                )}
+              </header>
+            </section>
+          )}
           {config.features.agreements && (
             <MsaSigningPanel
               quote={quote}

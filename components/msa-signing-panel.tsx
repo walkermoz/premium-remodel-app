@@ -4,6 +4,8 @@ import { useState } from "react";
 import { CheckCircle2, FileSignature, Hourglass } from "lucide-react";
 import type { Quote, SignatureStroke } from "@/lib/types";
 import { projectMoney } from "@/lib/project-finances";
+import { makeMsaPreview } from "@/lib/msa-preview";
+import MsaDocument from "./msa-document";
 import MsaSignaturePad from "./msa-signature-pad";
 
 export default function MsaSigningPanel({
@@ -31,6 +33,24 @@ export default function MsaSigningPanel({
     quote.msaContractTerms,
   );
   const agreement = quote.msaAgreement;
+  const preview =
+    accepted &&
+    detailsReady &&
+    quote.contractPrice &&
+    quote.acceptedQuoteScope?.length
+      ? makeMsaPreview({
+          project: quote,
+          scope: quote.acceptedQuoteScope,
+          price: quote.contractPrice,
+          paymentSchedule: quote.msaPaymentSchedule!,
+          permitResponsibility: quote.msaPermitResponsibility!,
+          terms: quote.msaContractTerms!,
+          owner: quote.client.trim(),
+          ownerEmail: quote.clientEmail?.trim() || "",
+          signerName,
+          signerTitle,
+        })
+      : null;
 
   async function sendAgreement(retry = false) {
     if (!quote.clientEmail) return;
@@ -68,6 +88,7 @@ export default function MsaSigningPanel({
 
   if (agreement) {
     const signed = agreement.status === "signed";
+    const prepared = agreement.status === "prepared";
     return (
       <section
         className="workflow-completion-panel"
@@ -84,12 +105,18 @@ export default function MsaSigningPanel({
           <div>
             <span className="project-handoff-eyebrow">Service agreement</span>
             <h3>
-              {signed ? "Agreement signed" : "Awaiting customer signature"}
+              {signed
+                ? "Agreement signed"
+                : prepared
+                  ? "Ready after quote signature"
+                  : "Awaiting customer signature"}
             </h3>
             <p>
               {signed
                 ? `${agreement.customerSignature?.name || agreement.owner} signed the agreement.`
-                : `The agreement was sent to ${agreement.ownerEmail}.`}
+                : prepared
+                  ? "The staff-signed MSA will open immediately after the customer signs the quote."
+                  : `The agreement is available to ${agreement.ownerEmail} in the client portal.`}
             </p>
           </div>
           {signed ? (
@@ -99,7 +126,7 @@ export default function MsaSigningPanel({
             >
               Download signed MSA
             </a>
-          ) : agreement.status === "prepared" ? (
+          ) : prepared && accepted ? (
             <button
               type="button"
               className="button primary"
@@ -121,7 +148,13 @@ export default function MsaSigningPanel({
           </div>
           <div>
             <dt>Status</dt>
-            <dd>{signed ? "Complete" : "Sent through client portal"}</dd>
+            <dd>
+              {signed
+                ? "Complete"
+                : prepared
+                  ? "Prepared"
+                  : "Available in client portal"}
+            </dd>
           </div>
         </dl>
         {error && <p className="alert">{error}</p>}
@@ -141,10 +174,10 @@ export default function MsaSigningPanel({
           </span>
           <div>
             <span className="project-handoff-eyebrow">Service agreement</span>
-            <h3>Waiting for quote acceptance</h3>
+            <h3>Prepare the agreement</h3>
             <p>
-              Once the customer signs the quote in the portal, the prepared MSA
-              can be signed by staff and sent from this step.
+              Sign and prepare the MSA in Agreement details. The customer can
+              then sign the quote and MSA in one visit.
             </p>
           </div>
         </header>
@@ -163,10 +196,10 @@ export default function MsaSigningPanel({
         </span>
         <div>
           <span className="project-handoff-eyebrow">Service agreement</span>
-          <h3>Sign and send the prepared MSA</h3>
+          <h3>Review and sign the MSA</h3>
           <p>
-            The customer receives it in the same private portal used for the
-            quote.
+            Go through the full agreement with the customer, then add your staff
+            signature. They can sign in the same private portal as the quote.
           </p>
         </div>
       </header>
@@ -174,6 +207,18 @@ export default function MsaSigningPanel({
         <p className="alert">
           Complete and save Agreement Details before sending the MSA.
         </p>
+      )}
+      {preview && (
+        <div className="workflow-msa-review">
+          <div className="workflow-msa-review-heading">
+            <h4>Agreement preview</h4>
+            <p>
+              Review the scope, payment milestones, contract terms, and Notice
+              of Cancellation before signing.
+            </p>
+          </div>
+          <MsaDocument agreement={preview} preview />
+        </div>
       )}
       <div className="workflow-signing-fields">
         <label>

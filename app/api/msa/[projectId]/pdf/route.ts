@@ -7,7 +7,7 @@ import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   try {
@@ -26,7 +26,7 @@ export async function GET(
     return new Response(Buffer.from(pdf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="Premium-Remodel-MSA-${agreement.quoteNumber.replace(/[^a-zA-Z0-9-]/g, "") || "signed"}.pdf"`,
+        "Content-Disposition": `${new URL(request.url).searchParams.get("view") === "1" ? "inline" : "attachment"}; filename="Premium-Remodel-MSA-${agreement.quoteNumber.replace(/[^a-zA-Z0-9-]/g, "") || "signed"}.pdf"`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },

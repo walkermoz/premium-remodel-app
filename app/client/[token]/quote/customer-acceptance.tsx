@@ -134,13 +134,15 @@ export default function CustomerAcceptance({
           }),
         },
       );
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
         throw new Error(
           result.error || "Could not save your signature. Please try again.",
         );
       }
-      router.refresh();
+      if (result.nextStep === "msa")
+        router.replace(`/client/${encodeURIComponent(token)}/quote?view=msa`);
+      else router.refresh();
     } catch (cause) {
       setError(
         cause instanceof Error

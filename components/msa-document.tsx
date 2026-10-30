@@ -17,7 +17,7 @@ const longDate = (value?: string) =>
         dateStyle: "long",
         timeZone: "UTC",
       }).format(new Date(`${value.slice(0, 10)}T12:00:00Z`))
-    : "To be completed when the owner signs";
+    : "the date the owner signs";
 
 function CancellationNotice({ agreement }: { agreement: MsaAgreement }) {
   return (
@@ -65,7 +65,9 @@ function CancellationNotice({ agreement }: { agreement: MsaAgreement }) {
         Cary, North Carolina 27519
       </address>
       <p className={styles.notice}>
-        NOT LATER THAN MIDNIGHT OF {longDate(agreement.cancellationDeadline)}.
+        {agreement.cancellationDeadline
+          ? `NOT LATER THAN MIDNIGHT OF ${longDate(agreement.cancellationDeadline)}.`
+          : "The cancellation deadline will be completed when the owner signs."}
       </p>
       <p>I HEREBY CANCEL THIS TRANSACTION.</p>
       <p>
@@ -78,8 +80,10 @@ function CancellationNotice({ agreement }: { agreement: MsaAgreement }) {
 
 export default function MsaDocument({
   agreement,
+  preview = false,
 }: {
   agreement: MsaAgreement;
+  preview?: boolean;
 }) {
   return (
     <article className={styles.document}>
@@ -162,13 +166,22 @@ export default function MsaDocument({
         <div>
           <strong>Contractor</strong>
           <p>
-            {agreement.staffSignature.name}, {agreement.staffSignature.title}
+            {agreement.staffSignature.name}
+            {agreement.staffSignature.title
+              ? `, ${agreement.staffSignature.title}`
+              : ""}
           </p>
-          <MsaSignatureImage
-            strokes={agreement.staffSignature.signatureStrokes}
-            label="Contractor signature"
-          />
-          <p>{longDate(agreement.staffSignature.signedAt)}</p>
+          {preview ? (
+            <p>Contractor signature and date will be added when staff signs.</p>
+          ) : (
+            <>
+              <MsaSignatureImage
+                strokes={agreement.staffSignature.signatureStrokes}
+                label="Contractor signature"
+              />
+              <p>{longDate(agreement.staffSignature.signedAt)}</p>
+            </>
+          )}
         </div>
         <div>
           <strong>Owner</strong>

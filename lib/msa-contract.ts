@@ -88,8 +88,9 @@ export function prepareMsa(
   input: z.infer<typeof staffMsaInput>,
   signer: { id: string; name: string },
   at: string,
+  options: { allowUnsignedQuote?: boolean } = {},
 ): MsaAgreement {
-  if (!project.quoteAcceptedAt)
+  if (!project.quoteAcceptedAt && !options.allowUnsignedQuote)
     throw new Error("Accept the quote before preparing the agreement.");
   if (!project.acceptedQuoteScope?.length || !project.contractPrice)
     throw new Error(
