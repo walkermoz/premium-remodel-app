@@ -56,8 +56,13 @@ cloudTest(
         data: { quoteId },
       });
       expect(created.status()).toBe(201);
-      const launch = new URL((await created.json()).launchUrl);
-      const token = launch.searchParams.get("token");
+      const createdSession = await created.json();
+      const launch = new URL(createdSession.launchUrl);
+      expect(launch.pathname).toMatch(/^\/room-scan\/[A-Za-z0-9_-]{40,80}$/);
+      expect(createdSession.appUrl).toMatch(
+        /^premiumremodelfield:\/\/room-scan\?/,
+      );
+      const token = launch.pathname.split("/").at(-1);
       expect(token).toMatch(/^[A-Za-z0-9_-]{40,80}$/);
       const capturePath = `/api/room-scans/capture/${token}`;
       const captureSession = await page.request.get(capturePath);
@@ -141,7 +146,9 @@ cloudTest(
         measurements: { floorAreaSqFt: 96.4 },
       });
 
-      const listed = await page.request.get(`/api/room-scans?quoteId=${quoteId}`);
+      const listed = await page.request.get(
+        `/api/room-scans?quoteId=${quoteId}`,
+      );
       expect(listed.status()).toBe(200);
       expect((await listed.json()).scans).toHaveLength(1);
       const stored = await company.admin
@@ -162,7 +169,9 @@ cloudTest(
       const scans = page.getByRole("region", { name: "Room scans" });
       await expect(scans).toContainText("Primary bathroom");
       await expect(scans).toContainText("96.4 sq ft");
-      await expect(scans.getByRole("img", { name: /Floor plan/ })).toBeVisible();
+      await expect(
+        scans.getByRole("img", { name: /Floor plan/ }),
+      ).toBeVisible();
 
       const removed = await page.request.delete(`/api/room-scans/${saved.id}`, {
         headers: origin,

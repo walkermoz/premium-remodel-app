@@ -8,10 +8,7 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { findRecord } from "@/lib/repository";
-import {
-  createRoomScanSession,
-  listRoomScans,
-} from "@/lib/room-scans";
+import { createRoomScanSession, listRoomScans } from "@/lib/room-scans";
 import type { Quote } from "@/lib/types";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
@@ -23,7 +20,9 @@ export async function GET(request: Request) {
   try {
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Quotes");
-    const quoteId = z.uuid().parse(new URL(request.url).searchParams.get("quoteId"));
+    const quoteId = z
+      .uuid()
+      .parse(new URL(request.url).searchParams.get("quoteId"));
     if (!(await findRecord(user, quoteId, "quote")))
       throw new HttpError(404, "Quote not found.");
     return Response.json(
@@ -48,10 +47,11 @@ export async function POST(request: Request) {
       throw new HttpError(409, "Room scans cannot be added to a signed quote.");
     const session = await createRoomScanSession(user, quote);
     const server = appOrigin(request);
-    const params = new URLSearchParams({ token: session.token, server });
+    const appParams = new URLSearchParams({ token: session.token, server });
     return Response.json(
       {
-        launchUrl: `premiumremodelfield://room-scan?${params}`,
+        launchUrl: `${server}/room-scan/${encodeURIComponent(session.token)}`,
+        appUrl: `premiumremodelfield://room-scan?${appParams}`,
         expiresAt: session.expiresAt,
       },
       { status: 201 },

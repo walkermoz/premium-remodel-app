@@ -310,25 +310,40 @@ export default function RoomScansPanel({
             if (event.target === event.currentTarget) setSession(null);
           }}
         >
-          <div className={`modal ${styles.scanModal}`} role="dialog" aria-modal="true">
+          <div
+            className={`modal ${styles.scanModal}`}
+            role="dialog"
+            aria-modal="true"
+          >
             <header>
               <div>
                 <span className={styles.eyebrow}>ROOM SCAN</span>
-                <h2>Continue on your iPhone</h2>
+                <h2>Continue on your phone</h2>
                 <p>
-                  Scan this code with the phone that has the Premium Remodel
-                  field app installed.
+                  Scan this code to choose the LiDAR app or enter room
+                  measurements in your browser.
                 </p>
               </div>
             </header>
             <div className={styles.qrArea}>
-              {qr ? <img src={qr} alt="QR code that opens this room scan" /> : <span>Preparing code…</span>}
+              {qr ? (
+                <img
+                  src={qr}
+                  alt="QR code that opens secure room scan options"
+                />
+              ) : (
+                <span>Preparing code…</span>
+              )}
               <div>
                 <strong>On this phone?</strong>
                 <a className="button primary" href={session.launchUrl}>
-                  <Smartphone size={16} /> Open room scanner
+                  <Smartphone size={16} /> Open scan options
                 </a>
-                <a className={styles.installLink} href="/mobile" target="_blank">
+                <a
+                  className={styles.installLink}
+                  href="/mobile"
+                  target="_blank"
+                >
                   Install or update the field app
                 </a>
               </div>
