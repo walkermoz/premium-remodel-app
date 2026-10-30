@@ -95,6 +95,129 @@ cloudTest(
     ).json();
     expect(history.runs).toHaveLength(1);
     expect(history.runs[0].leadId).toBe(submissionId);
+
+    // Editing the shared contact must not turn a harmless form retry into a conflict.
+    const editedContact = {
+      ...workspace.contacts[0],
+      email: "updated-by-staff@example.com",
+      updatedAt: new Date().toISOString(),
+    };
+    expect(
+      (
+        await company.admin
+          .from("remodel_records")
+          .update({ data: editedContact, updated_at: editedContact.updatedAt })
+          .eq("organization_id", company.organizationId)
+          .eq("id", editedContact.id)
+      ).error,
+    ).toBeNull();
+    const replay = await request.post("/api/leads", { headers, data: lead });
+    expect(replay.status()).toBe(200);
+    expect(await replay.json()).toEqual({ received: true, duplicate: true });
+    const updatedLead = (await (await api.get("/api/workspace")).json())
+      .leads[0];
+    expect(
+      (
+        await api.patch("/api/workspace", {
+          headers: { Origin: "http://localhost:3100" },
+          data: {
+            kind: "lead",
+            id: submissionId,
+            updatedAt: updatedLead.updatedAt,
+            data: { ...updatedLead, notes: "Staff follow-up" },
+          },
+        })
+      ).status(),
+    ).toBe(200);
+    expect(
+      (await request.post("/api/leads", { headers, data: lead })).status(),
+    ).toBe(200);
+    expect(
+      (
+        await request.post("/api/leads", {
+          headers,
+          data: { ...lead, address: "A different address" },
+        })
+      ).status(),
+    ).toBe(409);
+  },
+);
+
+cloudTest(
+  "concurrent inquiries share a contact and a failed run rolls back the lead",
+  async ({ company, request }) => {
+    const email = `parallel-${randomUUID()}@example.com`;
+    const inquiries = [randomUUID(), randomUUID()].map((submission_id) => ({
+      ...payload,
+      submission_id,
+      email,
+    }));
+    const results = await Promise.all(
+      inquiries.map((data) =>
+        request.post("/api/leads", {
+          headers: {
+            Origin: websiteOrigin,
+            "x-forwarded-for": `parallel-${data.submission_id}`,
+          },
+          data,
+        }),
+      ),
+    );
+    expect(results.map((result) => result.status())).toEqual([201, 201]);
+    const contacts = await company.admin
+      .from("remodel_records")
+      .select("id")
+      .eq("organization_id", company.organizationId)
+      .eq("kind", "contact");
+    const leads = await company.admin
+      .from("remodel_records")
+      .select("id,data")
+      .eq("organization_id", company.organizationId)
+      .eq("kind", "lead");
+    const runs = await company.admin
+      .from("remodel_automation_runs")
+      .select("id,lead_id")
+      .eq("organization_id", company.organizationId);
+    expect(contacts.error || leads.error || runs.error).toBeNull();
+    expect(contacts.data).toHaveLength(1);
+    expect(leads.data).toHaveLength(2);
+    expect(runs.data).toHaveLength(2);
+    expect(
+      leads.data?.every((row) => row.data.contactId === contacts.data?.[0].id),
+    ).toBe(true);
+
+    // The run's non-null project constraint fails after the record inserts.
+    // The transaction must leave neither a contact nor a lead behind.
+    const failedContactId = randomUUID();
+    const failedLeadId = randomUUID();
+    const now = new Date().toISOString();
+    const failed = await company.admin.rpc("remodel_capture_website_lead", {
+      p_organization_id: company.organizationId,
+      p_contact: {
+        id: failedContactId,
+        email: "rollback@example.com",
+        updatedAt: now,
+      },
+      p_lead: {
+        id: failedLeadId,
+        contactId: failedContactId,
+        name: "Rollback test",
+        updatedAt: now,
+      },
+      p_match_existing: false,
+      p_steps: [
+        { key: "contact", label: "Customer contact", status: "created" },
+        { key: "lead", label: "Lead", status: "created" },
+      ],
+    });
+    expect(failed.error).not.toBeNull();
+    const remnants = await company.admin
+      .from("remodel_records")
+      .select("id")
+      .eq("organization_id", company.organizationId)
+      .in("id", [failedContactId, failedLeadId]);
+    expect(remnants.error).toBeNull();
+    expect(remnants.data).toHaveLength(0);
   },
 );
 

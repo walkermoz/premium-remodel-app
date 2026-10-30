@@ -1,0 +1,29 @@
+name: Website lead automation watchdog
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-lead-automation-watchdog
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Reconcile interrupted website lead runs
+        run: node scripts/reconcile-automation-runs.mjs
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

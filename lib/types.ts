@@ -345,6 +345,20 @@ export interface Lead extends Base {
   name: string;
   project: string;
   projectDescription: string;
+  /** Original form identity for safe idempotent retries after contact edits. */
+  websiteSubmission?: {
+    name: string;
+    email: string;
+    phone: string;
+    zip: string;
+    address: string;
+    project: string;
+    description: string;
+    smsAppointmentOptIn: boolean;
+    smsMarketingOptIn: boolean;
+    otherSubmittedFields: Record<string, string>;
+    leadAttribution?: LeadAttribution;
+  };
   /** Only explicit true from the website form grants category-specific SMS consent. */
   smsAppointmentOptIn?: boolean;
   smsMarketingOptIn?: boolean;

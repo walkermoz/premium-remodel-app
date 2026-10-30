@@ -33,33 +33,6 @@ export type AutomationRun = {
 
 const automationKey = "website-lead-intake";
 
-export async function startWebsiteLeadRun(input: {
-  organizationId: string;
-  leadId: string;
-  subject: string;
-  project: string;
-  steps: AutomationRunStep[];
-}): Promise<string | null> {
-  const { data, error } = await supabaseAdmin()
-    .from("remodel_automation_runs")
-    .insert({
-      organization_id: input.organizationId,
-      automation_key: automationKey,
-      lead_id: input.leadId,
-      subject: input.subject.slice(0, 250),
-      project: input.project.slice(0, 250),
-      status: "running",
-      steps: input.steps,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    console.error("Could not start the website lead automation run.");
-    return null;
-  }
-  return data.id;
-}
-
 export async function finishWebsiteLeadRun(input: {
   organizationId: string;
   runId: string | null;

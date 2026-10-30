@@ -246,6 +246,7 @@ async function save(request: Request, editing: boolean) {
         "smsMarketingOptIn",
         "otherSubmittedFields",
         "leadAttribution",
+        "websiteSubmission",
       ] as const) {
         if (key in currentLead && !(key in data))
           (data as Record<string, unknown>)[key] =

@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { apiError, HttpError, limitAttempts } from "@/lib/auth";
 import {
   finishWebsiteLeadRun,
-  startWebsiteLeadRun,
   type AutomationRunStep,
 } from "@/lib/automation-runs";
 import { getWebsiteLeadAutomation } from "@/lib/automation-store";
@@ -48,13 +48,7 @@ function cors(response: Response, origin: string) {
 async function existingSubmission(
   organizationId: string,
   submissionId: string,
-  expected: {
-    name: string;
-    email: string;
-    phone: string;
-    project: string;
-    description: string;
-  },
+  expected: NonNullable<Lead["websiteSubmission"]>,
 ): Promise<boolean> {
   const admin = supabaseAdmin();
   const { data: leadRow, error: leadError } = await admin
@@ -67,6 +61,14 @@ async function existingSubmission(
   if (leadError) throw leadError;
   if (!leadRow) return false;
   const lead = leadRow.data as Lead;
+  if (lead.websiteSubmission) {
+    if (!isDeepStrictEqual(lead.websiteSubmission, expected))
+      throw new HttpError(
+        409,
+        "Submission ID was already used for another lead.",
+      );
+    return true;
+  }
   const { data: contactRow, error: contactError } = await admin
     .from("remodel_records")
     .select("data")
@@ -89,32 +91,6 @@ async function existingSubmission(
       "Submission ID was already used for another lead.",
     );
   return true;
-}
-
-async function findMatchingContact(
-  organizationId: string,
-  email: string,
-  phone: string,
-): Promise<Contact | null> {
-  const admin = supabaseAdmin();
-  for (const [field, value] of [
-    ["email", email],
-    ["phone", phone],
-  ] as const) {
-    if (!value) continue;
-    const { data, error } = await admin
-      .from("remodel_records")
-      .select("data")
-      .eq("organization_id", organizationId)
-      .eq("kind", "contact")
-      .eq(`data->>${field}`, value)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    if (data) return data.data as Contact;
-  }
-  return null;
 }
 
 export function OPTIONS(request: Request) {
@@ -159,8 +135,14 @@ export async function POST(request: Request) {
       name,
       email,
       phone,
+      zip: data.zip || "",
+      address: data.address || "",
       project: data.project || "Project not specified",
       description: data.project_description || "",
+      smsAppointmentOptIn: data.sms_appointment_opt_in,
+      smsMarketingOptIn: data.sms_marketing_opt_in,
+      otherSubmittedFields,
+      ...(leadAttribution ? { leadAttribution } : {}),
     };
     if (
       data.submission_id &&
@@ -185,11 +167,8 @@ export async function POST(request: Request) {
 
     const admin = supabaseAdmin();
     const automation = await getWebsiteLeadAutomation(organizationId);
-    const matchedContact = automation.matchExistingContacts
-      ? await findMatchingContact(organizationId, email, phone)
-      : null;
     const now = new Date().toISOString();
-    const contact: Contact = matchedContact || {
+    const contact: Contact = {
       id: randomUUID(),
       firstName,
       lastName,
@@ -208,6 +187,7 @@ export async function POST(request: Request) {
       name,
       project: duplicateInput.project,
       projectDescription: duplicateInput.description,
+      websiteSubmission: duplicateInput,
       status: automation.initialStage,
       disposition: automation.initialDisposition,
       approvalState: "none",
@@ -220,42 +200,8 @@ export async function POST(request: Request) {
       createdAt: now,
       updatedAt: now,
     };
-    const records = [
-      ...(!matchedContact ? [{ kind: "contact", entity: contact }] : []),
-      { kind: "lead", entity: lead },
-    ];
-    const { error: insertError } = await admin.from("remodel_records").insert(
-      records.map(({ kind, entity }) => ({
-        id: entity.id,
-        organization_id: organizationId,
-        created_by: null,
-        updated_by: null,
-        kind,
-        project_id: null,
-        data: entity,
-        updated_at: now,
-      })),
-    );
-    if (insertError) {
-      if (
-        data.submission_id &&
-        insertError.code === "23505" &&
-        (await existingSubmission(
-          organizationId,
-          data.submission_id,
-          duplicateInput,
-        ))
-      )
-        return cors(Response.json({ received: true, duplicate: true }), origin);
-      throw insertError;
-    }
-
     const runSteps: AutomationRunStep[] = [
-      {
-        key: "contact",
-        label: "Customer contact",
-        status: matchedContact ? "reused" : "created",
-      },
+      { key: "contact", label: "Customer contact", status: "created" },
       { key: "lead", label: "Lead", status: "created" },
       {
         key: "email",
@@ -269,13 +215,36 @@ export async function POST(request: Request) {
         status: automation.sendTeamNotification ? "pending" : "skipped",
       },
     ];
-    const runId = await startWebsiteLeadRun({
-      organizationId,
-      leadId: lead.id,
-      subject: lead.name,
-      project: lead.project,
-      steps: runSteps,
-    });
+    const { data: capture, error: captureError } = await admin
+      .rpc("remodel_capture_website_lead", {
+        p_organization_id: organizationId,
+        p_contact: contact,
+        p_lead: lead,
+        p_match_existing: automation.matchExistingContacts,
+        p_steps: runSteps,
+      })
+      .single();
+    if (captureError) {
+      if (
+        data.submission_id &&
+        captureError.code === "23505" &&
+        (await existingSubmission(
+          organizationId,
+          data.submission_id,
+          duplicateInput,
+        ))
+      )
+        return cors(Response.json({ received: true, duplicate: true }), origin);
+      throw captureError;
+    }
+    const captured = capture as {
+      contact_id: string;
+      run_id: string;
+      contact_reused: boolean;
+    };
+    lead.contactId = captured.contact_id;
+    runSteps[0].status = captured.contact_reused ? "reused" : "created";
+    const runId = captured.run_id;
 
     const [notificationResult, acknowledgementResult] =
       await Promise.allSettled([
