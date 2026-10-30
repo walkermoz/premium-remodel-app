@@ -95,6 +95,7 @@ export default function MsaDraftPanel({
         }
       : draftBase;
   const [steps, setSteps] = useState<MsaPaymentStep[]>(draft.paymentSchedule);
+  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
   const [permit, setPermit] = useState<MsaPermitResponsibility>(
     draft.permitResponsibility,
   );
@@ -204,6 +205,27 @@ export default function MsaDraftPanel({
     );
     setSaved(false);
     setSaveError("");
+  }
+
+  function clearAmountDraft(id: string) {
+    setAmountDrafts((current) => {
+      if (!(id in current)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function updateStepAmount(id: string, value: string) {
+    setAmountDrafts((current) => ({ ...current, [id]: value }));
+    const amount = value === "" ? NaN : Number(value);
+    const contractPrice = draft.contractPrice || 0;
+    updateStep(id, {
+      percent:
+        Number.isFinite(amount) && contractPrice > 0
+          ? Math.round((amount / contractPrice) * 100 * 1_000_000) / 1_000_000
+          : NaN,
+    });
   }
 
   async function saveTerms() {
@@ -414,8 +436,8 @@ export default function MsaDraftPanel({
           </span>
         </div>
         <p>
-          Change the checkpoints or percentages for this project. They must
-          total 100%.
+          Enter either a percentage or dollar amount for each checkpoint. The
+          other value updates automatically, and the schedule must total 100%.
         </p>
         <div className={styles.milestones}>
           {steps.map((step, index) => (
@@ -439,21 +461,51 @@ export default function MsaDraftPanel({
                   max="100"
                   step="0.01"
                   value={Number.isFinite(step.percent) ? step.percent : ""}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    clearAmountDraft(step.id);
                     updateStep(step.id, {
                       percent:
                         event.target.value === ""
                           ? NaN
                           : Number(event.target.value),
-                    })
-                  }
+                    });
+                  }}
                 />
               </label>
-              <span className={styles.amount}>
-                {amounts[index] !== undefined
-                  ? projectMoney(amounts[index])
-                  : "—"}
-              </span>
+              <label>
+                Amount
+                <span className={styles.amountInput}>
+                  <span aria-hidden="true">$</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    max={draft.contractPrice || undefined}
+                    step="0.01"
+                    placeholder={draft.contractPrice ? "0.00" : "Set price"}
+                    disabled={!draft.contractPrice}
+                    value={
+                      amountDrafts[step.id] ??
+                      (amounts[index] !== undefined
+                        ? amounts[index].toFixed(2)
+                        : Number.isFinite(step.percent) &&
+                            step.percent > 0 &&
+                            draft.contractPrice
+                          ? (
+                              (draft.contractPrice * step.percent) /
+                              100
+                            ).toFixed(2)
+                          : "")
+                    }
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                      updateStepAmount(step.id, event.target.value)
+                    }
+                    onBlur={() => clearAmountDraft(step.id)}
+                    aria-label={`${index === 0 ? "Deposit" : `Checkpoint ${index}`} amount`}
+                  />
+                </span>
+              </label>
               <button
                 type="button"
                 className={styles.remove}
@@ -554,6 +606,7 @@ export default function MsaDraftPanel({
             className="button secondary small-button"
             onClick={() => {
               setSteps(defaultMsaPaymentSchedule(project));
+              setAmountDrafts({});
               setSaved(false);
             }}
           >
