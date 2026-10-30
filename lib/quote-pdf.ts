@@ -31,7 +31,7 @@ const colors = {
 export const changeOrderTerms =
   "Work outside the defined scope must be approved in writing before execution, with cost and schedule impacts documented.";
 export const paymentTerms =
-  "This quote is an estimate of the services described above, not an invoice. Payment will be collected prior to provision of services.";
+  "This quote is an estimate of the services described above, not an invoice. Payment will be collected prior to scheduling of services.";
 
 function safeText(value: unknown) {
   return String(value ?? "")
