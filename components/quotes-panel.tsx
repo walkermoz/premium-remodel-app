@@ -782,9 +782,6 @@ export function QuoteDetail({
           <p className="scope-description">{quote.description}</p>
         </section>
       )}
-      {!demo && workflowStep === "quote" && (
-        <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
-      )}
       {(handoffDemo || workflowStep === "quote") && (
         <section className="content-section">
           <div className="section-heading">
@@ -1130,6 +1127,9 @@ export function QuoteDetail({
             onDelete={(file) => onDelete("attachment", file)}
           />
         </section>
+      )}
+      {!demo && workflowStep === "quote" && (
+        <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
       )}
     </div>
   );
