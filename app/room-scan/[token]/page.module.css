@@ -30,7 +30,7 @@
 }
 
 .content {
-  width: min(720px, calc(100% - 32px));
+  width: min(660px, calc(100% - 32px));
   margin: 0 auto;
   padding: clamp(34px, 6vw, 70px) 0 42px;
 }
@@ -40,7 +40,7 @@
 }
 
 .quoteContext > span,
-.completeEyebrow {
+.eyebrow {
   color: #337fc4;
   font-size: 11px;
   font-weight: 800;
@@ -56,8 +56,7 @@
 }
 
 .quoteContext p,
-.intro p,
-.formHeading p,
+.appPrompt p,
 .complete p,
 .centerState p {
   margin: 0;
@@ -65,95 +64,77 @@
   line-height: 1.6;
 }
 
-.choice,
-.form,
+.appPrompt,
 .complete,
 .centerState {
-  overflow: hidden;
+  display: flex;
+  min-height: 400px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 46px 38px;
   border: 1px solid #d5e0e7;
   background: #ffffff;
   box-shadow: 0 18px 55px rgba(22, 49, 66, 0.08);
+  text-align: center;
 }
 
-.intro,
-.formHeading {
-  padding: 28px 30px 24px;
-  border-bottom: 1px solid #e1e8ed;
+.appIcon,
+.completeIcon {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 20px;
+  place-items: center;
+  color: #ffffff;
+  border-radius: 50%;
+  background: #327fc3;
 }
 
-.intro h2,
-.formHeading h2,
+.completeIcon {
+  background: #2e8c62;
+}
+
+.appPrompt h2,
 .complete h2,
 .centerState h1 {
-  margin: 0 0 9px;
+  margin: 10px 0 10px;
   color: #153548;
   font-family: "Manrope", sans-serif;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.3;
 }
 
-.choiceList {
-  padding: 8px 0;
+.appPrompt > p:not(.installNote),
+.complete > p {
+  max-width: 500px;
 }
 
-.choiceRow {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 48px 1fr auto;
+.openButton {
+  display: inline-flex;
+  min-width: 260px;
+  min-height: 52px;
   align-items: center;
-  gap: 15px;
-  min-height: 86px;
-  padding: 15px 24px;
-  color: #153548;
-  border: 0;
-  border-bottom: 1px solid #e5ebef;
-  background: transparent;
-  text-align: left;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 26px;
+  padding: 12px 20px;
+  color: #ffffff;
+  background: #327fc3;
+  font-size: 14px;
+  font-weight: 800;
   text-decoration: none;
-  cursor: pointer;
-  transition: background 160ms ease;
 }
 
-.choiceRow:last-child {
-  border-bottom: 0;
-}
-
-.choiceRow:hover,
-.choiceRow:focus-visible {
-  background: #f1f7fb;
-  outline: none;
-}
-
-.choiceIcon {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  color: #327ec2;
-  background: #e6f0f8;
-}
-
-.choiceRow > span:nth-child(2) {
-  display: grid;
-  gap: 5px;
-}
-
-.choiceRow strong {
-  font-size: 15px;
-}
-
-.choiceRow small {
-  color: #6d8290;
-  font-size: 12px;
-  line-height: 1.4;
+.openButton:hover,
+.openButton:focus-visible {
+  background: #286ba5;
+  outline: 3px solid rgba(50, 127, 195, 0.25);
+  outline-offset: 3px;
 }
 
 .installNote {
-  margin: 0;
-  padding: 17px 24px;
-  color: #70838f;
-  border-top: 1px solid #e1e8ed;
-  background: #f8fafb;
+  margin-top: 20px !important;
   font-size: 12px;
 }
 
@@ -162,283 +143,10 @@
   font-weight: 700;
 }
 
-.form {
-  padding-bottom: 28px;
-}
-
-.backButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: 20px 30px 0;
-  padding: 5px 0;
-  color: #337fc4;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.formHeading {
-  padding-top: 18px;
-}
-
-.fullField,
-.dimensionGrid,
-.openings,
-.photoField,
-.browserNote,
-.error,
-.submitButton {
-  margin-inline: 30px;
-}
-
-.fullField {
-  display: grid;
-  gap: 8px;
-  margin-top: 24px;
-}
-
-.fullField > span,
-.dimensionGrid label > span:first-child,
-.openings label > span,
-.openings legend {
-  color: #405c6d;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.fullField input,
-.numberInput,
-.openings input {
-  min-height: 48px;
-  border: 1px solid #bed0dc;
-  border-radius: 0;
-  background: #ffffff;
-}
-
-.fullField input,
-.numberInput input,
-.openings input {
-  width: 100%;
-  min-width: 0;
-  padding: 10px 13px;
-  color: #17384b;
-  background: transparent;
-  font: inherit;
-  font-size: 16px;
-  outline: none;
-}
-
-.numberInput input,
-.openings input {
-  border: 0;
-}
-
-.fullField input:focus,
-.numberInput:focus-within,
-.openings input:focus {
-  outline: 2px solid #4a91cd;
-  outline-offset: 1px;
-}
-
-.dimensionGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 19px;
-}
-
-.dimensionGrid label {
-  display: grid;
-  gap: 8px;
-}
-
-.numberInput {
-  display: flex;
-  align-items: center;
-}
-
-.numberInput b {
-  padding-right: 13px;
-  color: #788b97;
-  font-size: 13px;
-}
-
-.openings {
-  padding: 0;
-  border: 0;
-  margin-top: 23px;
-}
-
-.openings legend {
-  margin-bottom: 9px;
-}
-
-.openings > div {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-.openings label {
-  display: grid;
-  grid-template-columns: 1fr 72px;
-  align-items: center;
-  min-height: 48px;
-  padding-left: 13px;
-  border: 1px solid #bed0dc;
-}
-
-.openings input {
-  min-height: 46px;
-  text-align: center;
-}
-
-.photoField {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 70px;
-  margin-top: 23px;
-  padding: 13px 15px;
-  border: 1px dashed #9eb7c7;
-  cursor: pointer;
-}
-
-.photoField > span {
-  display: grid;
-  gap: 4px;
-}
-
-.photoField strong {
-  color: #27495c;
-  font-size: 13px;
-}
-
-.photoField small {
-  color: #788d99;
-  font-size: 11px;
-}
-
-.photoField input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.photoField b {
-  max-width: 210px;
-  overflow: hidden;
-  color: #337fc4;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.browserNote {
-  margin-top: 19px;
-  color: #718591;
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-.error {
-  margin-top: 16px;
-  padding: 11px 13px;
-  color: #8f2f2f;
-  border: 1px solid #efc5c5;
-  background: #fff4f4;
-  font-size: 12px;
-}
-
-.submitButton {
-  display: flex;
-  width: calc(100% - 60px);
-  min-height: 52px;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  margin-top: 22px;
-  color: #ffffff;
-  border: 0;
-  background: #327fc3;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.submitButton:hover {
-  background: #286ba5;
-}
-
-.submitButton:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-.complete,
-.centerState {
-  display: flex;
-  min-height: 390px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 42px 34px;
-  text-align: center;
-}
-
-.completeIcon {
-  display: grid;
-  width: 70px;
-  height: 70px;
-  margin-bottom: 20px;
-  place-items: center;
-  color: #ffffff;
-  border-radius: 50%;
-  background: #2e8c62;
-}
-
-.complete h2 {
-  margin-top: 9px;
-}
-
-.complete p {
-  max-width: 500px;
-}
-
-.completeStats {
-  display: grid;
-  width: min(440px, 100%);
-  grid-template-columns: repeat(2, 1fr);
-  margin-top: 28px;
-  border: 1px solid #dbe4e9;
-}
-
-.completeStats span {
-  display: grid;
-  gap: 6px;
-  padding: 17px;
-}
-
-.completeStats span + span {
-  border-left: 1px solid #dbe4e9;
-}
-
-.completeStats small {
-  color: #718692;
+.appPrompt > small {
+  margin-top: 21px;
+  color: #84959f;
   font-size: 10px;
-  text-transform: uppercase;
-}
-
-.completeStats strong {
-  color: #1f4358;
-  font-size: 15px;
 }
 
 .centerState {
@@ -490,58 +198,21 @@
     padding-inline: 4px;
   }
 
-  .choiceRow {
-    grid-template-columns: 43px 1fr auto;
-    gap: 12px;
-    min-height: 92px;
-    padding-inline: 17px;
+  .appPrompt,
+  .complete,
+  .centerState {
+    min-height: 390px;
+    padding: 38px 22px;
   }
 
-  .choiceIcon {
-    width: 43px;
-    height: 43px;
-  }
-
-  .intro,
-  .formHeading {
-    padding-inline: 20px;
-  }
-
-  .backButton,
-  .fullField,
-  .dimensionGrid,
-  .openings,
-  .photoField,
-  .browserNote,
-  .error,
-  .submitButton {
-    margin-inline: 20px;
-  }
-
-  .dimensionGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .openings > div {
-    grid-template-columns: 1fr;
-  }
-
-  .submitButton {
-    width: calc(100% - 40px);
-  }
-
-  .completeStats {
-    grid-template-columns: 1fr;
-  }
-
-  .completeStats span + span {
-    border-top: 1px solid #dbe4e9;
-    border-left: 0;
+  .openButton {
+    width: 100%;
+    min-width: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .choiceRow {
-    transition: none;
+  .spinner {
+    animation: none;
   }
 }
