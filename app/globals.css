@@ -9949,6 +9949,68 @@ small {
   display: grid;
   gap: 0.65rem;
 }
+.api-key-create {
+  display: grid;
+  gap: 1rem;
+  max-width: 780px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.api-key-create-heading,
+.api-key-inventory-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+}
+.api-key-create-heading span,
+.api-key-inventory-heading span,
+.api-key-scopes p {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.api-key-scopes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.4rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.api-key-scopes legend {
+  font-weight: 700;
+  padding: 0 0 0.35rem;
+}
+.api-key-scopes p {
+  grid-column: 1 / -1;
+  margin: 0 0 0.25rem;
+}
+.api-key-scope-option {
+  display: flex;
+  align-items: start;
+  gap: 0.6rem;
+  padding: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.api-key-scope-option input {
+  margin-top: 0.2rem;
+}
+.api-key-scope-option span {
+  display: grid;
+  gap: 0.15rem;
+}
+.api-key-scope-option small {
+  color: var(--muted);
+  line-height: 1.3;
+}
+.api-key-inventory-heading {
+  margin-top: 1.2rem;
+}
 .api-key-list li {
   display: flex;
   justify-content: space-between;
@@ -9961,6 +10023,25 @@ small {
 .api-key-list li div {
   display: grid;
   gap: 0.2rem;
+}
+.api-key-list li > div {
+  min-width: 0;
+}
+.api-key-list .api-key-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-left: 0.35rem;
+}
+.api-key-scope-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+.api-key-scope-tags span {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
 }
 .api-key-list li span {
   color: var(--muted);

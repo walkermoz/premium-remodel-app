@@ -179,9 +179,9 @@ Run `npm run db:migrate` before deploying location support. Location tests use i
 
 ## Admin API keys, Dispatch polling, and CI/CD
 
-### Admin API keys
+### Integration API keys
 
-Administrators mint and revoke admin-scoped keys in **Settings → Admin API keys**. Secrets are shown once and stored only as SHA-256 hashes.
+Administrators issue organization-bound keys in **Settings → Connections → Advanced connections**. Select only the lead actions an integration needs and set a 30-day, 90-day, one-year, or no expiration. Secrets are shown once and stored only as SHA-256 hashes. The inventory shows scopes, expiration, and last use; revoke a key to disable it immediately. To change permissions, create a replacement key and revoke the old one. Existing keys retain their original lead permissions and no expiration until replaced or revoked. Writes are attributed to the key's issuing administrator; if that profile is deleted, issue a replacement key for writes.
 
 Authenticated requests use either:
 
@@ -193,6 +193,8 @@ Endpoints:
 - `GET /api/v1/leads?status=New&disposition=Active&limit=50`
 - `GET /api/v1/leads/:id`
 - `PATCH /api/v1/leads/:id` with any of `notes`, `status`, `disposition`, `nextAction`, `nextActionDue`, `draftReply`, `approvalState`
+
+`leads:read` is required for every key. PATCH also requires the matching scope: `leads:write:notes`, `leads:write:status`, `leads:write:disposition`, `leads:write:next_action` (both next-action fields), `leads:write:draft_reply`, or `leads:write:approval`. A PATCH with several fields needs every corresponding scope. Missing scopes return 403; expired or revoked keys return 401. Apply migration `202610280001_scoped_api_keys.sql` before deploying the scoped-key application code (the production workflow applies migrations before the Vercel deployment).
 
 Lead funnel stages: `New` → `Follow-up` → `Quote drafted` → `Quote sent` → `Won` | `Lost` | `Stale`.  
 Dispositions `Archive` / `Junk` / `Spam` / `Test` exit the funnel and are excluded from close rate.
