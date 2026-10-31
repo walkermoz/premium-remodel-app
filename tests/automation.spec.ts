@@ -233,6 +233,21 @@ cloudTest(
       .single();
     expect(retryRun.error).toBeNull();
     const retryId = retryRun.data!.id;
+    await page.goto("/?view=Automation");
+    await expect(page.getByText("1 need attention")).toBeVisible();
+    const failedRun = page.locator(".automation-run").filter({
+      has: page.locator(".automation-run-status.is-needs_attention"),
+    });
+    await expect(failedRun).toHaveCount(1);
+    await failedRun
+      .getByRole("button", { name: /Automation Customer/ })
+      .click();
+    await expect(failedRun.getByText("Needs attention")).toBeVisible();
+    await expect(failedRun.getByText("Customer confirmation")).toBeVisible();
+    await expect(failedRun.getByText("failed", { exact: true })).toBeVisible();
+    await expect(
+      failedRun.getByRole("button", { name: "Retry action" }),
+    ).toBeVisible();
     const retryUrl = `/api/automations/website-leads/runs/${retryId}/retry`;
     const retryResponse = await api.post(retryUrl, {
       headers: origin,
