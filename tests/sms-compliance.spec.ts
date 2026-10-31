@@ -42,12 +42,17 @@ test("website SMS consent evidence preserves separate optional choices", () => {
 });
 
 test("website lead confirmation is concise and includes compliance keywords", () => {
+  expect(websiteLeadSmsBody("Premium Remodel", "Kitchen Remodel")).toBe(
+    "Premium Remodel: We received your Kitchen Remodel request. A member of our team will be in touch soon to schedule a visit. STOP to opt out; HELP for help.",
+  );
   const message = websiteLeadSmsBody(
     "Premium Remodel and Construction Company",
     "Whole-home kitchen and bathroom renovation",
   );
   expect(message.length).toBeLessThanOrEqual(160);
-  expect(message).toContain("estimate request");
+  expect(message).toContain(
+    "A member of our team will be in touch soon to schedule a visit.",
+  );
   expect(message).toContain("STOP");
   expect(message).toContain("HELP");
 });
