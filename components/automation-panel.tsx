@@ -608,7 +608,7 @@ export default function AutomationPanel({
     }
   }
 
-  async function retry(runId: string, step: "email" | "team") {
+  async function retry(runId: string, step: "email" | "sms" | "team") {
     if (!editable || retryingStep) return;
     setRetryingStep(`${runId}:${step}`);
     setRunsError("");
@@ -804,6 +804,10 @@ export default function AutomationPanel({
                               {item.definition.sendAcknowledgement
                                 ? "on"
                                 : "off"}
+                              {" · "}Text{" "}
+                              {item.definition.sendSmsAcknowledgement
+                                ? "on"
+                                : "off"}
                               {" · "}Team{" "}
                               {item.definition.sendTeamNotification
                                 ? "on"
@@ -991,6 +995,27 @@ export default function AutomationPanel({
                       </div>
                     </article>
                     <article className="automation-node is-compact">
+                      <div className="automation-node-icon is-sms">
+                        <MessageSquareText size={18} />
+                      </div>
+                      <div className="automation-node-copy">
+                        <span className="automation-node-kind">CUSTOMER</span>
+                        <h2>Send confirmation text</h2>
+                        <p>
+                          Runs only when the lead selected appointment and
+                          project texts. STOP always overrides this action.
+                        </p>
+                        <Toggle
+                          checked={automation.sendSmsAcknowledgement}
+                          disabled={!editable}
+                          label="Send automatically"
+                          onChange={(sendSmsAcknowledgement) =>
+                            update({ sendSmsAcknowledgement })
+                          }
+                        />
+                      </div>
+                    </article>
+                    <article className="automation-node is-compact">
                       <div className="automation-node-icon is-notification">
                         <BellRing size={18} />
                       </div>
@@ -1111,12 +1136,13 @@ export default function AutomationPanel({
                                 {step.status === "unknown" && (
                                   <small>
                                     Delivery may have succeeded. Check the
-                                    mailbox or team channel before sending
+                                    email, phone, or team channel before sending
                                     again.
                                   </small>
                                 )}
                                 {editable &&
                                   (step.key === "email" ||
+                                    step.key === "sms" ||
                                     step.key === "team") &&
                                   (step.status === "failed" ||
                                     step.status === "not_configured") && (
@@ -1127,7 +1153,7 @@ export default function AutomationPanel({
                                       onClick={() =>
                                         void retry(
                                           run.id,
-                                          step.key as "email" | "team",
+                                          step.key as "email" | "sms" | "team",
                                         )
                                       }
                                     >

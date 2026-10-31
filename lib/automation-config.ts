@@ -12,6 +12,7 @@ export const websiteLeadAutomationSchema = z.object({
   initialDisposition: z.enum(websiteLeadDispositions).default("Active"),
   matchExistingContacts: z.boolean().default(true),
   sendAcknowledgement: z.boolean().default(true),
+  sendSmsAcknowledgement: z.boolean().default(true),
   sendTeamNotification: z.boolean().default(true),
 });
 

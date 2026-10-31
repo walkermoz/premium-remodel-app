@@ -9,12 +9,14 @@ import {
 import { getWebsiteLeadAutomation } from "@/lib/automation-store";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
 import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
+import { sendWebsiteLeadSmsAcknowledgement } from "@/lib/lead-sms";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
 import { websiteSmsConsentEvidence } from "@/lib/sms-consent";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const productionOrigins = new Set([
   "https://premiumremodel.com",
@@ -217,6 +219,14 @@ export async function POST(request: Request) {
           automation.sendAcknowledgement && data.email ? "pending" : "skipped",
       },
       {
+        key: "sms",
+        label: "Customer confirmation text",
+        status:
+          automation.sendSmsAcknowledgement && data.sms_appointment_opt_in
+            ? "pending"
+            : "skipped",
+      },
+      {
         key: "team",
         label: "Team notification",
         status: automation.sendTeamNotification ? "pending" : "skipped",
@@ -253,7 +263,7 @@ export async function POST(request: Request) {
     runSteps[0].status = captured.contact_reused ? "reused" : "created";
     const runId = captured.run_id;
 
-    const [notificationResult, acknowledgementResult] =
+    const [notificationResult, acknowledgementResult, smsResult] =
       await Promise.allSettled([
         automation.sendTeamNotification
           ? sendDiscordLeadNotification(data)
@@ -267,6 +277,16 @@ export async function POST(request: Request) {
               organizationId,
               recipientEmail: data.email,
               firstName: data.first_name,
+            })
+          : Promise.resolve({
+              status: "skipped" as const,
+              attemptedAt: new Date().toISOString(),
+              detail: "Disabled by automation",
+            }),
+        automation.sendSmsAcknowledgement
+          ? sendWebsiteLeadSmsAcknowledgement({
+              organizationId,
+              lead,
             })
           : Promise.resolve({
               status: "skipped" as const,
@@ -290,20 +310,29 @@ export async function POST(request: Request) {
             attemptedAt: new Date().toISOString(),
             detail: "Email delivery could not be confirmed",
           };
-    runSteps[2] = {
-      key: "email",
-      label: "Customer confirmation",
-      status: emailAcknowledgement.status,
-      ...(emailAcknowledgement.detail
-        ? { detail: emailAcknowledgement.detail }
-        : {}),
+    const smsAcknowledgement =
+      smsResult.status === "fulfilled"
+        ? smsResult.value
+        : {
+            status: "unknown" as const,
+            attemptedAt: new Date().toISOString(),
+            detail: "Text delivery could not be confirmed",
+          };
+    const replaceStep = (
+      key: AutomationRunStep["key"],
+      result: { status: AutomationRunStep["status"]; detail?: string },
+    ) => {
+      const index = runSteps.findIndex((step) => step.key === key);
+      if (index >= 0)
+        runSteps[index] = {
+          ...runSteps[index],
+          status: result.status,
+          ...(result.detail ? { detail: result.detail } : {}),
+        };
     };
-    runSteps[3] = {
-      key: "team",
-      label: "Team notification",
-      status: notification.status,
-      ...(notification.detail ? { detail: notification.detail } : {}),
-    };
+    replaceStep("email", emailAcknowledgement);
+    replaceStep("sms", smsAcknowledgement);
+    replaceStep("team", notification);
     const updatedAt = new Date().toISOString();
     const { error: updateError } = await admin
       .from("remodel_records")
@@ -312,6 +341,7 @@ export async function POST(request: Request) {
           ...lead,
           discordNotification: notification,
           emailAcknowledgement,
+          smsAcknowledgement,
           updatedAt,
         },
         updated_at: updatedAt,

@@ -209,6 +209,35 @@ export async function sendCustomerSms(
   return sendOrganizationSms(organizationId, message);
 }
 
+export async function sendWebsiteLeadSms(
+  organizationId: string,
+  message: { leadId: string; to: string; body: string },
+) {
+  const phone = normalizeSmsRecipient(message.to);
+  if (!phone)
+    throw new TwilioConnectionError("Enter a valid mobile phone number.");
+  const { data, error } = await supabaseAdmin()
+    .from("remodel_records")
+    .select("data")
+    .eq("organization_id", organizationId)
+    .eq("kind", "lead")
+    .eq("id", message.leadId)
+    .maybeSingle();
+  if (error) throw error;
+  const lead = data?.data as Record<string, unknown> | undefined;
+  const submitted = lead?.websiteSubmission as
+    Record<string, unknown> | undefined;
+  if (
+    lead?.smsAppointmentOptIn !== true ||
+    typeof submitted?.phone !== "string" ||
+    normalizeSmsRecipient(submitted.phone) !== phone
+  )
+    throw new SmsConsentRequiredError(
+      "This website lead did not opt in this phone number for appointment and project texts.",
+    );
+  return sendOrganizationSms(organizationId, message);
+}
+
 export async function readSmsComplianceSummary(organizationId: string) {
   const client = supabaseAdmin();
   const [preferences, events] = await Promise.all([

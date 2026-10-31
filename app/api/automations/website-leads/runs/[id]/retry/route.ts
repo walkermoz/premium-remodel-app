@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
 import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
+import { sendWebsiteLeadSmsAcknowledgement } from "@/lib/lead-sms";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
@@ -15,7 +16,7 @@ import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const retryInput = z.object({ step: z.enum(["email", "team"]) });
+const retryInput = z.object({ step: z.enum(["email", "sms", "team"]) });
 
 export async function POST(
   request: Request,
@@ -68,7 +69,9 @@ export async function POST(
     const priorDelivery =
       step === "email"
         ? lead.emailAcknowledgement?.status
-        : lead.discordNotification?.status;
+        : step === "sms"
+          ? lead.smsAcknowledgement?.status
+          : lead.discordNotification?.status;
     if (priorDelivery === "sent" || priorDelivery === "unknown")
       throw new HttpError(
         409,
@@ -88,6 +91,11 @@ export async function POST(
     const contact = contactRow.data as Contact;
     if (step === "email" && !contact.email)
       throw new HttpError(409, "Add a customer email before retrying.");
+    if (step === "sms" && !lead.websiteSubmission?.phone)
+      throw new HttpError(
+        409,
+        "This website lead did not include a phone number.",
+      );
 
     const { data: claimed, error: claimError } = await admin.rpc(
       "remodel_claim_automation_retry",
@@ -103,25 +111,31 @@ export async function POST(
 
     let result:
       | Awaited<ReturnType<typeof sendWebsiteLeadAcknowledgement>>
+      | Awaited<ReturnType<typeof sendWebsiteLeadSmsAcknowledgement>>
       | Awaited<ReturnType<typeof sendDiscordLeadNotification>>;
     try {
-      result =
-        step === "email"
-          ? await sendWebsiteLeadAcknowledgement({
-              organizationId: user.organizationId,
-              recipientEmail: contact.email,
-              firstName: contact.firstName,
-            })
-          : await sendDiscordLeadNotification({
-              first_name: contact.firstName,
-              last_name: contact.lastName,
-              email: contact.email,
-              phone: contact.phone,
-              address: contact.address,
-              zip: contact.zip,
-              project: lead.project,
-              project_description: lead.projectDescription,
-            });
+      if (step === "email")
+        result = await sendWebsiteLeadAcknowledgement({
+          organizationId: user.organizationId,
+          recipientEmail: contact.email,
+          firstName: contact.firstName,
+        });
+      else if (step === "sms")
+        result = await sendWebsiteLeadSmsAcknowledgement({
+          organizationId: user.organizationId,
+          lead,
+        });
+      else
+        result = await sendDiscordLeadNotification({
+          first_name: contact.firstName,
+          last_name: contact.lastName,
+          email: contact.email,
+          phone: contact.phone,
+          address: contact.address,
+          zip: contact.zip,
+          project: lead.project,
+          project_description: lead.projectDescription,
+        });
     } catch {
       result = {
         status: "unknown",

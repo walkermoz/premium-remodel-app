@@ -19,6 +19,9 @@ test("automation workspace visualizes the website lead workflow", async ({
   await expect(
     page.getByRole("heading", { name: "Create lead" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Send confirmation text" }),
+  ).toBeVisible();
   await expect(page.getByLabel("Lead source")).toHaveValue("Website form");
   await expect(page.getByLabel("Workflow name")).toBeDisabled();
   await page.getByRole("button", { name: /Inbound text compliance/ }).click();
@@ -159,6 +162,7 @@ cloudTest(
       initialDisposition: "Future",
       matchExistingContacts: true,
       sendAcknowledgement: false,
+      sendSmsAcknowledgement: false,
       sendTeamNotification: false,
     };
     expect(
@@ -201,6 +205,7 @@ cloudTest(
           disposition: "Future",
           contactId: workspace.contacts[0].id,
           emailAcknowledgement: expect.objectContaining({ status: "skipped" }),
+          smsAcknowledgement: expect.objectContaining({ status: "skipped" }),
           discordNotification: expect.objectContaining({ status: "skipped" }),
         }),
       ]),
@@ -221,6 +226,7 @@ cloudTest(
             expect.objectContaining({ key: "contact", status: "created" }),
             expect.objectContaining({ key: "lead", status: "created" }),
             expect.objectContaining({ key: "email", status: "skipped" }),
+            expect.objectContaining({ key: "sms", status: "skipped" }),
             expect.objectContaining({ key: "team", status: "skipped" }),
           ]),
         }),

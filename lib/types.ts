@@ -375,6 +375,13 @@ export interface Lead extends Base {
     googleMessageId?: string;
     detail?: string;
   };
+  /** Delivery result for the appointment-category website confirmation text. */
+  smsAcknowledgement?: {
+    status: "sent" | "failed" | "unknown" | "not_configured" | "skipped";
+    attemptedAt: string;
+    twilioMessageSid?: string;
+    detail?: string;
+  };
   /** Funnel stage. Legacy leads use "New". */
   status: LeadStage;
   /** Default Active when omitted (legacy leads). */

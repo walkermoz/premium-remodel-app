@@ -4,6 +4,7 @@ import {
   premiumRemodelSmsPolicy,
   websiteSmsConsentEvidence,
 } from "../lib/sms-consent";
+import { websiteLeadSmsBody } from "../lib/lead-sms-copy";
 
 test("SMS compliance keywords are exact and case-insensitive", () => {
   expect(classifySmsComplianceEvent("help")).toBe("help");
@@ -38,4 +39,15 @@ test("website SMS consent evidence preserves separate optional choices", () => {
     appointment: true,
     marketing: false,
   });
+});
+
+test("website lead confirmation is concise and includes compliance keywords", () => {
+  const message = websiteLeadSmsBody(
+    "Premium Remodel and Construction Company",
+    "Whole-home kitchen and bathroom renovation",
+  );
+  expect(message.length).toBeLessThanOrEqual(160);
+  expect(message).toContain("estimate request");
+  expect(message).toContain("STOP");
+  expect(message).toContain("HELP");
 });

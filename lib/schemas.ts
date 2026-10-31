@@ -103,6 +103,20 @@ export const schemas = {
           detail: z.string().max(200).optional(),
         })
         .optional(),
+      smsAcknowledgement: z
+        .object({
+          status: z.enum([
+            "sent",
+            "failed",
+            "unknown",
+            "not_configured",
+            "skipped",
+          ]),
+          attemptedAt: z.iso.datetime(),
+          twilioMessageSid: z.string().max(100).optional(),
+          detail: z.string().max(300).optional(),
+        })
+        .optional(),
       status: z.enum(leadStages),
       disposition: z.enum(leadDispositions).optional(),
       notes: text.optional(),

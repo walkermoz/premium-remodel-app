@@ -546,6 +546,11 @@ cloudTest(
         status: "not_configured",
         attemptedAt: expect.any(String),
       },
+      smsAcknowledgement: {
+        status: "skipped",
+        attemptedAt: expect.any(String),
+        detail: "Company texting is not connected",
+      },
     });
 
     const audit = await (await api.get("/api/audit")).json();

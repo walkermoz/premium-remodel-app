@@ -3,7 +3,7 @@ import "server-only";
 import { supabaseAdmin } from "./supabase/server";
 
 export type AutomationRunStep = {
-  key: "contact" | "lead" | "email" | "team" | "record";
+  key: "contact" | "lead" | "email" | "sms" | "team" | "record";
   label: string;
   status:
     | "created"
