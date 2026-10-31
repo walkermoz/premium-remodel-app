@@ -91,7 +91,7 @@ test("general overhead is a hidden daily price component", async ({ page }) => {
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Overhead example");
-  await quote.getByLabel("Customer name").fill("Sample Customer");
+  await quote.getByLabel("Contact name").fill("Sample Customer");
   await quote.getByLabel("Email").fill("overhead@example.com");
   await quote.getByRole("button", { name: "Create quote" }).click();
   await page.getByRole("button", { name: "Add Item" }).click();
@@ -149,7 +149,7 @@ test("tile price book asks which contractor and snapshots the selected rate on a
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Tile contractor comparison");
-  await quote.getByLabel("Customer name").fill("Sample Customer");
+  await quote.getByLabel("Contact name").fill("Sample Customer");
   await quote.getByLabel("Email").fill("sample@example.com");
   await quote.getByRole("button", { name: "Create quote" }).click();
 

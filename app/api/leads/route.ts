@@ -15,9 +15,12 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
 import { websiteSmsConsentEvidence } from "@/lib/sms-consent";
+import { workspaceActionLabels } from "@/lib/workspace-objects";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const websiteLeadActions = workspaceActionLabels.websiteLead;
 
 const productionOrigins = new Set([
   "https://premiumremodel.com",
@@ -211,17 +214,17 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
     const runSteps: AutomationRunStep[] = [
-      { key: "contact", label: "Customer contact", status: "created" },
-      { key: "lead", label: "Lead", status: "created" },
+      { key: "contact", label: websiteLeadActions.contact, status: "created" },
+      { key: "lead", label: websiteLeadActions.lead, status: "created" },
       {
         key: "email",
-        label: "Customer confirmation",
+        label: websiteLeadActions.email,
         status:
           automation.sendAcknowledgement && data.email ? "pending" : "skipped",
       },
       {
         key: "sms",
-        label: "Customer confirmation text",
+        label: websiteLeadActions.sms,
         status:
           automation.sendSmsAcknowledgement && data.sms_appointment_opt_in
             ? "pending"
@@ -229,7 +232,7 @@ export async function POST(request: Request) {
       },
       {
         key: "team",
-        label: "Team notification",
+        label: websiteLeadActions.team,
         status: automation.sendTeamNotification ? "pending" : "skipped",
       },
     ];

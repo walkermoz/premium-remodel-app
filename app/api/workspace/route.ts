@@ -43,6 +43,9 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { validatePricebookSources } from "@/lib/pricebook-source";
 import { validateStoredFile } from "@/lib/validate-file";
+import { workspaceObjects } from "@/lib/workspace-objects";
+
+const contactObject = workspaceObjects.contact;
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { stripeClient } from "@/lib/stripe-payments";
 import { after } from "next/server";
@@ -229,7 +232,7 @@ async function save(request: Request, editing: boolean) {
     )
       throw new HttpError(
         400,
-        "Create the customer contact before saving this lead.",
+        `${contactObject.actions.create} before saving this lead.`,
       );
     if (kind === "contractor" && current) {
       const contact = current as Contractor;
@@ -343,7 +346,7 @@ async function save(request: Request, editing: boolean) {
         if (contactId && !(await findRecord(user, contactId, "contact")))
           throw new HttpError(
             400,
-            "Choose a customer contact in this organization.",
+            `Choose a ${contactObject.singular} in this organization.`,
           );
         if (!contactId) delete data.contactId;
         const requestedLeadId = String(

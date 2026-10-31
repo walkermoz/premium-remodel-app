@@ -28,7 +28,10 @@ import type {
   ContactCommunicationChannel,
   ContactCommunicationPage,
 } from "@/lib/contact-communication-types";
+import { workspaceObjects } from "@/lib/workspace-objects";
 import { Avatar, Empty, Modal } from "./ui";
+
+const contactObject = workspaceObjects.contact;
 
 function communicationTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -167,22 +170,20 @@ export default function CustomerContactsPanel({
     <>
       <div className="page-heading">
         <div>
-          <span className="eyebrow">CUSTOMER DIRECTORY</span>
+          <span className="eyebrow">CONTACT DIRECTORY</span>
           <h1>
-            Contacts<span className="heading-dot">.</span>
+            {contactObject.pluralTitle}
+            <span className="heading-dot">.</span>
           </h1>
-          <p>
-            Customers from your leads and quotes, together with their contact
-            details.
-          </p>
+          <p>People from your leads and quotes, with their contact details.</p>
         </div>
         <button className="button primary" onClick={onAdd}>
-          <Plus size={17} /> Add customer
+          <Plus size={17} /> {contactObject.actions.add}
         </button>
       </div>
       <div className="section-intro">
         <Users size={19} />
-        <h2>Customers</h2>
+        <h2>{contactObject.pluralTitle}</h2>
         <span className="count-pill">{all.length}</span>
       </div>
       <div className="customer-contact-list">
@@ -221,7 +222,7 @@ export default function CustomerContactsPanel({
                     ? `${lead.project} · ${lead.status}`
                     : quoteCount
                       ? `${quoteCount} ${quoteCount === 1 ? "quote" : "quotes"}`
-                      : "Customer contact"}
+                      : contactObject.singularTitle}
                 </span>
               </div>
               <div className="customer-contact-details">
@@ -273,15 +274,19 @@ export default function CustomerContactsPanel({
       </div>
       {!matching.length && (
         <Empty
-          title={all.length ? "No matching customers" : "No customers yet"}
+          title={
+            all.length
+              ? `No matching ${contactObject.plural}`
+              : `No ${contactObject.plural} yet`
+          }
           text={
             all.length
               ? "Try a different name, email, phone, or address."
-              : "Real leads appear here automatically. You can also add a customer directly."
+              : "Real leads create contacts automatically. You can also add a contact directly."
           }
           action={
             <button className="button secondary" onClick={onAdd}>
-              <Plus size={16} /> Add customer
+              <Plus size={16} /> {contactObject.actions.add}
             </button>
           }
         />
@@ -289,7 +294,7 @@ export default function CustomerContactsPanel({
       {selected && (
         <Modal
           title={selected.name}
-          subtitle="Customer contact and activity history"
+          subtitle="Contact details and activity history"
           onClose={() => setSelected(null)}
         >
           <div className="contact-detail">
@@ -451,7 +456,7 @@ export default function CustomerContactsPanel({
                         </time>
                       </div>
                       <h4>Added to Contacts</h4>
-                      <p>This customer was added to your contact directory.</p>
+                      <p>This contact was added to your contact directory.</p>
                     </div>
                   </article>
                 )}

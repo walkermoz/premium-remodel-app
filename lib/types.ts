@@ -143,7 +143,7 @@ export interface Quote extends Omit<Project, "status"> {
   junkedAt?: string | null;
   /** The portal was opened for an in-person signing without sending email. */
   quoteOnsiteAt?: string;
-  /** Customer contact selected when the quote was prepared. */
+  /** Contact selected when the quote was prepared. */
   contactId?: string;
   /** Selected images shown to the customer in the quote and PDF. */
   quotePhotos?: QuotePhoto[];

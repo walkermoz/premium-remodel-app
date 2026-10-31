@@ -47,7 +47,7 @@ test("quote rows reorder by dragging and keep their order after reload", async (
   await page.getByRole("button", { name: "New quote" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Drag row example");
-  await quote.getByLabel("Customer name").fill("Test Customer");
+  await quote.getByLabel("Contact name").fill("Test Customer");
   await quote.getByLabel("Email").fill("order@example.com");
   await quote.getByRole("button", { name: "Create quote" }).click();
 

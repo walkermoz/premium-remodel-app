@@ -113,6 +113,9 @@ import OrganizationSwitcher from "./organization-switcher";
 import PricebookPanel from "./pricebook-panel";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import AutomationPanel from "./automation-panel";
+import { workspaceObjects } from "@/lib/workspace-objects";
+
+const tradeContactObject = workspaceObjects.tradeContact;
 type Page =
   | "Overview"
   | "Projects"
@@ -640,7 +643,7 @@ export default function WorkspaceApp({
               project: "Project created",
               quote: "Quote created",
               task: "Work added",
-              contractor: "Contact added",
+              contractor: `${tradeContactObject.singularTitle} added`,
               scope: "Item added",
               comment: "Note added",
               attachment: "File uploaded",
@@ -1259,12 +1262,8 @@ export default function WorkspaceApp({
     .filter((item) => canOpenWorkspaceTab(config, user.group, item.name))
     .sort(
       (a, b) =>
-        config.roleNavigation[user.group].indexOf(
-          a.name as NavigationPage,
-        ) -
-        config.roleNavigation[user.group].indexOf(
-          b.name as NavigationPage,
-        ),
+        config.roleNavigation[user.group].indexOf(a.name as NavigationPage) -
+        config.roleNavigation[user.group].indexOf(b.name as NavigationPage),
     );
   const companyMenuItems: { name: Page; icon: typeof Settings }[] = [
     { name: "Team map", icon: MapPinned },
@@ -1374,7 +1373,8 @@ export default function WorkspaceApp({
       </button>
     );
   }
-  const visiblePageName = page === "Contractors" ? "Trade contacts" : page;
+  const visiblePageName =
+    page === "Contractors" ? tradeContactObject.pluralTitle : page;
   return (
     <div className="app-shell">
       {sidebar && (
@@ -1427,7 +1427,9 @@ export default function WorkspaceApp({
             >
               <item.icon size={18} />
               <span>
-                {item.name === "Contractors" ? "Trade contacts" : item.name}
+                {item.name === "Contractors"
+                  ? tradeContactObject.pluralTitle
+                  : item.name}
               </span>
               {!!item.count && <span className="nav-count">{item.count}</span>}
             </button>
@@ -2054,7 +2056,8 @@ export default function WorkspaceApp({
                         THE PEOPLE BEHIND THE WORK
                       </span>
                       <h1>
-                        Trade contacts<span className="heading-dot">.</span>
+                        {tradeContactObject.pluralTitle}
+                        <span className="heading-dot">.</span>
                       </h1>
                       <p>
                         Your trusted trades, contact details, and current
@@ -2066,12 +2069,12 @@ export default function WorkspaceApp({
                       onClick={() => setEditor({ kind: "contractor" })}
                     >
                       <Plus size={17} />
-                      Add contact
+                      {tradeContactObject.actions.add}
                     </button>
                   </div>
                   <div className="section-intro">
                     <HardHat size={19} />
-                    <h2>Trade contacts</h2>
+                    <h2>{tradeContactObject.pluralTitle}</h2>
                     <span className="count-pill">
                       {workspace.contractors.length}
                     </span>
@@ -2096,7 +2099,7 @@ export default function WorkspaceApp({
                     </label>
                     <span className="contractor-result-count" role="status">
                       {visibleContractors.length} of{" "}
-                      {workspace.contractors.length} contacts
+                      {workspace.contractors.length} {tradeContactObject.plural}
                     </span>
                   </div>
                   <div className="contractor-list">
@@ -2198,12 +2201,12 @@ export default function WorkspaceApp({
                     <Empty
                       title={
                         workspace.contractors.length
-                          ? "No matching contacts"
-                          : "No contacts yet"
+                          ? `No matching ${tradeContactObject.plural}`
+                          : `No ${tradeContactObject.plural} yet`
                       }
                       text={
                         workspace.contractors.length
-                          ? "Try a different service or search to find your contact."
+                          ? "Try a different service or search to find a trade contact."
                           : "Add your go-to trades and assign them to jobs."
                       }
                       action={
@@ -2221,7 +2224,7 @@ export default function WorkspaceApp({
                           ) : (
                             <>
                               <Plus size={16} />
-                              Add contact
+                              {tradeContactObject.actions.add}
                             </>
                           )}
                         </button>
@@ -2229,8 +2232,8 @@ export default function WorkspaceApp({
                     />
                   )}
                   <p className="footnote">
-                    Trade contacts do not automatically receive app access.
-                    Invite employees from the Team page.
+                    {tradeContactObject.pluralTitle} do not automatically
+                    receive app access. Invite employees from the Team page.
                   </p>
                 </>
               )}

@@ -30,9 +30,9 @@ test("create a contractor within work, preserve the draft, and save the assignme
     .getByLabel("Notes", { exact: true })
     .fill("Use the side entrance and check the upstairs bath.");
   await dialog
-    .getByRole("combobox", { name: "Assigned contractor", exact: true })
+    .getByRole("combobox", { name: "Assigned trade contact", exact: true })
     .selectOption("__new_contractor__");
-  await expect(dialog).toHaveAccessibleName("New contractor");
+  await expect(dialog).toHaveAccessibleName("New trade contact");
   await expect(page.getByRole("dialog")).toHaveCount(1);
   await expect(dialog.getByLabel("Item title")).not.toBeVisible();
   await expect(dialog.getByLabel("Contact name")).toBeFocused();
@@ -47,11 +47,11 @@ test("create a contractor within work, preserve the draft, and save the assignme
     .getByRole("textbox", { name: "Notes", exact: true })
     .fill("Licensed plumber. Call before arrival.");
   await dialog
-    .getByRole("button", { name: "Save & select contractor", exact: true })
+    .getByRole("button", { name: "Save & select trade contact", exact: true })
     .click();
   await expect(dialog).toHaveAccessibleName("New item");
   const selected = dialog.getByRole("combobox", {
-    name: "Assigned contractor",
+    name: "Assigned trade contact",
     exact: true,
   });
   await expect(selected.locator("option:checked")).toHaveText(
@@ -130,7 +130,7 @@ test("cancel and failed contractor saves keep the work draft intact on mobile", 
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   const dialog = page.getByRole("dialog");
   const assigned = dialog.getByRole("combobox", {
-    name: "Assigned contractor",
+    name: "Assigned trade contact",
     exact: true,
   });
   await assigned.selectOption("c2");
@@ -149,7 +149,7 @@ test("cancel and failed contractor saves keep the work draft intact on mobile", 
   await dialog.getByLabel("Phone", { exact: true }).fill("919-555-0190");
   await dialog.getByLabel("Trade", { exact: true }).fill("Tiling");
   const save = dialog.getByRole("button", {
-    name: "Save & select contractor",
+    name: "Save & select trade contact",
     exact: true,
   });
   await save.focus();

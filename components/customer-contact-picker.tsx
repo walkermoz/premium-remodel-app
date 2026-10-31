@@ -3,8 +3,10 @@
 import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Contact } from "@/lib/types";
+import { workspaceObjects } from "@/lib/workspace-objects";
 
 const addNewId = "__new__";
+const contactObject = workspaceObjects.contact;
 
 function contactDetail(contact: Contact) {
   return contact.email || contact.phone || contact.address || "Contact details";
@@ -28,7 +30,7 @@ export default function CustomerContactPicker({
   const selected = contacts.find((contact) => contact.id === value);
   const selectedLabel =
     value === addNewId
-      ? "Add new contact"
+      ? contactObject.actions.addNew
       : selected?.name || (allowEmpty ? "No contact selected" : "");
   const [query, setQuery] = useState(selectedLabel);
   const [open, setOpen] = useState(false);
@@ -56,7 +58,7 @@ export default function CustomerContactPicker({
     );
   }, [contacts, query, selectedLabel]);
   const options = [
-    { id: addNewId, label: "Add new contact" },
+    { id: addNewId, label: contactObject.actions.addNew },
     ...(allowEmpty ? [{ id: "", label: "No contact selected" }] : []),
     ...filtered.map((contact) => ({ id: contact.id, label: contact.name })),
   ];
@@ -66,7 +68,7 @@ export default function CustomerContactPicker({
     const contact = contacts.find((item) => item.id === contactId);
     setQuery(
       contactId === addNewId
-        ? "Add new contact"
+        ? contactObject.actions.addNew
         : contact?.name || "No contact selected",
     );
     setOpen(false);
@@ -134,7 +136,9 @@ export default function CustomerContactPicker({
           type="button"
           className="contact-picker-toggle"
           aria-label={
-            open ? "Close customer contacts" : "Open customer contacts"
+            open
+              ? `Close ${contactObject.plural}`
+              : `Open ${contactObject.plural}`
           }
           tabIndex={-1}
           onClick={() => {
@@ -150,7 +154,7 @@ export default function CustomerContactPicker({
           id={`${id}-listbox`}
           className="contact-picker-list"
           role="listbox"
-          aria-label="Customer contacts"
+          aria-label={contactObject.pluralTitle}
         >
           <li
             id={`${id}-option-0`}
@@ -165,7 +169,7 @@ export default function CustomerContactPicker({
             <span className="contact-picker-icon">
               <Plus size={15} aria-hidden="true" />
             </span>
-            <strong>Add new contact</strong>
+            <strong>{contactObject.actions.addNew}</strong>
             {value === addNewId && <Check size={15} aria-hidden="true" />}
           </li>
           {allowEmpty && (

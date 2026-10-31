@@ -14,7 +14,7 @@ test("automation workspace visualizes the website lead workflow", async ({
     page.getByRole("heading", { name: "Website form submitted" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Find or create customer" }),
+    page.getByRole("heading", { name: "Find or create contact" }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Create lead" }),
@@ -250,7 +250,7 @@ cloudTest(
         status: "needs_attention",
         steps: [
           { key: "lead", label: "Lead", status: "created" },
-          { key: "email", label: "Customer confirmation", status: "failed" },
+          { key: "email", label: "Confirmation email", status: "failed" },
           { key: "team", label: "Team notification", status: "unknown" },
         ],
       })
@@ -268,7 +268,7 @@ cloudTest(
       .getByRole("button", { name: /Automation Customer/ })
       .click();
     await expect(failedRun.getByText("Needs attention")).toBeVisible();
-    await expect(failedRun.getByText("Customer confirmation")).toBeVisible();
+    await expect(failedRun.getByText("Confirmation email")).toBeVisible();
     await expect(failedRun.getByText("failed", { exact: true })).toBeVisible();
     await expect(
       failedRun.getByRole("button", { name: "Retry action" }),
@@ -353,7 +353,7 @@ cloudTest(
         last_activity_at: new Date(Date.now() - 10 * 60_000).toISOString(),
         steps: [
           { key: "lead", label: "Lead", status: "created" },
-          { key: "email", label: "Customer confirmation", status: "pending" },
+          { key: "email", label: "Confirmation email", status: "pending" },
           { key: "team", label: "Team notification", status: "retrying" },
         ],
       })

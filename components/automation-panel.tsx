@@ -30,6 +30,13 @@ import {
   type WebsiteLeadAutomation,
 } from "@/lib/automation-config";
 import type { Lead, User } from "@/lib/types";
+import {
+  workspaceActionLabels,
+  workspaceObjects,
+} from "@/lib/workspace-objects";
+
+const contactObject = workspaceObjects.contact;
+const websiteLeadActions = workspaceActionLabels.websiteLead;
 
 type AutomationRevision = {
   revision: number;
@@ -494,10 +501,14 @@ export default function AutomationPanel({
           steps: [
             {
               key: "contact" as const,
-              label: "Customer contact",
+              label: websiteLeadActions.contact,
               status: "created" as const,
             },
-            { key: "lead" as const, label: "Lead", status: "created" as const },
+            {
+              key: "lead" as const,
+              label: websiteLeadActions.lead,
+              status: "created" as const,
+            },
           ],
           startedAt: lead.submittedAt,
           completedAt: lead.submittedAt,
@@ -871,17 +882,17 @@ export default function AutomationPanel({
                     </div>
                     <div className="automation-node-copy">
                       <span className="automation-node-kind">ACTION 1</span>
-                      <h2>Find or create customer</h2>
+                      <h2>{contactObject.actions.findOrCreate}</h2>
                       <p>
-                        Saves the submitted person as a customer contact before
-                        the sales opportunity is created.
+                        Saves the submitted person as a contact before the sales
+                        opportunity is created.
                       </p>
                       <div
                         className="automation-field-map"
                         aria-label="Contact field mapping"
                       >
                         {[
-                          "Name → Customer name",
+                          "Name → Contact name",
                           "Email → Email",
                           "Phone → Phone",
                           "Address → Address",
@@ -892,7 +903,7 @@ export default function AutomationPanel({
                       <Toggle
                         checked={automation.matchExistingContacts}
                         disabled={!editable}
-                        label="Reuse a customer when email or phone matches"
+                        label="Reuse a contact when email or phone matches"
                         onChange={(matchExistingContacts) =>
                           update({ matchExistingContacts })
                         }
@@ -910,7 +921,7 @@ export default function AutomationPanel({
                       <span className="automation-node-kind">ACTION 2</span>
                       <h2>Create lead</h2>
                       <p>
-                        Links the project request to the customer and places it
+                        Links the project request to the contact and places it
                         in the lead pipeline with these defaults.
                       </p>
                       <div className="automation-config-grid">
@@ -966,7 +977,7 @@ export default function AutomationPanel({
                       >
                         <span>Project type → Project</span>
                         <span>Project details → Description</span>
-                        <span>Customer → Linked contact</span>
+                        <span>Contact → Linked contact</span>
                       </div>
                     </div>
                   </article>
@@ -1099,7 +1110,7 @@ export default function AutomationPanel({
                           )}
                         </span>
                         <span className="automation-run-summary-copy">
-                          <strong>{run.subject || "Website customer"}</strong>
+                          <strong>{run.subject || "Website contact"}</strong>
                           <span>{run.project || "Project inquiry"}</span>
                           <time dateTime={run.startedAt}>
                             {new Date(run.startedAt).toLocaleString([], {
@@ -1127,7 +1138,7 @@ export default function AutomationPanel({
                           <ol>
                             {run.steps.map((step) => (
                               <li key={step.key}>
-                                <span>{step.label}</span>
+                                <span>{websiteLeadActions[step.key]}</span>
                                 <b>{step.status.replaceAll("_", " ")}</b>
                                 {step.detail && <small>{step.detail}</small>}
                                 {step.attempts && step.attempts > 1 && (

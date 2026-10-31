@@ -40,7 +40,7 @@ test("sample workspace creates a linked lead from Leads", async ({ page }) => {
   await page.goto("/demo?view=Leads");
   await page.getByRole("button", { name: "New lead" }).click();
   const dialog = page.getByRole("dialog", { name: "New lead" });
-  await dialog.getByLabel("Customer name").fill(input.name);
+  await dialog.getByLabel("Contact name").fill(input.name);
   await dialog.getByLabel("Project or service").fill(input.project);
   await dialog.getByRole("button", { name: "Create lead" }).click();
   await expect(dialog.getByRole("alert")).toContainText(

@@ -27,6 +27,9 @@ import {
   rateLabel,
   salePricingBases,
 } from "@/lib/scope-pricing";
+import { workspaceObjects } from "@/lib/workspace-objects";
+
+const contactObject = workspaceObjects.contact;
 export type FormKind =
   "project" | "quote" | "task" | "contractor" | "scope" | "contact";
 export interface Editor {
@@ -137,14 +140,14 @@ export function EntityForm({
     wasAddingContractor.current = addingContractor;
   }, [addingContractor]);
   const names = {
-    project: "project",
-    quote: "quote",
-    task: "item",
-    contractor: "contact",
-    scope: "item",
-    contact: "customer contact",
+    project: workspaceObjects.project.singular,
+    quote: workspaceObjects.quote.singular,
+    task: workspaceObjects.item.singular,
+    contractor: workspaceObjects.tradeContact.singular,
+    scope: workspaceObjects.item.singular,
+    contact: contactObject.singular,
   };
-  const contractor = (label = "Assigned contractor", canCreate = false) => (
+  const contractor = (label = "Assigned trade contact", canCreate = false) => (
     <label>
       {label}
       <select
@@ -160,7 +163,9 @@ export function EntityForm({
       >
         <option value="">Unassigned</option>
         {canCreate && (
-          <option value="__new_contractor__">+ Add new contractor…</option>
+          <option value="__new_contractor__">
+            + {workspaceObjects.tradeContact.actions.addNew}…
+          </option>
         )}
         {workspace.contractors.map((c) => (
           <option key={c.id} value={c.id}>
@@ -222,7 +227,7 @@ export function EntityForm({
       if (contactId === "__new__") {
         const name = String(data.client || "").trim();
         if (!name) {
-          setError("Enter the customer's name to create their contact.");
+          setError("Enter a name to create the contact.");
           setBusy(false);
           return;
         }
@@ -237,7 +242,7 @@ export function EntityForm({
           return;
         }
       } else if (!contactId && !entity) {
-        setError("Choose a customer contact for this quote.");
+        setError("Choose a contact for this quote.");
         setBusy(false);
         return;
       }
@@ -286,7 +291,7 @@ export function EntityForm({
       setContractorError(
         error instanceof Error
           ? error.message
-          : "Could not save this contractor. Please try again.",
+          : "Could not save this trade contact. Please try again.",
       );
     } finally {
       setContractorBusy(false);
@@ -331,7 +336,7 @@ export function EntityForm({
     <Modal
       title={
         addingContractor
-          ? "New contractor"
+          ? `New ${workspaceObjects.tradeContact.singular}`
           : `${entity ? "Edit" : "New"} ${names[kind]}`
       }
       subtitle={
@@ -340,7 +345,7 @@ export function EntityForm({
           : kind === "scope"
             ? "Use a flat price or enter a quantity and rate to calculate the item total."
             : kind === "quote" && editor.initialValues?.leadId
-              ? "Customer details are filled in. Review them, then create the quote."
+              ? "Contact details are filled in. Review them, then create the quote."
               : "Keep the details your team needs in one place."
       }
       onClose={() => {
@@ -359,7 +364,7 @@ export function EntityForm({
           {kind === "contact" && (
             <fieldset className="customer-record-fields">
               <legend>
-                Customer <span>contact record</span>
+                {contactObject.singularTitle} <span>details</span>
               </legend>
               <div className="form-grid">
                 <label>
@@ -464,10 +469,10 @@ export function EntityForm({
               {kind === "quote" ? (
                 <fieldset className="customer-record-fields">
                   <legend>
-                    Customer <span>contact record</span>
+                    {contactObject.singularTitle} <span>for this quote</span>
                   </legend>
                   <CustomerContactPicker
-                    label="Find or add a contact"
+                    label={contactObject.actions.findOrAdd}
                     contacts={availableCustomers.sort((a, b) =>
                       a.name.localeCompare(b.name),
                     )}
@@ -495,16 +500,16 @@ export function EntityForm({
                   />
                   <p className="customer-record-help">
                     {customerEditable
-                      ? "Enter the customer once. Saving this quote creates their contact record too."
+                      ? "Enter the person once. Saving this quote creates their contact too."
                       : "These quote details come from the selected contact."}
                   </p>
                   <label>
-                    Customer name
+                    Contact name
                     <input
                       name="client"
                       value={clientName}
                       onChange={(event) => setClientName(event.target.value)}
-                      placeholder="Customer or family name"
+                      placeholder="Person or family name"
                       maxLength={250}
                       readOnly={!customerEditable}
                     />
@@ -746,7 +751,7 @@ export function EntityForm({
                   ))}
                 </select>
               </label>
-              {contractor("Assigned contractor", true)}
+              {contractor("Assigned trade contact", true)}
               <div className="form-grid">
                 <label>
                   {workType === "Task" ? "Due date" : "Scheduled date"}
@@ -1044,7 +1049,7 @@ export function EntityForm({
             </button>
             <button className="button primary" disabled={contractorBusy}>
               {contractorBusy && <LoaderCircle size={16} className="spin" />}
-              {contractorBusy ? "Saving…" : "Save & select contractor"}
+              {contractorBusy ? "Saving…" : "Save & select trade contact"}
             </button>
           </footer>
         </form>

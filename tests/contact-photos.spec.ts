@@ -162,7 +162,7 @@ cloudTest(
       await page
         .getByRole("button", { name: "Edit Taylor Plumbing", exact: true })
         .click();
-      const dialog = page.getByRole("dialog", { name: "Edit contact" });
+      const dialog = page.getByRole("dialog", { name: "Edit trade contact" });
       await dialog.getByRole("button", { name: "Remove photo" }).click();
       await expect(
         dialog.getByRole("button", { name: "Add photo" }),

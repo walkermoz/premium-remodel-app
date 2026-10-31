@@ -106,7 +106,7 @@ export default function BathroomQuestionnaire({
         {step === 0 && (
           <div className="questionnaire-step">
             <QuestionSection
-              title="Customer & project"
+              title="Contact & project"
               description="Confirm the details already carried by this quote."
             >
               <div className="questionnaire-grid two-column">
@@ -116,7 +116,7 @@ export default function BathroomQuestionnaire({
                   onChange={(projectName) => update({ projectName })}
                 />
                 <TextField
-                  label="Customer name"
+                  label="Contact name"
                   value={answers.customerName}
                   onChange={(customerName) => update({ customerName })}
                 />
@@ -146,7 +146,7 @@ export default function BathroomQuestionnaire({
                   type="date"
                 />
                 <ChoiceField
-                  label="Best way to reach customer"
+                  label="Preferred contact method"
                   value={answers.bestContactMethod}
                   options={["Call", "Text", "Email"]}
                   onChange={(bestContactMethod) =>

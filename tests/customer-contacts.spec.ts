@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("customer contacts are separate from trades and fill new quotes", async ({
+test("contacts are separate from trades and fill new quotes", async ({
   page,
 }) => {
   await page.goto("/demo?view=Contacts");
@@ -35,28 +35,24 @@ test("customer contacts are separate from trades and fill new quotes", async ({
     "Taylor Reed",
   );
   await expect(quote.getByLabel("Email")).toHaveValue("taylor@example.com");
-  await expect(quote.getByLabel("Customer name")).toHaveAttribute(
+  await expect(quote.getByLabel("Contact name")).toHaveAttribute(
     "readonly",
     "",
   );
   await expect(quote.getByLabel("Linked lead")).toHaveCount(0);
   await quote.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("button", { name: "Add customer" }).click();
-  const contact = page.getByRole("dialog", { name: "New customer contact" });
+  await page.getByRole("button", { name: "Add contact" }).click();
+  const contact = page.getByRole("dialog", { name: "New contact" });
   await contact.getByLabel("First name").fill("Morgan");
   await contact.getByLabel("Last name").fill("Lane");
   await contact.getByLabel("Address").fill("7 Maple Street, Cary, NC");
-  await contact
-    .getByRole("button", { name: "Create customer contact" })
-    .click();
+  await contact.getByRole("button", { name: "Create contact" }).click();
   await expect(contact.getByRole("alert")).toContainText(
     "Enter an email address or phone number.",
   );
   await contact.getByLabel("Phone").fill("9195550188");
-  await contact
-    .getByRole("button", { name: "Create customer contact" })
-    .click();
+  await contact.getByRole("button", { name: "Create contact" }).click();
   await expect(
     page.getByRole("heading", { name: "Morgan Lane" }),
   ).toBeVisible();
@@ -69,14 +65,14 @@ test("customer contacts are separate from trades and fill new quotes", async ({
   const picker = newQuote.getByLabel("Find or add a contact");
   await picker.click();
   const contactOptions = newQuote.getByRole("listbox", {
-    name: "Customer contacts",
+    name: "Contacts",
   });
   await expect(contactOptions.getByRole("option").first()).toContainText(
     "Add new contact",
   );
   await picker.fill("Morgan");
   await contactOptions.getByRole("option", { name: /Morgan Lane/ }).click();
-  await expect(newQuote.getByLabel("Customer name")).toHaveValue("Morgan Lane");
+  await expect(newQuote.getByLabel("Contact name")).toHaveValue("Morgan Lane");
   await expect(newQuote.getByLabel("Phone")).toHaveValue("9195550188");
   await expect(newQuote.getByLabel("Address")).toHaveValue(
     "7 Maple Street, Cary, NC",
@@ -97,7 +93,7 @@ test("customer contacts are separate from trades and fill new quotes", async ({
   expect(createdQuote.leadId).toBeUndefined();
 });
 
-test("a new quote creates one customer contact and uses it for the quote", async ({
+test("a new quote creates one contact and uses it for the quote", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
@@ -108,7 +104,7 @@ test("a new quote creates one customer contact and uses it for the quote", async
     "Add new contact",
   );
   await quote.getByLabel("Quote name").fill("Avery's bathroom");
-  await quote.getByLabel("Customer name").fill("Avery Stone");
+  await quote.getByLabel("Contact name").fill("Avery Stone");
   await quote.getByLabel("Email").fill("avery@example.com");
   await quote.getByLabel("Address").fill("18 Oak Street, Raleigh, NC");
   await quote.getByRole("button", { name: "Create quote" }).click();

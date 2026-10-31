@@ -25,8 +25,11 @@ import {
 import { leadDisposition } from "@/lib/leads";
 import { workToday } from "@/lib/work";
 import { manualLeadInput, type ManualLeadInput } from "@/lib/manual-lead";
+import { workspaceObjects } from "@/lib/workspace-objects";
 import AddressInput from "./address-input";
 import { Modal } from "./ui";
+
+const contactObject = workspaceObjects.contact;
 
 type LeadFilter = "Active" | "Future" | "Archive" | "Junk";
 type LeadTouch = NonNullable<Lead["leadAttribution"]>["lastTouch"];
@@ -692,7 +695,7 @@ export default function LeadsPanel({
       {creating && (
         <Modal
           title="New lead"
-          subtitle="Add the customer's contact information and the work they have in mind."
+          subtitle="Add a contact and the work they have in mind."
           onClose={() => {
             if (!createBusy) setCreating(false);
           }}
@@ -740,7 +743,7 @@ export default function LeadsPanel({
           >
             <div className="form-fields">
               <label>
-                Customer name
+                {contactObject.singularTitle} name
                 <input
                   name="name"
                   autoComplete="name"
@@ -793,7 +796,7 @@ export default function LeadsPanel({
                   name="projectDescription"
                   rows={3}
                   maxLength={15000}
-                  placeholder="What does the customer want done?"
+                  placeholder="Describe the requested work."
                 />
               </label>
               {createError && (

@@ -18,6 +18,7 @@ import {
   type NavigationPage,
 } from "@/lib/business-config-schema";
 import { workspaceGroups, type WorkspaceGroup } from "@/lib/types";
+import { workspaceObjects } from "@/lib/workspace-objects";
 
 const roleLabels: Record<WorkspaceGroup, string> = {
   owner: "Owner",
@@ -31,7 +32,9 @@ const roleLabels: Record<WorkspaceGroup, string> = {
 const companyPages = new Set<NavigationPage>(["Team map", "Team", "Settings"]);
 
 function tabLabel(page: NavigationPage) {
-  return page === "Contractors" ? "Trade contacts" : page;
+  return page === "Contractors"
+    ? workspaceObjects.tradeContact.pluralTitle
+    : page;
 }
 
 function sameSection(a: NavigationPage, b: NavigationPage) {
@@ -98,7 +101,8 @@ export default function RoleTabAccessEditor({
 
   function drop(event: DragEvent<HTMLDivElement>, target: NavigationPage) {
     event.preventDefault();
-    const source = dragged || (event.dataTransfer.getData("text/plain") as NavigationPage);
+    const source =
+      dragged || (event.dataTransfer.getData("text/plain") as NavigationPage);
     if (source) movePage(source, target);
     setDragged(null);
     setDragOver(null);
@@ -258,7 +262,11 @@ export default function RoleTabAccessEditor({
                   <Plus size={16} /> Add tabs
                 </button>
                 {addOpen && (
-                  <div className="role-tab-add-menu" role="menu" aria-label="Available tabs">
+                  <div
+                    className="role-tab-add-menu"
+                    role="menu"
+                    aria-label="Available tabs"
+                  >
                     {availablePages.length ? (
                       availablePages.map((page) => (
                         <button
@@ -280,7 +288,8 @@ export default function RoleTabAccessEditor({
               </div>
             )}
             <p className="role-tab-editor-help">
-              Workspace and company tabs stay in their matching sidebar sections.
+              Workspace and company tabs stay in their matching sidebar
+              sections.
             </p>
             {section("Workspace", workspaceTabs)}
             {section("Company", companyTabs)}

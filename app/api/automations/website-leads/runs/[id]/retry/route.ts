@@ -13,11 +13,13 @@ import { sendWebsiteLeadSmsAcknowledgement } from "@/lib/lead-sms";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { workspaceObjects } from "@/lib/workspace-objects";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const retryInput = z.object({ step: z.enum(["email", "sms", "team"]) });
+const contactObject = workspaceObjects.contact;
 
 export async function POST(
   request: Request,
@@ -88,10 +90,13 @@ export async function POST(
       .maybeSingle();
     if (contactError) throw contactError;
     if (!contactRow)
-      throw new HttpError(409, "The linked customer contact was removed.");
+      throw new HttpError(
+        409,
+        `The linked ${contactObject.singular} was removed.`,
+      );
     const contact = contactRow.data as Contact;
     if (step === "email" && !contact.email)
-      throw new HttpError(409, "Add a customer email before retrying.");
+      throw new HttpError(409, "Add an email to the contact before retrying.");
     if (step === "sms" && !lead.websiteSubmission?.phone)
       throw new HttpError(
         409,

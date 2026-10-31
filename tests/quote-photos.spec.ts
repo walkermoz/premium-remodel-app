@@ -8,7 +8,7 @@ test("quote photos can be selected, labeled, and removed without losing the uplo
   await page.getByRole("button", { name: "New quote" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Photo proposal");
-  await dialog.getByLabel("Customer name").fill("Test Homeowner");
+  await dialog.getByLabel("Contact name").fill("Test Homeowner");
   await dialog.getByLabel("Email").fill("photos@example.com");
   await dialog.getByRole("button", { name: "Create quote" }).click();
 

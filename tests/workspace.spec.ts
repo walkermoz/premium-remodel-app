@@ -23,7 +23,7 @@ cloudTest(
       .getByRole("button", { name: "Trade contacts", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Add contact", exact: true })
+      .getByRole("button", { name: "Add trade contact", exact: true })
       .first()
       .click();
     let dialog = page.getByRole("dialog");
@@ -33,7 +33,7 @@ cloudTest(
     await dialog
       .getByLabel("Email", { exact: true })
       .fill("flooring@example.com");
-    await dialog.getByRole("button", { name: "Create contact" }).click();
+    await dialog.getByRole("button", { name: "Create trade contact" }).click();
     await expect(dialog).not.toBeVisible();
     await page.getByRole("button", { name: "Projects", exact: true }).click();
     await page.getByRole("button", { name: "New project" }).click();
@@ -47,9 +47,10 @@ cloudTest(
     await dialog
       .getByLabel("Full scope of work")
       .fill("Flooring, countertops, and electrical.");
-    await expect(dialog.getByLabel("Assigned contractor")).toHaveCount(0);
+    await expect(dialog.getByLabel("Assigned trade contact")).toHaveCount(0);
     await dialog.getByRole("button", { name: "Create project" }).click();
     await expect(dialog).not.toBeVisible();
+    await page.getByRole("button", { name: "Planning", exact: true }).click();
     await page.getByRole("heading", { name: "Real test kitchen" }).click();
     await expect(
       page.getByRole("heading", { name: "Project brief" }),
@@ -77,7 +78,10 @@ cloudTest(
         unit: "job",
       },
     ]) {
-      await page.getByRole("button", { name: "Add item", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Add item", exact: true })
+        .first()
+        .click();
       dialog = page.getByRole("dialog");
       await dialog.getByLabel("Item", { exact: true }).fill(item.title);
       await dialog
@@ -96,7 +100,7 @@ cloudTest(
           new Intl.NumberFormat("en-US", {
             style: "currency",
             currency: "USD",
-            maximumFractionDigits: 2,
+            maximumFractionDigits: 0,
           }).format(Number(item.estimate)),
         );
       }
@@ -104,7 +108,7 @@ cloudTest(
       await dialog
         .getByLabel("Subcontractor for cost estimate")
         .selectOption({ label: "Test Flooring Lead · Flooring" });
-      await dialog.getByRole("button", { name: "Create scope item" }).click();
+      await dialog.getByRole("button", { name: "Create item" }).click();
       await expect(dialog).not.toBeVisible();
     }
     await expect(page.locator("tfoot")).toContainText("$17,000");
@@ -135,7 +139,7 @@ cloudTest(
     await dialog.getByLabel("Item title").fill("Install new flooring");
     await dialog.getByLabel("Due date").fill("2026-09-08");
     await dialog
-      .getByLabel("Assigned contractor")
+      .getByLabel("Assigned trade contact")
       .selectOption({ label: "Test Flooring Lead · Flooring" });
     await dialog.getByRole("button", { name: "Create item" }).click();
     await expect(dialog).not.toBeVisible();
@@ -309,6 +313,7 @@ cloudTest(
     await member.getByLabel("Password", { exact: true }).fill(password);
     await member.getByLabel("Confirm password", { exact: true }).fill(password);
     await member.getByRole("button", { name: "Join workspace" }).click();
+    await member.getByRole("button", { name: "Planning", exact: true }).click();
     await expect(
       member.getByRole("heading", { name: "Kitchen updated by teammate" }),
     ).toBeVisible();
@@ -428,6 +433,7 @@ cloudTest(
     await page.getByLabel("Work email").fill(company.email);
     await page.getByLabel("Password", { exact: true }).fill(newPassword);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByRole("button", { name: "Planning", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Kitchen updated by teammate" }),
     ).toBeVisible();

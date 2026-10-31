@@ -206,7 +206,7 @@ cloudTest(
       },
       p_match_existing: false,
       p_steps: [
-        { key: "contact", label: "Customer contact", status: "created" },
+        { key: "contact", label: "Contact", status: "created" },
         { key: "lead", label: "Lead", status: "created" },
       ],
     });
@@ -395,7 +395,7 @@ test("a lead creates a quote with its available details filled in", async ({
   await expect(dialog.getByLabel("Quote name")).toHaveValue(
     "Taylor Reed · Kitchen Remodel",
   );
-  await expect(dialog.getByLabel("Customer name")).toHaveValue("Taylor Reed");
+  await expect(dialog.getByLabel("Contact name")).toHaveValue("Taylor Reed");
   await expect(dialog.getByLabel("Project type")).toHaveValue("Kitchen");
   await expect(dialog.getByLabel("Email")).toHaveValue("taylor@example.com");
   await expect(dialog.getByLabel("Phone")).toHaveValue("+19195550142");
