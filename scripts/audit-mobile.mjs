@@ -7,6 +7,9 @@ const knownAdvisories = new Set([
   "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
   // Low-severity deepmerge issue via Expo config; no patched release available.
   "https://github.com/advisories/GHSA-gcqx-w48m-w2h4",
+  // Expo SDK 57's build-time glob tooling has no compatible patched release.
+  "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4",
+  "https://github.com/advisories/GHSA-g3hv-75wg-m249",
 ]);
 
 const onWindows = process.platform === "win32";
