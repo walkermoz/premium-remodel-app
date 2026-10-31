@@ -1,6 +1,10 @@
 import { apiError, checkOrigin, HttpError, limitAttempts } from "@/lib/auth";
 import { requirePremiumAgreement } from "@/lib/agreements";
 import { readClientQuoteSource } from "@/lib/client-quote";
+import {
+  findContactIdForRecipient,
+  recordContactCommunication,
+} from "@/lib/contact-communications";
 import { parseClientPortalToken } from "@/lib/client-portal";
 import {
   cancellationDeadline,
@@ -118,13 +122,41 @@ export async function POST(
     let emailWarning: string | undefined;
     try {
       const pdf = await buildMsaPdf(signed);
-      await sendMsaEmail({
+      const subject = "Your signed Premium Remodel agreement";
+      const message = `Hello ${signed.owner},\n\nYour signed Master Services Agreement is attached, including the completed Notice of Cancellation. You can also download it from your private quote page.\n\nThe deposit is now available to pay online or by check. Work begins after the deposit is received.\n\nPremium Remodel`;
+      const messageId = await sendMsaEmail({
         organizationId: source.organizationId,
         to: signed.ownerEmail,
-        subject: "Your signed Premium Remodel agreement",
-        message: `Hello ${signed.owner},\n\nYour signed Master Services Agreement is attached, including the completed Notice of Cancellation. You can also download it from your private quote page.\n\nThe deposit is now available to pay online or by check. Work begins after the deposit is received.\n\nPremium Remodel`,
+        subject,
+        message,
         pdf,
       });
+      try {
+        const contactId = await findContactIdForRecipient({
+          organizationId: source.organizationId,
+          channel: "email",
+          recipient: signed.ownerEmail,
+          preferredContactId: source.pdfQuote.contactId,
+        });
+        if (contactId)
+          await recordContactCommunication({
+            organizationId: source.organizationId,
+            contactId,
+            channel: "email",
+            recipient: signed.ownerEmail,
+            subject,
+            body: message,
+            relatedKind: "agreement",
+            relatedId: project.id,
+            providerId: messageId || undefined,
+            dedupeKey: messageId
+              ? `gmail:${messageId}`
+              : `msa-signed-copy:${project.id}:${now}`,
+            sentAt: new Date().toISOString(),
+          });
+      } catch {
+        console.error("Could not record the signed MSA communication history.");
+      }
     } catch {
       emailWarning =
         "The agreement was signed, but we could not confirm delivery of the email copy. Download the signed PDF now or contact Premium Remodel.";

@@ -8,6 +8,10 @@ import {
 } from "@/lib/auth";
 import { clientQuotesForEmail } from "@/lib/client-access";
 import { sendClientAccessEmail } from "@/lib/client-access-email";
+import {
+  findContactIdForRecipient,
+  recordContactCommunication,
+} from "@/lib/contact-communications";
 
 export const runtime = "nodejs";
 
@@ -41,11 +45,37 @@ export async function POST(request: Request) {
     );
     if (matches.length) {
       try {
-        await sendClientAccessEmail({
+        const messageId = await sendClientAccessEmail({
           organizationId,
           email,
           url: matches[0].url,
         });
+        try {
+          const contactId = await findContactIdForRecipient({
+            organizationId,
+            channel: "email",
+            recipient: email,
+            preferredContactId: matches[0].quote.contactId,
+          });
+          if (contactId)
+            await recordContactCommunication({
+              organizationId,
+              contactId,
+              channel: "email",
+              recipient: email,
+              subject: "Your Premium Remodel client portal link",
+              body: "A secure link to the customer’s quote and client portal was sent. The private link is valid for 30 days.",
+              relatedKind: "client_portal",
+              relatedId: matches[0].quote.id,
+              providerId: messageId || undefined,
+              dedupeKey: messageId
+                ? `gmail:${messageId}`
+                : `client-access:${matches[0].id}:${Date.now()}`,
+              sentAt: new Date().toISOString(),
+            });
+        } catch {
+          console.error("Could not record the client access communication.");
+        }
       } catch {
         // The response must not reveal whether this email has a client portal.
         console.error("Client access email delivery failed.");

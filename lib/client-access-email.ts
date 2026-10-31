@@ -101,4 +101,6 @@ export async function sendClientAccessEmail(input: {
     },
   );
   if (!response.ok) throw new Error("Client access email could not be sent.");
+  const result = await response.json().catch(() => null);
+  return typeof result?.id === "string" ? (result.id as string) : "";
 }

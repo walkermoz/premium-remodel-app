@@ -12,6 +12,10 @@ import { renderQuoteEmail } from "./email-template";
 import { preparedMsaMatchesQuote } from "./msa-quote-match";
 import { createClientEmailToken } from "./client-portal";
 import { ensureEmailedQuoteLink } from "./client-quote-link";
+import {
+  findContactIdForRecipient,
+  recordContactCommunication,
+} from "./contact-communications";
 import { buildQuotePdf, quotePdfFileName } from "./quote-pdf";
 import { loadQuotePhotos } from "./quote-photos";
 import { findRecord, getWorkspace, updateRecord } from "./repository";
@@ -319,6 +323,33 @@ export async function sendQuoteEmail(
       warning =
         warning ||
         "The email was sent, but its audit entry could not be saved.";
+    }
+    try {
+      const contactId = await findContactIdForRecipient({
+        organizationId: user.organizationId,
+        channel: "email",
+        recipient: input.recipientEmail,
+        preferredContactId: quote.contactId,
+      });
+      if (contactId)
+        await recordContactCommunication({
+          organizationId: user.organizationId,
+          contactId,
+          channel: "email",
+          recipient: input.recipientEmail.toLowerCase(),
+          sender: mail.email,
+          subject: input.subject,
+          body: `${input.message}\n\nA quote PDF and private client link were included.`,
+          relatedKind: "quote",
+          relatedId: quote.id,
+          providerId: messageId || undefined,
+          dedupeKey: `quote-email:${input.requestId}`,
+          sentAt: now,
+        });
+    } catch {
+      warning =
+        warning ||
+        "The quote was sent, but the contact communication history could not be updated.";
     }
     return { sent: true, warning };
   } catch (error) {

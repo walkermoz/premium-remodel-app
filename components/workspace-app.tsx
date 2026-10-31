@@ -1732,6 +1732,7 @@ export default function WorkspaceApp({
                   leads={workspace.leads}
                   quotes={workspace.quotes || []}
                   search={search}
+                  demo={demo}
                   canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
                   onAdd={() => setEditor({ kind: "contact" })}
                   onEdit={(contact) =>

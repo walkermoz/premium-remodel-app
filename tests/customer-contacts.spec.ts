@@ -13,6 +13,22 @@ test("customer contacts are separate from trades and fill new quotes", async ({
     .filter({ has: page.getByRole("heading", { name: "Taylor Reed" }) });
   await expect(customer).toContainText("taylor@example.com");
   await expect(customer).toContainText("1214 Willowbrook Drive");
+  await customer.getByRole("button", { name: "History" }).click();
+  const history = page.getByRole("dialog", { name: "Taylor Reed" });
+  await expect(history.getByRole("heading", { name: "History" })).toBeVisible();
+  await expect(history.getByText("Text sent")).toBeVisible();
+  await expect(history.getByText("Email sent")).toBeVisible();
+  await expect(history.getByText(/schedule a visit/)).toBeVisible();
+  await history.getByRole("button", { name: "Email" }).click();
+  await expect(history.getByText("Text sent")).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await history.getByRole("button", { name: "Close dialog" }).click();
+  await page.setViewportSize({ width: 1280, height: 720 });
   await customer.getByRole("button", { name: "New quote" }).click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await expect(quote.getByLabel("Find or add a contact")).toHaveValue(

@@ -1,4 +1,5 @@
 import "server-only";
+import { recordContactCommunication } from "./contact-communications";
 import { normalizeSmsRecipient } from "./install-link";
 import type { SmsComplianceEventType } from "./sms-compliance-keywords";
 import { classifySmsComplianceEvent } from "./sms-compliance-keywords";
@@ -206,7 +207,23 @@ export async function sendCustomerSms(
         ? "This customer did not opt in to appointment and project texts."
         : "This customer did not opt in to marketing texts.",
     );
-  return sendOrganizationSms(organizationId, message);
+  const sent = await sendOrganizationSms(organizationId, message);
+  try {
+    await recordContactCommunication({
+      organizationId,
+      contactId: message.contactId,
+      channel: "sms",
+      recipient: phone,
+      sender: sent.from,
+      body: message.body,
+      providerId: sent.sid,
+      dedupeKey: `twilio:${sent.sid}`,
+      sentAt: new Date().toISOString(),
+    });
+  } catch {
+    console.error("Could not record the customer text communication.");
+  }
+  return sent;
 }
 
 export async function sendWebsiteLeadSms(

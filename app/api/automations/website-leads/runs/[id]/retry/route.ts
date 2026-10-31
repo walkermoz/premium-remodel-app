@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
 import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
+import { recordWebsiteLeadDeliveries } from "@/lib/lead-communication-log";
 import { sendWebsiteLeadSmsAcknowledgement } from "@/lib/lead-sms";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
@@ -156,6 +157,29 @@ export async function POST(
     if (finishError) throw finishError;
     if (!finished)
       throw new HttpError(409, "Could not record the retry outcome.");
+    if (result.status === "sent" && (step === "email" || step === "sms")) {
+      try {
+        await recordWebsiteLeadDeliveries({
+          organizationId: user.organizationId,
+          lead,
+          emailRecipient: contact.email,
+          smsRecipient: lead.websiteSubmission?.phone,
+          ...(step === "email"
+            ? {
+                email: result as Awaited<
+                  ReturnType<typeof sendWebsiteLeadAcknowledgement>
+                >,
+              }
+            : {
+                sms: result as Awaited<
+                  ReturnType<typeof sendWebsiteLeadSmsAcknowledgement>
+                >,
+              }),
+        });
+      } catch {
+        console.error("Could not record the retried customer communication.");
+      }
+    }
     return Response.json(result, {
       headers: { "Cache-Control": "private, no-store" },
     });

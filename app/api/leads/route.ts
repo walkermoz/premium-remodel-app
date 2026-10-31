@@ -9,6 +9,7 @@ import {
 import { getWebsiteLeadAutomation } from "@/lib/automation-store";
 import { sendDiscordLeadNotification } from "@/lib/discord-leads";
 import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
+import { recordWebsiteLeadDeliveries } from "@/lib/lead-communication-log";
 import { sendWebsiteLeadSmsAcknowledgement } from "@/lib/lead-sms";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
@@ -358,6 +359,16 @@ export async function POST(request: Request) {
         status: "failed",
         detail: "The lead was saved, but its delivery status was not updated.",
       });
+    try {
+      await recordWebsiteLeadDeliveries({
+        organizationId,
+        lead,
+        email: emailAcknowledgement,
+        sms: smsAcknowledgement,
+      });
+    } catch {
+      console.error("Could not record the website lead communication history.");
+    }
     await finishWebsiteLeadRun({ organizationId, runId, steps: runSteps });
 
     response = Response.json({ received: true }, { status: 201 });

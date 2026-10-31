@@ -9,6 +9,10 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { createClientEmailToken } from "@/lib/client-portal";
+import {
+  findContactIdForRecipient,
+  recordContactCommunication,
+} from "@/lib/contact-communications";
 import { isValidClientQuoteSnapshot } from "@/lib/client-quote";
 import { acceptedScopeSnapshot } from "@/lib/msa-draft";
 import { prepareMsa, staffMsaInput } from "@/lib/msa-contract";
@@ -242,6 +246,32 @@ export async function POST(
       subject: "Premium Remodel Master Services Agreement",
       message,
     });
+    try {
+      const contactId = await findContactIdForRecipient({
+        organizationId: user.organizationId,
+        channel: "email",
+        recipient: agreement.ownerEmail,
+        preferredContactId: (project as Quote).contactId,
+      });
+      if (contactId)
+        await recordContactCommunication({
+          organizationId: user.organizationId,
+          contactId,
+          channel: "email",
+          recipient: agreement.ownerEmail,
+          subject: "Premium Remodel Master Services Agreement",
+          body: message.replace(url, "[Secure client portal link]"),
+          relatedKind: "agreement",
+          relatedId: projectId,
+          providerId: messageId || undefined,
+          dedupeKey: messageId
+            ? `gmail:${messageId}`
+            : `msa-send:${projectId}:${agreement.termsSha256}`,
+          sentAt: new Date().toISOString(),
+        });
+    } catch {
+      console.error("Could not record the MSA communication history.");
+    }
     let recorded = false;
     for (let attempt = 0; attempt < 3 && !recorded; attempt++) {
       const { data: fresh, error: freshError } = await admin
