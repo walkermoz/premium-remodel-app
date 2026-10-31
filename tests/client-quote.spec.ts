@@ -609,7 +609,7 @@ cloudTest(
       .fill("new@example.com");
     await clientPage
       .getByRole("checkbox", {
-        name: "Receive text messages about appointment",
+        name: /I agree to receive texts from Premium Remodel about appointments/,
       })
       .check();
     let requestPayload: Record<string, unknown> | undefined;

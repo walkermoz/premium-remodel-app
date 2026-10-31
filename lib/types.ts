@@ -363,6 +363,8 @@ export interface Lead extends Base {
   /** Only explicit true from the website form grants category-specific SMS consent. */
   smsAppointmentOptIn?: boolean;
   smsMarketingOptIn?: boolean;
+  /** Website disclosure and choices captured with the original submission. */
+  smsConsentEvidence?: import("./sms-consent").SmsConsentEvidence;
   /** Bounded, inert values from unrecognized website form fields. */
   otherSubmittedFields?: Record<string, string>;
   leadAttribution?: LeadAttribution;

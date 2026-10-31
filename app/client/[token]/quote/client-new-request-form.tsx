@@ -252,7 +252,8 @@ export default function ClientNewRequestForm({
                   setAppointmentSmsOptIn(event.target.checked);
                 }}
               />{" "}
-              Receive text messages about appointment
+              I agree to receive texts from Premium Remodel about appointments,
+              estimates, scheduling changes, and project updates.
             </label>
             <label htmlFor={marketingSmsId}>
               <input
@@ -264,14 +265,15 @@ export default function ClientNewRequestForm({
                   setMarketingSmsOptIn(event.target.checked);
                 }}
               />{" "}
-              Receive text messages about marketing promotions
+              I agree to receive marketing and promotional texts from Premium
+              Remodel.
             </label>
           </div>
           <p className={styles.requestSmsNote}>
-            Choose which texts to receive from Premium Remodel. SMS consent is
-            optional and not a condition of purchase. Message frequency varies.
-            Message and data rates may apply. Reply STOP to unsubscribe or HELP
-            for help.
+            Choose which texts to receive from Premium Remodel. Messages may be
+            automated. SMS consent is optional and not a condition of purchase.
+            Message frequency varies. Message and data rates may apply. Reply
+            STOP to unsubscribe or HELP for help.
           </p>
           <p className={styles.requestSmsNote}>
             Read our{" "}

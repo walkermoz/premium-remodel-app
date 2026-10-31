@@ -485,6 +485,17 @@ export default function LeadsPanel({
                     {selected.smsMarketingOptIn === true
                       ? "Opted in"
                       : "Not opted in"}
+                    {selected.smsConsentEvidence && (
+                      <>
+                        <br />
+                        <span>
+                          Recorded from the website form on
+                          {` ${new Date(selected.smsConsentEvidence.capturedAt).toLocaleString()} `}
+                          under the {selected.smsConsentEvidence.policyVersion}
+                          SMS policy.
+                        </span>
+                      </>
+                    )}
                   </p>
                 </section>
               )}

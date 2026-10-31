@@ -37,6 +37,24 @@ const messageSchema = z.object({
   from: z.string().regex(/^\+[1-9]\d{1,14}$/),
   to: z.string().regex(/^\+[1-9]\d{1,14}$/),
 });
+const messagesSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        sid: z.string().regex(/^(?:SM|MM)[0-9a-f]{32}$/i),
+        direction: z.string().max(40),
+        from: z.string().regex(/^\+[1-9]\d{1,14}$/),
+        to: z.string().regex(/^\+[1-9]\d{1,14}$/),
+        body: z
+          .string()
+          .max(1600)
+          .nullable()
+          .transform((value) => value || ""),
+        date_sent: z.string().nullable(),
+      }),
+    )
+    .max(100),
+});
 const tollFreeVerificationsSchema = z.object({
   verifications: z
     .array(
@@ -282,6 +300,53 @@ export async function configureTwilioInboundSms(
   return readTwilioConnection(credentials, fetcher);
 }
 
+export async function readRecentInboundSms(
+  credentials: { accountSid?: string; authToken?: string },
+  filters: { to: string; from?: string },
+  fetcher: typeof fetch = fetch,
+) {
+  const accountSid = credentials.accountSid?.trim();
+  const authToken = credentials.authToken?.trim();
+  if (!accountSid || !authToken)
+    throw new TwilioConnectionError("Twilio messaging is not configured.");
+  const url = new URL(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+  );
+  url.searchParams.set("To", filters.to);
+  if (filters.from) url.searchParams.set("From", filters.from);
+  url.searchParams.set("PageSize", filters.from ? "20" : "100");
+  let response: Response;
+  try {
+    response = await fetcher(url, {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+      },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(12000),
+    });
+  } catch {
+    throw new TwilioConnectionError(
+      "Twilio message history could not be checked. Please try again.",
+    );
+  }
+  if (!response.ok)
+    throw new TwilioConnectionError(
+      "Twilio message history could not be checked. Please try again.",
+    );
+  const parsed = messagesSchema.safeParse(await response.json());
+  if (!parsed.success)
+    throw new TwilioConnectionError(
+      "Twilio returned an unexpected message history response.",
+    );
+  return parsed.data.messages.filter(
+    (message) =>
+      message.direction.startsWith("inbound") &&
+      message.to === filters.to &&
+      (!filters.from || message.from === filters.from),
+  );
+}
+
 export async function sendTwilioSms(
   credentials: { accountSid?: string; authToken?: string },
   message: { to: string; body: string },
@@ -357,9 +422,9 @@ export async function sendTwilioSms(
       );
     if (code === 21211)
       throw new TwilioConnectionError("Enter a valid mobile phone number.");
-    if (code === 21610)
+    if (code === 21610 || code === 30630)
       throw new TwilioOptOutError(
-        "This contact opted out of text messages. They must text START before the company can contact them by text again.",
+        "This contact opted out of texts from this company number. They must text START before this number can contact them again.",
       );
     throw new TwilioConnectionError(
       "Twilio could not send the message. Check the account messaging status and try again.",

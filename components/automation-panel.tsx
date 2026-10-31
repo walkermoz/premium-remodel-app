@@ -45,6 +45,7 @@ type SmsComplianceSummary = {
   events: {
     id: string;
     phone: string;
+    sender: string;
     type: "stop" | "start" | "help";
     createdAt: string;
   }[];
@@ -245,8 +246,9 @@ function SmsComplianceWorkflow({ demo }: { demo: boolean }) {
                   <span className="automation-node-kind">HELP · INFO</span>
                   <h2>Send help information</h2>
                   <p>
-                    Twilio replies with support and opt-out instructions. Their
-                    texting status does not change.
+                    Twilio replies with support and opt-out instructions. The
+                    customer can also call (919) 454-4012. Their texting status
+                    does not change.
                   </p>
                 </div>
               </article>
@@ -260,8 +262,8 @@ function SmsComplianceWorkflow({ demo }: { demo: boolean }) {
                   </span>
                   <h2>Add to Do Not Disturb</h2>
                   <p>
-                    Blocks every outbound text from the workspace and at Twilio.
-                    Staff cannot override it.
+                    Blocks outbound texts from that company number in both the
+                    workspace and Twilio. A new lead form cannot override it.
                   </p>
                 </div>
               </article>
@@ -273,12 +275,36 @@ function SmsComplianceWorkflow({ demo }: { demo: boolean }) {
                   <span className="automation-node-kind">START · UNSTOP</span>
                   <h2>Customer restores permission</h2>
                   <p>
-                    Only a new opt-in text from that phone can remove Do Not
-                    Disturb and permit future messages.
+                    Only a new opt-in text from that phone removes the block. It
+                    does not create appointment or marketing consent.
                   </p>
                 </div>
               </article>
             </div>
+
+            <FlowConnector />
+
+            <article className="automation-node is-success">
+              <div className="automation-node-icon is-success">
+                <Check size={18} />
+              </div>
+              <div className="automation-node-copy">
+                <span className="automation-node-kind">
+                  BEFORE ANY CUSTOMER TEXT
+                </span>
+                <h2>Check the website consent category</h2>
+                <p>
+                  The lead form records two independent choices. Appointment,
+                  estimate, scheduling, and project messages require the first;
+                  promotions require the second. Both boxes default to off.
+                </p>
+                <div className="automation-field-map">
+                  <span>Appointment / project → Appointment opt-in</span>
+                  <span>Promotion → Marketing opt-in</span>
+                  <span>STOP → Always blocks the sending number</span>
+                </div>
+              </div>
+            </article>
           </div>
         )}
       </main>
@@ -697,7 +723,7 @@ export default function AutomationPanel({
             </span>
             <span>
               <strong>Inbound text compliance</strong>
-              <small>HELP · STOP · START</small>
+              <small>HELP · STOP · START · Consent</small>
             </span>
             <CircleDot size={14} />
           </button>

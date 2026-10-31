@@ -257,6 +257,7 @@ async function save(request: Request, editing: boolean) {
         "dispositionHistory",
         "smsAppointmentOptIn",
         "smsMarketingOptIn",
+        "smsConsentEvidence",
         "otherSubmittedFields",
         "leadAttribution",
         "websiteSubmission",

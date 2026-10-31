@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     if (eventType)
       await applySmsComplianceEvent({
         organizationId,
+        sender: input.To,
         phone: input.From,
         eventType,
         messageSid: input.MessageSid,

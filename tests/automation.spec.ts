@@ -34,7 +34,12 @@ test("automation workspace visualizes the website lead workflow", async ({
   await expect(
     page.getByRole("heading", { name: "Customer restores permission" }),
   ).toBeVisible();
-  await expect(page.getByText("Staff cannot override it.")).toBeVisible();
+  await expect(
+    page.getByText("A new lead form cannot override it."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Check the website consent category" }),
+  ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

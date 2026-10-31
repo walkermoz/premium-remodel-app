@@ -12,6 +12,7 @@ import { sendWebsiteLeadAcknowledgement } from "@/lib/lead-email";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
+import { websiteSmsConsentEvidence } from "@/lib/sms-consent";
 
 export const runtime = "nodejs";
 
@@ -193,6 +194,12 @@ export async function POST(request: Request) {
       approvalState: "none",
       smsAppointmentOptIn: data.sms_appointment_opt_in,
       smsMarketingOptIn: data.sms_marketing_opt_in,
+      smsConsentEvidence: websiteSmsConsentEvidence({
+        capturedAt: now,
+        origin,
+        appointment: data.sms_appointment_opt_in,
+        marketing: data.sms_marketing_opt_in,
+      }),
       otherSubmittedFields,
       ...(leadAttribution ? { leadAttribution } : {}),
       source: automation.sourceLabel,

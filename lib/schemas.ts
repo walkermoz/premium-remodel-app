@@ -69,6 +69,22 @@ export const schemas = {
       projectDescription: z.string().trim().max(15000),
       smsAppointmentOptIn: z.boolean().optional(),
       smsMarketingOptIn: z.boolean().optional(),
+      smsConsentEvidence: z
+        .object({
+          source: z.literal("premiumremodel.com consultation form"),
+          policyVersion: z.literal("2026-10-21"),
+          privacyUrl: z.literal(
+            "https://www.premiumremodel.com/privacy-policy",
+          ),
+          termsUrl: z.literal(
+            "https://www.premiumremodel.com/terms-and-conditions",
+          ),
+          capturedAt: z.iso.datetime(),
+          origin: z.url().max(300),
+          appointment: z.boolean(),
+          marketing: z.boolean(),
+        })
+        .optional(),
       otherSubmittedFields: z
         .record(z.string().max(80), z.string().max(1000))
         .optional(),
