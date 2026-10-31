@@ -21,6 +21,20 @@ test("automation workspace visualizes the website lead workflow", async ({
   ).toBeVisible();
   await expect(page.getByLabel("Lead source")).toHaveValue("Website form");
   await expect(page.getByLabel("Workflow name")).toBeDisabled();
+  await page.getByRole("button", { name: /Inbound text compliance/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Customer sends a text" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Send help information" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Add to Do Not Disturb" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Customer restores permission" }),
+  ).toBeVisible();
+  await expect(page.getByText("Staff cannot override it.")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

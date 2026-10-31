@@ -9,13 +9,13 @@ import {
 } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/audit-server";
 import { getBusinessConfig } from "@/lib/business-config";
-import { twilioCredentialsForOrganization } from "@/lib/twilio-connection-store";
 import {
   appInstallMessageForBusiness,
   maskedPhone,
   normalizeSmsRecipient,
 } from "@/lib/install-link";
-import { sendTwilioSms, TwilioConnectionError } from "@/lib/twilio-client";
+import { sendOrganizationSms } from "@/lib/sms-compliance";
+import { TwilioConnectionError } from "@/lib/twilio-client";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -43,11 +43,8 @@ export async function POST(request: Request) {
       limitAttempts(`twilio-install:recipient:${recipient}`, 3),
     ]);
 
-    const [credentials, config] = await Promise.all([
-      twilioCredentialsForOrganization(user.organizationId),
-      getBusinessConfig(user),
-    ]);
-    const sent = await sendTwilioSms(credentials, {
+    const config = await getBusinessConfig(user);
+    const sent = await sendOrganizationSms(user.organizationId, {
       to: recipient,
       body: appInstallMessageForBusiness(config.profile.name),
     });

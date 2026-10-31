@@ -1,5 +1,6 @@
 import {
   apiError,
+  appOrigin,
   checkOrigin,
   HttpError,
   limitAttempts,
@@ -14,6 +15,7 @@ import {
   twilioCredentialsForOrganization,
 } from "@/lib/twilio-connection-store";
 import {
+  configureTwilioInboundSms,
   readTwilioConnection,
   TwilioConnectionError,
 } from "@/lib/twilio-client";
@@ -77,12 +79,16 @@ export async function POST(request: Request) {
       );
     await limitAttempts(`twilio-connect:${user.id}`, 10);
     const credentials = connectionInput.parse(await request.json());
-    const connection = await readTwilioConnection(credentials);
+    const verifiedConnection = await readTwilioConnection(credentials);
     if (
-      !connection.account ||
-      connection.account.sid !== credentials.accountSid
+      !verifiedConnection.account ||
+      verifiedConnection.account.sid !== credentials.accountSid
     )
       throw new HttpError(400, "Twilio did not verify this account.");
+    const connection = await configureTwilioInboundSms(
+      credentials,
+      `${appOrigin(request)}/api/twilio/inbound`,
+    );
     await saveTwilioConnection(user.organizationId, user.id, credentials);
     try {
       await recordAuditEvent(user, {

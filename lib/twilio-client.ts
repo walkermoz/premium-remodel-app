@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { TwilioConnection } from "./twilio-types";
 
 export class TwilioConnectionError extends Error {}
+export class TwilioOptOutError extends TwilioConnectionError {}
 
 const accountSchema = z.object({
   sid: z.string().regex(/^AC[0-9a-f]{32}$/i),
@@ -23,6 +24,8 @@ const numbersSchema = z.object({
           sms: z.boolean(),
           mms: z.boolean(),
         }),
+        sms_url: z.string().max(2048).nullable().optional(),
+        sms_method: z.string().max(16).nullable().optional(),
       }),
     )
     .max(50),
@@ -51,6 +54,15 @@ const tollFreeVerificationsSchema = z.object({
 
 function isNanpTollFree(number: string) {
   return /^\+1(?:800|833|844|855|866|877|888)\d{7}$/.test(number);
+}
+
+function isInboundSmsAutomationUrl(value?: string | null) {
+  if (!value) return false;
+  try {
+    return new URL(value).pathname === "/api/twilio/inbound";
+  } catch {
+    return false;
+  }
 }
 
 async function readTollFreeVerification(
@@ -178,6 +190,9 @@ export async function readTwilioConnection(
     voice: n.capabilities.voice,
     sms: n.capabilities.sms,
     mms: n.capabilities.mms,
+    inboundSmsAutomation:
+      n.sms_method?.toUpperCase() === "POST" &&
+      isInboundSmsAutomationUrl(n.sms_url),
   }));
   const smsSender = mappedNumbers.find((number) => number.sms);
   const tollFreeSender =
@@ -210,6 +225,61 @@ export async function readTwilioConnection(
     tollFreeVerification,
     checkedAt: new Date().toISOString(),
   };
+}
+
+export async function configureTwilioInboundSms(
+  credentials: { accountSid?: string; authToken?: string },
+  webhookUrl: string,
+  fetcher: typeof fetch = fetch,
+) {
+  const accountSid = credentials.accountSid?.trim();
+  const authToken = credentials.authToken?.trim();
+  const parsedWebhookUrl = new URL(webhookUrl);
+  if (parsedWebhookUrl.protocol !== "https:")
+    throw new TwilioConnectionError(
+      "Inbound text automation requires a secure HTTPS app URL.",
+    );
+  const connection = await readTwilioConnection(credentials, fetcher);
+  if (!connection.configured || !accountSid || !authToken)
+    throw new TwilioConnectionError("Twilio messaging is not configured.");
+  const numbers = connection.numbers.filter((number) => number.sms);
+  if (!numbers.length)
+    throw new TwilioConnectionError(
+      "The Twilio account does not have an SMS-capable phone number.",
+    );
+
+  for (const number of numbers) {
+    let response: Response;
+    try {
+      response = await fetcher(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers/${number.sid}.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          },
+          body: new URLSearchParams({
+            SmsUrl: parsedWebhookUrl.toString(),
+            SmsMethod: "POST",
+          }),
+          cache: "no-store",
+          redirect: "error",
+          signal: AbortSignal.timeout(12000),
+        },
+      );
+    } catch {
+      throw new TwilioConnectionError(
+        "Twilio could not enable inbound text automation. Please try again.",
+      );
+    }
+    if (!response.ok)
+      throw new TwilioConnectionError(
+        "Twilio could not enable inbound text automation. Check this phone number and try again.",
+      );
+  }
+
+  return readTwilioConnection(credentials, fetcher);
 }
 
 export async function sendTwilioSms(
@@ -287,6 +357,10 @@ export async function sendTwilioSms(
       );
     if (code === 21211)
       throw new TwilioConnectionError("Enter a valid mobile phone number.");
+    if (code === 21610)
+      throw new TwilioOptOutError(
+        "This contact opted out of text messages. They must text START before the company can contact them by text again.",
+      );
     throw new TwilioConnectionError(
       "Twilio could not send the message. Check the account messaging status and try again.",
     );

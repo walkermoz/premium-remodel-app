@@ -2,6 +2,7 @@
 
 import {
   ArrowUpRight,
+  Ban,
   Mail,
   MapPin,
   Pencil,
@@ -79,7 +80,17 @@ export default function CustomerContactsPanel({
             <article className="customer-contact-row" key={contact.id}>
               <Avatar name={contact.name} />
               <div className="customer-contact-main">
-                <h3>{contact.name}</h3>
+                <div className="customer-contact-name">
+                  <h3>{contact.name}</h3>
+                  {contact.smsDoNotDisturb && (
+                    <span
+                      className="customer-contact-dnd"
+                      title="Texting blocked"
+                    >
+                      <Ban size={11} /> Do Not Disturb
+                    </span>
+                  )}
+                </div>
                 <span>
                   {lead
                     ? `${lead.project} · ${lead.status}`

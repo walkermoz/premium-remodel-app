@@ -4565,6 +4565,29 @@ small {
   font-size: 14px;
   color: var(--theme-link, #425e73);
 }
+.customer-contact-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+.customer-contact-name h3 {
+  margin-bottom: 0;
+}
+.customer-contact-dnd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid #b1454542;
+  background: #b145450d;
+  color: #b14545 !important;
+  font-size: 8px !important;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
 .customer-contact-main span {
   font-size: 11px;
   color: var(--theme-text-muted, #7991a5);
@@ -10753,10 +10776,29 @@ small {
   outline: none;
   box-shadow: 0 2px 0 var(--blue);
 }
+.automation-fixed-title {
+  display: block;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 750;
+}
 .automation-version {
   min-height: 28px;
   border-color: #2c9a6342;
   color: #27875a;
+}
+.automation-version.is-warning {
+  border-color: #c990414f;
+  color: #a9651c;
+}
+.automation-inline-error {
+  margin: 14px 18px 0;
+  padding: 10px 12px;
+  border: 1px solid #b1454542;
+  background: #b145450d;
+  color: #b14545;
+  font-size: 10px;
+  line-height: 1.5;
 }
 .automation-builder-controls {
   display: flex;
@@ -10902,6 +10944,24 @@ small {
   background: #f6eee2;
   color: #a86c1d;
 }
+.automation-node.is-danger {
+  border-left-color: #b14545;
+}
+.automation-node.is-success {
+  border-left-color: #2c9a63;
+}
+.automation-node-icon.is-danger {
+  width: 34px;
+  height: 34px;
+  background: #fae7e7;
+  color: #b14545;
+}
+.automation-node-icon.is-success {
+  width: 34px;
+  height: 34px;
+  background: #e2f3e9;
+  color: #27875a;
+}
 .automation-node-kind {
   display: block;
   margin-bottom: 5px;
@@ -11023,6 +11083,10 @@ small {
 .automation-branch-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.automation-sms-actions {
+  display: grid;
   gap: 12px;
 }
 .automation-config-grid {
@@ -11201,6 +11265,25 @@ small {
 .automation-run-status.is-running {
   background: #deebf8;
   color: var(--blue);
+}
+.automation-run-status.is-stop {
+  background: #fae7e7;
+  color: #b14545;
+}
+.automation-run-status.is-start {
+  background: #dff3e8;
+  color: #27875a;
+}
+.automation-run-status.is-help {
+  background: #deebf8;
+  color: var(--blue);
+}
+.automation-sms-event {
+  padding: 13px 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
 }
 .automation-run-summary-copy {
   min-width: 0;

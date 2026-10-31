@@ -14,6 +14,7 @@ export interface TwilioConnection {
     voice: boolean;
     sms: boolean;
     mms: boolean;
+    inboundSmsAutomation: boolean;
   }[];
   hasMoreNumbers: boolean;
   tollFreeVerification: {

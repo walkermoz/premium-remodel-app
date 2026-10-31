@@ -86,6 +86,24 @@ export async function hasTwilioConnection(organizationId: string) {
   return Boolean(await savedConnection(organizationId));
 }
 
+export async function organizationForTwilioAccount(accountSid: string) {
+  const normalized = accountSid.trim();
+  if (!/^AC[0-9a-f]{32}$/i.test(normalized)) return null;
+  if (
+    process.env.SUPABASE_ORGANIZATION_ID &&
+    process.env.TWILIO_ACCOUNT_SID?.trim() === normalized
+  )
+    return process.env.SUPABASE_ORGANIZATION_ID;
+
+  const { data, error } = await supabaseAdmin()
+    .from("remodel_twilio_connections")
+    .select("organization_id")
+    .eq("account_sid", normalized)
+    .maybeSingle();
+  if (error && !["42P01", "PGRST205"].includes(error.code)) throw error;
+  return data?.organization_id || null;
+}
+
 export async function twilioCredentialsForOrganization(
   organizationId: string,
 ): Promise<Credentials> {

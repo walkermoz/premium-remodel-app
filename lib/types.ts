@@ -294,6 +294,7 @@ export interface Contact extends Base {
   zip: string;
   address: string;
   source: string;
+  smsDoNotDisturb?: boolean;
 }
 export const leadStages = [
   "New",

@@ -5,16 +5,21 @@ import {
   AlertCircle,
   ArrowDown,
   BellRing,
+  Ban,
   Check,
   ChevronDown,
   CircleDot,
   Clock3,
   Inbox,
   MailCheck,
+  MessageCircleQuestion,
+  MessageSquareText,
+  PhoneIncoming,
   RefreshCw,
   Save,
   UserRoundSearch,
   UsersRound,
+  UserRoundCheck,
   Workflow,
 } from "lucide-react";
 import type { AutomationRun } from "@/lib/automation-runs";
@@ -31,6 +36,18 @@ type AutomationRevision = {
   definition: WebsiteLeadAutomation;
   actorName: string;
   changedAt: string;
+};
+
+type SmsComplianceSummary = {
+  configured: boolean;
+  numbers: string[];
+  doNotDisturbCount: number;
+  events: {
+    id: string;
+    phone: string;
+    type: "stop" | "start" | "help";
+    createdAt: string;
+  }[];
 };
 
 function Toggle({
@@ -79,6 +96,259 @@ function FlowConnector({ branch = false }: { branch?: boolean }) {
   );
 }
 
+function SmsComplianceWorkflow({ demo }: { demo: boolean }) {
+  const [summary, setSummary] = useState<SmsComplianceSummary>({
+    configured: demo,
+    numbers: demo ? ["+1 (888) 501-0503"] : [],
+    doNotDisturbCount: 0,
+    events: [],
+  });
+  const [loading, setLoading] = useState(!demo);
+  const [configuring, setConfiguring] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (demo) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/automations/sms-compliance", {
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not load phone automation.");
+      setSummary(data);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not load phone automation.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [demo]);
+
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+
+  async function enable() {
+    setConfiguring(true);
+    setError("");
+    try {
+      const response = await fetch("/api/twilio/inbound-config", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not connect inbound texts.");
+      await load();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not connect inbound texts.",
+      );
+    } finally {
+      setConfiguring(false);
+    }
+  }
+
+  return (
+    <>
+      <main className="automation-builder" aria-busy={loading}>
+        <div className="automation-builder-title">
+          <div>
+            <span>REQUIRED COMPLIANCE WORKFLOW</span>
+            <strong className="automation-fixed-title">
+              Inbound text compliance
+            </strong>
+          </div>
+          <div className="automation-builder-controls">
+            <span
+              className={`automation-version ${summary.configured ? "" : "is-warning"}`}
+            >
+              {summary.configured ? "Connected" : "Setup needed"}
+            </span>
+            {!demo && !summary.configured && (
+              <button
+                type="button"
+                className="automation-history-trigger"
+                disabled={configuring || loading}
+                onClick={() => void enable()}
+              >
+                {configuring ? "Connecting…" : "Enable"}
+              </button>
+            )}
+          </div>
+        </div>
+        {error && (
+          <p className="automation-inline-error" role="alert">
+            {error}
+          </p>
+        )}
+        {loading ? (
+          <div className="automation-loading">
+            <RefreshCw className="spin" size={21} /> Loading workflow…
+          </div>
+        ) : (
+          <div className="automation-flow">
+            <article className="automation-node is-trigger">
+              <div className="automation-node-icon">
+                <PhoneIncoming size={19} />
+              </div>
+              <div className="automation-node-copy">
+                <span className="automation-node-kind">TRIGGER</span>
+                <h2>Customer sends a text</h2>
+                <p>
+                  Runs immediately when a message reaches a connected company
+                  number.
+                </p>
+                <div className="automation-node-meta">
+                  {(summary.numbers.length
+                    ? summary.numbers
+                    : ["No SMS number connected"]
+                  ).map((number) => (
+                    <span key={number}>{number}</span>
+                  ))}
+                </div>
+              </div>
+            </article>
+
+            <FlowConnector />
+
+            <article className="automation-node">
+              <div className="automation-node-icon is-contact">
+                <MessageSquareText size={19} />
+              </div>
+              <div className="automation-node-copy">
+                <span className="automation-node-kind">ROUTER</span>
+                <h2>Recognize the compliance keyword</h2>
+                <p>
+                  Keywords are case-insensitive and must be sent as the whole
+                  message. Twilio acknowledges them while the workspace records
+                  the result.
+                </p>
+              </div>
+            </article>
+
+            <FlowConnector />
+
+            <div className="automation-sms-actions">
+              <article className="automation-node is-compact">
+                <div className="automation-node-icon is-email">
+                  <MessageCircleQuestion size={18} />
+                </div>
+                <div className="automation-node-copy">
+                  <span className="automation-node-kind">HELP · INFO</span>
+                  <h2>Send help information</h2>
+                  <p>
+                    Twilio replies with support and opt-out instructions. Their
+                    texting status does not change.
+                  </p>
+                </div>
+              </article>
+              <article className="automation-node is-compact is-danger">
+                <div className="automation-node-icon is-danger">
+                  <Ban size={18} />
+                </div>
+                <div className="automation-node-copy">
+                  <span className="automation-node-kind">
+                    STOP · CANCEL · END
+                  </span>
+                  <h2>Add to Do Not Disturb</h2>
+                  <p>
+                    Blocks every outbound text from the workspace and at Twilio.
+                    Staff cannot override it.
+                  </p>
+                </div>
+              </article>
+              <article className="automation-node is-compact is-success">
+                <div className="automation-node-icon is-success">
+                  <UserRoundCheck size={18} />
+                </div>
+                <div className="automation-node-copy">
+                  <span className="automation-node-kind">START · UNSTOP</span>
+                  <h2>Customer restores permission</h2>
+                  <p>
+                    Only a new opt-in text from that phone can remove Do Not
+                    Disturb and permit future messages.
+                  </p>
+                </div>
+              </article>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <aside className="automation-runs" aria-label="Recent text events">
+        <div className="automation-runs-heading">
+          <div>
+            <Clock3 size={17} />
+            <strong>Recent events</strong>
+          </div>
+          <div className="automation-runs-tools">
+            <span>{summary.doNotDisturbCount} on DND</span>
+            {!demo && (
+              <button
+                type="button"
+                aria-label="Refresh text events"
+                title="Refresh events"
+                disabled={loading}
+                onClick={() => void load()}
+              >
+                <RefreshCw size={14} className={loading ? "spin" : ""} />
+              </button>
+            )}
+          </div>
+        </div>
+        {summary.events.length ? (
+          <div className="automation-run-list">
+            {summary.events.map((event) => (
+              <div className="automation-run" key={event.id}>
+                <div className="automation-sms-event">
+                  <span
+                    className={`automation-run-status is-${event.type}`}
+                    aria-hidden="true"
+                  >
+                    {event.type === "stop" ? (
+                      <Ban size={13} />
+                    ) : event.type === "start" ? (
+                      <Check size={13} />
+                    ) : (
+                      <MessageCircleQuestion size={13} />
+                    )}
+                  </span>
+                  <span className="automation-run-summary-copy">
+                    <strong>{event.phone}</strong>
+                    <span>{event.type.toUpperCase()}</span>
+                    <time dateTime={event.createdAt}>
+                      {new Date(event.createdAt).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="automation-runs-empty">
+            <MessageSquareText size={22} />
+            <strong>No compliance events yet</strong>
+            <p>HELP, STOP, and START texts will appear here.</p>
+          </div>
+        )}
+      </aside>
+    </>
+  );
+}
+
 export default function AutomationPanel({
   user,
   leads,
@@ -88,6 +358,9 @@ export default function AutomationPanel({
   leads: Lead[];
   demo: boolean;
 }) {
+  const [selectedWorkflow, setSelectedWorkflow] = useState<"website" | "sms">(
+    "website",
+  );
   const [automation, setAutomation] = useState<WebsiteLeadAutomation>(
     defaultWebsiteLeadAutomation(),
   );
@@ -347,15 +620,15 @@ export default function AutomationPanel({
             Automation<span className="heading-dot">.</span>
           </h1>
           <p>
-            See what happens when a new inquiry arrives and configure how it
-            becomes a customer and lead.
+            Build visible workflows for new inquiries, customer communication,
+            and required texting compliance.
           </p>
         </div>
         <div className="automation-heading-actions">
           <span className="automation-active-badge">
             <span /> Active
           </span>
-          {editable && (
+          {editable && selectedWorkflow === "website" && (
             <button
               className="button primary"
               type="button"
@@ -394,11 +667,16 @@ export default function AutomationPanel({
           <div className="automation-library-heading">
             <div>
               <span>Workflows</span>
-              <strong>1</strong>
+              <strong>2</strong>
             </div>
-            <p>Changes to this workflow are saved as versions.</p>
+            <p>Select a workflow to see every trigger and action.</p>
           </div>
-          <button className="automation-list-item is-selected" type="button">
+          <button
+            className={`automation-list-item ${selectedWorkflow === "website" ? "is-selected" : ""}`}
+            type="button"
+            aria-pressed={selectedWorkflow === "website"}
+            onClick={() => setSelectedWorkflow("website")}
+          >
             <span className="automation-list-icon">
               <Workflow size={18} />
             </span>
@@ -408,426 +686,465 @@ export default function AutomationPanel({
             </span>
             <CircleDot size={14} />
           </button>
-          <div className="automation-library-summary">
-            <span>Last 30 days</span>
-            <strong>{visibleRecentCount}</strong>
-            <small>
-              {visibleRecentCount === 1 ? "run recorded" : "runs recorded"}
-            </small>
-            {!demo && attentionCount > 0 && (
-              <small className="automation-attention-count">
-                {attentionCount} need attention
+          <button
+            className={`automation-list-item ${selectedWorkflow === "sms" ? "is-selected" : ""}`}
+            type="button"
+            aria-pressed={selectedWorkflow === "sms"}
+            onClick={() => setSelectedWorkflow("sms")}
+          >
+            <span className="automation-list-icon">
+              <MessageSquareText size={18} />
+            </span>
+            <span>
+              <strong>Inbound text compliance</strong>
+              <small>HELP · STOP · START</small>
+            </span>
+            <CircleDot size={14} />
+          </button>
+          {selectedWorkflow === "website" && (
+            <div className="automation-library-summary">
+              <span>Last 30 days</span>
+              <strong>{visibleRecentCount}</strong>
+              <small>
+                {visibleRecentCount === 1 ? "run recorded" : "runs recorded"}
               </small>
-            )}
-          </div>
+              {!demo && attentionCount > 0 && (
+                <small className="automation-attention-count">
+                  {attentionCount} need attention
+                </small>
+              )}
+            </div>
+          )}
         </aside>
 
-        <main className="automation-builder" aria-busy={loading}>
-          <div className="automation-builder-title">
-            <div>
-              <span>WORKFLOW</span>
-              <input
-                aria-label="Workflow name"
-                value={automation.name}
-                disabled={!editable}
-                maxLength={120}
-                onChange={(event) => update({ name: event.target.value })}
-              />
-            </div>
-            <div className="automation-builder-controls">
-              <span className="automation-version">
-                {automation.revision
-                  ? `Version ${automation.revision}`
-                  : "Default settings"}
-              </span>
-              {!demo && (
-                <button
-                  type="button"
-                  className="automation-history-trigger"
-                  aria-expanded={historyOpen}
-                  onClick={toggleHistory}
-                >
-                  History
-                </button>
-              )}
-            </div>
-          </div>
-
-          {historyOpen && (
-            <section
-              className="automation-history"
-              aria-label="Workflow history"
-            >
-              <div className="automation-history-heading">
-                <strong>Saved versions</strong>
-                <span>Restore an earlier version to make it current.</span>
-              </div>
-              {historyError && <p role="alert">{historyError}</p>}
-              {historyLoading ? (
-                <p>Loading history…</p>
-              ) : history.length ? (
-                <ol>
-                  {history.map((item) => (
-                    <li key={item.revision}>
-                      <div>
-                        <strong>Version {item.revision}</strong>
-                        <span>
-                          {item.actorName} ·{" "}
-                          {new Date(item.changedAt).toLocaleString()}
-                        </span>
-                        <small>
-                          {item.definition.initialStage} ·{" "}
-                          {item.definition.initialDisposition} · Email{" "}
-                          {item.definition.sendAcknowledgement ? "on" : "off"}
-                          {" · "}Team{" "}
-                          {item.definition.sendTeamNotification ? "on" : "off"}
-                        </small>
-                      </div>
-                      {editable && item.revision !== automation.revision && (
-                        <button
-                          type="button"
-                          disabled={dirty || restoring || saving}
-                          title={
-                            dirty
-                              ? "Save or discard unsaved changes first"
-                              : undefined
-                          }
-                          onClick={() => void restoreRevision(item)}
-                        >
-                          {restoring ? "Restoring…" : "Restore"}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p>No saved versions yet.</p>
-              )}
-            </section>
-          )}
-
-          {loading ? (
-            <div className="automation-loading">
-              <RefreshCw className="spin" size={21} />
-              Loading workflow…
-            </div>
-          ) : (
-            <div className="automation-flow">
-              <article className="automation-node is-trigger">
-                <div className="automation-node-icon">
-                  <Inbox size={19} />
-                </div>
-                <div className="automation-node-copy">
-                  <span className="automation-node-kind">TRIGGER</span>
-                  <h2>Website form submitted</h2>
-                  <p>
-                    Starts when a customer sends a project inquiry from the
-                    connected company website.
-                  </p>
-                  <div className="automation-node-meta">
-                    <span>Form submission</span>
-                    <span>Runs immediately</span>
-                  </div>
-                </div>
-              </article>
-
-              <FlowConnector />
-
-              <article className="automation-node">
-                <div className="automation-node-icon is-contact">
-                  <UserRoundSearch size={19} />
-                </div>
-                <div className="automation-node-copy">
-                  <span className="automation-node-kind">ACTION 1</span>
-                  <h2>Find or create customer</h2>
-                  <p>
-                    Saves the submitted person as a customer contact before the
-                    sales opportunity is created.
-                  </p>
-                  <div
-                    className="automation-field-map"
-                    aria-label="Contact field mapping"
-                  >
-                    {[
-                      "Name → Customer name",
-                      "Email → Email",
-                      "Phone → Phone",
-                      "Address → Address",
-                    ].map((field) => (
-                      <span key={field}>{field}</span>
-                    ))}
-                  </div>
-                  <Toggle
-                    checked={automation.matchExistingContacts}
+        {selectedWorkflow === "website" ? (
+          <>
+            <main className="automation-builder" aria-busy={loading}>
+              <div className="automation-builder-title">
+                <div>
+                  <span>WORKFLOW</span>
+                  <input
+                    aria-label="Workflow name"
+                    value={automation.name}
                     disabled={!editable}
-                    label="Reuse a customer when email or phone matches"
-                    onChange={(matchExistingContacts) =>
-                      update({ matchExistingContacts })
-                    }
+                    maxLength={120}
+                    onChange={(event) => update({ name: event.target.value })}
                   />
                 </div>
-              </article>
-
-              <FlowConnector />
-
-              <article className="automation-node">
-                <div className="automation-node-icon is-lead">
-                  <UsersRound size={19} />
-                </div>
-                <div className="automation-node-copy">
-                  <span className="automation-node-kind">ACTION 2</span>
-                  <h2>Create lead</h2>
-                  <p>
-                    Links the project request to the customer and places it in
-                    the lead pipeline with these defaults.
-                  </p>
-                  <div className="automation-config-grid">
-                    <label>
-                      <span>Lead source</span>
-                      <input
-                        value={automation.sourceLabel}
-                        disabled={!editable}
-                        maxLength={120}
-                        onChange={(event) =>
-                          update({ sourceLabel: event.target.value })
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span>Starting stage</span>
-                      <select
-                        value={automation.initialStage}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          update({
-                            initialStage: event.target
-                              .value as WebsiteLeadAutomation["initialStage"],
-                          })
-                        }
-                      >
-                        {websiteLeadStages.map((stage) => (
-                          <option key={stage}>{stage}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>Lead list</span>
-                      <select
-                        value={automation.initialDisposition}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          update({
-                            initialDisposition: event.target
-                              .value as WebsiteLeadAutomation["initialDisposition"],
-                          })
-                        }
-                      >
-                        {websiteLeadDispositions.map((disposition) => (
-                          <option key={disposition}>{disposition}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <div
-                    className="automation-field-map"
-                    aria-label="Lead field mapping"
-                  >
-                    <span>Project type → Project</span>
-                    <span>Project details → Description</span>
-                    <span>Customer → Linked contact</span>
-                  </div>
-                </div>
-              </article>
-
-              <FlowConnector branch />
-
-              <div className="automation-branch-grid">
-                <article className="automation-node is-compact">
-                  <div className="automation-node-icon is-email">
-                    <MailCheck size={18} />
-                  </div>
-                  <div className="automation-node-copy">
-                    <span className="automation-node-kind">CUSTOMER</span>
-                    <h2>Send confirmation email</h2>
-                    <p>
-                      Runs when the submitted customer has an email address.
-                    </p>
-                    <Toggle
-                      checked={automation.sendAcknowledgement}
-                      disabled={!editable}
-                      label="Send automatically"
-                      onChange={(sendAcknowledgement) =>
-                        update({ sendAcknowledgement })
-                      }
-                    />
-                  </div>
-                </article>
-                <article className="automation-node is-compact">
-                  <div className="automation-node-icon is-notification">
-                    <BellRing size={18} />
-                  </div>
-                  <div className="automation-node-copy">
-                    <span className="automation-node-kind">TEAM</span>
-                    <h2>Notify the team</h2>
-                    <p>
-                      Sends the connected team channel the new lead details.
-                    </p>
-                    <Toggle
-                      checked={automation.sendTeamNotification}
-                      disabled={!editable}
-                      label="Notify automatically"
-                      onChange={(sendTeamNotification) =>
-                        update({ sendTeamNotification })
-                      }
-                    />
-                  </div>
-                </article>
-              </div>
-            </div>
-          )}
-        </main>
-
-        <aside className="automation-runs" aria-label="Recent workflow runs">
-          <div className="automation-runs-heading">
-            <div>
-              <Clock3 size={17} />
-              <strong>Recent runs</strong>
-            </div>
-            <div className="automation-runs-tools">
-              <span>{demo ? visibleRuns.length : runCount} total</span>
-              {!demo && (
-                <button
-                  type="button"
-                  aria-label="Refresh workflow runs"
-                  title="Refresh runs"
-                  disabled={runsLoading}
-                  onClick={() => void loadRuns()}
-                >
-                  <RefreshCw size={14} className={runsLoading ? "spin" : ""} />
-                </button>
-              )}
-            </div>
-          </div>
-          {runsError && (
-            <p className="automation-runs-error" role="alert">
-              {runsError}
-            </p>
-          )}
-          {visibleRuns.length ? (
-            <div className="automation-run-list">
-              {visibleRuns.map((run) => (
-                <div className="automation-run" key={run.id}>
-                  <button
-                    className="automation-run-summary"
-                    type="button"
-                    aria-expanded={expandedRunId === run.id}
-                    onClick={() =>
-                      setExpandedRunId((current) =>
-                        current === run.id ? null : run.id,
-                      )
-                    }
-                  >
-                    <span
-                      className={`automation-run-status is-${run.status}`}
-                      aria-hidden="true"
+                <div className="automation-builder-controls">
+                  <span className="automation-version">
+                    {automation.revision
+                      ? `Version ${automation.revision}`
+                      : "Default settings"}
+                  </span>
+                  {!demo && (
+                    <button
+                      type="button"
+                      className="automation-history-trigger"
+                      aria-expanded={historyOpen}
+                      onClick={toggleHistory}
                     >
-                      {run.status === "needs_attention" ? (
-                        <AlertCircle size={13} />
-                      ) : run.status === "running" ? (
-                        <Clock3 size={13} />
-                      ) : (
-                        <Check size={13} />
-                      )}
-                    </span>
-                    <span className="automation-run-summary-copy">
-                      <strong>{run.subject || "Website customer"}</strong>
-                      <span>{run.project || "Project inquiry"}</span>
-                      <time dateTime={run.startedAt}>
-                        {new Date(run.startedAt).toLocaleString([], {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                    </span>
-                    <ChevronDown
-                      size={14}
-                      className={expandedRunId === run.id ? "is-open" : ""}
-                    />
-                  </button>
-                  {expandedRunId === run.id && (
-                    <div className="automation-run-details">
-                      <strong>
-                        {run.status === "needs_attention"
-                          ? "Needs attention"
-                          : run.status === "running"
-                            ? "Running"
-                            : "Completed"}
-                      </strong>
-                      <ol>
-                        {run.steps.map((step) => (
-                          <li key={step.key}>
-                            <span>{step.label}</span>
-                            <b>{step.status.replaceAll("_", " ")}</b>
-                            {step.detail && <small>{step.detail}</small>}
-                            {step.attempts && step.attempts > 1 && (
-                              <small>{step.attempts} attempts</small>
-                            )}
-                            {step.status === "unknown" && (
-                              <small>
-                                Delivery may have succeeded. Check the mailbox
-                                or team channel before sending again.
-                              </small>
-                            )}
-                            {editable &&
-                              (step.key === "email" || step.key === "team") &&
-                              (step.status === "failed" ||
-                                step.status === "not_configured") && (
-                                <button
-                                  className="automation-run-retry"
-                                  type="button"
-                                  disabled={Boolean(retryingStep)}
-                                  onClick={() =>
-                                    void retry(
-                                      run.id,
-                                      step.key as "email" | "team",
-                                    )
-                                  }
-                                >
-                                  {retryingStep === `${run.id}:${step.key}`
-                                    ? "Retrying…"
-                                    : "Retry action"}
-                                </button>
-                              )}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
+                      History
+                    </button>
                   )}
                 </div>
-              ))}
-              {!demo && visibleRuns.length < runCount && (
-                <button
-                  className="automation-runs-more"
-                  type="button"
-                  disabled={runsLoading}
-                  onClick={() => void loadRuns(visibleRuns.length)}
+              </div>
+
+              {historyOpen && (
+                <section
+                  className="automation-history"
+                  aria-label="Workflow history"
                 >
-                  {runsLoading ? "Loading…" : "Load more runs"}
-                </button>
+                  <div className="automation-history-heading">
+                    <strong>Saved versions</strong>
+                    <span>Restore an earlier version to make it current.</span>
+                  </div>
+                  {historyError && <p role="alert">{historyError}</p>}
+                  {historyLoading ? (
+                    <p>Loading history…</p>
+                  ) : history.length ? (
+                    <ol>
+                      {history.map((item) => (
+                        <li key={item.revision}>
+                          <div>
+                            <strong>Version {item.revision}</strong>
+                            <span>
+                              {item.actorName} ·{" "}
+                              {new Date(item.changedAt).toLocaleString()}
+                            </span>
+                            <small>
+                              {item.definition.initialStage} ·{" "}
+                              {item.definition.initialDisposition} · Email{" "}
+                              {item.definition.sendAcknowledgement
+                                ? "on"
+                                : "off"}
+                              {" · "}Team{" "}
+                              {item.definition.sendTeamNotification
+                                ? "on"
+                                : "off"}
+                            </small>
+                          </div>
+                          {editable &&
+                            item.revision !== automation.revision && (
+                              <button
+                                type="button"
+                                disabled={dirty || restoring || saving}
+                                title={
+                                  dirty
+                                    ? "Save or discard unsaved changes first"
+                                    : undefined
+                                }
+                                onClick={() => void restoreRevision(item)}
+                              >
+                                {restoring ? "Restoring…" : "Restore"}
+                              </button>
+                            )}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p>No saved versions yet.</p>
+                  )}
+                </section>
               )}
-            </div>
-          ) : (
-            <div className="automation-runs-empty">
-              <Workflow size={22} />
-              <strong>{runsLoading ? "Loading runs…" : "No runs yet"}</strong>
-              <p>
-                New website inquiries will appear here after they are captured.
-              </p>
-            </div>
-          )}
-        </aside>
+
+              {loading ? (
+                <div className="automation-loading">
+                  <RefreshCw className="spin" size={21} />
+                  Loading workflow…
+                </div>
+              ) : (
+                <div className="automation-flow">
+                  <article className="automation-node is-trigger">
+                    <div className="automation-node-icon">
+                      <Inbox size={19} />
+                    </div>
+                    <div className="automation-node-copy">
+                      <span className="automation-node-kind">TRIGGER</span>
+                      <h2>Website form submitted</h2>
+                      <p>
+                        Starts when a customer sends a project inquiry from the
+                        connected company website.
+                      </p>
+                      <div className="automation-node-meta">
+                        <span>Form submission</span>
+                        <span>Runs immediately</span>
+                      </div>
+                    </div>
+                  </article>
+
+                  <FlowConnector />
+
+                  <article className="automation-node">
+                    <div className="automation-node-icon is-contact">
+                      <UserRoundSearch size={19} />
+                    </div>
+                    <div className="automation-node-copy">
+                      <span className="automation-node-kind">ACTION 1</span>
+                      <h2>Find or create customer</h2>
+                      <p>
+                        Saves the submitted person as a customer contact before
+                        the sales opportunity is created.
+                      </p>
+                      <div
+                        className="automation-field-map"
+                        aria-label="Contact field mapping"
+                      >
+                        {[
+                          "Name → Customer name",
+                          "Email → Email",
+                          "Phone → Phone",
+                          "Address → Address",
+                        ].map((field) => (
+                          <span key={field}>{field}</span>
+                        ))}
+                      </div>
+                      <Toggle
+                        checked={automation.matchExistingContacts}
+                        disabled={!editable}
+                        label="Reuse a customer when email or phone matches"
+                        onChange={(matchExistingContacts) =>
+                          update({ matchExistingContacts })
+                        }
+                      />
+                    </div>
+                  </article>
+
+                  <FlowConnector />
+
+                  <article className="automation-node">
+                    <div className="automation-node-icon is-lead">
+                      <UsersRound size={19} />
+                    </div>
+                    <div className="automation-node-copy">
+                      <span className="automation-node-kind">ACTION 2</span>
+                      <h2>Create lead</h2>
+                      <p>
+                        Links the project request to the customer and places it
+                        in the lead pipeline with these defaults.
+                      </p>
+                      <div className="automation-config-grid">
+                        <label>
+                          <span>Lead source</span>
+                          <input
+                            value={automation.sourceLabel}
+                            disabled={!editable}
+                            maxLength={120}
+                            onChange={(event) =>
+                              update({ sourceLabel: event.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          <span>Starting stage</span>
+                          <select
+                            value={automation.initialStage}
+                            disabled={!editable}
+                            onChange={(event) =>
+                              update({
+                                initialStage: event.target
+                                  .value as WebsiteLeadAutomation["initialStage"],
+                              })
+                            }
+                          >
+                            {websiteLeadStages.map((stage) => (
+                              <option key={stage}>{stage}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          <span>Lead list</span>
+                          <select
+                            value={automation.initialDisposition}
+                            disabled={!editable}
+                            onChange={(event) =>
+                              update({
+                                initialDisposition: event.target
+                                  .value as WebsiteLeadAutomation["initialDisposition"],
+                              })
+                            }
+                          >
+                            {websiteLeadDispositions.map((disposition) => (
+                              <option key={disposition}>{disposition}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div
+                        className="automation-field-map"
+                        aria-label="Lead field mapping"
+                      >
+                        <span>Project type → Project</span>
+                        <span>Project details → Description</span>
+                        <span>Customer → Linked contact</span>
+                      </div>
+                    </div>
+                  </article>
+
+                  <FlowConnector branch />
+
+                  <div className="automation-branch-grid">
+                    <article className="automation-node is-compact">
+                      <div className="automation-node-icon is-email">
+                        <MailCheck size={18} />
+                      </div>
+                      <div className="automation-node-copy">
+                        <span className="automation-node-kind">CUSTOMER</span>
+                        <h2>Send confirmation email</h2>
+                        <p>
+                          Runs when the submitted customer has an email address.
+                        </p>
+                        <Toggle
+                          checked={automation.sendAcknowledgement}
+                          disabled={!editable}
+                          label="Send automatically"
+                          onChange={(sendAcknowledgement) =>
+                            update({ sendAcknowledgement })
+                          }
+                        />
+                      </div>
+                    </article>
+                    <article className="automation-node is-compact">
+                      <div className="automation-node-icon is-notification">
+                        <BellRing size={18} />
+                      </div>
+                      <div className="automation-node-copy">
+                        <span className="automation-node-kind">TEAM</span>
+                        <h2>Notify the team</h2>
+                        <p>
+                          Sends the connected team channel the new lead details.
+                        </p>
+                        <Toggle
+                          checked={automation.sendTeamNotification}
+                          disabled={!editable}
+                          label="Notify automatically"
+                          onChange={(sendTeamNotification) =>
+                            update({ sendTeamNotification })
+                          }
+                        />
+                      </div>
+                    </article>
+                  </div>
+                </div>
+              )}
+            </main>
+
+            <aside
+              className="automation-runs"
+              aria-label="Recent workflow runs"
+            >
+              <div className="automation-runs-heading">
+                <div>
+                  <Clock3 size={17} />
+                  <strong>Recent runs</strong>
+                </div>
+                <div className="automation-runs-tools">
+                  <span>{demo ? visibleRuns.length : runCount} total</span>
+                  {!demo && (
+                    <button
+                      type="button"
+                      aria-label="Refresh workflow runs"
+                      title="Refresh runs"
+                      disabled={runsLoading}
+                      onClick={() => void loadRuns()}
+                    >
+                      <RefreshCw
+                        size={14}
+                        className={runsLoading ? "spin" : ""}
+                      />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {runsError && (
+                <p className="automation-runs-error" role="alert">
+                  {runsError}
+                </p>
+              )}
+              {visibleRuns.length ? (
+                <div className="automation-run-list">
+                  {visibleRuns.map((run) => (
+                    <div className="automation-run" key={run.id}>
+                      <button
+                        className="automation-run-summary"
+                        type="button"
+                        aria-expanded={expandedRunId === run.id}
+                        onClick={() =>
+                          setExpandedRunId((current) =>
+                            current === run.id ? null : run.id,
+                          )
+                        }
+                      >
+                        <span
+                          className={`automation-run-status is-${run.status}`}
+                          aria-hidden="true"
+                        >
+                          {run.status === "needs_attention" ? (
+                            <AlertCircle size={13} />
+                          ) : run.status === "running" ? (
+                            <Clock3 size={13} />
+                          ) : (
+                            <Check size={13} />
+                          )}
+                        </span>
+                        <span className="automation-run-summary-copy">
+                          <strong>{run.subject || "Website customer"}</strong>
+                          <span>{run.project || "Project inquiry"}</span>
+                          <time dateTime={run.startedAt}>
+                            {new Date(run.startedAt).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </time>
+                        </span>
+                        <ChevronDown
+                          size={14}
+                          className={expandedRunId === run.id ? "is-open" : ""}
+                        />
+                      </button>
+                      {expandedRunId === run.id && (
+                        <div className="automation-run-details">
+                          <strong>
+                            {run.status === "needs_attention"
+                              ? "Needs attention"
+                              : run.status === "running"
+                                ? "Running"
+                                : "Completed"}
+                          </strong>
+                          <ol>
+                            {run.steps.map((step) => (
+                              <li key={step.key}>
+                                <span>{step.label}</span>
+                                <b>{step.status.replaceAll("_", " ")}</b>
+                                {step.detail && <small>{step.detail}</small>}
+                                {step.attempts && step.attempts > 1 && (
+                                  <small>{step.attempts} attempts</small>
+                                )}
+                                {step.status === "unknown" && (
+                                  <small>
+                                    Delivery may have succeeded. Check the
+                                    mailbox or team channel before sending
+                                    again.
+                                  </small>
+                                )}
+                                {editable &&
+                                  (step.key === "email" ||
+                                    step.key === "team") &&
+                                  (step.status === "failed" ||
+                                    step.status === "not_configured") && (
+                                    <button
+                                      className="automation-run-retry"
+                                      type="button"
+                                      disabled={Boolean(retryingStep)}
+                                      onClick={() =>
+                                        void retry(
+                                          run.id,
+                                          step.key as "email" | "team",
+                                        )
+                                      }
+                                    >
+                                      {retryingStep === `${run.id}:${step.key}`
+                                        ? "Retrying…"
+                                        : "Retry action"}
+                                    </button>
+                                  )}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {!demo && visibleRuns.length < runCount && (
+                    <button
+                      className="automation-runs-more"
+                      type="button"
+                      disabled={runsLoading}
+                      onClick={() => void loadRuns(visibleRuns.length)}
+                    >
+                      {runsLoading ? "Loading…" : "Load more runs"}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="automation-runs-empty">
+                  <Workflow size={22} />
+                  <strong>
+                    {runsLoading ? "Loading runs…" : "No runs yet"}
+                  </strong>
+                  <p>
+                    New website inquiries will appear here after they are
+                    captured.
+                  </p>
+                </div>
+              )}
+            </aside>
+          </>
+        ) : (
+          <SmsComplianceWorkflow demo={demo} />
+        )}
       </div>
     </div>
   );

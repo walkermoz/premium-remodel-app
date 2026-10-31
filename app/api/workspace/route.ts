@@ -51,6 +51,8 @@ import {
   canEditWorkspaceRecord,
   filterWorkspaceForTabs,
 } from "@/lib/workspace-tab-access";
+import { normalizeSmsRecipient } from "@/lib/install-link";
+import { smsDoNotDisturbPhones } from "@/lib/sms-compliance";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const filesBucket = "remodel-files";
@@ -109,12 +111,23 @@ async function validateLegacyCover(user: WorkspaceUser, cover: Attachment) {
 export async function GET() {
   try {
     const user = await requireUser();
-    const [workspace, config] = await Promise.all([
+    const [workspace, config, doNotDisturbPhones] = await Promise.all([
       getWorkspace(user),
       getBusinessConfig(user),
+      smsDoNotDisturbPhones(user.organizationId),
     ]);
+    const workspaceWithSmsPreferences = {
+      ...workspace,
+      contacts: workspace.contacts.map((contact) => ({
+        ...contact,
+        smsDoNotDisturb: Boolean(
+          contact.phone &&
+          doNotDisturbPhones.has(normalizeSmsRecipient(contact.phone) || ""),
+        ),
+      })),
+    };
     return Response.json(
-      filterWorkspaceForTabs(workspace, config, user.group),
+      filterWorkspaceForTabs(workspaceWithSmsPreferences, config, user.group),
       {
         headers: { "Cache-Control": "private, no-store" },
       },
