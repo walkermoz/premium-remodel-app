@@ -6,7 +6,41 @@ const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
 
 cloudTest(
-  "another organization owner cannot create a business",
+  "organization setup status is limited to administrators",
+  async ({ company, page }) => {
+    const memberUser = await company.admin.auth.admin.createUser({
+      email: company.memberEmail,
+      password,
+      email_confirm: true,
+    });
+    expect(memberUser.error).toBeNull();
+    const memberProfile = await company.admin.from("profiles").insert({
+      organization_id: company.organizationId,
+      auth_user_id: memberUser.data.user!.id,
+      full_name: "Workspace Member",
+      email: company.memberEmail,
+      role: "office",
+      active: true,
+    });
+    expect(memberProfile.error).toBeNull();
+    const login = await page.request.post("/api/auth", {
+      headers: origin,
+      data: { action: "login", email: company.memberEmail, password },
+    });
+    expect(login.status()).toBe(200);
+    expect((await page.request.get("/api/onboarding/status")).status()).toBe(
+      403,
+    );
+    expect((await page.request.get("/api/twilio/config")).status()).toBe(403);
+    expect((await page.request.get("/api/admin/api-keys")).status()).toBe(403);
+    const mail = await page.request.get("/api/google-mail");
+    expect(mail.status()).toBe(200);
+    expect(await mail.json()).toEqual({ connected: false });
+  },
+);
+
+cloudTest(
+  "an organization owner can create another business",
   async ({ company, page }) => {
     const login = await page.request.post("/api/auth", {
       headers: origin,
@@ -15,9 +49,33 @@ cloudTest(
     expect(login.status()).toBe(200);
     const attempt = await page.request.put("/api/organizations", {
       headers: origin,
-      data: { name: "Unauthorized test business" },
+      data: { name: "Owner test business" },
     });
-    expect(attempt.status()).toBe(403);
+    expect(attempt.status()).toBe(201);
+    const created = (await attempt.json()) as { id: string };
+    try {
+      const listed = await page.request.get("/api/organizations");
+      expect(listed.status()).toBe(200);
+      expect((await listed.json()).organizations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: created.id,
+            name: "Owner test business",
+          }),
+        ]),
+      );
+    } finally {
+      const membership = await company.admin
+        .from("remodel_memberships")
+        .delete()
+        .eq("organization_id", created.id);
+      expect(membership.error).toBeNull();
+      const organization = await company.admin
+        .from("organizations")
+        .delete()
+        .eq("id", created.id);
+      expect(organization.error).toBeNull();
+    }
   },
 );
 

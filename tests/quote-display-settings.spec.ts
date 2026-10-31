@@ -4,6 +4,10 @@ test("Premium Remodel defaults customer quotes to scope and total only", async (
   page,
 }) => {
   await page.goto("/demo?view=Settings");
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Business/ })
+    .click();
   await page.getByRole("button", { name: "Quotes & payments" }).click();
   const detail = page.getByLabel("Customer quote price detail");
   await expect(detail).toHaveValue("total");

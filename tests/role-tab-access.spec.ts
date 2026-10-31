@@ -27,6 +27,10 @@ test("role tab editor supports ordering, removing, and adding tabs", async ({
   page,
 }) => {
   await page.goto("/demo?view=Settings");
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Business/ })
+    .click();
   await page.getByRole("button", { name: "Tab access by role" }).click();
   const access = page.getByRole("region", { name: "Tab access by role" });
   await expect(access.getByLabel("Role")).toHaveValue("admin");
@@ -59,11 +63,11 @@ test("role tab editor supports ordering, removing, and adding tabs", async ({
   await editor.getByRole("button", { name: "Done arranging" }).click();
 
   await access.getByLabel("Role").selectOption("doorknocker");
-  await expect(access.getByText("Door knocking", { exact: true })).toBeVisible();
+  await expect(
+    access.getByText("Door knocking", { exact: true }),
+  ).toBeVisible();
   await access.getByRole("button", { name: "Configure tabs" }).click();
   editor = page.getByRole("dialog", { name: "Configure Door knocker tabs" });
   await editor.getByRole("button", { name: "Add tabs" }).click();
-  await expect(editor.getByRole("menuitem", { name: "Quotes" })).toHaveCount(
-    0,
-  );
+  await expect(editor.getByRole("menuitem", { name: "Quotes" })).toHaveCount(0);
 });

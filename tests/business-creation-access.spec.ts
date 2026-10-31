@@ -1,32 +1,51 @@
 import { expect, test } from "@playwright/test";
 import { canCreateBusiness } from "@/lib/business-creation-access";
 
-const walker = {
-  authUserId: "99d8fe1e-d455-4804-a285-a92b7ae610c4",
-  email: "walker@premiumremodel.com",
+const owner = {
   role: "admin" as const,
+  group: "owner" as const,
 };
 
-test("only Walker's personal account may create an organization", () => {
-  expect(canCreateBusiness(walker)).toBe(true);
-  expect(
-    canCreateBusiness({
-      ...walker,
-      authUserId: "a3fc0703-a105-4414-9cef-6d7dc11cbb36",
-    }),
-  ).toBe(false);
-  expect(
-    canCreateBusiness({ ...walker, email: "contact@premiumremodel.com" }),
-  ).toBe(false);
-  expect(canCreateBusiness({ ...walker, role: "member" })).toBe(false);
+test("business owners can create organizations; staff cannot", () => {
+  expect(canCreateBusiness(owner)).toBe(true);
+  expect(canCreateBusiness({ ...owner, group: "office" })).toBe(false);
+  expect(canCreateBusiness({ ...owner, role: "member" })).toBe(false);
 });
 
-test("business creation is absent from workspace settings", async ({
+test("business creation is available in workspace setup", async ({ page }) => {
+  await page.goto("/demo?view=Settings");
+  await expect(
+    page.getByRole("heading", { name: "Get your business ready" }),
+  ).toBeVisible();
+});
+
+test("non-administrators cannot see organization settings", async ({
   page,
 }) => {
-  await page.goto("/demo?view=Settings");
-  await expect(page.getByText("Add another business")).toHaveCount(0);
+  await page.goto("/demo?as=doorknocker&view=Settings");
+  const categories = page.getByRole("navigation", {
+    name: "Settings categories",
+  });
   await expect(
-    page.getByRole("button", { name: "Create business" }),
+    categories.getByRole("button", { name: /Get started/ }),
   ).toHaveCount(0);
+  await expect(
+    categories.getByRole("button", { name: /Business/ }),
+  ).toHaveCount(0);
+  await expect(
+    categories.getByRole("button", { name: /Connections/ }),
+  ).toHaveCount(0);
+  await expect(
+    categories.getByRole("button", { name: /Workspace/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Get your business ready" }),
+  ).toHaveCount(0);
+  await categories.getByRole("button", { name: /My account/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Account security" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Google Calendar/ }),
+  ).toBeVisible();
 });

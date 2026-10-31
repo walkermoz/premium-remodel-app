@@ -15,6 +15,7 @@ import ApiKeysSettings from "./api-keys-settings";
 import type { WorkspaceAlert } from "@/lib/types";
 import type { BusinessConfig } from "@/lib/business-config";
 import BusinessSettings from "./business-settings";
+import BusinessOnboarding from "./business-onboarding";
 export default function SettingsPanel({
   user,
   config,
@@ -36,9 +37,15 @@ export default function SettingsPanel({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
+  const admin = user.role === "admin";
   const [section, setSection] = useState<
-    "business" | "workspace" | "connections" | "account"
-  >("business");
+    "setup" | "business" | "workspace" | "connections" | "account"
+  >(admin ? "setup" : "workspace");
+  const visibleSection =
+    admin ||
+    (section !== "setup" && section !== "business" && section !== "connections")
+      ? section
+      : "workspace";
   return (
     <>
       <div className="page-heading">
@@ -50,20 +57,36 @@ export default function SettingsPanel({
           <p>Your company workspace and account preferences.</p>
         </div>
       </div>
-      <nav className="settings-main-nav" aria-label="Settings categories">
+      <nav
+        className={`settings-main-nav${admin ? "" : " personal-only"}`}
+        aria-label="Settings categories"
+      >
         {(
           [
-            ["business", "Business", "Brand, company, quotes & access"],
+            ...(admin
+              ? ([
+                  ["setup", "Get started", "Setup checklist"],
+                  ["business", "Business", "Brand, company, quotes & access"],
+                ] as const)
+              : []),
             ["workspace", "Workspace", "Display and tools"],
-            ["connections", "Connections", "Calendar, email & services"],
-            ["account", "My account", "Security"],
+            ...(admin
+              ? ([
+                  [
+                    "connections",
+                    "Connections",
+                    "Email, phone & developer access",
+                  ],
+                ] as const)
+              : []),
+            ["account", "My account", "Security & calendar"],
           ] as const
         ).map(([id, label, description]) => (
           <button
             key={id}
             type="button"
-            className={section === id ? "active" : ""}
-            aria-current={section === id ? "page" : undefined}
+            className={visibleSection === id ? "active" : ""}
+            aria-current={visibleSection === id ? "page" : undefined}
             onClick={() => setSection(id)}
           >
             <strong>{label}</strong>
@@ -71,27 +94,34 @@ export default function SettingsPanel({
           </button>
         ))}
       </nav>
-      <div hidden={section !== "business"}>
-        <BusinessSettings
-          initial={config}
-          admin={user.role === "admin"}
+      {admin && visibleSection === "setup" && (
+        <BusinessOnboarding
+          config={config}
+          owner={user.group === "owner"}
+          admin={admin}
           demo={demo}
+          onNavigate={setSection}
         />
-      </div>
-      {section === "workspace" && (
+      )}
+      {admin && (
+        <div hidden={visibleSection !== "business"}>
+          <BusinessSettings initial={config} admin demo={demo} />
+        </div>
+      )}
+      {visibleSection === "workspace" && (
         <>
           <AppearanceSettings />
           <InstallAppPanel />
-          {user.role === "admin" && (
+          {admin && (
             <WorkspaceAlertSettings
               alerts={alerts}
               onSave={onSaveAlert}
               onRemove={onRemoveAlert}
             />
           )}
-          {user.role === "admin" && <WorkspaceHistorySettings demo={demo} />}
-          <GenerationSettings demo={demo} admin={user.role === "admin"} />
-          {config.profile.addressPriority === "wake" && (
+          {admin && <WorkspaceHistorySettings demo={demo} />}
+          {admin && <GenerationSettings demo={demo} admin />}
+          {admin && config.profile.addressPriority === "wake" && (
             <div className="settings-section">
               <div className="settings-title">
                 <MapPin size={22} />
@@ -113,7 +143,7 @@ export default function SettingsPanel({
           )}
         </>
       )}
-      {section === "connections" && (
+      {admin && visibleSection === "connections" && (
         <>
           <div className="connections-intro">
             <span className="eyebrow">SET UP YOUR BUSINESS</span>
@@ -121,121 +151,118 @@ export default function SettingsPanel({
             <p>
               Each business keeps its own mailbox and phone account. An
               administrator can connect them here; teammates do not need access
-              to the credentials. Google Calendar is connected separately by
-              each person who wants a calendar copy.
+              to the credentials.
             </p>
           </div>
           <GoogleMailSettings demo={demo} />
-          <GoogleCalendarSettings demo={demo} />
-          {user.role === "admin" && (
-            <TwilioSettings demo={demo} businessName={config.profile.name} />
-          )}
-          {user.role === "admin" && (
-            <details className="connections-advanced">
-              <summary>
-                Advanced connections <span>Admin API keys</span>
-              </summary>
-              <ApiKeysSettings demo={demo} />
-            </details>
-          )}
+          <TwilioSettings demo={demo} businessName={config.profile.name} />
+          <details className="connections-advanced">
+            <summary>
+              Advanced connections <span>Developer API access</span>
+            </summary>
+            <ApiKeysSettings demo={demo} />
+          </details>
         </>
       )}
-      {section === "account" && (
-        <div className="settings-section">
-          <div className="settings-title">
-            <LockKeyhole size={22} />
-            <div>
-              <h2>Account security</h2>
-              <p>{user.email}</p>
-            </div>
-          </div>
-          <form
-            className="settings-form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setMessage("");
-              setError(false);
-              if (demo) {
-                setError(true);
-                setMessage(
-                  "Password changes are available in your real workspace.",
-                );
-                return;
-              }
-              setBusy(true);
-              const form = e.currentTarget;
-              try {
-                const fields = Object.fromEntries(new FormData(form));
-                if (fields.password !== fields.confirm)
-                  throw new Error("The new passwords do not match.");
-                const response = await fetch("/api/auth", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ action: "password", ...fields }),
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error);
-                setMessage(
-                  "Password updated. Other sessions have been signed out.",
-                );
-                form.reset();
-              } catch (err) {
-                setError(true);
-                setMessage(
-                  err instanceof Error
-                    ? err.message
-                    : "Could not update password.",
-                );
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <label>
-              Current password
-              <input
-                type="password"
-                name="current"
-                autoComplete="current-password"
-                required
-                maxLength={128}
-              />
-            </label>
-            <div className="form-grid">
-              <label>
-                New password
-                <input
-                  type="password"
-                  name="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={12}
-                  maxLength={128}
-                  placeholder="At least 12 characters"
-                />
-              </label>
-              <label>
-                Confirm new password
-                <input
-                  type="password"
-                  name="confirm"
-                  autoComplete="new-password"
-                  required
-                  minLength={12}
-                  maxLength={128}
-                />
-              </label>
-            </div>
-            {message && (
-              <div className={error ? "alert" : "success-note"} role="status">
-                {message}
+      {visibleSection === "account" && (
+        <>
+          <div className="settings-section">
+            <div className="settings-title">
+              <LockKeyhole size={22} />
+              <div>
+                <h2>Account security</h2>
+                <p>{user.email}</p>
               </div>
-            )}
-            <button className="button primary" disabled={busy}>
-              {busy ? "Updating…" : "Update password"}
-            </button>
-          </form>
-        </div>
+            </div>
+            <form
+              className="settings-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setMessage("");
+                setError(false);
+                if (demo) {
+                  setError(true);
+                  setMessage(
+                    "Password changes are available in your real workspace.",
+                  );
+                  return;
+                }
+                setBusy(true);
+                const form = e.currentTarget;
+                try {
+                  const fields = Object.fromEntries(new FormData(form));
+                  if (fields.password !== fields.confirm)
+                    throw new Error("The new passwords do not match.");
+                  const response = await fetch("/api/auth", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "password", ...fields }),
+                  });
+                  const data = await response.json();
+                  if (!response.ok) throw new Error(data.error);
+                  setMessage(
+                    "Password updated. Other sessions have been signed out.",
+                  );
+                  form.reset();
+                } catch (err) {
+                  setError(true);
+                  setMessage(
+                    err instanceof Error
+                      ? err.message
+                      : "Could not update password.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                Current password
+                <input
+                  type="password"
+                  name="current"
+                  autoComplete="current-password"
+                  required
+                  maxLength={128}
+                />
+              </label>
+              <div className="form-grid">
+                <label>
+                  New password
+                  <input
+                    type="password"
+                    name="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={12}
+                    maxLength={128}
+                    placeholder="At least 12 characters"
+                  />
+                </label>
+                <label>
+                  Confirm new password
+                  <input
+                    type="password"
+                    name="confirm"
+                    autoComplete="new-password"
+                    required
+                    minLength={12}
+                    maxLength={128}
+                  />
+                </label>
+              </div>
+              {message && (
+                <div className={error ? "alert" : "success-note"} role="status">
+                  {message}
+                </div>
+              )}
+              <button className="button primary" disabled={busy}>
+                {busy ? "Updating…" : "Update password"}
+              </button>
+            </form>
+          </div>
+          <GoogleCalendarSettings demo={demo} />
+        </>
       )}
     </>
   );

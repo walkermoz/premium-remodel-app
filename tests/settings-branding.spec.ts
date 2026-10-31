@@ -4,6 +4,10 @@ test("business branding is organized and keeps edits while browsing settings", a
   page,
 }) => {
   await page.goto("/demo?view=Settings");
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Business/ })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Brand assets" }),
   ).toBeVisible();
@@ -25,7 +29,7 @@ test("business branding is organized and keeps edits while browsing settings", a
 
   await page
     .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Connections/ })
+    .getByRole("button", { name: /My account/ })
     .click();
   await expect(
     page.getByRole("heading", { name: "Google Calendar", exact: true }),
@@ -49,6 +53,10 @@ test("brand previews show asset placement without leaving settings", async ({
   page,
 }) => {
   await page.goto("/demo?view=Settings");
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: /Business/ })
+    .click();
 
   await page.getByRole("button", { name: "See in context" }).first().click();
   const preview = page.getByRole("dialog", { name: "Primary logo" });

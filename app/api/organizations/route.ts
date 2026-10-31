@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { cookies } from "next/headers";
-import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
+import {
+  apiError,
+  checkOrigin,
+  HttpError,
+  limitAttempts,
+  requireUser,
+} from "@/lib/auth";
 import { organizationCookie } from "@/lib/organization-context";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { canCreateBusiness } from "@/lib/business-creation-access";
@@ -65,11 +71,22 @@ export async function PUT(request: Request) {
     if (!canCreateBusiness(user))
       throw new HttpError(
         403,
-        "Only Walker's designated account can create a business.",
+        "Only a business owner can create another business.",
       );
+    await limitAttempts(`create-business:${user.authUserId}`, 5);
     const { name } = z
       .object({ name: z.string().trim().min(2).max(120) })
       .parse(await request.json());
+    const existing = await memberships();
+    if (
+      existing.some(
+        (item) => item.name.trim().toLowerCase() === name.toLowerCase(),
+      )
+    )
+      throw new HttpError(
+        409,
+        "You already belong to a business with this name.",
+      );
     const { data, error } = await supabaseAdmin().rpc(
       "remodel_create_business",
       {
@@ -78,7 +95,13 @@ export async function PUT(request: Request) {
       },
     );
     if (error) throw error;
-    return Response.json({ id: data, name }, { status: 201 });
+    return Response.json(
+      { id: data, name },
+      {
+        status: 201,
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
   } catch (error) {
     return apiError(error);
   }

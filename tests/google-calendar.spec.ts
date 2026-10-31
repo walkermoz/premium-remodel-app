@@ -13,7 +13,7 @@ test("Google Calendar sample settings do not contact a live account", async ({
   await page.goto("/demo?view=Settings");
   await page
     .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Connections/ })
+    .getByRole("button", { name: /My account/ })
     .click();
   const section = page.getByRole("region", {
     name: "Google Calendar",
@@ -62,7 +62,7 @@ cloudTest(
     await page.goto("/?view=Settings");
     await page
       .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /Connections/ })
+      .getByRole("button", { name: /My account/ })
       .click();
     const section = page.getByRole("region", {
       name: "Google Calendar",
@@ -91,7 +91,7 @@ cloudTest(
     await page.reload();
     await page
       .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /Connections/ })
+      .getByRole("button", { name: /My account/ })
       .click();
     await expect(section).toContainText("Connect your Google account");
     await expect(

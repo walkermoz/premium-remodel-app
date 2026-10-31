@@ -105,10 +105,11 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
       <div className="settings-title">
         <KeyRound size={22} aria-hidden="true" />
         <div>
-          <h2 id="api-keys-heading">Admin API keys</h2>
+          <h2 id="api-keys-heading">Developer API access</h2>
           <p>
-            Mint and revoke admin-scoped keys for reading NEW leads and writing
-            notes, disposition, stage, and approval without the browser.
+            Create and revoke keys that let outside software access this
+            business’s leads. These are not Gmail, Twilio, or Stripe
+            credentials.
           </p>
         </div>
       </div>
