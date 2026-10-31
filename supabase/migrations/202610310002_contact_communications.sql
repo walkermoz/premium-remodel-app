@@ -133,7 +133,7 @@ select
   'agreement',
   record.id,
   record.data->'msaAgreement'->>'sendMessageId',
-  'legacy-msa-email:' || record.id::text || ':' || record.data->'msaAgreement'->>'sendMessageId',
+  'legacy-msa-email:' || record.id::text || ':' || (record.data->'msaAgreement'->>'sendMessageId'),
   (record.data->'msaAgreement'->>'sentAt')::timestamptz
 from public.remodel_records record
 join lateral (
