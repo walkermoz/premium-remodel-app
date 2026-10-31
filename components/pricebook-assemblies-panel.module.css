@@ -1,0 +1,159 @@
+.root {
+  display: grid;
+  gap: 18px;
+}
+.heading,
+.cardHead,
+.partsTitle,
+.actions {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.heading h2,
+.card h3,
+.editor h2 {
+  margin: 0 0 6px;
+}
+.heading p,
+.card p,
+.editor p {
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 22px;
+}
+.cardHead small {
+  color: var(--blue);
+}
+.cardHead strong {
+  white-space: nowrap;
+}
+.card ol {
+  padding: 12px 0 0 20px;
+  margin: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.card li {
+  padding: 5px 0;
+  display: list-item;
+}
+.card li span:last-child {
+  float: right;
+  color: var(--muted);
+}
+.actions {
+  justify-content: flex-end;
+  align-items: center;
+}
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 36px;
+  text-align: center;
+  color: var(--muted);
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #06121dcc;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.editor {
+  width: min(860px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  display: grid;
+  gap: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 24px 80px #0008;
+}
+.editor label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.editor input,
+.editor select,
+.editor textarea {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 9px 11px;
+  font: inherit;
+}
+.fields {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+.partsTitle {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.partsTitle span {
+  color: var(--muted);
+}
+.parts {
+  display: grid;
+  gap: 10px;
+}
+.part {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 2fr) minmax(80px, 0.6fr) minmax(140px, 1fr)
+    auto;
+  align-items: end;
+  gap: 10px;
+}
+.partActions {
+  display: flex;
+  gap: 3px;
+}
+.partActions button {
+  color: var(--ink);
+  background: var(--blue-soft);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  height: 40px;
+  width: 35px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.partActions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+@media (max-width: 700px) {
+  .fields,
+  .part {
+    grid-template-columns: 1fr;
+  }
+  .heading,
+  .cardHead {
+    flex-wrap: wrap;
+  }
+  .editor {
+    padding: 18px;
+  }
+}

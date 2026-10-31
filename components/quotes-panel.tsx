@@ -48,6 +48,12 @@ import QuoteWorkflowStepper, {
 } from "./quote-workflow-stepper";
 import MsaSigningPanel from "./msa-signing-panel";
 import RoomScansPanel from "./room-scans-panel";
+import QuoteCustomerPreview from "./quote-customer-preview";
+import displayStyles from "./quote-display-control.module.css";
+import {
+  quotePriceDisplayOptions,
+  resolveQuotePriceDisplay,
+} from "@/lib/quote-price-display";
 
 export default function QuotesPanel({
   workspace,
@@ -343,6 +349,7 @@ export function QuoteDetail({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sendOpen, setSendOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState("");
   const [sendRequestId, setSendRequestId] = useState("");
@@ -725,6 +732,13 @@ export function QuoteDetail({
               <button
                 type="button"
                 className="button secondary"
+                onClick={() => setPreviewOpen(true)}
+              >
+                Preview customer PDF
+              </button>
+              <button
+                type="button"
+                className="button secondary"
                 disabled={sendBusy}
                 onClick={() => setSendOpen(false)}
               >
@@ -740,6 +754,12 @@ export function QuoteDetail({
             </footer>
           </form>
         </div>
+      )}
+      {previewOpen && !demo && (
+        <QuoteCustomerPreview
+          quoteId={quote.id}
+          onClose={() => setPreviewOpen(false)}
+        />
       )}
       <div className="quote-overview">
         <div
@@ -834,6 +854,55 @@ export function QuoteDetail({
               </p>
             </div>
           </div>
+          <div className={displayStyles.bar}>
+            <label className={displayStyles.field}>
+              <span>Customer pricing display</span>
+              <select
+                value={resolveQuotePriceDisplay(
+                  quote,
+                  config.quotePreferences.showCustomerLineItemPrices,
+                )}
+                disabled={busy || signedScope}
+                onChange={(event) =>
+                  void change(async () => {
+                    await onSave(
+                      "quote",
+                      { ...quote, priceDisplay: event.target.value },
+                      quote,
+                    );
+                    await onSent();
+                  })
+                }
+              >
+                {quotePriceDisplayOptions.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className={displayStyles.description}>
+              {
+                quotePriceDisplayOptions.find(
+                  (option) =>
+                    option.value ===
+                    resolveQuotePriceDisplay(
+                      quote,
+                      config.quotePreferences.showCustomerLineItemPrices,
+                    ),
+                )?.description
+              }
+            </span>
+            {!demo && (
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setPreviewOpen(true)}
+              >
+                Preview customer PDF
+              </button>
+            )}
+          </div>
           {signedScope ? (
             <table className="scope-table" aria-label="Signed quote scope">
               <thead>
@@ -872,6 +941,7 @@ export function QuoteDetail({
               onSave={(data, item) => onSave("scope", data, item)}
               onReorder={onReorderScope}
               onBulkPrice={onPriceScope}
+              onRefresh={onSent}
               onDelete={(item) => onDelete("scope", item)}
             />
           )}

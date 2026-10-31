@@ -11,6 +11,7 @@ import { readDemoPricebook, writeDemoPricebook } from "@/lib/demo-pricebook";
 import { pricingBases, rateLabel, costRateLabel } from "@/lib/scope-pricing";
 import type { Contractor, User } from "@/lib/types";
 import { Modal } from "./ui";
+import PricebookAssembliesPanel from "./pricebook-assemblies-panel";
 
 type Draft = {
   name: string;
@@ -78,6 +79,7 @@ export default function PricebookPanel({
   demo?: boolean;
 }) {
   const [items, setItems] = useState<PricebookItem[]>([]);
+  const [view, setView] = useState<"items" | "assemblies">("items");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -315,7 +317,7 @@ export default function PricebookPanel({
             their own editable copy.
           </p>
         </div>
-        {user.role === "admin" && (
+        {user.role === "admin" && view === "items" && (
           <button className="button primary" type="button" onClick={openNew}>
             <Plus size={16} /> New item
           </button>
@@ -331,150 +333,189 @@ export default function PricebookPanel({
           {message}
         </div>
       )}
-      <div className="pricebook-toolbar">
-        <label className="pricebook-search">
-          <Search size={16} aria-hidden="true" />
-          <input
-            type="search"
-            aria-label="Search price book"
-            placeholder="Search name, code or scope"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </label>
-        <span>
-          {filtered.length} of {items.length} items
-        </span>
+      <div className="pricebook-categories" aria-label="Price book views">
+        <button
+          type="button"
+          className={view === "items" ? "active" : ""}
+          aria-pressed={view === "items"}
+          onClick={() => setView("items")}
+        >
+          Items
+        </button>
+        <button
+          type="button"
+          className={view === "assemblies" ? "active" : ""}
+          aria-pressed={view === "assemblies"}
+          onClick={() => setView("assemblies")}
+        >
+          Assemblies
+        </button>
       </div>
-      <div className="pricebook-categories" aria-label="Price book categories">
-        {categories.map((name) => (
-          <button
-            type="button"
-            key={name}
-            className={category === name ? "active" : ""}
-            aria-pressed={category === name}
-            onClick={() => setCategory(name)}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-      {loading ? (
-        <p className="pricebook-empty">Loading price book…</p>
-      ) : items.length === 0 ? (
-        <div className="pricebook-empty-state">
-          <h2>No price-book items yet</h2>
-          <p>
-            Save a standard item once, then add it to quotes with the quantity
-            for each job.
-          </p>
-          {user.role === "admin" && (
-            <button
-              className="button secondary"
-              type="button"
-              onClick={openNew}
-            >
-              Add first item
-            </button>
-          )}
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="pricebook-empty">No items match these filters.</p>
+      {view === "assemblies" ? (
+        <PricebookAssembliesPanel
+          items={items}
+          contractors={contractors}
+          editable={user.role === "admin"}
+          demo={demo}
+        />
       ) : (
-        <div className="pricebook-workspace">
-          <div className="pricebook-list" aria-label="Price-book items">
-            <div className="pricebook-list-head">
-              <span>Item</span>
-              <span>Quote rate</span>
-            </div>
-            {filtered.map((item) => (
+        <>
+          <div className="pricebook-toolbar">
+            <label className="pricebook-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Search price book"
+                placeholder="Search name, code or scope"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <span>
+              {filtered.length} of {items.length} items
+            </span>
+          </div>
+          <div
+            className="pricebook-categories"
+            aria-label="Price book categories"
+          >
+            {categories.map((name) => (
               <button
                 type="button"
-                key={item.id}
-                className={`pricebook-list-row ${selected?.id === item.id ? "selected" : ""}`}
-                aria-pressed={selected?.id === item.id}
-                onClick={() => setSelectedId(item.id)}
+                key={name}
+                className={category === name ? "active" : ""}
+                aria-pressed={category === name}
+                onClick={() => setCategory(name)}
               >
-                <span>
-                  <strong>{item.name}</strong>
-                  <small>
-                    {item.code} · {item.category || "General"}
-                  </small>
-                </span>
-                <span>
-                  <b>{money(item.customerRateCents)}</b>
-                  <small>{rateLabel(item.unit)}</small>
-                </span>
+                {name}
               </button>
             ))}
           </div>
-          {selected && (
-            <aside
-              className="pricebook-inspector"
-              aria-label="Selected price-book item"
-            >
-              <span className="pricebook-code">{selected.code}</span>
-              {!selected.customerVisible && (
-                <span className="pricebook-internal-badge">Internal only</span>
-              )}
-              <h2>{selected.name}</h2>
-              <p>{selected.description || "No default scope description."}</p>
-              <dl>
-                <div>
-                  <dt>{rateLabel(selected.unit)}</dt>
-                  <dd>{money(selected.customerRateCents)}</dd>
-                </div>
-                <div>
-                  <dt>{costRateLabel(selected.subUnit)} · Sub</dt>
-                  <dd>{money(selected.subRateCents)}</dd>
-                </div>
-                <div>
-                  <dt>{costRateLabel(selected.materialUnit)} · Materials</dt>
-                  <dd>{money(selected.materialRateCents)}</dd>
-                </div>
-              </dl>
-              {!!selected.contractorRates.length && (
-                <div className="pricebook-contractor-summary">
-                  <h3>Contractor rates</h3>
-                  {selected.contractorRates.map((rate) => (
-                    <div key={rate.contractorId}>
-                      <span>
-                        {contractors.find(
-                          (contractor) => contractor.id === rate.contractorId,
-                        )?.name || "Former contractor"}
-                      </span>
-                      <strong>
-                        {money(rate.rateCents)}{" "}
-                        {costRateLabel(selected.subUnit)
-                          .replace(/^Cost /, "")
-                          .toLowerCase()}
-                      </strong>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {loading ? (
+            <p className="pricebook-empty">Loading price book…</p>
+          ) : items.length === 0 ? (
+            <div className="pricebook-empty-state">
+              <h2>No price-book items yet</h2>
+              <p>
+                Save a standard item once, then add it to quotes with the
+                quantity for each job.
+              </p>
               {user.role === "admin" && (
-                <div className="pricebook-inspector-actions">
-                  <button
-                    type="button"
-                    className="button secondary"
-                    onClick={() => openEdit(selected)}
-                  >
-                    Edit item
-                  </button>
-                  <button
-                    type="button"
-                    className="pricebook-archive"
-                    disabled={busy}
-                    onClick={() => void remove(selected)}
-                  >
-                    Archive
-                  </button>
-                </div>
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={openNew}
+                >
+                  Add first item
+                </button>
               )}
-            </aside>
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="pricebook-empty">No items match these filters.</p>
+          ) : (
+            <div className="pricebook-workspace">
+              <div className="pricebook-list" aria-label="Price-book items">
+                <div className="pricebook-list-head">
+                  <span>Item</span>
+                  <span>Quote rate</span>
+                </div>
+                {filtered.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={`pricebook-list-row ${selected?.id === item.id ? "selected" : ""}`}
+                    aria-pressed={selected?.id === item.id}
+                    onClick={() => setSelectedId(item.id)}
+                  >
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>
+                        {item.code} · {item.category || "General"}
+                      </small>
+                    </span>
+                    <span>
+                      <b>{money(item.customerRateCents)}</b>
+                      <small>{rateLabel(item.unit)}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {selected && (
+                <aside
+                  className="pricebook-inspector"
+                  aria-label="Selected price-book item"
+                >
+                  <span className="pricebook-code">{selected.code}</span>
+                  {!selected.customerVisible && (
+                    <span className="pricebook-internal-badge">
+                      Internal only
+                    </span>
+                  )}
+                  <h2>{selected.name}</h2>
+                  <p>
+                    {selected.description || "No default scope description."}
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>{rateLabel(selected.unit)}</dt>
+                      <dd>{money(selected.customerRateCents)}</dd>
+                    </div>
+                    <div>
+                      <dt>{costRateLabel(selected.subUnit)} · Sub</dt>
+                      <dd>{money(selected.subRateCents)}</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        {costRateLabel(selected.materialUnit)} · Materials
+                      </dt>
+                      <dd>{money(selected.materialRateCents)}</dd>
+                    </div>
+                  </dl>
+                  {!!selected.contractorRates.length && (
+                    <div className="pricebook-contractor-summary">
+                      <h3>Contractor rates</h3>
+                      {selected.contractorRates.map((rate) => (
+                        <div key={rate.contractorId}>
+                          <span>
+                            {contractors.find(
+                              (contractor) =>
+                                contractor.id === rate.contractorId,
+                            )?.name || "Former contractor"}
+                          </span>
+                          <strong>
+                            {money(rate.rateCents)}{" "}
+                            {costRateLabel(selected.subUnit)
+                              .replace(/^Cost /, "")
+                              .toLowerCase()}
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {user.role === "admin" && (
+                    <div className="pricebook-inspector-actions">
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => openEdit(selected)}
+                      >
+                        Edit item
+                      </button>
+                      <button
+                        type="button"
+                        className="pricebook-archive"
+                        disabled={busy}
+                        onClick={() => void remove(selected)}
+                      >
+                        Archive
+                      </button>
+                    </div>
+                  )}
+                </aside>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
       {editorOpen && (
         <Modal

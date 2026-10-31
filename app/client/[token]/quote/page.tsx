@@ -47,6 +47,7 @@ import {
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "@/lib/scope-projects";
 import { appearsOnCustomerQuote } from "@/lib/customer-quote-scope";
+import { resolveQuotePriceDisplay } from "@/lib/quote-price-display";
 import ClientNewRequestForm from "./client-new-request-form";
 import CustomerAcceptance from "./customer-acceptance";
 import MsaAcceptance from "./msa-acceptance";
@@ -529,6 +530,10 @@ export default async function ClientQuotePage({
     ? (rawSection as PortalView)
     : "detail";
   const { quote, items, total, approved } = view;
+  const priceDisplay = resolveQuotePriceDisplay(
+    quote,
+    business.quotePreferences.showCustomerLineItemPrices,
+  );
   const number = quote.quoteNumber || quote.id.slice(0, 8).toUpperCase();
   const quoteUrl = `/client/${encodeURIComponent(token)}/quote`;
   const access = parseClientPortalAccess(token);
@@ -718,9 +723,7 @@ export default async function ClientQuotePage({
               <section className={styles.scope} aria-label="Scope of work">
                 <div className={styles.scopeHeader}>
                   <h2>Scope of work</h2>
-                  {business.quotePreferences.showCustomerLineItemPrices && (
-                    <span>Line total</span>
-                  )}
+                  {priceDisplay === "itemized" && <span>Line total</span>}
                 </div>
                 {sections.map((section, index) => (
                   <div key={`${section.key}-${index}`}>
@@ -728,8 +731,7 @@ export default async function ClientQuotePage({
                       section.key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}` && (
                         <div className={styles.sectionHeader}>
                           <h3>{section.name}</h3>
-                          {business.quotePreferences
-                            .showCustomerLineItemPrices && (
+                          {priceDisplay !== "total" && (
                             <span>
                               Section total&nbsp;{" "}
                               {money(sectionTotals.get(section.key) || 0)}
@@ -746,8 +748,7 @@ export default async function ClientQuotePage({
                           <strong>{item.title}</strong>
                           {item.details && <p>{item.details}</p>}
                         </div>
-                        {business.quotePreferences
-                          .showCustomerLineItemPrices && (
+                        {priceDisplay === "itemized" && (
                           <span>{money(item.estimate)}</span>
                         )}
                       </div>

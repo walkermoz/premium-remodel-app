@@ -22,6 +22,7 @@ const quoteSchema = z.object({
   quoteSentAt: z.string().optional(),
   quoteAcceptedAt: z.string().optional(),
   quoteNotes: z.string().optional(),
+  priceDisplay: z.enum(["itemized", "project", "total"]).optional(),
   quotePhotos: z
     .array(
       z.object({

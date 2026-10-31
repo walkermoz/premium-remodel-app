@@ -213,6 +213,7 @@ export const schemas = {
       preparedBy: short.optional(),
       preparedByPhone: short.optional(),
       quoteNotes: text.optional(),
+      priceDisplay: z.enum(["itemized", "project", "total"]).optional(),
       quotePhotos: z
         .array(
           z.object({

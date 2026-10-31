@@ -31,7 +31,10 @@ import {
 } from "@/lib/scope-pricing";
 import { Badge, Empty } from "./ui";
 import PricebookPicker from "./pricebook-picker";
+import PricebookAssemblyPicker from "./pricebook-assembly-picker";
+import type { PricebookAssembly } from "@/lib/pricebook-assemblies";
 import { readDemoPricebook } from "@/lib/demo-pricebook";
+import { readDemoAssemblies } from "@/lib/demo-pricebook-assemblies";
 import { moveQuoteScopeItem, orderedScopeItems } from "@/lib/scope-order";
 import {
   calculatedQuotePrice,
@@ -186,6 +189,7 @@ export default function ScopeTable({
   demoPricebook = false,
   showInternalCosts = true,
   defaultSectionName = DEFAULT_QUOTE_PROJECT_NAME,
+  onRefresh,
 }: {
   items: ScopeItem[];
   workspace: Workspace;
@@ -215,6 +219,7 @@ export default function ScopeTable({
   demoPricebook?: boolean;
   showInternalCosts?: boolean;
   defaultSectionName?: string;
+  onRefresh?: () => Promise<void>;
 }) {
   const [pendingOrder, setPendingOrder] = useState<ScopeItem[] | null>(null);
   const orderedItems = useMemo(
@@ -249,6 +254,8 @@ export default function ScopeTable({
   const [pricebookItems, setPricebookItems] = useState<PricebookItem[]>([]);
   const [pricebookBusy, setPricebookBusy] = useState(false);
   const [pricebookOpen, setPricebookOpen] = useState(false);
+  const [assemblyOpen, setAssemblyOpen] = useState(false);
+  const [assemblies, setAssemblies] = useState<PricebookAssembly[]>([]);
   const newTitle = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -258,7 +265,10 @@ export default function ScopeTable({
   useEffect(() => {
     if (!pricebookEnabled) return;
     if (demoPricebook) {
-      const timer = setTimeout(() => setPricebookItems(readDemoPricebook()), 0);
+      const timer = setTimeout(() => {
+        setPricebookItems(readDemoPricebook());
+        setAssemblies(readDemoAssemblies());
+      }, 0);
       return () => clearTimeout(timer);
     }
     fetch("/api/pricebook", { cache: "no-store" })
@@ -271,6 +281,18 @@ export default function ScopeTable({
       .catch((cause) =>
         setError(
           cause instanceof Error ? cause.message : "Could not load price book.",
+        ),
+      );
+    fetch("/api/pricebook/assemblies", { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok)
+          throw new Error(body.error || "Could not load assemblies.");
+        setAssemblies(body);
+      })
+      .catch((cause) =>
+        setError(
+          cause instanceof Error ? cause.message : "Could not load assemblies.",
         ),
       );
   }, [pricebookEnabled, demoPricebook]);
@@ -1197,6 +1219,16 @@ export default function ScopeTable({
                         type="button"
                         className="scope-add-row-button"
                         disabled={pricebookBusy}
+                        onClick={() => setAssemblyOpen(true)}
+                      >
+                        <Plus size={15} /> Use assembly
+                      </button>
+                    )}
+                    {pricebookEnabled && (
+                      <button
+                        type="button"
+                        className="scope-add-row-button"
+                        disabled={pricebookBusy}
                         onClick={() => setPricebookOpen(true)}
                       >
                         <Plus size={15} />
@@ -1273,6 +1305,64 @@ export default function ScopeTable({
                 contractorId,
                 status: "To do",
               });
+            } finally {
+              setPricebookBusy(false);
+            }
+          }}
+        />
+      )}
+      {assemblyOpen && (
+        <PricebookAssemblyPicker
+          assemblies={assemblies}
+          items={pricebookItems}
+          busy={pricebookBusy}
+          onClose={() => setAssemblyOpen(false)}
+          onAdd={async (assembly) => {
+            if (!projectId) throw new Error("This quote is unavailable.");
+            setPricebookBusy(true);
+            try {
+              if (demoPricebook) {
+                if (!onSave) throw new Error("This quote is unavailable.");
+                const sectionId = crypto.randomUUID();
+                for (const [index, part] of assembly.components.entries()) {
+                  const item = pricebookItems.find(
+                    (entry) => entry.id === part.pricebookItemId,
+                  );
+                  if (!item)
+                    throw new Error("An assembly item is unavailable.");
+                  await onSave({
+                    projectId,
+                    sectionId,
+                    sectionName: assembly.name,
+                    position: nextPosition + index,
+                    ...pricebookScopeValues(
+                      item,
+                      part.quantity,
+                      part.contractorId,
+                    ),
+                    contractorId: part.contractorId || "",
+                    status: "To do",
+                  });
+                }
+              } else {
+                const response = await fetch(
+                  "/api/pricebook/assemblies/apply",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      quoteId: projectId,
+                      assemblyId: assembly.id,
+                      revision: assembly.revision,
+                    }),
+                  },
+                );
+                const body = await response.json();
+                if (!response.ok)
+                  throw new Error(body.error || "Could not add assembly.");
+                await onRefresh?.();
+              }
+              setAssemblyOpen(false);
             } finally {
               setPricebookBusy(false);
             }

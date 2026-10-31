@@ -137,8 +137,11 @@ export const quoteStatuses = [
   "Expired",
 ] as const;
 export type QuoteStatus = (typeof quoteStatuses)[number];
+export type QuotePriceDisplay = "itemized" | "project" | "total";
 export interface Quote extends Omit<Project, "status"> {
   status: QuoteStatus;
+  /** How this quote's scope prices appear in the portal and PDF. */
+  priceDisplay?: QuotePriceDisplay;
   /** Removed from the working quote pipeline without deleting its history. */
   junkedAt?: string | null;
   /** The portal was opened for an in-person signing without sending email. */

@@ -7,6 +7,7 @@ import {
 } from "pdf-lib";
 import type { Quote, QuotePhoto, ScopeItem } from "./types";
 import { appearsOnCustomerQuote } from "./customer-quote-scope";
+import { resolveQuotePriceDisplay } from "./quote-price-display";
 import {
   customerQuoteSectionName,
   UNGROUPED_SCOPE_PROJECT_ID,
@@ -238,7 +239,12 @@ export async function buildQuotePdf(
   },
   display: { showLineItemPrices?: boolean } = {},
 ) {
-  const showLineItemPrices = display.showLineItemPrices !== false;
+  const priceDisplay = resolveQuotePriceDisplay(
+    quote,
+    display.showLineItemPrices !== false,
+  );
+  const showLineItemPrices = priceDisplay === "itemized";
+  const showSectionPrices = priceDisplay !== "total";
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -402,7 +408,7 @@ export async function buildQuotePdf(
         8,
         colors.blue,
       );
-      if (showLineItemPrices)
+      if (showSectionPrices)
         drawRight(
           page,
           `SECTION TOTAL  ${money(section.total)}`,
