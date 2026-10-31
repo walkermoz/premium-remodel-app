@@ -1407,16 +1407,11 @@ export default function WorkspaceApp({
             <strong>{config.profile.name}</strong>
           )}
         </Link>
-        <div className="workspace-switch">
-          <span className="workspace-monogram">
-            {config.profile.logoMarkUrl ? (
-              <img src={config.profile.logoMarkUrl} alt="" />
-            ) : (
-              config.profile.name.charAt(0)
-            )}
-          </span>
-          <OrganizationSwitcher currentName={config.profile.name} demo={demo} />
-        </div>
+        <OrganizationSwitcher
+          currentName={config.profile.name}
+          logoMarkUrl={config.profile.logoMarkUrl}
+          demo={demo}
+        />
         <span className="nav-label">WORKSPACE</span>
         <nav aria-label="Main navigation">
           {menus.map((item) => (

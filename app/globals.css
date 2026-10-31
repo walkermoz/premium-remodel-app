@@ -1773,10 +1773,10 @@ small {
   display: flex;
   align-items: center;
   gap: 9px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 11px 9px;
-  margin: 0 1px 30px;
+  border-radius: 8px;
+  background: var(--theme-surface-soft, #f0f3f6);
+  padding: 9px;
+  margin: -20px 1px 30px;
 }
 .workspace-monogram {
   display: grid;
@@ -1796,26 +1796,6 @@ small {
   height: 100%;
   object-fit: contain;
 }
-.workspace-switch > div {
-  flex: 1;
-  min-width: 0;
-  scroll-margin-top: 85px;
-}
-.workspace-switch strong {
-  display: block;
-  font-size: 10.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.workspace-switch div > span {
-  display: block;
-  font-size: 9px;
-  color: var(--theme-text-muted, #929aa3);
-  margin-top: 3px;
-}
-.workspace-switch > svg {
-  color: var(--theme-text-muted, #9ca5ae);
-}
 .organization-switcher {
   min-width: 0;
   flex: 1;
@@ -1833,9 +1813,11 @@ small {
   font-weight: 650;
   cursor: pointer;
 }
-.organization-switcher select:disabled {
-  cursor: default;
-  appearance: none;
+.organization-switcher-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--theme-text-muted, #929aa3);
+  font-size: 10px;
 }
 .organization-switcher-error {
   color: var(--danger, #d35252) !important;
@@ -8072,12 +8054,6 @@ small {
   .workspace-switch {
     padding: 10px 7px;
     gap: 7px;
-  }
-  .workspace-switch strong {
-    font-size: 10px;
-  }
-  .workspace-switch > svg {
-    width: 10px;
   }
   .summary-strip > button {
     padding: 0 17px;
