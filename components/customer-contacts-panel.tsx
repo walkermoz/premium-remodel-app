@@ -14,6 +14,7 @@ import {
   Phone,
   Plus,
   Send,
+  UserPlus,
   Users,
 } from "lucide-react";
 import {
@@ -156,6 +157,11 @@ export default function CustomerContactsPanel({
     (item) =>
       communicationFilter === "all" || item.channel === communicationFilter,
   );
+  const showContactCreated =
+    communicationFilter === "all" &&
+    !communicationsLoading &&
+    !communicationsError &&
+    !hasMoreCommunications;
 
   return (
     <>
@@ -283,7 +289,7 @@ export default function CustomerContactsPanel({
       {selected && (
         <Modal
           title={selected.name}
-          subtitle="Customer contact and communication history"
+          subtitle="Customer contact and activity history"
           onClose={() => setSelected(null)}
         >
           <div className="contact-detail">
@@ -333,7 +339,7 @@ export default function CustomerContactsPanel({
             <section className="contact-communications">
               <div className="contact-communications-heading">
                 <div>
-                  <span className="eyebrow">COMMUNICATIONS</span>
+                  <span className="eyebrow">ACTIVITY</span>
                   <h3>History</h3>
                 </div>
                 <div
@@ -381,13 +387,14 @@ export default function CustomerContactsPanel({
               )}
               {!communicationsLoading &&
                 !communicationsError &&
-                !visibleCommunications.length && (
+                !visibleCommunications.length &&
+                communicationFilter !== "all" && (
                   <div className="contact-communication-empty">
                     <MessageSquareText size={21} />
                     <strong>
-                      {communications.length
-                        ? `No ${communicationFilter === "sms" ? "texts" : "emails"} yet`
-                        : "No communications yet"}
+                      {communicationFilter === "sms"
+                        ? "No texts yet"
+                        : "No emails yet"}
                     </strong>
                     <span>
                       Sent quote emails, agreement emails, portal links, and
@@ -430,6 +437,24 @@ export default function CustomerContactsPanel({
                     </div>
                   </article>
                 ))}
+                {showContactCreated && (
+                  <article className="contact-communication-entry">
+                    <span className="contact-communication-icon is-contact">
+                      <UserPlus size={15} />
+                    </span>
+                    <div>
+                      <div className="contact-communication-meta">
+                        <strong>Contact created</strong>
+                        <time dateTime={selected.createdAt}>
+                          <Clock3 size={11} />
+                          {communicationTime(selected.createdAt)}
+                        </time>
+                      </div>
+                      <h4>Added to Contacts</h4>
+                      <p>This customer was added to your contact directory.</p>
+                    </div>
+                  </article>
+                )}
               </div>
               {hasMoreCommunications && communicationFilter === "all" && (
                 <button

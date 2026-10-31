@@ -4709,11 +4709,11 @@ small {
 .contact-communication-timeline {
   position: relative;
 }
-.contact-communication-timeline::before {
+.contact-communication-entry:not(:last-child)::after {
   content: "";
   position: absolute;
   top: 16px;
-  bottom: 16px;
+  bottom: -16px;
   left: 16px;
   width: 1px;
   background: var(--line);

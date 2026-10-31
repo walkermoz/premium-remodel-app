@@ -86,5 +86,19 @@ cloudTest(
     await expect(
       dialog.getByText("Please review the attached quote"),
     ).toBeVisible();
+    await expect(dialog.getByText("Contact created")).toBeVisible();
+
+    const entries = dialog.locator(".contact-communication-entry");
+    await expect(entries).toHaveCount(2);
+    expect(
+      await entries.first().evaluate((entry) =>
+        getComputedStyle(entry, "::after").content,
+      ),
+    ).not.toBe("none");
+    expect(
+      await entries.last().evaluate((entry) =>
+        getComputedStyle(entry, "::after").content,
+      ),
+    ).toBe("none");
   },
 );
