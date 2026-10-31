@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("quote actions offer a price-book item or a custom row", async ({
+test("quote actions offer an assembly, a price-book item, or a custom row", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
@@ -12,8 +12,16 @@ test("quote actions offer a price-book item or a custom row", async ({
   await quote.getByRole("button", { name: "Create quote" }).click();
 
   const actions = page.locator(".scope-add-actions").getByRole("button");
-  await expect(actions).toHaveText(["Add Item", "Add Custom"]);
-  await actions.first().click();
+  await expect(actions).toHaveText(["Use assembly", "Add Item", "Add Custom"]);
+  await page.getByRole("button", { name: "Use assembly" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Use price-book assembly" }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog", { name: "Use price-book assembly" })
+    .getByRole("button", { name: "Close" })
+    .click();
+  await page.getByRole("button", { name: "Add Item" }).click();
   await expect(
     page.getByRole("dialog", { name: "Add from price book" }),
   ).toBeVisible();
