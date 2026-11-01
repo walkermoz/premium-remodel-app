@@ -676,21 +676,23 @@ function WorkflowTree({
         ) : (
           edges.map((edge) => (
             <div className="workflow-tree-next" key={edge.id}>
-              <span className="workflow-tree-connector" aria-hidden="true">
-                <ArrowDown size={14} />
-              </span>
-              {editable && node.kind !== "terminal" && (
-                <button
-                  type="button"
-                  className="workflow-insert-step"
-                  onClick={() =>
-                    onInsert({ sourceId: node.id, edgeId: edge.id })
-                  }
-                  aria-label={`Add step after ${node.name}`}
-                >
-                  <Plus size={14} />
-                </button>
-              )}
+              <div className="workflow-tree-edge">
+                <span className="workflow-tree-connector" aria-hidden="true">
+                  <ArrowDown size={14} />
+                </span>
+                {editable && node.kind !== "terminal" && (
+                  <button
+                    type="button"
+                    className="workflow-insert-step"
+                    onClick={() =>
+                      onInsert({ sourceId: node.id, edgeId: edge.id })
+                    }
+                    aria-label={`Add step after ${node.name}`}
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
               {renderNode(edge.to, nextPath)}
             </div>
           ))
@@ -1278,6 +1280,28 @@ export default function WorkflowAutomationPanel({
     [centerWorkflow],
   );
   const editable = !demo && canManage && !detail?.systemControlled;
+
+  useEffect(() => {
+    if (loading || mode !== "build" || !detail?.id) return;
+    const viewport = treeViewportRef.current;
+    if (!viewport) return;
+
+    const handleWheelZoom = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+
+      // React's delegated wheel handler can be passive in Chromium, which lets
+      // the same gesture zoom the browser. A native non-passive listener keeps
+      // the shortcut contained to the workflow canvas.
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.deltaY === 0) return;
+
+      adjustTreeZoom(event.deltaY > 0 ? -TREE_ZOOM_STEP : TREE_ZOOM_STEP);
+    };
+
+    viewport.addEventListener("wheel", handleWheelZoom, { passive: false });
+    return () => viewport.removeEventListener("wheel", handleWheelZoom);
+  }, [adjustTreeZoom, detail?.id, loading, mode]);
 
   useEffect(() => {
     if (loading || mode !== "build" || !detail?.id) return;
@@ -2762,13 +2786,6 @@ export default function WorkflowAutomationPanel({
                   <div
                     className="workflow-tree-viewport"
                     ref={treeViewportRef}
-                    onWheel={(event) => {
-                      if (!event.ctrlKey && !event.metaKey) return;
-                      event.preventDefault();
-                      adjustTreeZoom(
-                        event.deltaY > 0 ? -TREE_ZOOM_STEP : TREE_ZOOM_STEP,
-                      );
-                    }}
                     aria-label="Workflow canvas. Hold Control and scroll to zoom."
                   >
                     <div

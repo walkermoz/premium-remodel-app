@@ -26,6 +26,70 @@ test("automation workspace visualizes the website lead workflow", async ({
   ).toBeVisible();
   await expect(page.getByLabel("Lead source")).toHaveValue("Website form");
   await expect(page.getByLabel("Workflow name")).toBeDisabled();
+
+  const workflowCanvas = page.getByLabel(
+    "Workflow canvas. Hold Control and scroll to zoom.",
+  );
+  const zoomReadout = page.getByLabel("Workflow zoom controls").locator("span");
+  const initialZoom = await zoomReadout.textContent();
+  const modifiedWheelPrevented = await workflowCanvas.evaluate((element) => {
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: -100,
+    });
+    element.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(modifiedWheelPrevented).toBe(true);
+  await expect(zoomReadout).not.toHaveText(initialZoom || "");
+
+  const zoomAfterShortcut = await zoomReadout.textContent();
+  const regularWheelPrevented = await workflowCanvas.evaluate((element) => {
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 100,
+    });
+    element.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(regularWheelPrevented).toBe(false);
+  await expect(zoomReadout).toHaveText(zoomAfterShortcut || "");
+
+  const connectorOffsets = await page
+    .locator(".workflow-tree-next")
+    .evaluateAll((items) =>
+      items.slice(0, 4).map((item) => {
+        const connector = item.querySelector<HTMLElement>(
+          ":scope > .workflow-tree-edge > .workflow-tree-connector",
+        );
+        const insert = item.querySelector<HTMLElement>(
+          ":scope > .workflow-tree-edge > .workflow-insert-step",
+        );
+        const nextNode = item.querySelector<HTMLElement>(
+          ":scope > .workflow-tree-segment > .workflow-tree-node",
+        );
+        const center = (element: HTMLElement) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.left + bounds.width / 2;
+        };
+        if (!connector || !nextNode) return null;
+        const nodeCenter = center(nextNode);
+        return {
+          connector: Math.abs(center(connector) - nodeCenter),
+          insert: insert ? Math.abs(center(insert) - nodeCenter) : null,
+        };
+      }),
+    );
+  expect(connectorOffsets.filter(Boolean).length).toBeGreaterThan(0);
+  for (const offset of connectorOffsets) {
+    if (!offset) continue;
+    expect(offset.connector).toBeLessThan(0.25);
+    if (offset.insert !== null) expect(offset.insert).toBeLessThan(0.25);
+  }
+
   await page.getByRole("button", { name: "Test" }).click();
   await expect(page.getByText("TEST INPUT")).toBeVisible();
   await expect(page.getByLabel("Event type")).toHaveValue(
