@@ -640,6 +640,12 @@
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
+  cursor: grab;
+  touch-action: none;
+}
+.workflow-tree-viewport.is-panning {
+  cursor: grabbing;
+  user-select: none;
 }
 .workflow-tree-surface {
   width: max-content;

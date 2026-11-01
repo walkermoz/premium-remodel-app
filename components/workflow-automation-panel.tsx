@@ -1283,6 +1283,16 @@ export default function WorkflowAutomationPanel({
     const viewport = treeViewportRef.current;
     if (!viewport) return;
 
+    let pan:
+      | {
+          pointerId: number;
+          startX: number;
+          startY: number;
+          scrollLeft: number;
+          scrollTop: number;
+        }
+      | undefined;
+
     const handleWheelZoom = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
 
@@ -1296,8 +1306,75 @@ export default function WorkflowAutomationPanel({
       adjustTreeZoom(event.deltaY > 0 ? -TREE_ZOOM_STEP : TREE_ZOOM_STEP);
     };
 
+    const isInteractiveTarget = (target: EventTarget | null) =>
+      target instanceof Element &&
+      Boolean(
+        target.closest(
+          "button, a, input, select, textarea, summary, label, [contenteditable='true'], [draggable='true']",
+        ),
+      );
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || isInteractiveTarget(event.target)) return;
+
+      pan = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        scrollLeft: viewport.scrollLeft,
+        scrollTop: viewport.scrollTop,
+      };
+      viewport.classList.add("is-panning");
+      try {
+        viewport.setPointerCapture(event.pointerId);
+      } catch {
+        // Panning still works while the pointer remains over the canvas.
+      }
+      event.preventDefault();
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!pan || pan.pointerId !== event.pointerId) return;
+      viewport.scrollLeft = pan.scrollLeft - (event.clientX - pan.startX);
+      viewport.scrollTop = pan.scrollTop - (event.clientY - pan.startY);
+      event.preventDefault();
+    };
+
+    const endPan = (event: PointerEvent) => {
+      if (!pan || pan.pointerId !== event.pointerId) return;
+      pan = undefined;
+      viewport.classList.remove("is-panning");
+      try {
+        if (viewport.hasPointerCapture(event.pointerId))
+          viewport.releasePointerCapture(event.pointerId);
+      } catch {
+        // The browser may already have released capture during cancellation.
+      }
+    };
+
+    const handleLostPointerCapture = () => {
+      pan = undefined;
+      viewport.classList.remove("is-panning");
+    };
+
     viewport.addEventListener("wheel", handleWheelZoom, { passive: false });
-    return () => viewport.removeEventListener("wheel", handleWheelZoom);
+    viewport.addEventListener("pointerdown", handlePointerDown);
+    viewport.addEventListener("pointermove", handlePointerMove);
+    viewport.addEventListener("pointerup", endPan);
+    viewport.addEventListener("pointercancel", endPan);
+    viewport.addEventListener("lostpointercapture", handleLostPointerCapture);
+    return () => {
+      viewport.removeEventListener("wheel", handleWheelZoom);
+      viewport.removeEventListener("pointerdown", handlePointerDown);
+      viewport.removeEventListener("pointermove", handlePointerMove);
+      viewport.removeEventListener("pointerup", endPan);
+      viewport.removeEventListener("pointercancel", endPan);
+      viewport.removeEventListener(
+        "lostpointercapture",
+        handleLostPointerCapture,
+      );
+      viewport.classList.remove("is-panning");
+    };
   }, [adjustTreeZoom, detail?.id, loading, mode]);
 
   useEffect(() => {
@@ -2783,7 +2860,7 @@ export default function WorkflowAutomationPanel({
                   <div
                     className="workflow-tree-viewport"
                     ref={treeViewportRef}
-                    aria-label="Workflow canvas. Hold Control and scroll to zoom."
+                    aria-label="Workflow canvas. Drag to pan. Hold Control and scroll to zoom."
                   >
                     <div
                       className="workflow-tree-surface"

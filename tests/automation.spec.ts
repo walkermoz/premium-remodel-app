@@ -28,7 +28,7 @@ test("automation workspace visualizes the website lead workflow", async ({
   await expect(page.getByLabel("Workflow name")).toBeDisabled();
 
   const workflowCanvas = page.getByLabel(
-    "Workflow canvas. Hold Control and scroll to zoom.",
+    "Workflow canvas. Drag to pan. Hold Control and scroll to zoom.",
   );
   const zoomReadout = page.getByLabel("Workflow zoom controls").locator("span");
   const initialZoom = await zoomReadout.textContent();
@@ -89,6 +89,46 @@ test("automation workspace visualizes the website lead workflow", async ({
     expect(offset.connector).toBeLessThan(0.25);
     if (offset.insert !== null) expect(offset.insert).toBeLessThan(0.25);
   }
+
+  for (let index = 0; index < 8; index += 1)
+    await page.getByRole("button", { name: "Zoom in" }).click();
+  await page.waitForTimeout(200);
+  const canvasBounds = await workflowCanvas.boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  const panStart = await workflowCanvas.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const interactive =
+      "button, a, input, select, textarea, summary, label, [contenteditable='true'], [draggable='true']";
+    for (let y = bounds.top + 24; y < bounds.bottom - 24; y += 32) {
+      for (let x = bounds.left + 24; x < bounds.right - 24; x += 32) {
+        const target = document.elementFromPoint(x, y);
+        if (
+          target instanceof Element &&
+          element.contains(target) &&
+          !target.closest(interactive)
+        )
+          return { x, y };
+      }
+    }
+    throw new Error("Could not find empty workflow canvas space to pan.");
+  });
+  const panBefore = await workflowCanvas.evaluate((element) => ({
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }));
+  await page.mouse.move(panStart.x, panStart.y);
+  await page.mouse.down();
+  await expect(workflowCanvas).toHaveClass(/is-panning/);
+  await page.mouse.move(panStart.x - 40, panStart.y - 80, { steps: 4 });
+  await page.mouse.up();
+  await expect(workflowCanvas).not.toHaveClass(/is-panning/);
+  const panAfter = await workflowCanvas.evaluate((element) => ({
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }));
+  expect(panAfter.left > panBefore.left || panAfter.top > panBefore.top).toBe(
+    true,
+  );
 
   await page.getByRole("button", { name: "Test" }).click();
   await expect(page.getByText("TEST INPUT")).toBeVisible();
