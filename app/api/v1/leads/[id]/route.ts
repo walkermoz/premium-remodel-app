@@ -77,7 +77,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const principal = await requireApiKey(request);
+    const principal = await requireApiKey(request, ["leads.read"]);
     await limitAttempts(`v1-lead-get:${principal.keyId}`, 120);
     const { id } = await context.params;
     const lead = await findLeadRecord(principal.organizationId, id);
@@ -97,14 +97,33 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const principal = await requireApiKey(request);
+    const body = patchInput.parse(await request.json());
+    if (!Object.keys(body).length)
+      throw new HttpError(400, "Provide at least one field to update.");
+    const required = new Set<
+      | "leads.read"
+      | "leads.write.notes"
+      | "leads.write.stage"
+      | "leads.write.disposition"
+      | "leads.write.next_action"
+      | "leads.write.draft_reply"
+      | "leads.write.approval"
+    >(["leads.read"]);
+    if (body.notes !== undefined) required.add("leads.write.notes");
+    if (body.status !== undefined) required.add("leads.write.stage");
+    if (body.disposition !== undefined)
+      required.add("leads.write.disposition");
+    if (body.nextAction !== undefined || body.nextActionDue !== undefined)
+      required.add("leads.write.next_action");
+    if (body.draftReply !== undefined)
+      required.add("leads.write.draft_reply");
+    if (body.approvalState !== undefined)
+      required.add("leads.write.approval");
+    const principal = await requireApiKey(request, [...required]);
     await limitAttempts(`v1-lead-patch:${principal.keyId}`, 120);
     const { id } = await context.params;
     const lead = await findLeadRecord(principal.organizationId, id);
     if (!lead) throw new HttpError(404, "Lead not found.");
-    const body = patchInput.parse(await request.json());
-    if (!Object.keys(body).length)
-      throw new HttpError(400, "Provide at least one field to update.");
 
     const patch: Partial<Lead> = { ...body };
     if (body.disposition) {

@@ -1,6 +1,10 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+import { getBusinessConfigForOrganization } from "../business-config";
+import { getBusinessLogoBytes } from "../business-logo";
 import { recordContactCommunication } from "../contact-communications";
+import { renderBusinessEmail } from "../email-template";
 import { gmailAccessTokenForOrganization } from "../google-mail";
 import { supabaseAdmin } from "../supabase/server";
 
@@ -28,6 +32,7 @@ export async function sendWorkflowEmail(input: {
   recipient: string;
   subject: string;
   body: string;
+  presentation?: "plain" | "business";
   contactId?: string;
   idempotencyKey: string;
 }) {
@@ -44,20 +49,85 @@ export async function sendWorkflowEmail(input: {
   if (!connection.data?.google_email)
     throw new Error("Connect the company Google mailbox before sending email.");
   const sender = safeHeader(connection.data.google_email);
-  const raw = Buffer.from(
-    [
-      `From: ${sender}`,
-      `To: ${recipient}`,
-      `Subject: ${encodedSubject(subject)}`,
-      "MIME-Version: 1.0",
-      'Content-Type: text/plain; charset="UTF-8"',
-      "Content-Transfer-Encoding: base64",
-      "",
-      Buffer.from(input.body, "utf8").toString("base64"),
-      "",
-    ].join("\r\n"),
-    "utf8",
-  ).toString("base64url");
+  let raw: string;
+  if (input.presentation === "business") {
+    const [config, logo] = await Promise.all([
+      getBusinessConfigForOrganization(input.organizationId),
+      getBusinessLogoBytes(input.organizationId),
+    ]);
+    const rendered = renderBusinessEmail({
+      preheader: subject,
+      title: subject,
+      message: input.body,
+      logoSrc: logo ? undefined : "",
+      business: {
+        name: config.profile.name,
+        website: config.profile.website,
+        email: config.profile.email || sender,
+        phone: config.profile.phone,
+      },
+    });
+    const related = `servicebuddy-related-${randomUUID()}`;
+    const alternative = `servicebuddy-alternative-${randomUUID()}`;
+    const base64 = (value: string | Uint8Array) =>
+      Buffer.from(value)
+        .toString("base64")
+        .match(/.{1,76}/g)
+        ?.join("\r\n") || "";
+    raw = Buffer.from(
+      [
+        `From: ${safeHeader(config.profile.name)} <${sender}>`,
+        `To: ${recipient}`,
+        `Subject: ${encodedSubject(subject)}`,
+        "MIME-Version: 1.0",
+        `Content-Type: multipart/related; boundary="${related}"`,
+        "",
+        `--${related}`,
+        `Content-Type: multipart/alternative; boundary="${alternative}"`,
+        "",
+        `--${alternative}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        base64(rendered.text),
+        `--${alternative}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        base64(rendered.html),
+        `--${alternative}--`,
+        ...(logo
+          ? [
+              `--${related}`,
+              'Content-Type: image/png; name="organization-logo.png"',
+              "Content-Transfer-Encoding: base64",
+              "Content-ID: <servicebuddy-business-logo>",
+              'Content-Disposition: inline; filename="organization-logo.png"',
+              "",
+              base64(logo),
+            ]
+          : []),
+        `--${related}--`,
+        "",
+      ].join("\r\n"),
+      "utf8",
+    ).toString("base64url");
+  } else {
+    raw = Buffer.from(
+      [
+        `From: ${sender}`,
+        `To: ${recipient}`,
+        `Subject: ${encodedSubject(subject)}`,
+        "MIME-Version: 1.0",
+        'Content-Type: text/plain; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        Buffer.from(input.body, "utf8").toString("base64"),
+        "",
+      ].join("\r\n"),
+      "utf8",
+    ).toString("base64url");
+  }
   const token = await gmailAccessTokenForOrganization(input.organizationId);
   let response: Response;
   try {

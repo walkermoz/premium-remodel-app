@@ -84,7 +84,7 @@ export default function WorkspaceScreen() {
       setSupportMultipleWindows={false}
       pullToRefreshEnabled
       allowsBackForwardNavigationGestures
-      applicationNameForUserAgent="PremiumRemodelMobile/1.1"
+      applicationNameForUserAgent="ServiceBuddyField/1.1"
       startInLoadingState
       renderLoading={() => (
         <View style={styles.loadingOverlay}>

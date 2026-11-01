@@ -40,6 +40,27 @@ const discordLeadRequestBody = JSON.stringify(
   2,
 );
 
+const genericLeadRequestBody = JSON.stringify(
+  {
+    event: "lead.created",
+    occurredAt: "{{event.occurredAt}}",
+    organization: { name: "{{organization.name}}" },
+    lead: {
+      id: "{{outputs.leadResult.lead.id}}",
+      contactId: "{{outputs.contactResult.contact.id}}",
+      name: "{{event.payload.name}}",
+      email: "{{event.payload.email}}",
+      phone: "{{event.payload.phone}}",
+      address: "{{event.payload.address}}",
+      zip: "{{event.payload.zip}}",
+      project: "{{event.payload.project}}",
+      description: "{{event.payload.description}}",
+    },
+  },
+  null,
+  2,
+);
+
 export type WebsiteLeadSeedOptions = {
   name?: string;
   sourceLabel?: string;
@@ -49,6 +70,10 @@ export type WebsiteLeadSeedOptions = {
   sendAcknowledgement?: boolean;
   sendSmsAcknowledgement?: boolean;
   sendTeamNotification?: boolean;
+  teamNotificationMode?: "legacy_discord" | "disabled_custom_https";
+  triggerMode?: "website_form" | "inbound_webhook";
+  compatibilityMode?: "generic" | "premium_legacy";
+  teamNotificationUrlSecretId?: string;
 };
 
 export function websiteLeadWorkflowSeed(
@@ -57,6 +82,9 @@ export function websiteLeadWorkflowSeed(
   const source = options.sourceLabel || "Website form";
   const stage = options.initialStage || "New";
   const disposition = options.initialDisposition || "Active";
+  const legacyTeamNotification =
+    options.teamNotificationMode !== "disabled_custom_https";
+  const inboundWebhook = options.triggerMode === "inbound_webhook";
   return workflowDefinitionSchema.parse({
     graph: {
       schemaVersion: 1,
@@ -65,10 +93,18 @@ export function websiteLeadWorkflowSeed(
       nodes: [
         {
           id: "website-form",
-          type: "trigger.websiteFormSubmitted",
+          type: inboundWebhook
+            ? "trigger.inboundWebhook"
+            : "trigger.websiteFormSubmitted",
           kind: "trigger",
-          name: "Website form submitted",
-          config: { eventType: "website.form.submitted" },
+          name: inboundWebhook
+            ? "Website sends lead webhook"
+            : "Website form submitted",
+          config: {
+            eventType: inboundWebhook
+              ? "webhook.inbound.received"
+              : "website.form.submitted",
+          },
           outgoing: [
             {
               id: "website-contact",
@@ -194,10 +230,15 @@ export function websiteLeadWorkflowSeed(
           name: "Send confirmation email",
           config: {
             enabled: options.sendAcknowledgement ?? true,
-            templateKey: "website-lead-acknowledgement",
+            presentation: "business",
+            resultTracking: {
+              objectType: "lead",
+              objectId: ref("outputs.leadResult.id"),
+              field: "emailAcknowledgement",
+            },
             recipient: ref("event.payload.email"),
             subject: "We received your remodel request",
-            body: "Hi {{event.payload.firstName}}, we received your remodel request and will be in touch soon.",
+            body: "Hi {{event.payload.firstName}},\n\nThanks for reaching out to {{organization.name}}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n{{organization.name}} Team",
             missingValueBehavior: "blank",
           },
           outgoing: [
@@ -239,7 +280,11 @@ export function websiteLeadWorkflowSeed(
           name: "Send confirmation text",
           config: {
             enabled: options.sendSmsAcknowledgement ?? true,
-            templateKey: "website-lead-acknowledgement",
+            resultTracking: {
+              objectType: "lead",
+              objectId: ref("outputs.leadResult.id"),
+              field: "smsAcknowledgement",
+            },
             recipient: ref("event.payload.phone"),
             contactId: ref("outputs.contactResult.contact.id"),
             category: "appointment",
@@ -261,20 +306,36 @@ export function websiteLeadWorkflowSeed(
           id: "team-notification",
           type: "action.webhook",
           kind: "action",
-          name: "Send lead to Discord",
+          name: legacyTeamNotification
+            ? "Send lead to Discord"
+            : "Notify team with HTTPS",
           config: {
-            enabled: options.sendTeamNotification ?? true,
-            destination: "discord_lead_webhook",
+            enabled:
+              options.sendTeamNotification ??
+              (legacyTeamNotification ? true : false),
+            destination:
+              legacyTeamNotification && !options.teamNotificationUrlSecretId
+                ? "discord_lead_webhook"
+                : "custom",
             method: "POST",
             url: "",
+            ...(legacyTeamNotification && options.teamNotificationUrlSecretId
+              ? { urlSecretId: options.teamNotificationUrlSecretId }
+              : {}),
             headers: {},
             bodyType: "json",
-            body: discordLeadRequestBody,
+            body: legacyTeamNotification
+              ? discordLeadRequestBody
+              : genericLeadRequestBody,
             missingValueBehavior: "fallback",
             fallbackValue: "Not provided",
             timeoutSeconds: 15,
             saveResponse: false,
-            templateKey: "website-lead-team-notification",
+            resultTracking: {
+              objectType: "lead",
+              objectId: ref("outputs.leadResult.id"),
+              field: "discordNotification",
+            },
           },
           outgoing: [
             { id: "team-end", to: "end-team", label: "Done", order: 0 },

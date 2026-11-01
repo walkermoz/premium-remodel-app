@@ -23,12 +23,9 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
+    const business = await getBusinessConfig(user);
     if (
-      !canOpenWorkspaceTab(
-        await getBusinessConfig(user),
-        user.group,
-        "Generate",
-      )
+      !canOpenWorkspaceTab(business, user.group, "Generate")
     )
       throw new HttpError(
         403,
@@ -91,6 +88,7 @@ export async function POST(request: Request) {
       style: fields.style,
       notes: fields.notes,
       userId: user.authUserId,
+      businessName: business.profile.name,
     });
     return new Response(new Uint8Array(image), {
       headers: {

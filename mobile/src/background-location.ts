@@ -81,7 +81,7 @@ export async function startLocationSharing() {
       pausesUpdatesAutomatically: true,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: "Premium Remodel shift is active",
+        notificationTitle: "ServiceBuddy shift is active",
         notificationBody: "Location sharing stops when you end your shift.",
         notificationColor: "#173D52",
       },

@@ -17,6 +17,7 @@ import type { Attachment, Project } from "@/lib/types";
 import { validateStoredFile } from "@/lib/validate-file";
 import { MAX_FILE_SIZE } from "@/lib/file-policy";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const bucket = "remodel-files";
@@ -113,8 +114,7 @@ export async function DELETE(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Projects", "Quotes");
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only the administrator can delete files.");
+    await requireOrganizationCapability(user, "quotes.manage");
     const { id } = await request.json();
     const file = (await findRecord(
       user,

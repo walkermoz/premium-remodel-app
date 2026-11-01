@@ -18,7 +18,6 @@ import AddressInput from "./address-input";
 import { workTypes, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
 import { contactAddress, customerContacts } from "@/lib/contacts";
-import { projectMoney } from "@/lib/project-finances";
 import CustomerContactPicker from "./customer-contact-picker";
 import {
   lineTotal,
@@ -28,6 +27,7 @@ import {
   salePricingBases,
 } from "@/lib/scope-pricing";
 import { workspaceObjects } from "@/lib/workspace-objects";
+import { useRegionalFormat } from "./regional-format-context";
 
 const contactObject = workspaceObjects.contact;
 export type FormKind =
@@ -59,6 +59,8 @@ export function EntityForm({
   onContactPhotoChanged: (contact: Contractor) => void;
   onClose: () => void;
 }) {
+  const regional = useRegionalFormat();
+  const today = workToday(new Date(), regional.timezone);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -691,10 +693,10 @@ export function EntityForm({
                   <input
                     name="completedDate"
                     type="date"
-                    max={workToday()}
+                    max={today}
                     defaultValue={
                       projectValues.completedDate ||
-                      (projectValues.status === "Completed" ? "" : workToday())
+                      (projectValues.status === "Completed" ? "" : today)
                     }
                   />
                 </label>
@@ -955,7 +957,7 @@ export function EntityForm({
                     required
                   />
                   <small className="scope-rate-total">
-                    Line total: {projectMoney(scopeLineTotal)}
+                    Line total: {regional.money(scopeLineTotal)}
                   </small>
                 </label>
                 <label>

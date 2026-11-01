@@ -5,6 +5,7 @@ import {
 } from "@/lib/sms-compliance";
 import { TwilioConnectionError } from "@/lib/twilio-client";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -14,11 +15,7 @@ export async function GET() {
   try {
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Automation");
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only administrators can view phone automation.",
-      );
+    await requireOrganizationCapability(user, "workflows.manage");
     await limitAttempts(`sms-automation:${user.id}`, 120);
     const connection = await syncOrganizationSmsCompliance(user.organizationId);
     const summary = await readSmsComplianceSummary(user.organizationId);

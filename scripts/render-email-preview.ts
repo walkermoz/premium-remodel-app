@@ -10,15 +10,23 @@ const logo = await readFile(
   path.join(process.cwd(), "public", "images", "logo.png"),
 );
 const logoSrc = `data:image/png;base64,${logo.toString("base64")}`;
+const business = {
+  name: "Premium Remodel",
+  website: "https://premiumremodel.com",
+  email: "contact@premiumremodel.com",
+  phone: "(919) 454-4012",
+};
 
 const quote = renderQuoteEmail({
   message:
     "Hi Alex,\n\nThank you for inviting us to look at your bathroom project. Your quote is attached for review.\n\nIf you have questions about the scope or would like to discuss the next step, just reply to this email.\n\nThanks,\nPremium Remodel Team",
   logoSrc,
+  business,
 });
 const lead = renderLeadAcknowledgement({
   firstName: "Alex",
   logoSrc,
+  business,
 });
 
 const frame = (title: string, subtitle: string, html: string, narrow = false) =>

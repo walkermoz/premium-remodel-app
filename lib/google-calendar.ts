@@ -736,7 +736,7 @@ export async function connectGoogleCalendar(
       : "";
   if (!refreshToken)
     throw new GoogleCalendarError(
-      "Google did not provide offline access. Remove Premium Remodel from your Google account permissions, then connect again.",
+      "Google did not provide offline access. Remove ServiceBuddy from your Google account permissions, then connect again.",
     );
   const businessName = (await getBusinessConfig(user)).profile.name;
   const calendar =
@@ -933,6 +933,47 @@ export async function disconnectGoogleCalendar(
     calendar: connection.calendar_name,
   });
   return googleCalendarStatus(user);
+}
+
+/** Revoke every personal calendar connection owned by an organization. */
+export async function revokeGoogleCalendarsForOrganization(
+  organizationId: string,
+  fetcher: Fetcher = fetch,
+) {
+  const result = await supabaseAdmin()
+    .from("remodel_google_calendar_connections")
+    .select("profile_id,refresh_token_ciphertext")
+    .eq("organization_id", organizationId);
+  if (result.error) throw result.error;
+  for (const row of result.data || []) {
+    if (!row.refresh_token_ciphertext) continue;
+    let refreshToken = "";
+    try {
+      refreshToken = unseal(row.refresh_token_ciphertext, "refresh-token");
+    } catch {
+      throw new HttpError(
+        503,
+        "A company Google Calendar token could not be read for revocation.",
+      );
+    }
+    const response = await fetcher("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: refreshToken }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok && response.status !== 400)
+      throw new HttpError(
+        502,
+        "Google Calendar could not be disconnected. Organization deletion was paused.",
+      );
+  }
+  const removed = await supabaseAdmin()
+    .from("remodel_google_calendar_connections")
+    .delete()
+    .eq("organization_id", organizationId);
+  if (removed.error) throw removed.error;
+  return { disconnected: result.data?.length || 0 };
 }
 
 async function recordCalendarAudit(

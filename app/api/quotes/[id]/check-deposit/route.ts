@@ -3,11 +3,16 @@ import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { msaPaymentRows } from "@/lib/msa-contract";
 import { promotePaidQuote } from "@/lib/quote-promotion";
 import { dollarsToCents } from "@/lib/stripe-payment-utils";
-import { stripeClient } from "@/lib/stripe-payments";
+import {
+  organizationStripeEnabled,
+  stripeContextForOrganization,
+  stripeRequestOptions,
+} from "@/lib/stripe-payments";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Activity, Quote } from "@/lib/types";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 import { enqueueWorkflowEvent } from "@/lib/workflows/events";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -25,11 +30,7 @@ export async function POST(
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Quotes");
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only administrators can record a check deposit.",
-      );
+    await requireOrganizationCapability(user, "payments.manage");
     const { id } = await params;
     if (!z.uuid().safeParse(id).success)
       throw new HttpError(400, "Choose a valid quote.");
@@ -163,10 +164,18 @@ export async function POST(
       updated_at: now,
     });
     if (insertError) throw insertError;
-    if (agreement.depositCheckout?.sessionId && process.env.STRIPE_SECRET_KEY) {
+    if (
+      agreement.depositCheckout?.sessionId &&
+      (await organizationStripeEnabled(user.organizationId))
+    ) {
       try {
-        await stripeClient(user.organizationId).checkout.sessions.expire(
+        const stripeContext = await stripeContextForOrganization(
+          user.organizationId,
+        );
+        await stripeContext.stripe.checkout.sessions.expire(
           agreement.depositCheckout.sessionId,
+          {},
+          stripeRequestOptions(stripeContext),
         );
       } catch {
         // A completed or previously expired checkout cannot be expired again.

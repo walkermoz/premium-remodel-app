@@ -68,10 +68,10 @@ export async function PUT(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (!canCreateBusiness(user))
+    if (!(await canCreateBusiness(user)))
       throw new HttpError(
         403,
-        "Only a business owner can create another business.",
+        "Only a ServiceBuddy platform owner can create another business.",
       );
     await limitAttempts(`create-business:${user.authUserId}`, 5);
     const { name } = z

@@ -65,7 +65,8 @@ import {
 } from "@/lib/workflows/schema";
 import type { WorkflowDetail, WorkflowSummary } from "@/lib/workflows/store";
 import { validateWorkflowDefinition } from "@/lib/workflows/validate";
-import type { Lead, User } from "@/lib/types";
+import type { Lead } from "@/lib/types";
+import { useRegionalFormat } from "./regional-format-context";
 
 type StudioMode = "build" | "test" | "versions" | "runs";
 type InsertionPoint = { sourceId: string; edgeId: string };
@@ -178,7 +179,6 @@ const workflowOperators: Array<
 function conditionLabel(operator: string) {
   return operator.replace(/([A-Z])/g, " $1").toLocaleLowerCase();
 }
-
 function literalFromInput(value: string) {
   if (value === "true") return true;
   if (value === "false") return false;
@@ -1062,6 +1062,7 @@ function starterConfig(type: string): Record<string, unknown> {
       method: "POST",
       url: "https://",
       headers: {},
+      secretHeaders: {},
       bodyType: "json",
       body: "",
       missingValueBehavior: "blank",
@@ -1132,14 +1133,25 @@ function sampleEvent(detail: WorkflowDetail): WorkflowEvent {
 }
 
 export default function WorkflowAutomationPanel({
-  user,
   leads,
   demo,
+  businessName,
+  website,
+  smsPolicy,
+  canManage,
 }: {
-  user: User;
   leads: Lead[];
   demo: boolean;
+  businessName: string;
+  website: string;
+  smsPolicy: {
+    version: string;
+    privacyUrl: string;
+    termsUrl: string;
+  };
+  canManage: boolean;
 }) {
+  const { date, dateTime } = useRegionalFormat();
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [detail, setDetail] = useState<WorkflowDetail | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -1161,7 +1173,7 @@ export default function WorkflowAutomationPanel({
   const [simulation, setSimulation] = useState<WorkflowSimulation | null>(null);
   const [testEvent, setTestEvent] = useState<WorkflowEvent | null>(null);
   const [testContext, setTestContext] = useState<Record<string, unknown>>({
-    organization: { name: "Premium Remodel" },
+    organization: { name: businessName },
   });
   const [testFixtureSource, setTestFixtureSource] =
     useState<TestFixtureSource>("manual");
@@ -1203,13 +1215,17 @@ export default function WorkflowAutomationPanel({
     workflowId: "",
     configured: false,
     url: "",
+    authMode: "none" as "none" | "header" | "hmac_sha256",
+    authHeader: "authorization",
   });
+  const [webhookAuthSecret, setWebhookAuthSecret] = useState("");
   const [webhookLoading, setWebhookLoading] = useState(false);
   const [senderOptions, setSenderOptions] = useState<{
     email: SenderOption[];
     sms: SenderOption[];
     webhook: SenderOption[];
-  }>({ email: [], sms: [], webhook: [] });
+    secrets: SenderOption[];
+  }>({ email: [], sms: [], webhook: [], secrets: [] });
   const detailRef = useRef<WorkflowDetail | null>(detail);
   const replaceDetail = useCallback((next: WorkflowDetail | null) => {
     detailRef.current = next;
@@ -1217,19 +1233,16 @@ export default function WorkflowAutomationPanel({
   }, []);
   const treeViewportRef = useRef<HTMLDivElement>(null);
   const treeSurfaceRef = useRef<HTMLDivElement>(null);
-  const centerWorkflow = useCallback(
-    (behavior: ScrollBehavior = "smooth") => {
-      const viewport = treeViewportRef.current;
-      const surface = treeSurfaceRef.current;
-      if (!viewport || !surface) return;
-      viewport.scrollTo({
-        left: Math.max(0, (surface.scrollWidth - viewport.clientWidth) / 2),
-        top: 0,
-        behavior,
-      });
-    },
-    [],
-  );
+  const centerWorkflow = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const viewport = treeViewportRef.current;
+    const surface = treeSurfaceRef.current;
+    if (!viewport || !surface) return;
+    viewport.scrollTo({
+      left: Math.max(0, (surface.scrollWidth - viewport.clientWidth) / 2),
+      top: 0,
+      behavior,
+    });
+  }, []);
   const fitWorkflow = useCallback(
     (behavior: ScrollBehavior = "smooth") => {
       const viewport = treeViewportRef.current;
@@ -1264,7 +1277,7 @@ export default function WorkflowAutomationPanel({
     },
     [centerWorkflow],
   );
-  const editable = !demo && user.role === "admin" && !detail?.systemControlled;
+  const editable = !demo && canManage && !detail?.systemControlled;
 
   useEffect(() => {
     if (loading || mode !== "build" || !detail?.id) return;
@@ -1298,7 +1311,7 @@ export default function WorkflowAutomationPanel({
                 );
           replaceDetail(next);
           setTestEvent(sampleEvent(next));
-          setTestContext({ organization: { name: "Premium Remodel" } });
+          setTestContext({ organization: { name: businessName } });
           setSimulation(null);
           setSelectedNodeId(
             next.key === "website-lead-intake" ? "create-lead" : "inbound-sms",
@@ -1312,7 +1325,7 @@ export default function WorkflowAutomationPanel({
             throw new Error(data.error || "Could not load workflow.");
           replaceDetail(data);
           setTestEvent(sampleEvent(data));
-          setTestContext({ organization: { name: "Premium Remodel" } });
+          setTestContext({ organization: { name: businessName } });
           setSimulation(null);
           setSelectedNodeId(data.draft.graph.entryNodeIds[0] || null);
         }
@@ -1329,7 +1342,7 @@ export default function WorkflowAutomationPanel({
         setLoading(false);
       }
     },
-    [demo, replaceDetail],
+    [businessName, demo, replaceDetail],
   );
 
   useEffect(() => {
@@ -1401,6 +1414,7 @@ export default function WorkflowAutomationPanel({
             email: data.email || [],
             sms: data.sms || [],
             webhook: data.webhook || [],
+            secrets: data.secrets || [],
           });
       })
       .catch((reason) => {
@@ -1424,6 +1438,15 @@ export default function WorkflowAutomationPanel({
     webhookState.workflowId === detail?.id && webhookState.configured;
   const webhookUrl =
     webhookState.workflowId === detail?.id ? webhookState.url : "";
+  const webhookExample = inboundWebhookExample(
+    detail?.key || "",
+    webhookUrl,
+    {
+      businessName,
+      website,
+      ...smsPolicy,
+    },
+  );
   useEffect(() => {
     let active = true;
     if (demo || !detailId || selectedNode?.type !== "trigger.inboundWebhook") {
@@ -1443,6 +1466,12 @@ export default function WorkflowAutomationPanel({
             workflowId: detailId,
             configured: data.configured === true,
             url: "",
+            authMode: data.webhook?.authMode || "none",
+            authHeader:
+              data.webhook?.authHeader ||
+              (data.webhook?.authMode === "hmac_sha256"
+                ? "x-servicebuddy-signature"
+                : "authorization"),
           });
       })
       .catch((reason) => {
@@ -2284,7 +2313,7 @@ export default function WorkflowAutomationPanel({
   }
 
   async function duplicateCurrentWorkflow() {
-    if (!detail || demo || user.role !== "admin") return;
+    if (!detail || demo || !canManage) return;
     setSaving(true);
     setError("");
     try {
@@ -2446,7 +2475,7 @@ export default function WorkflowAutomationPanel({
               </button>
             </>
           )}
-          {!demo && detail && user.role === "admin" && (
+          {!demo && detail && canManage && (
             <button
               type="button"
               className="button secondary"
@@ -2491,7 +2520,7 @@ export default function WorkflowAutomationPanel({
               <span>Workflows</span>
               <strong>{workflows.length}</strong>
             </div>
-            {!demo && user.role === "admin" && (
+            {!demo && canManage && (
               <button
                 type="button"
                 aria-label="Create workflow"
@@ -2716,7 +2745,9 @@ export default function WorkflowAutomationPanel({
                     >
                       <ZoomOut size={15} />
                     </button>
-                    <span aria-live="polite">{Math.round(treeZoom * 100)}%</span>
+                    <span aria-live="polite">
+                      {Math.round(treeZoom * 100)}%
+                    </span>
                     <button
                       type="button"
                       onClick={() => adjustTreeZoom(TREE_ZOOM_STEP)}
@@ -2724,10 +2755,7 @@ export default function WorkflowAutomationPanel({
                     >
                       <ZoomIn size={15} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => fitWorkflow()}
-                    >
+                    <button type="button" onClick={() => fitWorkflow()}>
                       <Maximize2 size={14} /> Fit workflow
                     </button>
                   </div>
@@ -2738,9 +2766,7 @@ export default function WorkflowAutomationPanel({
                       if (!event.ctrlKey && !event.metaKey) return;
                       event.preventDefault();
                       adjustTreeZoom(
-                        event.deltaY > 0
-                          ? -TREE_ZOOM_STEP
-                          : TREE_ZOOM_STEP,
+                        event.deltaY > 0 ? -TREE_ZOOM_STEP : TREE_ZOOM_STEP,
                       );
                     }}
                     aria-label="Workflow canvas. Hold Control and scroll to zoom."
@@ -2842,7 +2868,7 @@ export default function WorkflowAutomationPanel({
                             {recentTestEvents.map((event) => (
                               <option key={event.id} value={event.id}>
                                 {event.label} · {event.type} ·{" "}
-                                {new Date(event.occurredAt).toLocaleString()}
+                                {dateTime(event.occurredAt)}
                               </option>
                             ))}
                           </select>
@@ -3037,7 +3063,7 @@ export default function WorkflowAutomationPanel({
                           <pre>{JSON.stringify(step.preview, null, 2)}</pre>
                         )}
                         {!demo &&
-                          user.role === "admin" &&
+                          canManage &&
                           step.status === "planned" &&
                           workflowNodeDefinition(step.nodeType)?.connection && (
                             <button
@@ -3184,7 +3210,7 @@ export default function WorkflowAutomationPanel({
                           </small>
                         </div>
                         <time>
-                          {new Date(version.createdAt).toLocaleString()}
+                          {dateTime(version.createdAt)}
                         </time>
                         {editable && version.state !== "legacy" && (
                           <button
@@ -3297,7 +3323,7 @@ export default function WorkflowAutomationPanel({
                           <p>{lead.project}</p>
                         </div>
                         <time>
-                          {new Date(lead.submittedAt).toLocaleDateString()}
+                          {date(lead.submittedAt)}
                         </time>
                       </article>
                     ))
@@ -3323,7 +3349,7 @@ export default function WorkflowAutomationPanel({
                             <p>{String(run.summary.project || run.objectId)}</p>
                           </div>
                           <time>
-                            {new Date(run.startedAt).toLocaleString()}
+                            {dateTime(run.startedAt)}
                           </time>
                         </summary>
                         <div className="workflow-run-detail">
@@ -3360,7 +3386,7 @@ export default function WorkflowAutomationPanel({
                               <dt>Triggering event</dt>
                               <dd>
                                 {run.triggerEvent
-                                  ? `${run.triggerEvent.type} · ${new Date(run.triggerEvent.occurredAt).toLocaleString()}`
+                                  ? `${run.triggerEvent.type} · ${dateTime(run.triggerEvent.occurredAt)}`
                                   : run.eventId || "Legacy run"}
                               </dd>
                             </div>
@@ -3504,9 +3530,7 @@ export default function WorkflowAutomationPanel({
                                     {Boolean(step.next_attempt_at) && (
                                       <small>
                                         Next retry{" "}
-                                        {new Date(
-                                          String(step.next_attempt_at),
-                                        ).toLocaleString()}
+                                        {dateTime(String(step.next_attempt_at))}
                                       </small>
                                     )}
                                     {!run.legacy &&
@@ -3542,7 +3566,7 @@ export default function WorkflowAutomationPanel({
                                 <p key={String(wait.id)}>
                                   {String(wait.status)} · {String(wait.mode)}
                                   {wait.wake_at
-                                    ? ` · resumes ${new Date(String(wait.wake_at)).toLocaleString()}`
+                                    ? ` · resumes ${dateTime(String(wait.wake_at))}`
                                     : ""}
                                   {wait.awaited_event_type
                                     ? ` · waiting for ${String(wait.awaited_event_type)}`
@@ -3775,6 +3799,104 @@ export default function WorkflowAutomationPanel({
                         />
                       </label>
                     )}
+                    <details className="workflow-webhook-integration">
+                      <summary>Website integration example</summary>
+                      <p className="workflow-condition-help">
+                        Submit JSON from your server or form handler. Generate a
+                        different idempotency key for every real form submission;
+                        retrying with the same key will not create a duplicate run.
+                      </p>
+                      <div className="workflow-webhook-code-heading">
+                        <strong>Example payload</strong>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label="Copy example webhook payload"
+                          onClick={() =>
+                            void navigator.clipboard.writeText(
+                              webhookExample.json,
+                            )
+                          }
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                      <pre>{webhookExample.json}</pre>
+                      <div className="workflow-webhook-code-heading">
+                        <strong>cURL</strong>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label="Copy webhook cURL example"
+                          onClick={() =>
+                            void navigator.clipboard.writeText(
+                              webhookExample.curl,
+                            )
+                          }
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                      <pre>{webhookExample.curl}</pre>
+                    </details>
+                    <label className="workflow-field">
+                      <span>Additional authentication</span>
+                      <select
+                        value={webhookState.authMode}
+                        disabled={!editable || demo}
+                        onChange={(event) => {
+                          const authMode = event.target.value as
+                            "none" | "header" | "hmac_sha256";
+                          setWebhookState((current) => ({
+                            ...current,
+                            authMode,
+                            authHeader:
+                              authMode === "hmac_sha256"
+                                ? "x-servicebuddy-signature"
+                                : current.authHeader || "authorization",
+                          }));
+                          setWebhookAuthSecret("");
+                        }}
+                      >
+                        <option value="none">Secret URL only</option>
+                        <option value="header">
+                          Exact shared-secret header
+                        </option>
+                        <option value="hmac_sha256">
+                          HMAC-SHA256 signature
+                        </option>
+                      </select>
+                    </label>
+                    {webhookState.authMode !== "none" && (
+                      <div className="workflow-schedule-interval">
+                        <label className="workflow-field">
+                          <span>Authentication header</span>
+                          <input
+                            value={webhookState.authHeader}
+                            disabled={!editable || demo}
+                            onChange={(event) =>
+                              setWebhookState((current) => ({
+                                ...current,
+                                authHeader: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="workflow-field">
+                          <span>Shared secret</span>
+                          <input
+                            type="password"
+                            value={webhookAuthSecret}
+                            disabled={!editable || demo}
+                            autoComplete="new-password"
+                            placeholder="Enter when generating or rotating"
+                            onChange={(event) =>
+                              setWebhookAuthSecret(event.target.value)
+                            }
+                          />
+                        </label>
+                      </div>
+                    )}
                     <button
                       type="button"
                       className="button secondary"
@@ -3786,7 +3908,19 @@ export default function WorkflowAutomationPanel({
                         try {
                           const response = await fetch(
                             `/api/workflows/${detail.id}/webhook-token`,
-                            { method: "POST" },
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                authMode: webhookState.authMode,
+                                ...(webhookState.authMode !== "none"
+                                  ? {
+                                      authHeader: webhookState.authHeader,
+                                      authSecret: webhookAuthSecret,
+                                    }
+                                  : {}),
+                              }),
+                            },
                           );
                           const data = await response.json();
                           if (!response.ok)
@@ -3797,7 +3931,11 @@ export default function WorkflowAutomationPanel({
                             workflowId: detail.id,
                             configured: true,
                             url: data.url,
+                            authMode: data.authMode || "none",
+                            authHeader:
+                              data.authHeader || webhookState.authHeader,
                           });
+                          setWebhookAuthSecret("");
                         } catch (reason) {
                           setError(
                             reason instanceof Error
@@ -5046,6 +5184,7 @@ export default function WorkflowAutomationPanel({
                           }
                           disabled={
                             !editable ||
+                            Boolean(selectedNode.config.urlSecretId) ||
                             selectedNode.config.destination ===
                               "discord_lead_webhook"
                           }
@@ -5060,6 +5199,35 @@ export default function WorkflowAutomationPanel({
                         />
                       </label>
                     </div>
+                    {selectedNode.config.destination !==
+                      "discord_lead_webhook" && (
+                      <label className="workflow-field">
+                        <span>Or use a URL stored as a secret</span>
+                        <select
+                          value={String(selectedNode.config.urlSecretId || "")}
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                urlSecretId: event.target.value || undefined,
+                              },
+                            })
+                          }
+                        >
+                          <option value="">Use the public URL above</option>
+                          {senderOptions.secrets.map((secret) => (
+                            <option key={secret.id} value={secret.id}>
+                              {secret.label}
+                            </option>
+                          ))}
+                        </select>
+                        <small>
+                          Store webhook URLs containing credentials in the
+                          organization vault, then select the secret here.
+                        </small>
+                      </label>
+                    )}
                     <div className="workflow-inspector-section-title">
                       <span>Headers</span>
                       <button
@@ -5126,10 +5294,8 @@ export default function WorkflowAutomationPanel({
                               config: {
                                 ...selectedNode.config,
                                 headers: {
-                                  ...((selectedNode.config.headers || {}) as Record<
-                                    string,
-                                    string
-                                  >),
+                                  ...((selectedNode.config.headers ||
+                                    {}) as Record<string, string>),
                                   [name]: event.target.value,
                                 },
                               },
@@ -5146,10 +5312,116 @@ export default function WorkflowAutomationPanel({
                                 ...selectedNode.config,
                                 headers: Object.fromEntries(
                                   Object.entries(
-                                    (selectedNode.config.headers || {}) as Record<
-                                      string,
-                                      string
-                                    >,
+                                    (selectedNode.config.headers ||
+                                      {}) as Record<string, string>,
+                                  ).filter(
+                                    ([currentName]) => currentName !== name,
+                                  ),
+                                ),
+                              },
+                            })
+                          }
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="workflow-inspector-section-title">
+                      <span>Secret headers</span>
+                      <button
+                        type="button"
+                        disabled={
+                          !editable || senderOptions.secrets.length === 0
+                        }
+                        onClick={() => {
+                          const headers = {
+                            ...((selectedNode.config.secretHeaders ||
+                              {}) as Record<string, string>),
+                          };
+                          let index = Object.keys(headers).length + 1;
+                          let name =
+                            index === 1 ? "Authorization" : `X-Secret-${index}`;
+                          while (name in headers) name = `X-Secret-${++index}`;
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              secretHeaders: {
+                                ...headers,
+                                [name]: senderOptions.secrets[0].id,
+                              },
+                            },
+                          });
+                        }}
+                      >
+                        <Plus size={13} /> Add secret header
+                      </button>
+                    </div>
+                    {Object.entries(
+                      (selectedNode.config.secretHeaders || {}) as Record<
+                        string,
+                        string
+                      >,
+                    ).map(([name, secretId]) => (
+                      <div className="workflow-request-header" key={name}>
+                        <input
+                          aria-label="Secret header name"
+                          value={name}
+                          disabled={!editable}
+                          onChange={(event) => {
+                            const secretHeaders = Object.fromEntries(
+                              Object.entries(
+                                (selectedNode.config.secretHeaders ||
+                                  {}) as Record<string, string>,
+                              ).map(([currentName, currentSecretId]) => [
+                                currentName === name
+                                  ? event.target.value
+                                  : currentName,
+                                currentSecretId,
+                              ]),
+                            );
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                secretHeaders,
+                              },
+                            });
+                          }}
+                        />
+                        <select
+                          aria-label={`${name} secret`}
+                          value={secretId}
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                secretHeaders: {
+                                  ...((selectedNode.config.secretHeaders ||
+                                    {}) as Record<string, string>),
+                                  [name]: event.target.value,
+                                },
+                              },
+                            })
+                          }
+                        >
+                          {senderOptions.secrets.map((secret) => (
+                            <option key={secret.id} value={secret.id}>
+                              {secret.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${name} secret header`}
+                          disabled={!editable}
+                          onClick={() =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                secretHeaders: Object.fromEntries(
+                                  Object.entries(
+                                    (selectedNode.config.secretHeaders ||
+                                      {}) as Record<string, string>,
                                   ).filter(
                                     ([currentName]) => currentName !== name,
                                   ),
@@ -5202,8 +5474,7 @@ export default function WorkflowAutomationPanel({
                         <span>If a value is missing</span>
                         <select
                           value={String(
-                            selectedNode.config.missingValueBehavior ||
-                              "blank",
+                            selectedNode.config.missingValueBehavior || "blank",
                           )}
                           disabled={!editable}
                           onChange={(event) =>
@@ -5237,10 +5508,7 @@ export default function WorkflowAutomationPanel({
                                 ...selectedNode.config,
                                 timeoutSeconds: Math.min(
                                   30,
-                                  Math.max(
-                                    1,
-                                    Number(event.target.value) || 15,
-                                  ),
+                                  Math.max(1, Number(event.target.value) || 15),
                                 ),
                               },
                             })
@@ -5285,9 +5553,9 @@ export default function WorkflowAutomationPanel({
                       <span>Expose the response to later steps</span>
                     </label>
                     <p className="workflow-condition-help">
-                      Requests are limited to public HTTPS destinations.
-                      Private networks, redirects, embedded credentials, and
-                      secret headers are blocked. Use a managed connection for
+                      Requests are limited to public HTTPS destinations. Private
+                      networks, redirects, embedded credentials, and secret
+                      headers are blocked. Use a managed connection for
                       credentials.
                     </p>
                   </div>
@@ -6247,4 +6515,57 @@ export default function WorkflowAutomationPanel({
       )}
     </section>
   );
+}
+function inboundWebhookExample(
+  workflowKey: string,
+  endpoint: string,
+  consent: {
+    businessName: string;
+    website: string;
+    version: string;
+    privacyUrl: string;
+    termsUrl: string;
+  },
+) {
+  let websiteOrigin = "https://your-website.example";
+  try {
+    if (consent.website) websiteOrigin = new URL(consent.website).origin;
+  } catch {
+    // The saved business form validates URLs; retain a safe documentation value
+    // if older data predates that validation.
+  }
+  const payload =
+    workflowKey === "website-lead-intake"
+      ? {
+          firstName: "Jordan",
+          lastName: "Lee",
+          name: "Jordan Lee",
+          email: "jordan@example.com",
+          phone: "+19195550123",
+          address: "123 Main Street",
+          zip: "27513",
+          project: "Kitchen Remodel",
+          description: "Replace cabinets and countertops",
+          smsAppointmentOptIn: true,
+          smsMarketingOptIn: false,
+          smsConsentEvidence: {
+            source: `${consent.businessName} website lead form`,
+            policyVersion: consent.version || "YOUR_SAVED_POLICY_VERSION",
+            privacyUrl:
+              consent.privacyUrl || "https://your-website.example/privacy",
+            termsUrl:
+              consent.termsUrl || "https://your-website.example/terms",
+            capturedAt: new Date().toISOString(),
+            origin: websiteOrigin,
+            appointment: true,
+            marketing: false,
+          },
+        }
+      : { event: "example", objectId: "your-object-id", data: {} };
+  const json = JSON.stringify(payload, null, 2);
+  const url = endpoint || "YOUR_SECRET_WEBHOOK_URL";
+  return {
+    json,
+    curl: `curl --request POST '${url}' \\\n  --header 'Content-Type: application/json' \\\n  --header 'Idempotency-Key: lead-UNIQUE_SUBMISSION_ID' \\\n  --data '${JSON.stringify(payload)}'`,
+  };
 }

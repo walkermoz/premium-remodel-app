@@ -12,10 +12,8 @@ import { Modal } from "./ui";
 import type { Project, Workspace } from "@/lib/types";
 import {
   projectFinances,
-  projectMoney,
-  percentLabel,
 } from "@/lib/project-finances";
-import { dateLabel } from "@/lib/utils";
+import { useRegionalFormat } from "./regional-format-context";
 
 export default function ProjectPayments({
   project,
@@ -30,6 +28,14 @@ export default function ProjectPayments({
   onLog: () => void;
   canCreateCardLink: boolean;
 }) {
+  const regional = useRegionalFormat();
+  const percent = (value: number | null) =>
+    value === null
+      ? "—"
+      : regional.number(value, {
+          style: "percent",
+          maximumFractionDigits: 1,
+        });
   const [expanded, setExpanded] = useState(false);
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [amount, setAmount] = useState("");
@@ -151,7 +157,7 @@ export default function ProjectPayments({
         >
           <div className="card-payment-dialog">
             <p>
-              Remaining balance: <strong>{projectMoney(remaining)}</strong>
+              Remaining balance: <strong>{regional.money(remaining)}</strong>
             </p>
             {!paymentUrl ? (
               <form
@@ -230,18 +236,18 @@ export default function ProjectPayments({
         <div>
           <span>Collected</span>
           <div>
-            <strong>{projectMoney(collected)}</strong>
+            <strong>{regional.money(collected)}</strong>
             <span className="balance-percent">
-              {percentLabel(collectedPercent)}
+              {percent(collectedPercent)}
             </span>
           </div>
         </div>
         <div>
           <span>Remaining to collect</span>
           <div>
-            <strong>{projectMoney(remaining)}</strong>
+            <strong>{regional.money(remaining)}</strong>
             <span className="balance-percent">
-              {percentLabel(remainingPercent)}
+              {percent(remainingPercent)}
             </span>
           </div>
         </div>
@@ -255,7 +261,7 @@ export default function ProjectPayments({
         aria-valuenow={Math.min(100, Math.round((collectedPercent || 0) * 100))}
         aria-valuetext={
           total > 0
-            ? `${percentLabel(collectedPercent)} collected`
+            ? `${percent(collectedPercent)} collected`
             : "Add scope pricing to calculate progress"
         }
       >
@@ -267,14 +273,14 @@ export default function ProjectPayments({
         {total <= 0 ? (
           "Add scope pricing to calculate what is owed and payment percentages."
         ) : credit > 0 ? (
-          `${projectMoney(credit)} collected above the scope total.`
+          `${regional.money(credit)} collected above the scope total.`
         ) : remaining === 0 ? (
           <>
             <Check size={14} />
             Paid in full
           </>
         ) : (
-          `Based on ${projectMoney(total)} in scope of work.`
+          `Based on ${regional.money(total)} in scope of work.`
         )}
       </p>
       {payments.length ? (
@@ -288,7 +294,7 @@ export default function ProjectPayments({
                   </strong>
                   <span>{payment.summary}</span>
                   <small>
-                    {dateLabel(payment.occurredAt)} · Collected by{" "}
+                    {regional.date(payment.occurredAt)} · Collected by{" "}
                     {payment.actorName}
                   </small>
                   {payment.attachmentIds.map((id) => {
@@ -314,7 +320,7 @@ export default function ProjectPayments({
                   })}
                 </div>
                 <strong className="payment-history-amount">
-                  {projectMoney(payment.amount || 0)}
+                  {regional.money(payment.amount || 0)}
                 </strong>
               </li>
             ))}

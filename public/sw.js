@@ -1,4 +1,4 @@
-const CACHE = "premium-remodel-offline-v1";
+const CACHE = "servicebuddy-offline-v2";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
@@ -16,7 +16,9 @@ self.addEventListener("activate", (event) => {
           keys
             .filter(
               (key) =>
-                key.startsWith("premium-remodel-offline-") && key !== CACHE,
+                (key.startsWith("premium-remodel-offline-") ||
+                  key.startsWith("servicebuddy-offline-")) &&
+                key !== CACHE,
             )
             .map((key) => caches.delete(key)),
         ),
@@ -37,7 +39,7 @@ self.addEventListener("fetch", (event) => {
     fetch(event.request).catch(
       async () =>
         (await caches.match("/offline.html")) ||
-        new Response("Reconnect to use Premium Remodel.", { status: 503 }),
+        new Response("Reconnect to use ServiceBuddy.", { status: 503 }),
     ),
   );
 });

@@ -1,7 +1,7 @@
 {
   "name": "premium-remodel",
   "version": "1.0.0",
-  "description": "Premium Remodel company project workspace",
+  "description": "ServiceBuddy multi-organization service business workspace",
   "scripts": {
     "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "test": "playwright test",
@@ -23,6 +23,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
+    "archiver": "^8.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.43.0",
     "maplibre-gl": "^6.10.0",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@types/archiver": "^8.0.0",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^22.20.2",
     "@types/pg": "^8.23.1",

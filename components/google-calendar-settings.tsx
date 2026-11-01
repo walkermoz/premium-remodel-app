@@ -9,6 +9,7 @@ import {
   Unplug,
 } from "lucide-react";
 import type { GoogleCalendarStatus } from "@/lib/google-calendar-types";
+import { useRegionalFormat } from "./regional-format-context";
 
 const emptyStatus: GoogleCalendarStatus = {
   configured: false,
@@ -19,18 +20,10 @@ const emptyStatus: GoogleCalendarStatus = {
   lastError: null,
 };
 
-function timeLabel(value: string | null) {
-  if (!value) return "Not synced yet";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
+  const regional = useRegionalFormat();
+  const timeLabel = (value: string | null) =>
+    value ? regional.dateTime(value) : "Not synced yet";
   const [status, setStatus] = useState<GoogleCalendarStatus>(emptyStatus);
   const [loading, setLoading] = useState(!demo);
   const [busy, setBusy] = useState<"sync" | "disconnect" | "">("");

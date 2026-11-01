@@ -23,6 +23,10 @@ import {
   type WorkflowSettings,
 } from "./schema";
 import { ensureSeededWorkflows } from "./store";
+import {
+  openWorkflowIncident,
+  resolveWorkflowIncidents,
+} from "./incidents";
 
 type WorkflowEngineMode = "shadow" | "execute";
 
@@ -53,6 +57,33 @@ type ClaimedWaitRow = {
   condition?: unknown;
   continuation: unknown;
 };
+
+async function reportWorkflowIncident(
+  input: Parameters<typeof openWorkflowIncident>[0],
+) {
+  try {
+    await openWorkflowIncident(input);
+  } catch (error) {
+    console.error(
+      "Could not notify administrators about a blocked workflow run",
+      error instanceof Error ? error.name : "WorkflowIncidentError",
+    );
+  }
+}
+
+async function closeWorkflowIncidents(input: {
+  organizationId: string;
+  runId: string;
+}) {
+  try {
+    await resolveWorkflowIncidents(input);
+  } catch (error) {
+    console.error(
+      "Could not resolve the workflow incident",
+      error instanceof Error ? error.name : "WorkflowIncidentError",
+    );
+  }
+}
 
 function eventFromRow(row: EventRow): WorkflowEvent {
   return workflowEventSchema.parse({
@@ -453,6 +484,10 @@ async function executeRunSegment(input: {
       .eq("id", input.enrollmentId)
       .eq("status", "active");
     if (finishedEnrollment.error) throw finishedEnrollment.error;
+    await closeWorkflowIncidents({
+      organizationId: input.event.organizationId,
+      runId: input.runId,
+    });
     return "completed" as const;
   } catch (error) {
     const message =
@@ -472,6 +507,9 @@ async function executeRunSegment(input: {
       error.state.retries ||= {};
       const failureNumber = (error.state.retries[retryKey] || 0) + 1;
       error.state.retries[retryKey] = failureNumber;
+      const retryAllowed =
+        error.retryable &&
+        failureNumber < input.definition.settings.retry.maxAttempts;
       const delaySeconds = Math.min(
         input.definition.settings.retry.maxDelaySeconds,
         Math.round(
@@ -495,21 +533,18 @@ async function executeRunSegment(input: {
             status: "failed",
             input_snapshot: { retry: failureNumber, idempotencyKey: retryKey },
             output_snapshot: {},
-            error_code: "ACTION_FAILED",
+            error_code: error.errorCode,
             error_detail: message,
             idempotency_key: `run:${input.runId}:${error.node.id}:${error.state.executedSteps}`,
             completed_at: now,
-            next_attempt_at:
-              failureNumber < input.definition.settings.retry.maxAttempts
-                ? nextAttemptAt
-                : null,
+            next_attempt_at: retryAllowed ? nextAttemptAt : null,
           },
           { onConflict: "organization_id,idempotency_key" },
         )
         .select("id")
         .single();
       if (failedStep.error) throw failedStep.error;
-      if (failureNumber < input.definition.settings.retry.maxAttempts) {
+      if (retryAllowed) {
         const retryWait = await admin.from("remodel_workflow_waits").insert({
           organization_id: input.event.organizationId,
           run_id: input.runId,
@@ -540,7 +575,12 @@ async function executeRunSegment(input: {
         if (waitingRun.error) throw waitingRun.error;
         return "waiting" as const;
       }
-      if (input.definition.settings.failureBehavior === "continue") {
+      const configurationBlocked =
+        error.errorCode === "CONFIGURATION_REQUIRED";
+      if (
+        !configurationBlocked &&
+        input.definition.settings.failureBehavior === "continue"
+      ) {
         if (error.state.queue[0]?.nodeId === error.node.id)
           error.state.queue.shift();
         const next = [...error.node.outgoing].sort(
@@ -551,7 +591,10 @@ async function executeRunSegment(input: {
           error.state.queue.unshift({ nodeId: next.to, branch: next.label });
         return executeRunSegment({ ...input, state: error.state });
       }
-      if (input.definition.settings.failureBehavior === "stop") {
+      if (
+        !configurationBlocked &&
+        input.definition.settings.failureBehavior === "stop"
+      ) {
         const stoppedRun = await admin
           .from("remodel_workflow_runs")
           .update({
@@ -605,9 +648,18 @@ async function executeRunSegment(input: {
         })
         .eq("id", input.runId);
       if (attentionRun.error) throw attentionRun.error;
+      await reportWorkflowIncident({
+        organizationId: input.event.organizationId,
+        workflowId: input.workflowId,
+        runId: input.runId,
+        nodeId: error.node.id,
+        nodeName: error.node.name,
+        errorCode: error.errorCode,
+        errorDetail: message,
+      });
       return "needs_attention" as const;
     }
-    await admin
+    const failedRun = await admin
       .from("remodel_workflow_runs")
       .update({
         status: "needs_attention",
@@ -616,11 +668,22 @@ async function executeRunSegment(input: {
         completed_at: now,
       })
       .eq("id", input.runId);
-    await admin
+    if (failedRun.error) throw failedRun.error;
+    const failedEnrollment = await admin
       .from("remodel_workflow_enrollments")
       .update({ status: "completed", completed_at: now })
       .eq("id", input.enrollmentId)
       .eq("status", "active");
+    if (failedEnrollment.error) throw failedEnrollment.error;
+    await reportWorkflowIncident({
+      organizationId: input.event.organizationId,
+      workflowId: input.workflowId,
+      runId: input.runId,
+      nodeId: "workflow-engine",
+      nodeName: "Workflow engine",
+      errorCode: "ENGINE_FAILURE",
+      errorDetail: message,
+    });
     throw error;
   }
 }

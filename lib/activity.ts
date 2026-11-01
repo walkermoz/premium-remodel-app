@@ -61,11 +61,14 @@ export function activityTotals(activities: Activity[]) {
     paid: total("Subcontractor paid"),
   };
 }
-export function activityHeadline(item: Activity) {
+export function activityHeadline(
+  item: Activity,
+  money: (value: number) => string = activityMoney,
+) {
   if (item.activityType === "Payment received")
-    return `${item.actorName} received ${activityMoney(item.amount || 0)} from ${item.party}`;
+    return `${item.actorName} received ${money(item.amount || 0)} from ${item.party}`;
   if (item.activityType === "Subcontractor paid")
-    return `${item.actorName} paid ${item.party} ${activityMoney(item.amount || 0)}`;
+    return `${item.actorName} paid ${item.party} ${money(item.amount || 0)}`;
   if (item.activityType === "Materials delivered")
     return `${item.actorName} delivered materials${item.party ? ` to ${item.party}` : ""}`;
   if (item.activityType === "Work completed")

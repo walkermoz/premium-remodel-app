@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
@@ -18,22 +17,36 @@ type QuoteContext = {
   customer: string;
 };
 
+type BusinessContext = {
+  name: string;
+  logoUrl: string;
+  regional: { locale: string; timezone: string };
+};
+
 type CaptureSession =
   | {
       completed: true;
       expiresAt: string;
+      business: BusinessContext;
       quote: QuoteContext;
       scan: RoomScanSummary;
     }
   | {
       completed: false;
       expiresAt: string;
+      business: BusinessContext;
       quote: QuoteContext;
     };
 
+const fallbackBusiness: BusinessContext = {
+  name: "ServiceBuddy",
+  logoUrl: "",
+  regional: { locale: "en-US", timezone: "America/New_York" },
+};
+
 function appLink(token: string) {
   const params = new URLSearchParams({ token, server: window.location.origin });
-  return `premiumremodelfield://room-scan?${params}`;
+  return `servicebuddyfield://room-scan?${params}`;
 }
 
 export default function BrowserRoomScan({ token }: { token: string }) {
@@ -41,6 +54,13 @@ export default function BrowserRoomScan({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const openAppRef = useRef<HTMLAnchorElement>(null);
+  const business = session?.business || fallbackBusiness;
+  const sessionTime = (value: string) =>
+    new Intl.DateTimeFormat(business.regional.locale, {
+      timeZone: business.regional.timezone,
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(value));
 
   const loadSession = useCallback(async () => {
     setLoading(true);
@@ -81,13 +101,18 @@ export default function BrowserRoomScan({ token }: { token: string }) {
   return (
     <main className={styles.shell}>
       <header className={styles.brandBar}>
-        <Image
-          src="/images/logo.png"
-          alt="Premium Remodel"
-          width={210}
-          height={72}
-          priority
-        />
+        {business.logoUrl ? (
+          // This URL is either the token-scoped image endpoint or an HTTPS
+          // organization asset; it is intentionally not optimized or cached.
+          <img
+            src={business.logoUrl}
+            alt={`${business.name} logo`}
+          />
+        ) : (
+          <strong className={styles.brandName}>
+            {business.name}
+          </strong>
+        )}
         <span>Private room capture</span>
       </header>
 
@@ -133,7 +158,7 @@ export default function BrowserRoomScan({ token }: { token: string }) {
                   <Box size={29} />
                 </span>
                 <span className={styles.eyebrow}>LIDAR ROOM SCAN</span>
-                <h2>Open the Premium Remodel field app</h2>
+                <h2>Open the ServiceBuddy Field app</h2>
                 <p>
                   Room scanning uses the LiDAR sensor and Apple RoomPlan inside
                   the field app. Your browser may ask for permission to open it.
@@ -148,10 +173,7 @@ export default function BrowserRoomScan({ token }: { token: string }) {
                 </p>
                 <small>
                   This private scan session expires at{" "}
-                  {new Date(session.expiresAt).toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  {sessionTime(session.expiresAt)}
                   .
                 </small>
               </div>
@@ -161,7 +183,8 @@ export default function BrowserRoomScan({ token }: { token: string }) {
       </section>
 
       <footer className={styles.footer}>
-        Secure, expiring room-capture link · Premium Remodel
+        Secure, expiring room-capture link ·{" "}
+        {business.name}
       </footer>
     </main>
   );

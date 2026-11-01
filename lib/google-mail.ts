@@ -10,7 +10,10 @@ import { z } from "zod";
 import { appOrigin, HttpError, type WorkspaceUser } from "./auth";
 import { supabaseAdmin } from "./supabase/server";
 import { recordAuditEvent } from "./audit-server";
+import { hasOrganizationCapability } from "./organization-permissions";
 
+// Retain the original cookie name and encryption AAD so existing connected
+// company mailboxes do not need to reauthorize during the ServiceBuddy rename.
 export const googleMailCookie = "premium_remodel_google_mail";
 export const googleMailScope = "https://www.googleapis.com/auth/gmail.send";
 export const googleMailAddress = "contact@premiumremodel.com";
@@ -120,8 +123,6 @@ const stateSchema = z.object({
 });
 
 export function googleMailAuthorization(request: Request, user: WorkspaceUser) {
-  if (user.role !== "admin")
-    throw new HttpError(403, "Only administrators can connect company email.");
   const { clientId } = requiredConfig();
   const state = randomBytes(32).toString("base64url");
   const verifier = randomBytes(48).toString("base64url");
@@ -174,13 +175,16 @@ export async function googleMailAddressForOrganization(organizationId: string) {
 }
 
 export async function googleMailStatus(user: WorkspaceUser) {
-  const current = await connection(user.organizationId);
+  const [current, canManage] = await Promise.all([
+    connection(user.organizationId),
+    hasOrganizationCapability(user, "connections.manage"),
+  ]);
   return {
     configured: googleMailConfigured(),
     connected: Boolean(current),
     email: current?.google_email || null,
     connectedAt: current?.connected_at || null,
-    canManage: user.role === "admin",
+    canManage,
   };
 }
 
@@ -192,8 +196,6 @@ export async function connectGoogleMail(
   stateCookie: string,
   fetcher: Fetcher = fetch,
 ) {
-  if (user.role !== "admin")
-    throw new HttpError(403, "Only administrators can connect company email.");
   const saved = stateSchema.parse(JSON.parse(unseal(stateCookie, "state")));
   if (
     saved.state !== state ||
@@ -278,11 +280,6 @@ export async function connectGoogleMail(
 }
 
 export async function disconnectGoogleMail(user: WorkspaceUser) {
-  if (user.role !== "admin")
-    throw new HttpError(
-      403,
-      "Only administrators can disconnect company email.",
-    );
   const previous = await connection(user.organizationId);
   if (!previous) return googleMailStatus(user);
   const { error } = await supabaseAdmin()
@@ -297,6 +294,41 @@ export async function disconnectGoogleMail(user: WorkspaceUser) {
     beforeData: { email: previous.google_email },
   });
   return googleMailStatus(user);
+}
+
+/** Irreversible lifecycle cleanup. Revoke the tenant token before removing it. */
+export async function revokeGoogleMailForOrganization(
+  organizationId: string,
+  fetcher: Fetcher = fetch,
+) {
+  const previous = await connection(organizationId);
+  if (!previous) return { disconnected: false };
+  let refreshToken = "";
+  try {
+    refreshToken = unseal(previous.refresh_token_ciphertext, "refresh");
+  } catch {
+    throw new HttpError(
+      503,
+      "The company Google Mail token could not be read for revocation.",
+    );
+  }
+  const response = await fetcher("https://oauth2.googleapis.com/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: refreshToken }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok && response.status !== 400)
+    throw new HttpError(
+      502,
+      "Google Mail could not be disconnected. Organization deletion was paused.",
+    );
+  const { error } = await supabaseAdmin()
+    .from("remodel_google_mail_connections")
+    .delete()
+    .eq("organization_id", organizationId);
+  if (error) throw error;
+  return { disconnected: true };
 }
 
 export async function gmailAccessToken(

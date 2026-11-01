@@ -233,7 +233,7 @@ export default function VisitModal({
                   value={phone}
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
-                  placeholder="(919) 555-0123"
+                  placeholder="(555) 555-0123"
                   style={styles.input}
                 />
                 <Text style={styles.label}>Email</Text>
@@ -279,7 +279,7 @@ export default function VisitModal({
                 <TextInput
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="What would they like Premium Remodel to quote?"
+                  placeholder="What would they like your company to quote?"
                   multiline
                   style={[styles.input, styles.textarea]}
                 />

@@ -4,9 +4,9 @@ import Link from "next/link";
 import styles from "./mobile.module.css";
 
 export const metadata: Metadata = {
-  title: "Premium Remodel Field App",
+  title: "ServiceBuddy Field App",
   description:
-    "Install the Premium Remodel field companion for house visits, leads, consultations, and active-shift location sharing.",
+    "Install the ServiceBuddy field companion for visits, leads, consultations, room scans, and active-shift location sharing.",
 };
 
 const iosUrl = process.env.NEXT_PUBLIC_IOS_APP_URL || "";
@@ -21,16 +21,16 @@ export default function MobileDownloadPage() {
             alt=""
             height={38}
             priority
-            src="/icons/app-512.png"
+            src="/icons/servicebuddy-512.png"
             width={38}
           />
           <span>
-            <strong>PREMIUM</strong> REMODEL
+            <strong>SERVICE</strong>BUDDY
           </span>
         </Link>
-        <a className={styles.help} href="mailto:contact@premiumremodel.com">
-          Need help?
-        </a>
+        <Link className={styles.help} href="/login">
+          Open workspace
+        </Link>
       </nav>
 
       <section className={styles.hero}>
@@ -39,7 +39,7 @@ export default function MobileDownloadPage() {
           <h1>The jobsite tools your team needs, in their pocket.</h1>
           <p className={styles.lead}>
             Mark houses, capture leads, schedule consultations, and share an
-            active work location with the Premium Remodel team.
+            active work location with the company team.
           </p>
           <div className={styles.downloads}>
             {iosUrl ? (
@@ -65,7 +65,7 @@ export default function MobileDownloadPage() {
 
         <div
           className={styles.phoneWrap}
-          aria-label="Preview of the Premium Remodel field app"
+          aria-label="Preview of the ServiceBuddy field app"
         >
           <div className={styles.phone}>
             <div className={styles.phoneTop}>
@@ -74,7 +74,7 @@ export default function MobileDownloadPage() {
             </div>
             <div className={styles.appHeader}>
               <div>
-                <small>PREMIUM REMODEL</small>
+                <small>YOUR COMPANY</small>
                 <strong>Hi, Skyler</strong>
               </div>
               <span>●&nbsp; Start shift</span>
@@ -147,7 +147,7 @@ export default function MobileDownloadPage() {
       </section>
 
       <footer className={styles.footer}>
-        <span>Premium Remodel Field</span>
+        <span>ServiceBuddy Field</span>
         <span>For authorized team members</span>
       </footer>
     </main>

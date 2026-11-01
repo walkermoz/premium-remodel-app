@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { AuditAction, AuditEvent } from "@/lib/audit";
+import { useRegionalFormat } from "./regional-format-context";
 
 const labels: Record<string, string> = {
   project: "project",
@@ -93,6 +94,7 @@ function ActionIcon({ action }: { action: AuditAction }) {
 const INITIAL_VISIBLE = 3;
 
 export default function WorkspaceHistorySettings({ demo }: { demo: boolean }) {
+  const { dateTime } = useRegionalFormat();
   const [entries, setEntries] = useState<AuditEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(!demo);
@@ -215,7 +217,7 @@ export default function WorkspaceHistorySettings({ demo }: { demo: boolean }) {
                       <small title={entry.actorEmail || undefined}>
                         <Clock3 size={11} aria-hidden="true" />
                         <time dateTime={entry.occurredAt}>
-                          {new Date(entry.occurredAt).toLocaleString()}
+                          {dateTime(entry.occurredAt)}
                         </time>
                       </small>
                     </div>

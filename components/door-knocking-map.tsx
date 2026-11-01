@@ -11,6 +11,7 @@ import {
   type MapMouseEvent,
 } from "maplibre-gl";
 import type { DoorVisit } from "@/lib/types";
+import { useRegionalFormat } from "./regional-format-context";
 
 const LIGHT_STYLE = "https://tiles.openfreemap.org/styles/bright";
 const DARK_STYLE = "https://tiles.openfreemap.org/styles/fiord";
@@ -29,7 +30,7 @@ function markerClass(outcome: DoorVisit["outcome"]) {
   return "not-home";
 }
 
-function visitPopup(visit: DoorVisit) {
+function visitPopup(visit: DoorVisit, formatDate: (value: string) => string) {
   const content = document.createElement("div");
   content.className = "door-map-popup";
   const title = document.createElement("strong");
@@ -37,7 +38,7 @@ function visitPopup(visit: DoorVisit) {
   const details = document.createElement("p");
   details.textContent = visit.outcome;
   const meta = document.createElement("small");
-  meta.textContent = `${new Date(visit.visitedAt).toLocaleString()} · ${visit.canvasserName}`;
+  meta.textContent = `${formatDate(visit.visitedAt)} · ${visit.canvasserName}`;
   content.append(title, details, meta);
   return content;
 }
@@ -68,6 +69,7 @@ export default function DoorKnockingMap({
   onSelect: (id: string) => void;
   onPick: (position: { latitude: number; longitude: number }) => void;
 }) {
+  const regional = useRegionalFormat();
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<VectorMap | null>(null);
   const markers = useRef<Marker[]>([]);
@@ -164,7 +166,7 @@ export default function DoorKnockingMap({
         .setLngLat(coordinates)
         .setPopup(
           new Popup({ offset: 16, closeButton: false }).setDOMContent(
-            visitPopup(visit),
+            visitPopup(visit, regional.dateTime),
           ),
         )
         .addTo(vectorMap);
@@ -208,7 +210,7 @@ export default function DoorKnockingMap({
       });
     }
     container.current?.classList.toggle("is-marking", marking);
-  }, [draftPosition, mapReady, marking, selectedId, visits]);
+  }, [draftPosition, mapReady, marking, regional.dateTime, selectedId, visits]);
 
   return (
     <div className="door-map-visual">

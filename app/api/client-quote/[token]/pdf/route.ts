@@ -24,7 +24,7 @@ export async function GET(
     source.pdfItems,
     logo,
     photos,
-    business.profile,
+    { ...business.profile, regional: business.regional },
     {
       showLineItemPrices: business.quotePreferences.showCustomerLineItemPrices,
     },

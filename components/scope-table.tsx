@@ -15,7 +15,6 @@ import {
 import type { ScopeItem, TaskStatus, Workspace } from "@/lib/types";
 import { pricebookScopeValues, type PricebookItem } from "@/lib/pricebook";
 import {
-  projectMoney as money,
   scopeTotal,
   scopeCosts,
   scopeDifference,
@@ -46,6 +45,7 @@ import {
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "@/lib/scope-projects";
+import { useRegionalFormat } from "./regional-format-context";
 
 const statuses: TaskStatus[] = ["To do", "In progress", "Done"];
 
@@ -221,6 +221,7 @@ export default function ScopeTable({
   defaultSectionName?: string;
   onRefresh?: () => Promise<void>;
 }) {
+  const { money, number } = useRegionalFormat();
   const [pendingOrder, setPendingOrder] = useState<ScopeItem[] | null>(null);
   const orderedItems = useMemo(
     () => orderedScopeItems(pendingOrder || items),
@@ -1109,7 +1110,7 @@ export default function ScopeTable({
                         </small>
                       </td>
                       <td className="nowrap">
-                        {item.quantity.toLocaleString()}{" "}
+                        {number(item.quantity)}{" "}
                         {item.unit === "job"
                           ? item.quantity === 1
                             ? "job"
@@ -1394,6 +1395,7 @@ function ScopeSectionRow({
   onRename?: (name: string) => Promise<void>;
   onRemove?: () => Promise<void>;
 }) {
+  const { money } = useRegionalFormat();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState("");
@@ -1565,6 +1567,7 @@ function EditableRow({
   onBlur: (event: React.FocusEvent<HTMLTableRowElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => void;
 }) {
+  const { money } = useRegionalFormat();
   const mainRow = (
     <tr
       className={`${newRow ? "scope-new-row " : ""}${compact ? "scope-edit-row" : ""}${compact && alternateShade ? " scope-item-alternate" : ""}${accentClassName ? ` ${accentClassName}` : ""}`}
@@ -1916,6 +1919,7 @@ function CompactQuoteEditor({
   onBlur,
   onKeyDown,
 }: Parameters<typeof EditableRow>[0] & { showInternalCosts?: boolean }) {
+  const { money } = useRegionalFormat();
   const itemName = draft.title || "new item";
   const totalCosts =
     draftNumber(draft.subCost) + draftNumber(draft.materialCost);
@@ -2410,6 +2414,7 @@ function CostCell({
     total: string;
   }) => void;
 }) {
+  const { money } = useRegionalFormat();
   return (
     <td className={`scope-cost-cell${compact ? " scope-pricing-cell" : ""}`}>
       <span

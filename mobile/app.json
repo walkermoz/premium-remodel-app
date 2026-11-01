@@ -1,11 +1,14 @@
 {
   "expo": {
-    "name": "Premium Remodel",
-    "slug": "premiumremodel",
+    "name": "ServiceBuddy Field",
+    "slug": "servicebuddy-field",
     "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "scheme": "premiumremodelfield",
+    "icon": "./assets/servicebuddy-icon.png",
+    "scheme": [
+      "servicebuddyfield",
+      "premiumremodelfield"
+    ],
     "userInterfaceStyle": "automatic",
     "extra": {
       "eas": {
@@ -20,7 +23,7 @@
         "UIBackgroundModes": [
           "location"
         ],
-        "NSCameraUsageDescription": "Premium Remodel uses the camera and LiDAR sensor to create room measurements and 3D models for quotes.",
+        "NSCameraUsageDescription": "ServiceBuddy uses the camera and LiDAR sensor to create room measurements and 3D models for your company's quotes.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -28,9 +31,9 @@
       "package": "com.premiumremodel.field",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#071d33",
+        "foregroundImage": "./assets/servicebuddy-adaptive.png",
+        "monochromeImage": "./assets/servicebuddy-adaptive.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -45,8 +48,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Premium Remodel uses your location while you work to place house visits accurately and show your active position on the company map.",
-          "locationAlwaysAndWhenInUsePermission": "Premium Remodel uses your location during an active shift so the company map can stay current when your phone is locked or you switch apps.",
+          "locationWhenInUsePermission": "ServiceBuddy uses your location while you work to place visits accurately and show your active position on your company's map.",
+          "locationAlwaysAndWhenInUsePermission": "ServiceBuddy uses your location during an active shift so your company's map can stay current when your phone is locked or you switch apps.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
@@ -56,14 +59,14 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Allow Premium Remodel to securely access your saved work session."
+          "faceIDPermission": "Allow ServiceBuddy to securely access your saved work session."
         }
       ],
       "@react-native-community/datetimepicker",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/servicebuddy-splash.png",
           "imageWidth": 280,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -79,7 +82,7 @@
       ]
     ],
     "web": {
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/servicebuddy-icon.png"
     },
     "owner": "premiumremodels-team"
   }

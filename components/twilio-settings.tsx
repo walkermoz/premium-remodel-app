@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
 import type { TwilioConnection } from "@/lib/twilio-types";
+import { useRegionalFormat } from "./regional-format-context";
 
 export default function TwilioSettings({
   demo,
@@ -11,6 +12,7 @@ export default function TwilioSettings({
   demo: boolean;
   businessName: string;
 }) {
+  const { dateTime } = useRegionalFormat();
   const router = useRouter();
   const [connection, setConnection] = useState<TwilioConnection | null>(null);
   const [loading, setLoading] = useState(!demo);
@@ -291,7 +293,7 @@ export default function TwilioSettings({
                   <p className="generation-note">
                     Last checked{" "}
                     <time dateTime={connection.checkedAt}>
-                      {new Date(connection.checkedAt).toLocaleString()}
+                      {dateTime(connection.checkedAt)}
                     </time>
                   </p>
                 )}

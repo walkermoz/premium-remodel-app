@@ -47,7 +47,11 @@ import { workspaceObjects } from "@/lib/workspace-objects";
 
 const contactObject = workspaceObjects.contact;
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
-import { stripeClient } from "@/lib/stripe-payments";
+import {
+  organizationStripeEnabled,
+  stripeContextForOrganization,
+  stripeRequestOptions,
+} from "@/lib/stripe-payments";
 import { after } from "next/server";
 import { getBusinessConfig } from "@/lib/business-config";
 import {
@@ -57,6 +61,7 @@ import {
 import { normalizeSmsRecipient } from "@/lib/install-link";
 import { smsDoNotDisturbPhones } from "@/lib/sms-compliance";
 import { emitWorkspaceRecordEvents } from "@/lib/workflows/domain-events";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const filesBucket = "remodel-files";
@@ -159,9 +164,8 @@ async function save(request: Request, editing: boolean) {
     const kind = body.kind as keyof typeof schemas;
     if (!Object.prototype.hasOwnProperty.call(schemas, kind))
       throw new HttpError(400, "Unknown record type.");
-    if (
-      !canEditWorkspaceRecord(await getBusinessConfig(user), user.group, kind)
-    )
+    const businessConfig = await getBusinessConfig(user);
+    if (!canEditWorkspaceRecord(businessConfig, user.group, kind))
       throw new HttpError(
         403,
         "This workspace section is not available to your role.",
@@ -190,8 +194,7 @@ async function save(request: Request, editing: boolean) {
         throw new HttpError(409, "The signed quote scope cannot be changed.");
     }
     if (kind === "alert") {
-      if (user.role !== "admin")
-        throw new HttpError(403, "Only administrators can manage alerts.");
+      await requireOrganizationCapability(user, "alerts.manage");
       await limitAttempts(`alerts:${user.id}`, 60);
     }
     let input = body.data;
@@ -342,7 +345,8 @@ async function save(request: Request, editing: boolean) {
         const prior = current as Quote | null;
         data.quoteNumber =
           prior?.quoteNumber || (await allocateQuoteNumber(user));
-        data.preparedBy = prior?.preparedBy || user.name || "Premium Remodel";
+        data.preparedBy =
+          prior?.preparedBy || user.name || businessConfig.profile.name;
         const contactId = String(data.contactId || "").trim();
         if (contactId && !(await findRecord(user, contactId, "contact")))
           throw new HttpError(
@@ -552,7 +556,7 @@ async function save(request: Request, editing: boolean) {
         kind === "activity" &&
         data.activityType === "Payment received" &&
         data.paymentMethod === "Check" &&
-        process.env.STRIPE_SECRET_KEY
+        (await organizationStripeEnabled(user.organizationId))
       ) {
         after(async () => {
           try {
@@ -562,10 +566,16 @@ async function save(request: Request, editing: boolean) {
               "project",
             )) as Project | null;
             const sessionId = project?.msaAgreement?.depositCheckout?.sessionId;
-            if (sessionId)
-              await stripeClient(user.organizationId).checkout.sessions.expire(
-                sessionId,
+            if (sessionId) {
+              const stripeContext = await stripeContextForOrganization(
+                user.organizationId,
               );
+              await stripeContext.stripe.checkout.sessions.expire(
+                sessionId,
+                {},
+                stripeRequestOptions(stripeContext),
+              );
+            }
           } catch {
             // A recorded check remains valid; an already-completed or expired
             // checkout session cannot be expired again.
@@ -644,8 +654,8 @@ export async function DELETE(request: Request) {
         403,
         "Stripe payments cannot be deleted from the activity log.",
       );
-    if (kind === "alert" && user.role !== "admin")
-      throw new HttpError(403, "Only administrators can manage alerts.");
+    if (kind === "alert")
+      await requireOrganizationCapability(user, "alerts.manage");
     if (
       (kind === "comment" || kind === "activity") &&
       "authorId" in current &&

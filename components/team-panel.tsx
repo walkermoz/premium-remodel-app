@@ -28,12 +28,14 @@ export default function TeamPanel({
   notify,
   twilioEnabled = false,
   businessName = "your company",
+  canManageTeam = false,
 }: {
   user: User;
   demo: boolean;
   notify: (message: string, error?: boolean) => void;
   twilioEnabled?: boolean;
   businessName?: string;
+  canManageTeam?: boolean;
 }) {
   const [members, setMembers] = useState<User[]>([user]);
   const [showInvite, setShowInvite] = useState(false);
@@ -183,7 +185,7 @@ export default function TeamPanel({
           </h1>
           <p>One shared workspace for the people behind your projects.</p>
         </div>
-        {user.role === "admin" && (
+        {canManageTeam && (
           <div className="page-heading-actions">
             {twilioEnabled && (
               <button
@@ -223,7 +225,7 @@ export default function TeamPanel({
       <div className="members-list">
         {members.map((member) => (
           <div className="member-row" key={member.id}>
-            {user.role === "admin" || member.id === user.id ? (
+            {canManageTeam || member.id === user.id ? (
               <button
                 type="button"
                 className="member-photo-button"
@@ -251,7 +253,7 @@ export default function TeamPanel({
               {member.role === "admin" && <ShieldCheck size={15} />}{" "}
               {groupLabels[member.group]}
             </span>
-            {user.role === "admin" && member.role !== "admin" && (
+            {canManageTeam && member.role !== "admin" && (
               <button
                 className="icon-button delete-action"
                 aria-label={`Remove ${member.name}`}
@@ -339,7 +341,7 @@ export default function TeamPanel({
                       name="email"
                       type="email"
                       required
-                      placeholder="teammate@premiumremodel.com"
+                      placeholder="teammate@company.com"
                     />
                   </label>
                   <label>
@@ -448,8 +450,8 @@ export default function TeamPanel({
               )}
               {!appLinkSentTo && (
                 <p className="footnote">
-                  Sent from Premium Remodel’s Twilio number. Standard messaging
-                  rates may apply.
+                  Sent from {businessName}&apos;s connected company number.
+                  Standard messaging rates may apply.
                 </p>
               )}
               {appLinkError && (

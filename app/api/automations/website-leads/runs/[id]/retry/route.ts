@@ -14,6 +14,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 import { workspaceObjects } from "@/lib/workspace-objects";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,8 +30,7 @@ export async function POST(
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Automation");
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can retry automations.");
+    await requireOrganizationCapability(user, "workflows.manage");
     await limitAttempts(`automation-retry:${user.id}`, 20);
 
     const { id } = await context.params;

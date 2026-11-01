@@ -11,6 +11,7 @@ import {
 import { getWorkflow } from "@/lib/workflows/store";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -34,11 +35,7 @@ export async function POST(
     const user = await requireUser();
     organizationId = user.organizationId;
     await requireWorkspaceTabs(user, "Automation");
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only administrators can test an external action.",
-      );
+    await requireOrganizationCapability(user, "workflows.manage");
     const { id } = await context.params;
     const workflow = await getWorkflow(user.organizationId, z.uuid().parse(id));
     if (!workflow.draftVersionId)

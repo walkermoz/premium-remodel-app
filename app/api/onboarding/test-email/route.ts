@@ -11,6 +11,7 @@ import {
   googleMailAddressForOrganization,
   GoogleMailError,
 } from "@/lib/google-mail";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -24,8 +25,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can send a test email.");
+    await requireOrganizationCapability(user, "connections.manage");
     await limitAttempts(`onboarding-test-email:${user.authUserId}`, 5);
     const sender = await googleMailAddressForOrganization(user.organizationId);
     if (!sender)

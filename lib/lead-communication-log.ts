@@ -20,6 +20,7 @@ export async function recordWebsiteLeadDeliveries(input: {
   const submitted = input.lead.websiteSubmission;
   const emailRecipient = input.emailRecipient || submitted?.email || "";
   const smsRecipient = input.smsRecipient || submitted?.phone || "";
+  const business = await getBusinessConfigForOrganization(input.organizationId);
   if (input.email?.status === "sent" && emailRecipient) {
     const firstName = (submitted?.name || input.lead.name)
       .trim()
@@ -31,7 +32,15 @@ export async function recordWebsiteLeadDeliveries(input: {
         channel: "email",
         recipient: emailRecipient.toLowerCase(),
         subject: "We received your remodel request",
-        body: renderLeadAcknowledgement({ firstName }).text,
+        body: renderLeadAcknowledgement({
+          firstName,
+          business: {
+            name: business.profile.name,
+            website: business.profile.website,
+            email: business.profile.email,
+            phone: business.profile.phone,
+          },
+        }).text,
         relatedKind: "lead",
         relatedId: input.lead.id,
         providerId: input.email.googleMessageId,
@@ -45,9 +54,6 @@ export async function recordWebsiteLeadDeliveries(input: {
   if (input.sms?.status === "sent" && smsRecipient) {
     tasks.push(
       (async () => {
-        const business = await getBusinessConfigForOrganization(
-          input.organizationId,
-        );
         return recordContactCommunication({
           organizationId: input.organizationId,
           contactId: input.lead.contactId,

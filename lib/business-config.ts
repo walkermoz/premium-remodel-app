@@ -3,6 +3,7 @@ import { supabaseAdmin } from "./supabase/server";
 import type { WorkspaceUser } from "./auth";
 import {
   businessConfigSchema,
+  defaultRolePermissions,
   defaultRoleNavigation,
   navigationFromRoles,
   navigationPages,
@@ -36,7 +37,9 @@ export function defaultBusinessConfig(
       bannerUrl: "",
     },
     features: {
-      priceBook: false,
+      // Premium Remodel already uses the price book in its live quoting flow.
+      // Keep that existing organization behavior while new organizations opt in.
+      priceBook: premium,
       payments: premium,
       doorKnocking: true,
       imageGeneration: true,
@@ -45,14 +48,51 @@ export function defaultBusinessConfig(
         : premium,
       twilio: organizationId ? isOriginalOrganization(organizationId) : premium,
     },
+    modules: {
+      priceBook: premium,
+      payments: premium,
+      doorKnocking: true,
+      imageGeneration: true,
+      automations: premium,
+      agreements: premium,
+    },
+    compliance: {
+      legalName: premium
+        ? "Premium Living Home Improvement LLC d/b/a Premium Remodel"
+        : "",
+      smsProgramName: premium ? "Premium Remodel" : "",
+      privacyUrl: premium
+        ? "https://www.premiumremodel.com/privacy-policy"
+        : "",
+      termsUrl: premium
+        ? "https://www.premiumremodel.com/terms-and-conditions"
+        : "",
+      smsPolicyVersion: premium ? "2026-10-21" : "",
+      helpEmail: premium ? "contact@premiumremodel.com" : "",
+      helpPhone: premium ? "(919) 454-4012" : "",
+      checkPayee: premium
+        ? "Premium Living Home Improvement LLC d/b/a Premium Remodel"
+        : "",
+      checkMailingAddress: premium
+        ? "309 Amiable Loop, Cary, North Carolina 27519"
+        : "",
+    },
+    regional: {
+      country: "US",
+      currency: "USD",
+      locale: "en-US",
+      timezone: "America/New_York",
+      serviceArea: premium ? "Wake County, North Carolina" : "",
+    },
     quotePreferences: {
       showInternalCosts: true,
-      showPriceBookPicker: false,
+      showPriceBookPicker: premium,
       showCustomerLineItemPrices: !premium,
       paymentProvider: premium ? "stripe" : "manual",
     },
     navigation: [...navigationPages],
     roleNavigation: defaultRoleNavigation(),
+    rolePermissions: defaultRolePermissions(),
   };
 }
 
@@ -74,7 +114,9 @@ export async function getBusinessConfigForOrganization(
       .single(),
     admin
       .from("remodel_business_config")
-      .select("profile,features,quote_preferences,navigation,role_navigation")
+      .select(
+        "profile,features,modules,compliance,regional,quote_preferences,navigation,role_navigation,role_permissions",
+      )
       .eq("organization_id", organizationId)
       .maybeSingle(),
     hasTwilioConnection(organizationId),
@@ -103,6 +145,20 @@ export async function getBusinessConfigForOrganization(
       return [group, effective];
     }),
   ) as BusinessConfig["roleNavigation"];
+  const savedPermissions = saved.data.role_permissions || {};
+  const rolePermissions = Object.fromEntries(
+    workspaceGroups.map((group) => [
+      group,
+      (savedPermissions[
+        group
+      ] as BusinessConfig["rolePermissions"][typeof group]) ||
+        defaults.rolePermissions[group],
+    ]),
+  ) as BusinessConfig["rolePermissions"];
+  const modules = {
+    ...defaults.modules,
+    ...(saved.data.modules || {}),
+  };
   return businessConfigSchema.parse({
     profile: { ...defaults.profile, ...saved.data.profile },
     features: {
@@ -111,12 +167,16 @@ export async function getBusinessConfigForOrganization(
       agreements: premiumAgreementEnabled(organizationId),
       twilio: twilioConnected,
     },
+    modules,
+    compliance: { ...defaults.compliance, ...saved.data.compliance },
+    regional: { ...defaults.regional, ...saved.data.regional },
     quotePreferences: {
       ...defaults.quotePreferences,
       ...saved.data.quote_preferences,
     },
     navigation: navigationFromRoles(roleNavigation),
     roleNavigation,
+    rolePermissions,
   });
 }
 
@@ -126,8 +186,16 @@ export async function saveBusinessConfig(
 ) {
   const config = businessConfigSchema.parse(input);
   config.navigation = navigationFromRoles(config.roleNavigation);
-  // A copied Premium Remodel legal template must never be presented as another company's agreement.
+  // Owners are the recovery role and must never be locked out by a malformed
+  // or overly restrictive permission edit.
+  config.rolePermissions.owner = defaultRolePermissions().owner;
+  // The current Premium MSA execution path remains tenant-restricted. The
+  // separate agreement module activates the organization's own library.
   config.features.agreements = premiumAgreementEnabled(user.organizationId);
+  config.features.priceBook = config.modules.priceBook;
+  config.features.payments = config.modules.payments;
+  config.features.doorKnocking = config.modules.doorKnocking;
+  config.features.imageGeneration = config.modules.imageGeneration;
   config.features.twilio = await hasTwilioConnection(user.organizationId);
   const { error } = await supabaseAdmin()
     .from("remodel_business_config")
@@ -136,9 +204,13 @@ export async function saveBusinessConfig(
       version: 1,
       profile: config.profile,
       features: config.features,
+      modules: config.modules,
+      compliance: config.compliance,
+      regional: config.regional,
       quote_preferences: config.quotePreferences,
       navigation: config.navigation,
       role_navigation: config.roleNavigation,
+      role_permissions: config.rolePermissions,
       updated_by: user.id,
       updated_at: new Date().toISOString(),
     });

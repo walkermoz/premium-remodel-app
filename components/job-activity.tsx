@@ -22,17 +22,18 @@ import type {
 import { activityTypes } from "@/lib/types";
 import {
   activityHeadline,
-  activityMoney,
   activityTotals,
   workspaceActivities,
 } from "@/lib/activity";
 import { Avatar, Empty } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 export function ActivityPaymentTotals({
   activities,
 }: {
   activities: Activity[];
 }) {
+  const regional = useRegionalFormat();
   const totals = activityTotals(activities);
   return (
     <div
@@ -41,11 +42,11 @@ export function ActivityPaymentTotals({
     >
       <div>
         <span>Customer payments received</span>
-        <strong>{activityMoney(totals.received)}</strong>
+        <strong>{regional.money(totals.received)}</strong>
       </div>
       <div>
         <span>Subcontractors paid</span>
-        <strong>{activityMoney(totals.paid)}</strong>
+        <strong>{regional.money(totals.paid)}</strong>
       </div>
       <p>From logged payments on this project.</p>
     </div>
@@ -71,6 +72,7 @@ export default function JobActivity({
   onProject?: (id: string) => void;
   onTask: (task: Task) => void;
 }) {
+  const regional = useRegionalFormat();
   const [projectFilter, setProjectFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -81,7 +83,7 @@ export default function JobActivity({
       (!selectedProject || entry.projectId === selectedProject) &&
       (!typeFilter || entry.activityType === typeFilter) &&
       (!search ||
-        `${activityHeadline(entry)} ${entry.summary} ${entry.notes} ${project?.name || ""}`
+        `${activityHeadline(entry, regional.money)} ${entry.summary} ${entry.notes} ${project?.name || ""}`
           .toLowerCase()
           .includes(search.toLowerCase()))
     );
@@ -178,7 +180,7 @@ export default function JobActivity({
                     {entry.activityType}
                   </span>
                   <time dateTime={entry.occurredAt}>
-                    {new Date(entry.occurredAt).toLocaleString("en-US", {
+                    {regional.dateTime(entry.occurredAt, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -206,7 +208,7 @@ export default function JobActivity({
                       </button>
                     )}
                 </div>
-                <h3>{activityHeadline(entry)}</h3>
+                <h3>{activityHeadline(entry, regional.money)}</h3>
                 {entry.activityType !== "Work completed" && (
                   <p className="activity-summary">{entry.summary}</p>
                 )}

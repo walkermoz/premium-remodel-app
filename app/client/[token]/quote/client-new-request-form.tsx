@@ -70,8 +70,18 @@ const emptyForm: RequestForm = {
 
 export default function ClientNewRequestForm({
   requestsUrl,
+  portalToken,
+  businessName,
+  privacyUrl,
+  termsUrl,
+  smsConsentEnabled,
 }: {
   requestsUrl: string;
+  portalToken: string;
+  businessName: string;
+  privacyUrl: string;
+  termsUrl: string;
+  smsConsentEnabled: boolean;
 }) {
   const descriptionId = useId();
   const appointmentSmsId = useId();
@@ -121,6 +131,7 @@ export default function ClientNewRequestForm({
           project_description: form.projectDescription.trim(),
           sms_appointment_opt_in: appointmentSmsOptIn,
           sms_marketing_opt_in: marketingSmsOptIn,
+          client_portal_token: portalToken,
         }),
       });
       if (!response.ok) throw new Error("Request delivery failed.");
@@ -246,54 +257,49 @@ export default function ClientNewRequestForm({
               <input
                 id={appointmentSmsId}
                 type="checkbox"
+                disabled={!smsConsentEnabled}
                 checked={appointmentSmsOptIn}
                 onChange={(event) => {
                   submissionId.current = null;
                   setAppointmentSmsOptIn(event.target.checked);
                 }}
               />{" "}
-              I agree to receive texts from Premium Remodel about appointments,
+              I agree to receive texts from {businessName} about appointments,
               estimates, scheduling changes, and project updates.
             </label>
             <label htmlFor={marketingSmsId}>
               <input
                 id={marketingSmsId}
                 type="checkbox"
+                disabled={!smsConsentEnabled}
                 checked={marketingSmsOptIn}
                 onChange={(event) => {
                   submissionId.current = null;
                   setMarketingSmsOptIn(event.target.checked);
                 }}
               />{" "}
-              I agree to receive marketing and promotional texts from Premium
-              Remodel.
+              I agree to receive marketing and promotional texts from{" "}
+              {businessName}.
             </label>
           </div>
           <p className={styles.requestSmsNote}>
-            Choose which texts to receive from Premium Remodel. Messages may be
-            automated. SMS consent is optional and not a condition of purchase.
-            Message frequency varies. Message and data rates may apply. Reply
-            STOP to unsubscribe or HELP for help.
+            {smsConsentEnabled
+              ? `Choose which texts to receive from ${businessName}. Messages may be automated. SMS consent is optional and not a condition of purchase. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe or HELP for help.`
+              : "Text-message consent is not available for this organization yet. You can still submit your request."}
           </p>
-          <p className={styles.requestSmsNote}>
-            Read our{" "}
-            <a
-              href="https://www.premiumremodel.com/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Privacy Policy (opens in a new tab)
-            </a>{" "}
-            and{" "}
-            <a
-              href="https://www.premiumremodel.com/terms-and-conditions"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Terms &amp; Conditions (opens in a new tab)
-            </a>
-            , including our SMS terms.
-          </p>
+          {privacyUrl && termsUrl && (
+            <p className={styles.requestSmsNote}>
+              Read our{" "}
+              <a href={privacyUrl} target="_blank" rel="noopener noreferrer">
+                Privacy Policy (opens in a new tab)
+              </a>{" "}
+              and{" "}
+              <a href={termsUrl} target="_blank" rel="noopener noreferrer">
+                Terms &amp; Conditions (opens in a new tab)
+              </a>
+              , including our SMS terms.
+            </p>
+          )}
         </div>
       )}
       {error && (

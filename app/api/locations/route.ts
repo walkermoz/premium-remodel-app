@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { locationExpiryMs } from "@/lib/location";
+import { hasOrganizationCapability } from "@/lib/organization-permissions";
 export const runtime = "nodejs";
 const point = z.object({
   latitude: z.number().finite().min(-90).max(90),
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
       .eq("organization_id", user.organizationId)
       .eq("sharing", true)
       .gt("captured_at", cutoff);
-    if (!new Set(["owner", "admin"]).has(user.role)) {
+    if (!(await hasOrganizationCapability(user, "locations.view"))) {
       memberships = memberships.eq("profile_id", user.id);
       locations = locations.eq("profile_id", user.id);
     }

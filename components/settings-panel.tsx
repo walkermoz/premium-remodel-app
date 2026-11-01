@@ -16,6 +16,11 @@ import type { WorkspaceAlert } from "@/lib/types";
 import type { BusinessConfig } from "@/lib/business-config";
 import BusinessSettings from "./business-settings";
 import BusinessOnboarding from "./business-onboarding";
+import OrganizationSecretsSettings from "./organization-secrets-settings";
+import type { OrganizationCapability } from "@/lib/business-config-schema";
+import AgreementTemplatesSettings from "./agreement-templates-settings";
+import StripePaymentSettings from "./stripe-payment-settings";
+import OrganizationLifecycleSettings from "./organization-lifecycle-settings";
 export default function SettingsPanel({
   user,
   config,
@@ -37,15 +42,37 @@ export default function SettingsPanel({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
-  const admin = user.role === "admin";
+  const hasCapability = (capability: OrganizationCapability) =>
+    user.group === "owner" ||
+    config.rolePermissions[user.group].includes(capability);
+  const canManageConnections = hasCapability("connections.manage");
+  const canManageSecrets = hasCapability("secrets.manage");
+  const canManageAlerts = hasCapability("alerts.manage");
+  const canViewAudit = hasCapability("audit.view");
+  const canManageGeneration = hasCapability("generation.manage");
+  const canManageApiKeys = hasCapability("api_keys.manage");
+  const canManageAgreements = hasCapability("agreements.manage");
+  const canViewSetup = canManageConnections;
+  const canViewBusiness = [
+    "business.manage",
+    "branding.manage",
+    "compliance.manage",
+    "permissions.manage",
+    "agreements.manage",
+  ].some((capability) =>
+    hasCapability(capability as OrganizationCapability),
+  );
   const [section, setSection] = useState<
     "setup" | "business" | "workspace" | "connections" | "account"
-  >(admin ? "setup" : "workspace");
+  >(canViewSetup ? "setup" : canViewBusiness ? "business" : "workspace");
   const visibleSection =
-    admin ||
-    (section !== "setup" && section !== "business" && section !== "connections")
-      ? section
-      : "workspace";
+    section === "setup" && !canViewSetup
+      ? "workspace"
+      : section === "business" && !canViewBusiness
+        ? "workspace"
+      : section === "connections" && !canManageConnections
+        ? "workspace"
+        : section;
   return (
     <>
       <div className="page-heading">
@@ -58,19 +85,23 @@ export default function SettingsPanel({
         </div>
       </div>
       <nav
-        className={`settings-main-nav${admin ? "" : " personal-only"}`}
+        className={`settings-main-nav${canViewSetup || canViewBusiness ? "" : " personal-only"}`}
         aria-label="Settings categories"
       >
         {(
           [
-            ...(admin
+            ...(canViewSetup
               ? ([
                   ["setup", "Get started", "Setup checklist"],
+                ] as const)
+              : []),
+            ...(canViewBusiness
+              ? ([
                   ["business", "Business", "Brand, company, quotes & access"],
                 ] as const)
               : []),
             ["workspace", "Workspace", "Display and tools"],
-            ...(admin
+            ...(canManageConnections
               ? ([
                   [
                     "connections",
@@ -94,34 +125,47 @@ export default function SettingsPanel({
           </button>
         ))}
       </nav>
-      {admin && visibleSection === "setup" && (
+      {canViewSetup && visibleSection === "setup" && (
         <BusinessOnboarding
           config={config}
-          owner={user.group === "owner"}
-          admin={admin}
+          admin={canViewSetup}
           demo={demo}
           onNavigate={setSection}
         />
       )}
-      {admin && (
+      {canViewBusiness && (
         <div hidden={visibleSection !== "business"}>
-          <BusinessSettings initial={config} admin demo={demo} />
+          <BusinessSettings
+            initial={config}
+            admin
+            demo={demo}
+            capabilities={config.rolePermissions[user.group]}
+          />
+          {canManageAgreements && config.modules.agreements && (
+            <AgreementTemplatesSettings demo={demo} />
+          )}
+          {user.group === "owner" && (
+            <OrganizationLifecycleSettings
+              demo={demo}
+              organizationName={config.profile.name}
+            />
+          )}
         </div>
       )}
       {visibleSection === "workspace" && (
         <>
           <AppearanceSettings />
           <InstallAppPanel />
-          {admin && (
+          {canManageAlerts && (
             <WorkspaceAlertSettings
               alerts={alerts}
               onSave={onSaveAlert}
               onRemove={onRemoveAlert}
             />
           )}
-          {admin && <WorkspaceHistorySettings demo={demo} />}
-          {admin && <GenerationSettings demo={demo} admin />}
-          {admin && config.profile.addressPriority === "wake" && (
+          {canViewAudit && <WorkspaceHistorySettings demo={demo} />}
+          {canManageGeneration && <GenerationSettings demo={demo} admin />}
+          {hasCapability("business.manage") && config.profile.addressPriority === "wake" && (
             <div className="settings-section">
               <div className="settings-title">
                 <MapPin size={22} />
@@ -143,7 +187,7 @@ export default function SettingsPanel({
           )}
         </>
       )}
-      {admin && visibleSection === "connections" && (
+      {canManageConnections && visibleSection === "connections" && (
         <>
           <div className="connections-intro">
             <span className="eyebrow">SET UP YOUR BUSINESS</span>
@@ -156,11 +200,19 @@ export default function SettingsPanel({
           </div>
           <GoogleMailSettings demo={demo} />
           <TwilioSettings demo={demo} businessName={config.profile.name} />
+          {hasCapability("payments.manage") && config.modules.payments && (
+            <StripePaymentSettings demo={demo} />
+          )}
+          {canManageSecrets && <OrganizationSecretsSettings demo={demo} />}
           <details className="connections-advanced">
             <summary>
               Advanced connections <span>Developer API access</span>
             </summary>
-            <ApiKeysSettings demo={demo} />
+            {canManageApiKeys ? (
+              <ApiKeysSettings demo={demo} />
+            ) : (
+              <p>Your role cannot manage API keys.</p>
+            )}
           </details>
         </>
       )}

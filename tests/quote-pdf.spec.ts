@@ -30,6 +30,11 @@ const quote: Quote = {
   quoteNotes:
     "This quote includes labor only. Tile installation includes the additional $500.",
 };
+const premiumBusiness = {
+  name: "Premium Remodel",
+  website: "https://premiumremodel.com",
+  phone: "(919) 454-4012",
+};
 
 function scopeItem(index: number): ScopeItem {
   return {
@@ -57,6 +62,8 @@ test("quote PDF is a valid letter document with stable metadata and filename", a
     quote,
     Array.from({ length: 10 }, (_, index) => scopeItem(index)),
     logo,
+    [],
+    premiumBusiness,
   );
   expect(Buffer.from(bytes).subarray(0, 5).toString()).toBe("%PDF-");
   const document = await PDFDocument.load(bytes);
@@ -65,7 +72,7 @@ test("quote PDF is a valid letter document with stable metadata and filename", a
   expect(document.getSubject()).toBe("PRIMARY BATH SHOWER / BATH REMODEL");
   for (const page of document.getPages())
     expect(page.getSize()).toEqual({ width: 612, height: 792 });
-  expect(quotePdfFileName(quote)).toBe(
+  expect(quotePdfFileName(quote, premiumBusiness.name)).toBe(
     "Premium Remodel - Jeremey Ulrey - Quote 129.pdf",
   );
 });
@@ -78,6 +85,8 @@ test("long scopes continue onto additional pages", async () => {
     quote,
     Array.from({ length: 28 }, (_, index) => scopeItem(index)),
     logo,
+    [],
+    premiumBusiness,
   );
   expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
 });
@@ -104,7 +113,7 @@ test("selected before and concept photos are included on a labeled quote page", 
       caption: "Warm spa concept",
       bytes: image,
     },
-  ]);
+  ], premiumBusiness);
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const document = await getDocument({ data: bytes }).promise;
   expect(document.numPages).toBe(2);
@@ -135,6 +144,8 @@ test("quote PDF omits placeholder and removed project headings but retains their
       },
     ],
     logo,
+    [],
+    premiumBusiness,
   );
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const loadingTask = getDocument({ data: bytes });
@@ -169,6 +180,8 @@ test("quote PDF shows a custom scope heading without the project prefix", async 
       },
     ],
     logo,
+    [],
+    premiumBusiness,
   );
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const loadingTask = getDocument({ data: bytes });
@@ -202,6 +215,8 @@ test("internal price components count toward the PDF total without appearing as 
       },
     ],
     logo,
+    [],
+    premiumBusiness,
   );
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const loadingTask = getDocument({ data: bytes });
@@ -228,7 +243,7 @@ test("scope-only quote PDFs omit individual and section price labels", async () 
     [scopeItem(0)],
     logo,
     [],
-    undefined,
+    premiumBusiness,
     { showLineItemPrices: false },
   );
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");

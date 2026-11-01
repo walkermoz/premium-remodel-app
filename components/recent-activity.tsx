@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { activityHeadline, workspaceActivities } from "@/lib/activity";
 import type { Workspace } from "@/lib/types";
 import { Avatar } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 export default function RecentActivity({
   workspace,
@@ -13,6 +14,7 @@ export default function RecentActivity({
   onProject: (projectId: string) => void;
   onShowMore: () => void;
 }) {
+  const regional = useRegionalFormat();
   const entries = workspaceActivities(workspace);
   return (
     <section
@@ -38,7 +40,7 @@ export default function RecentActivity({
               >
                 <Avatar name={entry.actorName} />
                 <span className="recent-activity-body">
-                  <strong>{activityHeadline(entry)}</strong>
+                  <strong>{activityHeadline(entry, regional.money)}</strong>
                   {entry.activityType !== "Work completed" && (
                     <span className="recent-activity-summary">
                       {entry.summary}
@@ -53,7 +55,7 @@ export default function RecentActivity({
                   </span>
                 </span>
                 <time dateTime={entry.occurredAt}>
-                  {new Date(entry.occurredAt).toLocaleString("en-US", {
+                  {regional.dateTime(entry.occurredAt, {
                     month: "short",
                     day: "numeric",
                     year: "numeric",

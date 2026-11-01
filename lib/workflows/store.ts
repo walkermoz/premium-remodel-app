@@ -8,6 +8,9 @@ import {
   websiteLeadAutomationSchema,
 } from "../automation-config";
 import { supabaseAdmin } from "../supabase/server";
+import { isOriginalOrganization } from "../original-organization";
+import { configuredDiscordLeadWebhook } from "../discord-leads";
+import { ensureSystemOrganizationSecret } from "../organization-secrets";
 import { redactWorkflowValue } from "./redaction";
 import { smsComplianceWorkflowSeed, websiteLeadWorkflowSeed } from "./seeds";
 import {
@@ -87,8 +90,10 @@ async function createSeed(input: {
   definition: WorkflowDefinition;
   systemControlled: boolean;
   legacyRevision?: number;
+  initiallyPublished?: boolean;
 }) {
   const admin = supabaseAdmin();
+  const initiallyPublished = input.initiallyPublished ?? true;
   const inserted = await admin.from("remodel_workflows").upsert(
     {
       organization_id: input.organizationId,
@@ -96,7 +101,7 @@ async function createSeed(input: {
       name: input.name,
       description: input.description,
       primary_object_type: input.definition.graph.primaryObjectType,
-      status: "published",
+      status: initiallyPublished ? "published" : "draft",
       system_controlled: input.systemControlled,
       draft_revision: 1,
     },
@@ -111,42 +116,53 @@ async function createSeed(input: {
     .single();
   if (workflowResult.error) throw workflowResult.error;
   const workflow = workflowResult.data;
-  if (workflow.published_version_id) return;
+  if (workflow.published_version_id || workflow.current_draft_version_id)
+    return;
 
-  const publishedId = randomUUID();
-  const draftId = input.systemControlled ? null : randomUUID();
+  const publishedId = initiallyPublished ? randomUUID() : null;
+  const draftId = initiallyPublished
+    ? input.systemControlled
+      ? null
+      : randomUUID()
+    : randomUUID();
   const versions = [
-    {
-      id: publishedId,
-      organization_id: input.organizationId,
-      workflow_id: workflow.id,
-      version_number: 1,
-      state: "published",
-      graph: input.definition.graph,
-      settings: input.definition.settings,
-      layout: input.definition.layout,
-      metadata: {
-        seeded: true,
-        ...(input.legacyRevision !== undefined
-          ? { legacyRevision: input.legacyRevision }
-          : {}),
-      },
-      change_note: "Migrated current production behavior",
-      published_at: new Date().toISOString(),
-    },
+    ...(publishedId
+      ? [
+          {
+            id: publishedId,
+            organization_id: input.organizationId,
+            workflow_id: workflow.id,
+            version_number: 1,
+            state: "published",
+            graph: input.definition.graph,
+            settings: input.definition.settings,
+            layout: input.definition.layout,
+            metadata: {
+              seeded: true,
+              ...(input.legacyRevision !== undefined
+                ? { legacyRevision: input.legacyRevision }
+                : {}),
+            },
+            change_note: "Migrated current production behavior",
+            published_at: new Date().toISOString(),
+          },
+        ]
+      : []),
     ...(draftId
       ? [
           {
             id: draftId,
             organization_id: input.organizationId,
             workflow_id: workflow.id,
-            version_number: 2,
+            version_number: initiallyPublished ? 2 : 1,
             state: "draft",
             graph: input.definition.graph,
             settings: input.definition.settings,
             layout: input.definition.layout,
             metadata: { seeded: true },
-            change_note: "Draft from migrated production workflow",
+            change_note: initiallyPublished
+              ? "Draft from migrated production workflow"
+              : "Optional starter template — review before publishing",
             published_at: null,
           },
         ]
@@ -170,15 +186,15 @@ async function createSeed(input: {
     (version) => version.state === "published",
   );
   const draft = savedVersions.data.find((version) => version.state === "draft");
-  if (!published)
+  if (initiallyPublished && !published)
     throw new Error("Seeded workflow did not create a published version.");
   const update = await admin
     .from("remodel_workflows")
     .update({
-      published_version_id: published.id,
+      published_version_id: published?.id || null,
       current_draft_version_id: draft?.id || null,
       draft_revision: draft ? 1 : 0,
-      status: "published",
+      status: published ? "published" : "draft",
       updated_at: new Date().toISOString(),
     })
     .eq("organization_id", input.organizationId)
@@ -186,11 +202,14 @@ async function createSeed(input: {
     .is("published_version_id", null);
   if (update.error) throw update.error;
 
-  const triggerNodes = input.definition.graph.nodes.filter(
-    (node) =>
-      node.kind === "trigger" && typeof node.config.eventType === "string",
-  );
-  if (triggerNodes.length) {
+  const triggerNodes = published
+    ? input.definition.graph.nodes.filter(
+        (node) =>
+          node.kind === "trigger" &&
+          typeof node.config.eventType === "string",
+      )
+    : [];
+  if (published && triggerNodes.length) {
     const subscriptions = await admin
       .from("remodel_workflow_trigger_subscriptions")
       .upsert(
@@ -219,18 +238,178 @@ async function createSeed(input: {
   }
 }
 
+async function migrateSeededPremiumWebhookToVault(
+  organizationId: string,
+  secretId: string,
+) {
+  const admin = supabaseAdmin();
+  const workflow = await admin
+    .from("remodel_workflows")
+    .select("id,current_draft_version_id,draft_revision")
+    .eq("organization_id", organizationId)
+    .eq("workflow_key", seedKeys.website)
+    .maybeSingle();
+  if (workflow.error) throw workflow.error;
+  if (
+    !workflow.data?.current_draft_version_id ||
+    Number(workflow.data.draft_revision) !== 1
+  )
+    return;
+  const draft = await admin
+    .from("remodel_workflow_versions")
+    .select("id,state,graph,metadata")
+    .eq("organization_id", organizationId)
+    .eq("id", workflow.data.current_draft_version_id)
+    .maybeSingle();
+  if (draft.error) throw draft.error;
+  if (
+    !draft.data ||
+    draft.data.state !== "draft" ||
+    draft.data.metadata?.seeded !== true
+  )
+    return;
+  const originalGraph = structuredClone(draft.data.graph);
+  const graph = workflowDefinitionSchema.shape.graph.parse(originalGraph);
+  const node = graph.nodes.find((item) => item.id === "team-notification");
+  if (
+    !node ||
+    node.config.destination !== "discord_lead_webhook"
+  )
+    return;
+  node.config = {
+    ...node.config,
+    destination: "custom",
+    url: "",
+    urlSecretId: secretId,
+    resultTracking: {
+      objectType: "lead",
+      objectId: { kind: "reference", path: "outputs.leadResult.id" },
+      field: "discordNotification",
+    },
+  };
+  delete node.config.templateKey;
+  const emailNode = graph.nodes.find((item) => item.id === "confirmation-email");
+  if (emailNode) {
+    emailNode.config = {
+      ...emailNode.config,
+      presentation: "business",
+      body: "Hi {{event.payload.firstName}},\n\nThanks for reaching out to {{organization.name}}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n{{organization.name}} Team",
+      resultTracking: {
+        objectType: "lead",
+        objectId: { kind: "reference", path: "outputs.leadResult.id" },
+        field: "emailAcknowledgement",
+      },
+    };
+    delete emailNode.config.templateKey;
+  }
+  const smsNode = graph.nodes.find((item) => item.id === "confirmation-sms");
+  if (smsNode) {
+    smsNode.config = {
+      ...smsNode.config,
+      resultTracking: {
+        objectType: "lead",
+        objectId: { kind: "reference", path: "outputs.leadResult.id" },
+        field: "smsAcknowledgement",
+      },
+    };
+    delete smsNode.config.templateKey;
+  }
+  const owner = await admin
+    .from("profiles")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .eq("role", "owner")
+    .limit(1)
+    .maybeSingle();
+  if (owner.error) throw owner.error;
+  if (!owner.data?.id) return;
+  const saved = await admin
+    .from("remodel_workflow_versions")
+    .update({
+      graph,
+      metadata: { ...draft.data.metadata, migration: "https-vault-v1" },
+      change_note:
+        "Moved the existing lead notification URL into the organization vault",
+    })
+    .eq("organization_id", organizationId)
+    .eq("id", draft.data.id)
+    .eq("state", "draft");
+  if (saved.error) throw saved.error;
+  const published = await admin.rpc("remodel_publish_workflow", {
+    p_organization_id: organizationId,
+    p_actor_id: owner.data.id,
+    p_workflow_id: workflow.data.id,
+    p_expected_revision: Number(workflow.data.draft_revision),
+    p_change_note:
+      "Moved the existing lead notification URL into the organization vault",
+  });
+  if (published.error) {
+    await admin
+      .from("remodel_workflow_versions")
+      .update({
+        graph: originalGraph,
+        metadata: draft.data.metadata,
+        change_note: "Draft from migrated production workflow",
+      })
+      .eq("organization_id", organizationId)
+      .eq("id", draft.data.id)
+      .eq("state", "draft");
+    throw published.error;
+  }
+}
+
 export async function ensureSeededWorkflows(organizationId: string) {
-  const legacy = await legacyWebsiteOptions(organizationId);
+  const original = isOriginalOrganization(organizationId);
+  let teamNotificationUrlSecretId: string | undefined;
+  if (original) {
+    const webhook = configuredDiscordLeadWebhook();
+    if (webhook)
+      try {
+        teamNotificationUrlSecretId = await ensureSystemOrganizationSecret({
+          organizationId,
+          name: "PREMIUM_LEAD_WEBHOOK_URL",
+          description:
+            "Migrated Premium Remodel lead-notification HTTPS endpoint.",
+          value: webhook,
+        });
+      } catch {
+        // The legacy destination remains executable until secure vault storage
+        // is configured; onboarding surfaces the missing secrets connection.
+      }
+  }
+  const legacy = original
+    ? await legacyWebsiteOptions(organizationId)
+    : {
+        ...defaultWebsiteLeadAutomation(),
+        sendTeamNotification: false,
+      };
   await createSeed({
     organizationId,
     key: seedKeys.website,
     name: legacy.name,
     description:
       "Capture website inquiries as Contacts and Leads, then follow up with the Contact and team.",
-    definition: websiteLeadWorkflowSeed(legacy),
+    definition: websiteLeadWorkflowSeed({
+      ...legacy,
+      teamNotificationMode: original
+        ? "legacy_discord"
+        : "disabled_custom_https",
+      triggerMode: original ? "website_form" : "inbound_webhook",
+      compatibilityMode: original ? "premium_legacy" : "generic",
+      ...(teamNotificationUrlSecretId
+        ? { teamNotificationUrlSecretId }
+        : {}),
+    }),
     systemControlled: false,
-    legacyRevision: legacy.revision,
+    ...(original ? { legacyRevision: legacy.revision } : {}),
+    initiallyPublished: original,
   });
+  if (original && teamNotificationUrlSecretId)
+    await migrateSeededPremiumWebhookToVault(
+      organizationId,
+      teamNotificationUrlSecretId,
+    );
   await createSeed({
     organizationId,
     key: seedKeys.sms,
@@ -603,7 +782,10 @@ export async function listWorkflowVersions(
         createdBy: null,
         createdByName: item.actor_name || "Legacy editor",
         metadata: { legacy: true, actorName: item.actor_name },
-        definition: websiteLeadWorkflowSeed(legacyDefinition),
+        definition: websiteLeadWorkflowSeed({
+          ...legacyDefinition,
+          compatibilityMode: "premium_legacy",
+        }),
       });
     }
   }

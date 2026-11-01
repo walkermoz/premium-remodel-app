@@ -16,6 +16,7 @@ import {
 } from "@/lib/install-link";
 import { sendOrganizationSms } from "@/lib/sms-compliance";
 import { TwilioConnectionError } from "@/lib/twilio-client";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -29,11 +30,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only administrators can send the company app link.",
-      );
+    await requireOrganizationCapability(user, "team.manage");
     const input = inputSchema.parse(await request.json());
     const recipient = normalizeSmsRecipient(input.phone);
     if (!recipient)

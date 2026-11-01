@@ -18,6 +18,7 @@ import { doorVisitOutcomes } from "@/lib/types";
 import { workToday } from "@/lib/work";
 import AddressInput from "./address-input";
 import { Modal } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 const DoorMap = dynamic(() => import("./door-knocking-map"), {
   ssr: false,
@@ -67,6 +68,7 @@ export default function DoorKnockingPanel({
   workspace: Workspace;
   onSave: (data: DoorVisitDraft) => Promise<void>;
 }) {
+  const regional = useRegionalFormat();
   const [marking, setMarking] = useState(false);
   const [position, setPosition] = useState<{
     latitude: number;
@@ -87,14 +89,15 @@ export default function DoorKnockingPanel({
       ),
     [workspace.doorVisits],
   );
-  const today = workToday();
+  const today = workToday(new Date(), regional.timezone);
   const visitsToday = visits.filter(
-    (visit) => dateTimeInput(new Date(visit.visitedAt)).slice(0, 10) === today,
+    (visit) =>
+      workToday(new Date(visit.visitedAt), regional.timezone) === today,
   ).length;
   const leadsToday = visits.filter(
     (visit) =>
       visit.leadId &&
-      dateTimeInput(new Date(visit.visitedAt)).slice(0, 10) === today,
+      workToday(new Date(visit.visitedAt), regional.timezone) === today,
   ).length;
   const quoteCount = workspace.leads.filter((lead) => lead.quoteDate).length;
   const selected = visits.find((visit) => visit.id === selectedId);
@@ -230,7 +233,7 @@ export default function DoorKnockingPanel({
               <span>
                 <strong>{visit.address}</strong>
                 <small>
-                  {visit.outcome} · {new Date(visit.visitedAt).toLocaleString()}
+                  {visit.outcome} · {regional.dateTime(visit.visitedAt)}
                 </small>
                 <small>By {visit.canvasserName}</small>
               </span>

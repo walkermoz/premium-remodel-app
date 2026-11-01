@@ -8,6 +8,7 @@ import {
 } from "@/lib/business-branding";
 import { getBusinessConfig, saveBusinessConfig } from "@/lib/business-config";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -45,8 +46,7 @@ export async function POST(request: Request, context: Context) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can change branding.");
+    await requireOrganizationCapability(user, "branding.manage");
     const asset = await assetFrom(context);
     const file = (await request.formData()).get("image");
     if (
@@ -91,8 +91,7 @@ export async function DELETE(request: Request, context: Context) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can change branding.");
+    await requireOrganizationCapability(user, "branding.manage");
     const asset = await assetFrom(context);
     const current = await getBusinessConfig(user);
     const field = brandingAssets[asset].field;

@@ -120,6 +120,7 @@ export async function generateRenovation({
   style,
   notes,
   userId,
+  businessName,
 }: {
   photo: Buffer;
   ratio: number;
@@ -129,6 +130,7 @@ export async function generateRenovation({
   style: string;
   notes: string;
   userId: string;
+  businessName: string;
 }) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key)
@@ -152,7 +154,7 @@ export async function generateRenovation({
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "X-Title": "Premium Remodel",
+        "X-Title": businessName,
         "HTTP-Referer":
           process.env.APP_URL || "https://servicebuddy-ui.vercel.app",
       },

@@ -5,6 +5,7 @@ import type { WorkspaceAlert } from "@/lib/types";
 import { alertAudienceOptions, audienceLabels } from "@/lib/workspace-alerts";
 import { localDateTime } from "@/lib/activity";
 import { Modal } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 const units = {
   minutes: 1,
@@ -31,6 +32,7 @@ export default function WorkspaceAlertSettings({
   ) => Promise<unknown>;
   onRemove: (alert: WorkspaceAlert) => void;
 }) {
+  const { dateTime } = useRegionalFormat();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -173,7 +175,7 @@ export default function WorkspaceAlertSettings({
                     <small>
                       <UserRound size={12} /> Posted by {alert.authorName} ·{" "}
                       <time dateTime={alert.createdAt}>
-                        {new Date(alert.createdAt).toLocaleString()}
+                        {dateTime(alert.createdAt)}
                       </time>
                     </small>
                     {alert.lastEditedAt && alert.lastEditedByName && (
@@ -181,18 +183,24 @@ export default function WorkspaceAlertSettings({
                         <Pencil size={11} /> Updated by {alert.lastEditedByName}{" "}
                         ·{" "}
                         <time dateTime={alert.lastEditedAt}>
-                          {new Date(alert.lastEditedAt).toLocaleString()}
+                          {dateTime(alert.lastEditedAt)}
                         </time>
                       </small>
                     )}
                     <small>
                       <Clock3 size={12} /> Expires{" "}
                       <time dateTime={alert.expiresAt}>
-                        {new Date(alert.expiresAt).toLocaleString()}
+                        {dateTime(alert.expiresAt)}
                       </time>
                     </small>
+                    {alert.link && (
+                      <a href={alert.link}>
+                        {alert.linkLabel || "Review related record"}
+                      </a>
+                    )}
                   </div>
-                  <div className="active-alert-actions">
+                  {alert.systemKind !== "workflow_incident" && (
+                    <div className="active-alert-actions">
                     <button
                       type="button"
                       className="icon-button"
@@ -216,7 +224,8 @@ export default function WorkspaceAlertSettings({
                     >
                       <Trash2 size={16} />
                     </button>
-                  </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

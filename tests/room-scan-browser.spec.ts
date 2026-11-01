@@ -23,7 +23,7 @@ test("room scan link requires the LiDAR field app", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: "Open the Premium Remodel field app",
+      name: "Open the ServiceBuddy Field app",
     }),
   ).toBeVisible();
   await expect(page.getByText("Primary bathroom remodel")).toBeVisible();
@@ -33,7 +33,7 @@ test("room scan link requires the LiDAR field app", async ({ page }) => {
   const appLink = page.getByRole("link", { name: /Open scanner app/ });
   await expect(appLink).toHaveAttribute(
     "href",
-    new RegExp(`^premiumremodelfield://room-scan\\?.*token=${token}`),
+    new RegExp(`^servicebuddyfield://room-scan\\?.*token=${token}`),
   );
   await expect(appLink).toHaveAttribute(
     "href",

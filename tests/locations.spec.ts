@@ -119,7 +119,7 @@ test("sample map supports selection, persistent sharing controls, stop and mobil
     .getByRole("button", { name: /Workspace/ })
     .click();
   await expect(
-    page.getByRole("region", { name: "Install Premium Remodel" }),
+    page.getByRole("region", { name: "Install ServiceBuddy" }),
   ).toContainText("Add to Home Screen");
 });
 
@@ -130,7 +130,7 @@ test("phone manifest, icons and offline fallback do not cache company data", asy
 }) => {
   const manifest = await (await request.get("/manifest.webmanifest")).json();
   expect(manifest).toMatchObject({
-    name: "Premium Remodel",
+    name: "ServiceBuddy",
     start_url: "/",
     display: "standalone",
   });
@@ -150,7 +150,7 @@ test("phone manifest, icons and offline fallback do not cache company data", asy
     )
     .toBe(true);
   const cached = await page.evaluate(async () => {
-    const cache = await caches.open("premium-remodel-offline-v1");
+    const cache = await caches.open("servicebuddy-offline-v2");
     return (await cache.keys()).map((request) => new URL(request.url).pathname);
   });
   expect(cached).toEqual(["/offline.html"]);

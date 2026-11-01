@@ -1,6 +1,6 @@
-# Premium Remodel Field
+# ServiceBuddy Field
 
-The native field companion for Premium Remodel. It uses the same Supabase account, leads, visits, and quote calendar as the Vercel dashboard.
+The shared native field companion for ServiceBuddy organizations. It uses the same Supabase account, organization-scoped leads, visits, quote calendar, and room scans as the web workspace.
 
 ## Local setup
 
@@ -34,7 +34,7 @@ Expo Go; use an EAS development, preview, or production build.
 
 ## TestFlight release
 
-1. Sign in with the Premium Remodel Expo account: `npx eas-cli login`.
+1. Sign in with the Expo account that owns the existing ServiceBuddy Field EAS project: `npx eas-cli login`.
 2. Link the project: `npx eas-cli init`.
 3. Add the three public environment values to the EAS project.
 4. Run `npm run build:ios` and then `npm run submit:ios`.

@@ -26,13 +26,11 @@ import {
 } from "@/lib/types";
 import {
   projectFinances,
-  projectMoney,
   scopeTotal,
 } from "@/lib/project-finances";
 import { msaPaymentRows } from "@/lib/msa-contract";
 import { DEFAULT_QUOTE_PROJECT_NAME } from "@/lib/scope-projects";
 import { orderedScopeItems } from "@/lib/scope-order";
-import { dateLabel } from "@/lib/utils";
 import { Empty } from "./ui";
 import type { Editor } from "./entity-form";
 import ScopeTable from "./scope-table";
@@ -54,6 +52,8 @@ import {
   quotePriceDisplayOptions,
   resolveQuotePriceDisplay,
 } from "@/lib/quote-price-display";
+import { useRegionalFormat } from "./regional-format-context";
+import AgreementPacketPanel from "./agreement-packet-panel";
 
 export default function QuotesPanel({
   workspace,
@@ -78,6 +78,7 @@ export default function QuotesPanel({
   ) => Promise<unknown>;
   demo: boolean;
 }) {
+  const regional = useRegionalFormat();
   const [filter, setFilter] = useState("All quotes");
   const [importOpen, setImportOpen] = useState(false);
   const [savingId, setSavingId] = useState("");
@@ -141,7 +142,7 @@ export default function QuotesPanel({
             decision
           </strong>
           <span>
-            {projectMoney(
+            {regional.money(
               sent.reduce(
                 (sum, quote) => sum + scopeTotal(workspace.scope, quote.id),
                 0,
@@ -206,7 +207,7 @@ export default function QuotesPanel({
                   </div>
                   <div className="quote-row-price">
                     <strong>
-                      {projectMoney(scopeTotal(workspace.scope, quote.id))}
+                      {regional.money(scopeTotal(workspace.scope, quote.id))}
                     </strong>
                     <span>Scope total</span>
                   </div>
@@ -218,8 +219,8 @@ export default function QuotesPanel({
                     </span>
                     <small>
                       {quote.status === "Sent" && quote.quoteSentAt
-                        ? `Sent ${dateLabel(quote.quoteSentAt)}`
-                        : `Updated ${dateLabel(quote.updatedAt)}`}
+                        ? `Sent ${regional.date(quote.quoteSentAt)}`
+                        : `Updated ${regional.date(quote.updatedAt)}`}
                     </small>
                   </div>
                 </button>
@@ -346,6 +347,7 @@ export function QuoteDetail({
   onSent: () => Promise<void>;
   onProjectReady: (id: string) => void;
 }) {
+  const regional = useRegionalFormat();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sendOpen, setSendOpen] = useState(false);
@@ -580,6 +582,16 @@ export function QuoteDetail({
         }}
       />
     ) : null;
+  const agreementPanel =
+    msaDraftPanel ||
+    (items.length && config.modules.agreements ? (
+      <AgreementPacketPanel
+        quote={quote}
+        user={user}
+        businessName={config.profile.name}
+        demo={demo}
+      />
+    ) : null);
   return (
     <div className="quote-detail">
       <button className="back-link" onClick={onBack}>
@@ -647,7 +659,7 @@ export function QuoteDetail({
                 ))}
             </select>
             {quote.quoteSentAt && (
-              <small>Last shared {dateLabel(quote.quoteSentAt)}</small>
+              <small>Last shared {regional.date(quote.quoteSentAt)}</small>
             )}
           </div>
           <a
@@ -767,13 +779,13 @@ export function QuoteDetail({
         >
           <div className="quote-overview-metric quote-price">
             <span>Scope total · quote price</span>
-            <strong>{projectMoney(finances.total)}</strong>
+            <strong>{regional.money(finances.total)}</strong>
             <small>{items.length} items</small>
           </div>
           {config.quotePreferences.showInternalCosts && (
             <div className="quote-overview-metric">
               <span>Total costs</span>
-              <strong>{projectMoney(finances.costs)}</strong>
+              <strong>{regional.money(finances.costs)}</strong>
             </div>
           )}
           {config.quotePreferences.showInternalCosts && (
@@ -782,7 +794,7 @@ export function QuoteDetail({
               <strong
                 className={finances.margin < 0 ? "is-negative" : undefined}
               >
-                {projectMoney(finances.margin)}
+                {regional.money(finances.margin)}
               </strong>
             </div>
           )}
@@ -822,7 +834,7 @@ export function QuoteDetail({
           quote={quote}
           itemCount={items.length}
           fileCount={files.length}
-          agreementDetails={msaDraftPanel}
+          agreementDetails={agreementPanel}
         />
       )}
       {!handoffDemo && (
@@ -918,7 +930,7 @@ export function QuoteDetail({
                       <strong>{item.title}</strong>
                       {item.details && <small>{item.details}</small>}
                     </td>
-                    <td>{projectMoney(item.estimate)}</td>
+                    <td>{regional.money(item.estimate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -957,7 +969,7 @@ export function QuoteDetail({
               before anything is sent for signature.
             </p>
           </header>
-          {msaDraftPanel || (
+          {agreementPanel || (
             <div className="alert">Add at least one quote item first.</div>
           )}
           <footer>
@@ -1092,7 +1104,7 @@ export function QuoteDetail({
                   {readyForProjects
                     ? "Required deposit recorded"
                     : signedMsa
-                      ? `${projectMoney(dueCents / 100)} remaining`
+                      ? `${regional.money(dueCents / 100)} remaining`
                       : "Available after agreement signature"}
                 </small>
               </div>
@@ -1226,7 +1238,7 @@ export function QuoteDetail({
             <div>
               <span>Contract</span>
               <strong>
-                {projectMoney(quote.contractPrice || finances.total)}
+                {regional.money(quote.contractPrice || finances.total)}
               </strong>
               <small>{items.length} items ready for Planning</small>
             </div>

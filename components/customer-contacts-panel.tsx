@@ -30,20 +30,14 @@ import type {
 } from "@/lib/contact-communication-types";
 import { workspaceObjects } from "@/lib/workspace-objects";
 import { Avatar, Empty, Modal } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 const contactObject = workspaceObjects.contact;
 
-function communicationTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function demoCommunications(contact: Contact): ContactCommunication[] {
+function demoCommunications(
+  contact: Contact,
+  businessName: string,
+): ContactCommunication[] {
   const now = Date.now();
   return [
     {
@@ -53,7 +47,7 @@ function demoCommunications(contact: Contact): ContactCommunication[] {
       direction: "outbound",
       status: "sent",
       recipient: contact.phone,
-      body: "Premium Remodel: We received your Kitchen Remodel request. A member of our team will be in touch soon to schedule a visit. STOP to opt out; HELP for help.",
+      body: `${businessName}: We received your Kitchen Remodel request. A member of our team will be in touch soon to schedule a visit. STOP to opt out; HELP for help.`,
       relatedKind: "lead",
       sentAt: new Date(now - 42 * 60_000).toISOString(),
     },
@@ -65,7 +59,7 @@ function demoCommunications(contact: Contact): ContactCommunication[] {
       status: "sent",
       recipient: contact.email,
       subject: "We received your remodel request",
-      body: "Thanks for reaching out to Premium Remodel. We received your remodel request and will review the details before following up about next steps.",
+      body: `Thanks for reaching out to ${businessName}. We received your remodel request and will review the details before following up about next steps.`,
       relatedKind: "lead",
       sentAt: new Date(now - 45 * 60_000).toISOString(),
     },
@@ -83,6 +77,7 @@ export default function CustomerContactsPanel({
   onEdit,
   onQuote,
   initialContactId = "",
+  businessName,
 }: {
   contacts: Contact[];
   leads: Lead[];
@@ -94,7 +89,9 @@ export default function CustomerContactsPanel({
   onEdit: (contact: Contact) => void;
   onQuote: (contact: Contact, lead?: Lead) => void;
   initialContactId?: string;
+  businessName: string;
 }) {
+  const regional = useRegionalFormat();
   const all = customerContacts(contacts, leads);
   const [selected, setSelected] = useState<Contact | null>(
     () => all.find((contact) => contact.id === initialContactId) || null,
@@ -126,7 +123,7 @@ export default function CustomerContactsPanel({
     setCommunicationsError("");
     try {
       if (demo) {
-        setCommunications(demoCommunications(contact));
+        setCommunications(demoCommunications(contact, businessName));
         setHasMoreCommunications(false);
         return;
       }
@@ -152,7 +149,7 @@ export default function CustomerContactsPanel({
     } finally {
       setCommunicationsLoading(false);
     }
-  }, [demo]);
+  }, [businessName, demo]);
 
   const openContact = useCallback(function openContact(contact: Contact) {
     setSelected(contact);
@@ -449,7 +446,7 @@ export default function CustomerContactsPanel({
                           <Send size={11} /> Sent
                         </span>
                         <time dateTime={item.sentAt}>
-                          <Clock3 size={11} /> {communicationTime(item.sentAt)}
+                          <Clock3 size={11} /> {regional.dateTime(item.sentAt)}
                         </time>
                       </div>
                       {item.subject && <h4>{item.subject}</h4>}
@@ -468,7 +465,7 @@ export default function CustomerContactsPanel({
                         <strong>Contact created</strong>
                         <time dateTime={selected.createdAt}>
                           <Clock3 size={11} />
-                          {communicationTime(selected.createdAt)}
+                          {regional.dateTime(selected.createdAt)}
                         </time>
                       </div>
                       <h4>Added to Contacts</h4>

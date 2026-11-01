@@ -19,6 +19,7 @@ import {
   readTwilioConnection,
   TwilioConnectionError,
 } from "@/lib/twilio-client";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -34,19 +35,11 @@ const connectionInput = z.object({
     .regex(/^[0-9a-f]{32}$/i),
 });
 
-function requireAdmin(role: string) {
-  if (role !== "admin")
-    throw new HttpError(
-      403,
-      "Only administrators can manage the Twilio connection.",
-    );
-}
-
 export async function GET() {
   let response: Response;
   try {
     const user = await requireUser();
-    requireAdmin(user.role);
+    await requireOrganizationCapability(user, "connections.manage");
     await limitAttempts(`twilio-config:${user.id}`, 60);
     response = Response.json({
       ...(await readTwilioConnection(
@@ -71,7 +64,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    requireAdmin(user.role);
+    await requireOrganizationCapability(user, "connections.manage");
     if (isOriginalOrganization(user.organizationId))
       throw new HttpError(
         403,
@@ -117,7 +110,7 @@ export async function DELETE(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    requireAdmin(user.role);
+    await requireOrganizationCapability(user, "connections.manage");
     if (isOriginalOrganization(user.organizationId))
       throw new HttpError(
         403,

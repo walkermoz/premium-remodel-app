@@ -71,14 +71,10 @@ export const schemas = {
       smsMarketingOptIn: z.boolean().optional(),
       smsConsentEvidence: z
         .object({
-          source: z.literal("premiumremodel.com consultation form"),
-          policyVersion: z.literal("2026-10-21"),
-          privacyUrl: z.literal(
-            "https://www.premiumremodel.com/privacy-policy",
-          ),
-          termsUrl: z.literal(
-            "https://www.premiumremodel.com/terms-and-conditions",
-          ),
+          source: z.string().trim().min(1).max(200),
+          policyVersion: z.string().trim().min(1).max(80),
+          privacyUrl: z.url().max(500),
+          termsUrl: z.url().max(500),
           capturedAt: z.iso.datetime(),
           origin: z.url().max(300),
           appointment: z.boolean(),

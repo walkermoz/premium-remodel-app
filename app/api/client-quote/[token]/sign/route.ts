@@ -12,6 +12,7 @@ import { preparedMsaMatchesQuote } from "@/lib/msa-quote-match";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { QuoteAcceptance } from "@/lib/types";
 import { enqueueWorkflowEvent } from "@/lib/workflows/events";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
 
 export const runtime = "nodejs";
 
@@ -117,11 +118,15 @@ export async function POST(
     if (
       preparedMsa?.status === "prepared" &&
       !preparedMsaMatchesQuote(source.currentQuote, source.pdfItems)
-    )
+    ) {
+      const business = await getBusinessConfigForOrganization(
+        source.organizationId,
+      );
       throw new HttpError(
         409,
-        "The agreement no longer matches this quote. Ask Premium Remodel to update it before signing.",
+        `The agreement no longer matches this quote. Ask ${business.profile.name} to update it before signing.`,
       );
+    }
     const nextStep = preparedMsa?.status === "prepared" ? "msa" : undefined;
     const acceptedQuote = {
       ...source.pdfQuote,

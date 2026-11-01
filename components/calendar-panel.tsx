@@ -17,13 +17,7 @@ import {
   shiftMonth,
   type CalendarEntry,
 } from "@/lib/calendar";
-
-const dateTitle = (value: string) =>
-  calendarDate(value).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+import { useRegionalFormat } from "./regional-format-context";
 
 export default function CalendarPanel({
   workspace,
@@ -48,7 +42,14 @@ export default function CalendarPanel({
   onSelectDay: (day: string) => void;
   onToggleTask: (task: Task) => void;
 }) {
-  const currentDay = workToday();
+  const regional = useRegionalFormat();
+  const dateTitle = (value: string) =>
+    regional.date(calendarDate(value), {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  const currentDay = workToday(new Date(), regional.timezone);
   const [month, setMonth] = useState(() => selectedDay.slice(0, 7));
   const [upcomingLimit, setUpcomingLimit] = useState(8);
   const entries = allEntries.filter((entry) => validCalendarDate(entry.date));
@@ -63,7 +64,7 @@ export default function CalendarPanel({
   const unscheduled = allEntries
     .filter((entry) => entry.task && !entry.date)
     .map((entry) => entry.task!);
-  const monthTitle = calendarDate(`${month}-01`).toLocaleDateString("en-US", {
+  const monthTitle = regional.date(calendarDate(`${month}-01`), {
     month: "long",
     year: "numeric",
   });
@@ -130,7 +131,7 @@ export default function CalendarPanel({
           ) : null}
           <span className="calendar-entry-meta">
             {withDate
-              ? calendarDate(entry.date).toLocaleDateString("en-US", {
+              ? regional.date(calendarDate(entry.date), {
                   month: "short",
                   day: "numeric",
                   year: "numeric",

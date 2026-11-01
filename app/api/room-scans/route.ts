@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     return Response.json(
       {
         launchUrl: `${server}/room-scan/${encodeURIComponent(session.token)}`,
-        appUrl: `premiumremodelfield://room-scan?${appParams}`,
+        appUrl: `servicebuddyfield://room-scan?${appParams}`,
         expiresAt: session.expiresAt,
       },
       { status: 201 },

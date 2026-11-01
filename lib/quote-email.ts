@@ -56,9 +56,9 @@ export function quoteEmailRaw(
   fromEmail: string,
   organizationId?: string,
 ) {
-  const boundary = `premium-remodel-${randomUUID()}`;
-  const relatedBoundary = `premium-remodel-related-${randomUUID()}`;
-  const alternativeBoundary = `premium-remodel-alternative-${randomUUID()}`;
+  const boundary = `servicebuddy-${randomUUID()}`;
+  const relatedBoundary = `servicebuddy-related-${randomUUID()}`;
+  const alternativeBoundary = `servicebuddy-alternative-${randomUUID()}`;
   const safeFilename = header(
     filename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, ""),
   );
@@ -70,7 +70,7 @@ export function quoteEmailRaw(
     business,
     organizationId,
     logoSrc: logo
-      ? "cid:premium-remodel-logo"
+      ? "cid:servicebuddy-business-logo"
       : business.logoUrl.startsWith("https://")
         ? business.logoUrl
         : "",
@@ -104,7 +104,7 @@ export function quoteEmailRaw(
           `--${relatedBoundary}`,
           'Content-Type: image/png; name="business-logo.png"',
           "Content-Transfer-Encoding: base64",
-          "Content-ID: <premium-remodel-logo>",
+          "Content-ID: <servicebuddy-business-logo>",
           'Content-Disposition: inline; filename="business-logo.png"',
           "",
           base64Lines(logo),
@@ -232,7 +232,7 @@ export async function sendQuoteEmail(
       workspace.scope,
       logo,
       photos,
-      business.profile,
+      { ...business.profile, regional: business.regional },
       {
         showLineItemPrices:
           business.quotePreferences.showCustomerLineItemPrices,

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { appOrigin, requireUser } from "@/lib/auth";
 import { connectGoogleMail, googleMailCookie } from "@/lib/google-mail";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
   jar.delete(googleMailCookie);
   try {
     const user = await requireUser();
+    await requireOrganizationCapability(user, "connections.manage");
     const url = new URL(request.url);
     if (url.searchParams.get("error"))
       return Response.redirect(settingsUrl(request, "denied"), 302);

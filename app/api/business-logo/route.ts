@@ -3,6 +3,7 @@ import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { getBusinessLogoBytes } from "@/lib/business-logo";
 import { getBusinessConfig, saveBusinessConfig } from "@/lib/business-config";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -27,8 +28,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can change the logo.");
+    await requireOrganizationCapability(user, "branding.manage");
     const form = await request.formData();
     const file = form.get("logo");
     if (

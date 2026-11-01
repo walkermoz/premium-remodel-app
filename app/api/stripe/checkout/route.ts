@@ -10,15 +10,16 @@ import {
 } from "@/lib/auth";
 import { getWorkspace, findRecord } from "@/lib/repository";
 import { projectFinances } from "@/lib/project-finances";
-import {
-  stripeClient,
-  stripeEnabledForOrganization,
-} from "@/lib/stripe-payments";
 import { getBusinessConfig } from "@/lib/business-config";
+import { paymentProviderAdapter } from "@/lib/payment-providers";
 import { dollarsToCents } from "@/lib/stripe-payment-utils";
 import type { Project } from "@/lib/types";
 import { recordAuditEvent } from "@/lib/audit-server";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import {
+  hasOrganizationCapability,
+  requireOrganizationCapability,
+} from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -30,31 +31,27 @@ const inputSchema = z.object({
 export async function GET() {
   try {
     const user = await requireUser();
+    const canManagePayments = await hasOrganizationCapability(
+      user,
+      "payments.manage",
+    );
+    const business = await getBusinessConfig(user);
     if (
-      user.role !== "admin" ||
-      !stripeEnabledForOrganization(user.organizationId) ||
-      !(await getBusinessConfig(user)).features.payments ||
-      (await getBusinessConfig(user)).quotePreferences.paymentProvider !==
-        "stripe"
+      !canManagePayments ||
+      !business.features.payments ||
+      business.quotePreferences.paymentProvider !== "stripe"
     )
       return Response.json(
         { enabled: false },
         { headers: { "Cache-Control": "private, no-store" } },
       );
-    let payoutsEnabled = false;
-    try {
-      payoutsEnabled =
-        (await stripeClient(user.organizationId).accounts.retrieve(null))
-          .payouts_enabled === true;
-    } catch {
-      // Never offer a live payment link when Stripe account status is unknown.
-    }
+    const status = await paymentProviderAdapter("stripe").status(
+      user.organizationId,
+    );
     return Response.json(
       {
-        enabled: payoutsEnabled,
-        reason: payoutsEnabled
-          ? undefined
-          : "Stripe payouts are paused or unavailable. Complete the account verification task in Stripe before collecting by card.",
+        enabled: status.ready,
+        reason: status.ready ? undefined : status.detail,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
@@ -68,24 +65,18 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Projects", "Quotes");
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can create payment links.");
+    await requireOrganizationCapability(user, "payments.manage");
     const business = await getBusinessConfig(user);
+    const providerStatus = await paymentProviderAdapter("stripe").status(
+      user.organizationId,
+    );
     if (
       !business.features.payments ||
       business.quotePreferences.paymentProvider !== "stripe" ||
-      !stripeEnabledForOrganization(user.organizationId)
+      !providerStatus.ready
     )
       throw new HttpError(503, "Stripe payments are not fully configured yet.");
     await limitAttempts(`stripe-checkout:${user.id}`, 30);
-    if (
-      (await stripeClient(user.organizationId).accounts.retrieve(null))
-        .payouts_enabled !== true
-    )
-      throw new HttpError(
-        503,
-        "Stripe payouts are paused. Complete the account verification task in Stripe before collecting by card.",
-      );
 
     const input = inputSchema.parse(await request.json());
     const amountCents = dollarsToCents(input.amount);
@@ -117,38 +108,26 @@ export async function POST(request: Request) {
 
     const origin = appOrigin(request);
     const metadata = {
-      source: "premium_remodel_project",
+      source: "servicebuddy_project_payment_v1",
       organizationId: user.organizationId,
       projectId: project.id,
       createdById: user.id,
       createdByName: user.name,
       amountCents: String(amountCents),
     };
-    const session = await stripeClient(
-      user.organizationId,
-    ).checkout.sessions.create({
-      mode: "payment",
-      allowed_payment_method_types: ["card"],
-      expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
-      customer_email: project.clientEmail || undefined,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: amountCents,
-            product_data: {
-              name: `${business.profile.name} — ${project.name.slice(0, 120)}`,
-            },
-          },
-          quantity: 1,
-        },
-      ],
+    const provider = paymentProviderAdapter("stripe");
+    if (!provider.createCheckout)
+      throw new HttpError(503, "This payment provider cannot create checkout links.");
+    const session = await provider.createCheckout({
+      organizationId: user.organizationId,
+      amountCents,
+      currency: business.regional.currency,
+      description: `${business.profile.name} — ${project.name}`,
+      customerEmail: project.clientEmail || undefined,
       metadata,
-      payment_intent_data: { metadata },
-      success_url: `${origin}/payment-complete?organization=${user.organizationId}`,
-      cancel_url: `${origin}/payment-complete?organization=${user.organizationId}&canceled=1`,
+      successUrl: `${origin}/payment-complete?organization=${user.organizationId}`,
+      cancelUrl: `${origin}/payment-complete?organization=${user.organizationId}&canceled=1`,
     });
-    if (!session.url) throw new Error("Stripe did not return a payment URL.");
     try {
       await recordAuditEvent(user, {
         action: "created",
@@ -156,7 +135,11 @@ export async function POST(request: Request) {
         entityId: randomUUID(),
         projectId: project.id,
         subject: `Card payment link for ${project.name}`,
-        afterData: { stripeSessionId: session.id, amount: amountCents / 100 },
+        afterData: {
+          provider: provider.id,
+          externalSessionId: session.externalId,
+          amount: amountCents / 100,
+        },
       });
     } catch {
       console.error("Could not record Stripe checkout link audit event.");

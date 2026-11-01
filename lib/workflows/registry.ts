@@ -110,9 +110,21 @@ const updateObjectSchema = z.object({
   fields: fieldMappingSchema,
 });
 
+const resultTrackingSchema = z.object({
+  objectType: z.enum(["contact", "lead", "quote", "project", "item"]),
+  objectId: workflowOperandSchema,
+  field: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z][A-Za-z0-9_]{0,79}$/),
+});
+
 const sendEmailSchema = z.object({
   enabled: z.boolean().default(true),
+  /** Historical versions only; new workflows use ordinary presentation and tracking config. */
   templateKey: z.string().trim().max(120).optional(),
+  presentation: z.enum(["plain", "business"]).default("plain"),
+  resultTracking: resultTrackingSchema.optional(),
   recipient: workflowOperandSchema,
   subject: z.string().min(1).max(300),
   body: z.string().min(1).max(50_000),
@@ -126,6 +138,7 @@ const sendEmailSchema = z.object({
 const sendSmsSchema = z.object({
   enabled: z.boolean().default(true),
   templateKey: z.string().trim().max(120).optional(),
+  resultTracking: resultTrackingSchema.optional(),
   recipient: workflowOperandSchema,
   contactId: workflowOperandSchema.optional(),
   body: z.string().min(1).max(1_600),
@@ -187,11 +200,11 @@ const webhookSchema = z
   .object({
     enabled: z.boolean().default(true),
     templateKey: z.string().trim().max(120).optional(),
-    destination: z
-      .enum(["custom", "discord_lead_webhook"])
-      .default("custom"),
+    resultTracking: resultTrackingSchema.optional(),
+    destination: z.enum(["custom", "discord_lead_webhook"]).default("custom"),
     method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
     url: z.string().max(2_000).default(""),
+    urlSecretId: z.uuid().optional(),
     headers: z
       .record(z.string().max(120), z.string().max(2_000))
       .default({})
@@ -201,6 +214,28 @@ const webhookSchema = z
             (name) => !isSensitiveWorkflowHeader(name),
           ),
         "Store credentials in an organization connection, not workflow headers.",
+      ),
+    secretHeaders: z
+      .record(
+        z
+          .string()
+          .max(120)
+          .regex(/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/),
+        z.uuid(),
+      )
+      .default({})
+      .refine(
+        (headers) =>
+          Object.keys(headers).every(
+            (name) =>
+              ![
+                "host",
+                "content-length",
+                "content-type",
+                "idempotency-key",
+              ].includes(name.toLowerCase()),
+          ),
+        "Host, content length, content type, and idempotency headers are managed by ServiceBuddy.",
       ),
     bodyType: z.enum(["json", "text"]).default("json"),
     body: z.string().max(100_000).default(""),
@@ -214,7 +249,9 @@ const webhookSchema = z
   })
   .superRefine((config, context) => {
     if (
+      config.enabled !== false &&
       config.destination === "custom" &&
+      !config.urlSecretId &&
       !isPublicWorkflowWebhookUrl(config.url)
     )
       context.addIssue({

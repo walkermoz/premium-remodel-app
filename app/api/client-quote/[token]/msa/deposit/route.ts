@@ -7,8 +7,10 @@ import {
 } from "@/lib/client-portal";
 import { msaPaymentRows } from "@/lib/msa-contract";
 import {
-  stripeClient,
-  stripeEnabledForOrganization,
+  organizationStripeEnabled,
+  organizationStripePayoutsEnabled,
+  stripeContextForOrganization,
+  stripeRequestOptions,
 } from "@/lib/stripe-payments";
 import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -48,11 +50,14 @@ export async function POST(
     if (
       !business.features.payments ||
       business.quotePreferences.paymentProvider !== "stripe" ||
-      !stripeEnabledForOrganization(source.organizationId)
+      !(await organizationStripeEnabled(source.organizationId))
     )
       return Response.redirect(portalUrl(request, token, "unavailable"), 303);
-    const stripe = stripeClient(source.organizationId);
-    if ((await stripe.accounts.retrieve(null)).payouts_enabled !== true)
+    const stripeContext = await stripeContextForOrganization(
+      source.organizationId,
+    );
+    const stripe = stripeContext.stripe;
+    if (!(await organizationStripePayoutsEnabled(source.organizationId)))
       return Response.redirect(portalUrl(request, token, "unavailable"), 303);
     const admin = supabaseAdmin();
     const { data: row, error } = await admin
@@ -94,12 +99,14 @@ export async function POST(
     if (existing && Date.parse(existing.expiresAt) > Date.now() + 60_000) {
       const session = await stripe.checkout.sessions.retrieve(
         existing.sessionId,
+        {},
+        stripeRequestOptions(stripeContext),
       );
       if (session.status === "open" && session.url)
         return Response.redirect(session.url, 303);
     }
     const metadata = {
-      source: "premium_remodel_project",
+      source: "servicebuddy_project_payment_v1",
       organizationId: source.organizationId,
       projectId: project.id,
       createdById: agreement.staffUserId,
@@ -131,7 +138,7 @@ export async function POST(
       payment_intent_data: { metadata },
       success_url: portalUrl(request, token, "payment-return"),
       cancel_url: portalUrl(request, token, "payment-canceled"),
-    });
+    }, stripeRequestOptions(stripeContext));
     if (!session.url) throw new Error("Stripe did not provide a checkout URL.");
     const now = new Date(
       Math.max(Date.now(), Date.parse(row!.updated_at) + 1),
@@ -159,7 +166,9 @@ export async function POST(
       .eq("updated_at", row!.updated_at)
       .select("id");
     if (updateError || !updated?.length) {
-      await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+      await stripe.checkout.sessions
+        .expire(session.id, {}, stripeRequestOptions(stripeContext))
+        .catch(() => undefined);
       throw new HttpError(409, "The project changed. Please try again.");
     }
     return Response.redirect(session.url, 303);

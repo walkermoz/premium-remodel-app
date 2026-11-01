@@ -1,13 +1,13 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { HttpError } from "./auth";
+import { getBusinessConfigForOrganization } from "./business-config";
+import { getBusinessLogoBytes } from "./business-logo";
 import { renderLeadAcknowledgement } from "./email-template";
 import {
   gmailAccessTokenForOrganization,
-  googleMailAddress,
+  googleMailAddressForOrganization,
   googleMailConfigured,
 } from "./google-mail";
 
@@ -30,15 +30,25 @@ function base64Lines(bytes: Uint8Array) {
 export function leadAcknowledgementRaw(
   recipientEmail: string,
   firstName: string,
-  logo: Uint8Array,
+  logo: Uint8Array | null,
+  options: {
+    business: { name: string; website: string; email: string; phone: string };
+    fromEmail: string;
+  },
 ) {
   if (/[\r\n\x00-\x1f\x7f]/.test(recipientEmail))
     throw new HttpError(400, "Email address contains invalid characters.");
-  const relatedBoundary = `premium-remodel-related-${randomUUID()}`;
-  const alternativeBoundary = `premium-remodel-alternative-${randomUUID()}`;
-  const email = renderLeadAcknowledgement({ firstName });
+  const relatedBoundary = `servicebuddy-related-${randomUUID()}`;
+  const alternativeBoundary = `servicebuddy-alternative-${randomUUID()}`;
+  const email = renderLeadAcknowledgement({
+    firstName,
+    logoSrc: logo ? undefined : "",
+    business: options.business,
+  });
+  const businessName = options.business.name;
+  const fromEmail = options.fromEmail;
   const lines = [
-    `From: Premium Remodel <${googleMailAddress}>`,
+    `From: ${businessName} <${fromEmail}>`,
     `To: ${recipientEmail}`,
     "Subject: We received your remodel request",
     "MIME-Version: 1.0",
@@ -58,13 +68,17 @@ export function leadAcknowledgementRaw(
     "",
     base64Lines(Buffer.from(email.html, "utf8")),
     `--${alternativeBoundary}--`,
-    `--${relatedBoundary}`,
-    'Content-Type: image/png; name="premium-remodel-logo.png"',
-    "Content-Transfer-Encoding: base64",
-    "Content-ID: <premium-remodel-logo>",
-    'Content-Disposition: inline; filename="premium-remodel-logo.png"',
-    "",
-    base64Lines(logo),
+    ...(logo
+      ? [
+          `--${relatedBoundary}`,
+          'Content-Type: image/png; name="organization-logo.png"',
+          "Content-Transfer-Encoding: base64",
+          "Content-ID: <servicebuddy-business-logo>",
+          'Content-Disposition: inline; filename="organization-logo.png"',
+          "",
+          base64Lines(logo),
+        ]
+      : []),
     `--${relatedBoundary}--`,
     "",
   ];
@@ -87,17 +101,29 @@ export async function sendWebsiteLeadAcknowledgement(
 
   let attemptedSend = false;
   try {
-    const accessToken = await gmailAccessTokenForOrganization(
-      input.organizationId,
-      fetcher,
-    );
-    const logo = await readFile(
-      path.join(process.cwd(), "public", "images", "logo.png"),
-    );
+    const [accessToken, logo, businessConfig, fromEmail] = await Promise.all([
+      gmailAccessTokenForOrganization(input.organizationId, fetcher),
+      getBusinessLogoBytes(input.organizationId),
+      getBusinessConfigForOrganization(input.organizationId),
+      googleMailAddressForOrganization(input.organizationId),
+    ]);
+    const business = {
+      name: businessConfig.profile.name,
+      website: businessConfig.profile.website,
+      email: businessConfig.profile.email || fromEmail || "",
+      phone: businessConfig.profile.phone,
+    };
+    if (!fromEmail)
+      return {
+        status: "not_configured",
+        attemptedAt,
+        detail: "Company mailbox is not connected",
+      };
     const raw = leadAcknowledgementRaw(
       input.recipientEmail,
       input.firstName || "",
       logo,
+      { business, fromEmail },
     );
     attemptedSend = true;
     const response = await fetcher(

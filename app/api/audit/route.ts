@@ -1,6 +1,7 @@
 import { apiError, HttpError, requireUser } from "@/lib/auth";
 import type { AuditEvent } from "@/lib/audit";
 import { supabaseServer } from "@/lib/supabase/server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -9,11 +10,7 @@ const pageSize = 25;
 export async function GET(request: Request) {
   try {
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only administrators can view workspace history.",
-      );
+    await requireOrganizationCapability(user, "audit.view");
 
     const value = new URL(request.url).searchParams.get("offset") || "0";
     if (!/^\d{1,5}$/.test(value))

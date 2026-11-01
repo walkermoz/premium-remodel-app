@@ -4,11 +4,7 @@ import { useState } from "react";
 import type { PricebookAssembly } from "@/lib/pricebook-assemblies";
 import type { PricebookItem } from "@/lib/pricebook";
 import styles from "./pricebook-assemblies-panel.module.css";
-
-const dollar = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    cents / 100,
-  );
+import { useRegionalFormat } from "./regional-format-context";
 
 export default function PricebookAssemblyPicker({
   assemblies,
@@ -23,6 +19,7 @@ export default function PricebookAssemblyPicker({
   onAdd: (assembly: PricebookAssembly) => Promise<void>;
   onClose: () => void;
 }) {
+  const { cents: dollar } = useRegionalFormat();
   const [error, setError] = useState("");
   const itemById = new Map(items.map((item) => [item.id, item]));
   return (

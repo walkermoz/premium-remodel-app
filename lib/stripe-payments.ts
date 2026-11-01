@@ -1,5 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
+import { stripeConnectRow, stripePlatformClient } from "./stripe-connect";
 
 export type StripeConnection = {
   organizationId: string;
@@ -63,4 +64,63 @@ export function stripeClient(organizationId: string) {
   if (!connection)
     throw new Error("Stripe is not configured for this organization.");
   return new Stripe(connection.secretKey);
+}
+
+export type StripeExecutionContext = {
+  stripe: Stripe;
+  accountId: string | null;
+  requestOptions: Stripe.RequestOptions | undefined;
+  mode: "direct_legacy" | "stripe_connect";
+};
+
+/** Resolve the organization’s processor without exposing account credentials. */
+export async function stripeContextForOrganization(
+  organizationId: string,
+): Promise<StripeExecutionContext> {
+  const direct = stripeConnections().find(
+    (connection) => connection.organizationId === organizationId,
+  );
+  if (direct)
+    return {
+      stripe: new Stripe(direct.secretKey),
+      accountId: null,
+      requestOptions: undefined,
+      mode: "direct_legacy",
+    };
+  const connected = await stripeConnectRow(organizationId);
+  if (!connected)
+    throw new Error("Stripe is not configured for this organization.");
+  return {
+    stripe: stripePlatformClient(),
+    accountId: connected.external_account_id,
+    requestOptions: { stripeAccount: connected.external_account_id },
+    mode: "stripe_connect",
+  };
+}
+
+export async function organizationStripeEnabled(organizationId: string) {
+  if (stripeEnabledForOrganization(organizationId)) return true;
+  const connected = await stripeConnectRow(organizationId);
+  return Boolean(
+    connected?.status === "active" &&
+      connected.charges_enabled &&
+      connected.payouts_enabled,
+  );
+}
+
+export async function organizationStripePayoutsEnabled(
+  organizationId: string,
+) {
+  const context = await stripeContextForOrganization(organizationId);
+  const account = context.accountId
+    ? await context.stripe.accounts.retrieve(context.accountId)
+    : await context.stripe.accounts.retrieve(null);
+  return account.payouts_enabled === true && account.charges_enabled === true;
+}
+
+export function stripeRequestOptions(
+  context: StripeExecutionContext,
+  options: Stripe.RequestOptions = {},
+) {
+  return { ...options, ...(context.requestOptions || {}) };
 }

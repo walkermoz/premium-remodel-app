@@ -14,6 +14,7 @@ export default defineConfig([
   globalIgnores([
     ".next/**",
     "**/.next/**",
+    ".next-stale-*/**",
     ".local/**",
     ".vercel/**",
     "playwright-report/**",

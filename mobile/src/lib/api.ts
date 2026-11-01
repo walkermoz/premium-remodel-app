@@ -29,7 +29,7 @@ export async function appRequest<T>(
   const payload = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(
-      payload.error || "Premium Remodel is temporarily unavailable.",
+      payload.error || "ServiceBuddy is temporarily unavailable.",
     );
   return payload as T;
 }

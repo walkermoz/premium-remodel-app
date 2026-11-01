@@ -9,7 +9,7 @@ export function appInstallMessageForBusiness(name: string) {
 }
 
 export const appInstallMessage =
-  appInstallMessageForBusiness("Premium Remodel");
+  appInstallMessageForBusiness("ServiceBuddy");
 
 export function normalizeSmsRecipient(value: string) {
   const trimmed = value.trim();

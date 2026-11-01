@@ -201,7 +201,7 @@ test("material costs edit, persist, total and export on existing scope items", a
       .locator("xpath=ancestor::tr")
       .locator("td")
       .nth(4),
-  ).toHaveText("$0");
+  ).toHaveText("$0.00");
   await expect(
     table
       .getByRole("button", { name: "Edit Flooring", exact: true })
@@ -282,7 +282,7 @@ test("project overview logs checks and updates the balance, preserving the price
   const payments = page.getByRole("region", { name: "Checks & payments" });
   await expect(payments).toContainText("$600");
   await expect(page.locator(".scope-price-warning")).toContainText(
-    "$400 below the previous contract amount of $1,000",
+    "$400.00 below the previous contract amount of $1,000.00",
   );
   await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
   await payments.getByRole("button", { name: "Log payment" }).click();
@@ -298,10 +298,10 @@ test("project overview logs checks and updates the balance, preserving the price
     .click();
   await expect(dialog).not.toBeVisible();
   await expect(payments.locator(".payment-balance-grid")).toContainText(
-    "$15025%",
+    "$150.0025%",
   );
   await expect(payments.locator(".payment-balance-grid")).toContainText(
-    "$45075%",
+    "$450.0075%",
   );
   await expect(payments).toContainText("Check from Scott");
   await page.getByRole("button", { name: "Edit project", exact: true }).click();
@@ -310,7 +310,7 @@ test("project overview logs checks and updates the balance, preserving the price
   await dialog.getByRole("button", { name: "Save changes" }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.locator(".scope-price-warning")).toContainText(
-    "$400 below",
+    "$400.00 below",
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(payments).toBeVisible();
@@ -478,19 +478,19 @@ test("per-unit quote rates calculate and persist the line total", async ({
   const quotePrice = row.locator(
     ".scope-inspector-totals > span:first-child strong",
   );
-  await expect(quotePrice).toHaveText("$600");
+  await expect(quotePrice).toHaveText("$600.00");
   await row.getByLabel("Unit for Labor").selectOption("hours");
   await expect(row.getByLabel("Total hours for Labor")).toHaveValue("1");
   await expect(row.getByLabel("Price per hour for Labor")).toHaveValue("600");
   await row.getByLabel("Total hours for Labor").fill("2.5");
   await row.getByLabel("Price per hour for Labor").fill("80");
-  await expect(quotePrice).toHaveText("$200");
+  await expect(quotePrice).toHaveText("$200.00");
   await row.getByLabel("Unit for Labor").selectOption("sq ft");
   await expect(row.getByText("Total sq ft", { exact: true })).toBeVisible();
   await expect(row.getByText("Price per sq ft", { exact: true })).toBeVisible();
   await row.getByLabel("Total sq ft for Labor").fill("250");
   await row.getByLabel("Price per sq ft for Labor").fill("250");
-  await expect(quotePrice).toHaveText("$62,500");
+  await expect(quotePrice).toHaveText("$62,500.00");
   await row.getByLabel("Unit for Labor").selectOption("linear ft");
   await expect(row.getByText("Total linear ft", { exact: true })).toBeVisible();
   await expect(
@@ -520,7 +520,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await jobs.getByLabel("Price per job for Permit packages").fill("150");
   await expect(
     jobs.locator(".scope-inspector-totals > span:first-child strong"),
-  ).toHaveText("$300");
+  ).toHaveText("$300.00");
   await jobs.getByRole("button", { name: "Save Permit packages" }).click();
   await page.reload();
   await page.getByRole("button", { name: "Edit Permit packages" }).click();

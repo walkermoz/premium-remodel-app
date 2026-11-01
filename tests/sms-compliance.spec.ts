@@ -41,6 +41,26 @@ test("website SMS consent evidence preserves separate optional choices", () => {
   });
 });
 
+test("SMS evidence snapshots another organization's policy without Premium defaults", () => {
+  const evidence = websiteSmsConsentEvidence(
+    {
+      capturedAt: "2026-11-01T12:00:00.000Z",
+      origin: "https://portal.servicebuddy.example",
+      appointment: true,
+      marketing: false,
+    },
+    {
+      source: "northstar.example consultation form",
+      policyVersion: "2026-11-01",
+      privacyUrl: "https://northstar.example/privacy",
+      termsUrl: "https://northstar.example/terms",
+    },
+  );
+  expect(evidence.source).toBe("northstar.example consultation form");
+  expect(evidence.privacyUrl).toBe("https://northstar.example/privacy");
+  expect(evidence.termsUrl).toBe("https://northstar.example/terms");
+});
+
 test("website lead confirmation is concise and includes compliance keywords", () => {
   expect(websiteLeadSmsBody("Premium Remodel", "Kitchen Remodel")).toBe(
     "Premium Remodel: We received your Kitchen Remodel request. A member of our team will be in touch soon to schedule a visit. STOP to opt out; HELP for help.",

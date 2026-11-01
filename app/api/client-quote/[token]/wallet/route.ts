@@ -5,8 +5,9 @@ import {
   validClientWalletFormToken,
 } from "@/lib/client-portal";
 import {
-  stripeClient,
-  stripeEnabledForOrganization,
+  organizationStripeEnabled,
+  stripeContextForOrganization,
+  stripeRequestOptions,
 } from "@/lib/stripe-payments";
 import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -50,7 +51,7 @@ export async function POST(
     const admin = supabaseAdmin();
     const { data: link, error } = await admin
       .from("remodel_client_links")
-      .select("stripe_customer_id,organization_id")
+      .select("stripe_customer_id,stripe_account_id,organization_id")
       .eq("id", id)
       .eq("kind", "quote")
       .is("revoked_at", null)
@@ -63,28 +64,41 @@ export async function POST(
     if (
       !business.features.payments ||
       business.quotePreferences.paymentProvider !== "stripe" ||
-      !stripeEnabledForOrganization(link.organization_id)
+      !(await organizationStripeEnabled(link.organization_id))
     )
       return Response.redirect(walletUrl(request, token, "unavailable"), 303);
 
-    const stripe = stripeClient(link.organization_id);
-    let customerId = link.stripe_customer_id as string | null;
+    const stripeContext = await stripeContextForOrganization(
+      link.organization_id,
+    );
+    const stripe = stripeContext.stripe;
+    let customerId =
+      (link.stripe_account_id || null) === stripeContext.accountId
+        ? (link.stripe_customer_id as string | null)
+        : null;
     if (!customerId) {
       const customer = await stripe.customers.create(
         {
           name: quote.quote.client || undefined,
           metadata: { client_quote_id: quote.quote.id, client_link_id: id },
         },
-        { idempotencyKey: `client-wallet-customer-${id}` },
+        stripeRequestOptions(stripeContext, {
+          idempotencyKey: `client-wallet-customer-${id}`,
+        }),
       );
-      const saved = await admin
+      let saveCustomer = admin
         .from("remodel_client_links")
-        .update({ stripe_customer_id: customer.id })
+        .update({
+          stripe_customer_id: customer.id,
+          stripe_account_id: stripeContext.accountId,
+        })
         .eq("id", id)
         .eq("kind", "quote")
-        .is("revoked_at", null)
-        .is("stripe_customer_id", null)
-        .select("id");
+        .is("revoked_at", null);
+      saveCustomer = link.stripe_customer_id
+        ? saveCustomer.eq("stripe_customer_id", link.stripe_customer_id)
+        : saveCustomer.is("stripe_customer_id", null);
+      const saved = await saveCustomer.select("id");
       if (saved.error) throw saved.error;
       if (!saved.data.length) return new Response(null, { status: 404 });
       customerId = customer.id;
@@ -96,16 +110,16 @@ export async function POST(
       allowed_payment_method_types: ["card", "us_bank_account"],
       billing_address_collection: "auto",
       client_reference_id: id,
-      metadata: { source: "premium_remodel_client_wallet", client_link_id: id },
+      metadata: { source: "servicebuddy_client_wallet_v1", client_link_id: id },
       setup_intent_data: {
         metadata: {
-          source: "premium_remodel_client_wallet",
+          source: "servicebuddy_client_wallet_v1",
           client_link_id: id,
         },
       },
       success_url: walletUrl(request, token, "saved"),
       cancel_url: walletUrl(request, token),
-    });
+    }, stripeRequestOptions(stripeContext));
     if (!session.url) throw new Error("Stripe did not provide a setup URL.");
     return Response.redirect(session.url, 303);
   } catch (error) {

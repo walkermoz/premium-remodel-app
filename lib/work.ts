@@ -4,9 +4,9 @@ import { calendarDate, calendarKey } from "./calendar";
 
 export type UpcomingView = "List" | "Calendar";
 export const workTimeZone = "America/New_York";
-export function workToday(now = new Date()) {
+export function workToday(now = new Date(), timeZone = workTimeZone) {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: workTimeZone,
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

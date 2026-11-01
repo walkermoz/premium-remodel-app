@@ -4,7 +4,7 @@ type EmailContent = {
   message: string;
   /** CID in delivered mail; a data URI may be used for local previews. */
   logoSrc?: string;
-  business?: { name: string; website: string; email: string; phone: string };
+  business: { name: string; website: string; email: string; phone: string };
   action?: {
     label: string;
     url: string;
@@ -38,16 +38,11 @@ function paragraphs(message: string) {
 }
 
 /** Shared email layout. Inline styles and tables keep it readable in Gmail and Outlook. */
-export function renderPremiumEmail(content: EmailContent) {
-  const business = content.business || {
-    name: "Premium Remodel",
-    website: "https://premiumremodel.com",
-    email: "contact@premiumremodel.com",
-    phone: "(919) 454-4012",
-  };
+export function renderBusinessEmail(content: EmailContent) {
+  const business = content.business;
   const logoSrc =
     content.logoSrc === undefined
-      ? "cid:premium-remodel-logo"
+      ? "cid:servicebuddy-business-logo"
       : content.logoSrc;
   const linkStyle = "color:#286fae;text-decoration:underline;";
   const phoneDigits = business.phone.replace(/\D/g, "");
@@ -93,9 +88,9 @@ export function renderQuoteEmail(input: {
   logoSrc?: string;
   portalUrl?: string;
   organizationId?: string;
-  business?: EmailContent["business"];
+  business: EmailContent["business"];
 }) {
-  return renderPremiumEmail({
+  return renderBusinessEmail({
     preheader: "Your quote is attached and available in the client portal.",
     title: "Your project quote",
     message: input.message,
@@ -124,12 +119,15 @@ export function renderQuoteEmail(input: {
 export function renderLeadAcknowledgement(input: {
   firstName?: string;
   logoSrc?: string;
+  business: EmailContent["business"];
 }) {
   const greeting = input.firstName ? `Hi ${input.firstName},` : "Hello,";
-  return renderPremiumEmail({
+  const businessName = input.business.name;
+  return renderBusinessEmail({
     preheader: "We received your remodel request.",
     title: "We received your remodel request",
-    message: `${greeting}\n\nThanks for reaching out to Premium Remodel. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\nPremium Remodel Team`,
+    message: `${greeting}\n\nThanks for reaching out to ${businessName}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n${businessName} Team`,
     logoSrc: input.logoSrc,
+    business: input.business,
   });
 }

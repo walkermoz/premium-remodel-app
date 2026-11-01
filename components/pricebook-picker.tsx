@@ -6,11 +6,7 @@ import { pricebookMatches, type PricebookItem } from "@/lib/pricebook";
 import { quantityLabel, rateLabel } from "@/lib/scope-pricing";
 import type { Contractor } from "@/lib/types";
 import { Modal } from "./ui";
-
-const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    cents / 100,
-  );
+import { useRegionalFormat } from "./regional-format-context";
 
 export default function PricebookPicker({
   items,
@@ -31,6 +27,7 @@ export default function PricebookPicker({
     contractorId: string,
   ) => Promise<void>;
 }) {
+  const { cents: money } = useRegionalFormat();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedId, setSelectedId] = useState(items[0]?.id || "");

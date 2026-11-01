@@ -9,6 +9,7 @@ import {
   checkFileSelection,
 } from "@/lib/file-policy";
 import NoteAttachments from "./note-attachments";
+import { useRegionalFormat } from "./regional-format-context";
 export default function ProjectNotes({
   comments,
   files,
@@ -30,6 +31,7 @@ export default function ProjectNotes({
   onUpload: (file: File) => Promise<Attachment>;
   onDelete: (comment: Comment) => void;
 }) {
+  const { dateTime } = useRegionalFormat();
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -195,7 +197,7 @@ export default function ProjectNotes({
                 <header>
                   <strong>{c.authorName}</strong>
                   <time dateTime={c.createdAt}>
-                    {new Date(c.createdAt).toLocaleString("en-US", {
+                    {dateTime(c.createdAt, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",

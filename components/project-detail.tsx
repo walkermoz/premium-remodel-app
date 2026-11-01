@@ -27,11 +27,8 @@ import type {
   User,
   Workspace,
 } from "@/lib/types";
-import { dateLabel } from "@/lib/utils";
 import {
-  projectMoney as money,
   projectFinances,
-  percentLabel,
   scopeDifference,
 } from "@/lib/project-finances";
 import TaskList from "./task-list";
@@ -46,6 +43,7 @@ import { workType, type UpcomingView } from "@/lib/work";
 import { contractClock } from "@/lib/project-timing";
 import ClientLinkDialog from "./client-link-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
+import { useRegionalFormat } from "./regional-format-context";
 
 export const projectTabs = [
   "Overview",
@@ -101,8 +99,18 @@ export default function ProjectDetail({
   upcomingView: UpcomingView;
   onUpcomingViewChange: (view: UpcomingView) => void;
 }) {
+  const regional = useRegionalFormat();
+  const percent = (value: number | null) =>
+    value === null
+      ? "—"
+      : regional.number(value, {
+          style: "percent",
+          maximumFractionDigits: 1,
+        });
   const [quoteLinkOpen, setQuoteLinkOpen] = useState(false);
-  const clock = contractClock(project, contractToday);
+  const clock = contractClock(project, contractToday, (value) =>
+    regional.date(value),
+  );
   const tabs = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const container = tabs.current;
@@ -130,7 +138,7 @@ export default function ProjectDetail({
     margin,
     legacyDifference,
   } = finances;
-  const contractPercentage = percentLabel(finances.marginPercent);
+  const contractPercentage = percent(finances.marginPercent);
   const done = tasks.filter((t) => t.status === "Done").length;
   const progress = tasks.length
     ? Math.round((done / tasks.length) * 100)
@@ -157,8 +165,8 @@ export default function ProjectDetail({
         : []),
       ["Collected", finances.collected],
       ["Remaining to collect", finances.remaining],
-      ["Collected percentage", percentLabel(finances.collectedPercent)],
-      ["Remaining percentage", percentLabel(finances.remainingPercent)],
+      ["Collected percentage", percent(finances.collectedPercent)],
+      ["Remaining percentage", percent(finances.remainingPercent)],
       ["Overpayment", finances.credit],
       ["Start date", project.startDate],
       ["Target completion", project.endDate],
@@ -376,30 +384,30 @@ export default function ProjectDetail({
       <div className="detail-metrics scope-metrics">
         <div>
           <span>Scope total · project price</span>
-          <strong>{money(estimated)}</strong>
+          <strong>{regional.money(estimated)}</strong>
           <small>{items.length} items</small>
           {legacyDifference !== 0 && (
             <p className="scope-price-warning">
               <TriangleAlert size={14} aria-hidden="true" />
               <span>
-                Scope is {money(Math.abs(legacyDifference))}{" "}
+                Scope is {regional.money(Math.abs(legacyDifference))}{" "}
                 {legacyDifference > 0 ? "above" : "below"} the previous contract
-                amount of {money(project.contractPrice!)}.
+                amount of {regional.money(project.contractPrice!)}.
               </span>
             </p>
           )}
         </div>
         <div>
           <span>Budgeted costs</span>
-          <strong>{money(costs)}</strong>
-          <small>Subcontractors · {money(subCosts)}</small>
-          <small>Materials · {money(materialCosts)}</small>
+          <strong>{regional.money(costs)}</strong>
+          <small>Subcontractors · {regional.money(subCosts)}</small>
+          <small>Materials · {regional.money(materialCosts)}</small>
         </div>
         <div>
           <span>Scope less costs</span>
           <div className="metric-value-row">
             <strong className={margin < 0 ? "is-overdue" : ""}>
-              {money(margin)}
+              {regional.money(margin)}
             </strong>
             <span
               className={`metric-percentage ${margin < 0 ? "is-negative" : ""}`}
@@ -514,14 +522,14 @@ export default function ProjectDetail({
                 <div>
                   <CalendarDays size={18} />
                   <span>
-                    Start date<strong>{dateLabel(project.startDate)}</strong>
+                    Start date<strong>{regional.date(project.startDate)}</strong>
                   </span>
                 </div>
                 <div>
                   <CalendarDays size={18} />
                   <span>
                     Target completion
-                    <strong>{dateLabel(project.endDate)}</strong>
+                    <strong>{regional.date(project.endDate)}</strong>
                   </span>
                 </div>
                 {project.completedDate && (
@@ -529,7 +537,7 @@ export default function ProjectDetail({
                     <CalendarDays size={18} />
                     <span>
                       Actual completion
-                      <strong>{dateLabel(project.completedDate)}</strong>
+                      <strong>{regional.date(project.completedDate)}</strong>
                     </span>
                   </div>
                 )}

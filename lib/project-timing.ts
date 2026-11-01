@@ -20,7 +20,11 @@ export function projectDates(
   return result;
 }
 
-export function contractClock(project: Project, today = workToday()) {
+export function contractClock(
+  project: Project,
+  today = workToday(),
+  formatDate: (value: string) => string = dateLabel,
+) {
   if (project.status === "Planning")
     return {
       days: null,
@@ -43,7 +47,7 @@ export function contractClock(project: Project, today = workToday()) {
     return {
       days: null,
       label: "Not started",
-      detail: `Starts ${dateLabel(project.startDate)}.`,
+      detail: `Starts ${formatDate(project.startDate)}.`,
     };
   const end = project.status === "Completed" ? project.completedDate! : today;
   const difference = Date.parse(end) - Date.parse(project.startDate);
@@ -60,7 +64,7 @@ export function contractClock(project: Project, today = workToday()) {
     label: `${days} ${days === 1 ? "day" : "days"} ${project.status === "Completed" ? "total" : "on contract"}`,
     detail:
       project.status === "Completed"
-        ? `${dateLabel(project.startDate)} – ${dateLabel(end)} · Final duration`
-        : `Started ${dateLabel(project.startDate)}`,
+        ? `${formatDate(project.startDate)} – ${formatDate(end)} · Final duration`
+        : `Started ${formatDate(project.startDate)}`,
   };
 }

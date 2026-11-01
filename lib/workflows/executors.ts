@@ -19,6 +19,8 @@ import {
   SmsDoNotDisturbError,
 } from "../sms-compliance";
 import { supabaseAdmin } from "../supabase/server";
+import { organizationSecretValue } from "../organization-secrets";
+import { isOriginalOrganization } from "../original-organization";
 import { TwilioConnectionError } from "../twilio-client";
 import {
   interpolateWorkflowJson,
@@ -38,6 +40,7 @@ import {
   WorkflowEmailUncertainError,
 } from "./workflow-email";
 import { enqueueWorkflowEvent } from "./events";
+import { WorkflowConfigurationError } from "./runtime";
 
 export type WorkflowExecutorInput = {
   organizationId: string;
@@ -144,25 +147,45 @@ function outputRecordId(context: WorkflowContext, alias: string) {
 
 async function recordWebsiteLeadDelivery(
   input: WorkflowExecutorInput,
-  field: "emailAcknowledgement" | "smsAcknowledgement" | "discordNotification",
+  legacyField: "emailAcknowledgement" | "smsAcknowledgement" | "discordNotification",
   value: Record<string, unknown>,
 ) {
-  const leadId =
-    outputRecordId(input.context, "leadResult") || input.event.objectId;
-  const lead = await storedRecord(input.organizationId, "lead", leadId);
-  if (!lead) return;
+  const tracking = input.node.config.resultTracking as
+    | {
+        objectType?: unknown;
+        objectId?: unknown;
+        field?: unknown;
+      }
+    | undefined;
+  const kind = tracking
+    ? String(tracking.objectType || "").replace("item", "task")
+    : legacyField
+      ? "lead"
+      : "";
+  const id = tracking
+    ? operandOptionalString(input.context, tracking.objectId)
+    : outputRecordId(input.context, "leadResult") || input.event.objectId;
+  const field = tracking ? String(tracking.field || "") : legacyField || "";
+  if (
+    !["contact", "lead", "quote", "project", "task"].includes(kind) ||
+    !id ||
+    !/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(field)
+  )
+    return;
+  const record = await storedRecord(input.organizationId, kind, id);
+  if (!record) return;
   const updatedAt = new Date().toISOString();
   const result = await supabaseAdmin()
     .from("remodel_records")
     .update({
-      data: { ...lead, [field]: value, updatedAt },
+      data: { ...record, [field]: value, updatedAt },
       updated_at: updatedAt,
     })
     .eq("organization_id", input.organizationId)
-    .eq("kind", "lead")
-    .eq("id", leadId);
+    .eq("kind", kind)
+    .eq("id", id);
   if (result.error)
-    console.error(`Could not store ${field} on workflow Lead ${leadId}.`);
+    console.error(`Could not store ${field} on workflow ${kind} ${id}.`);
 }
 
 async function insertObject(
@@ -634,8 +657,11 @@ handlers.set("object.addNote", async (input) => {
 
 handlers.set("communication.sendEmail", async (input) => {
   assertOrganizationSender(input, "email");
+  const tracksDelivery =
+    Boolean(input.node.config.resultTracking) ||
+    input.node.config.templateKey === "website-lead-acknowledgement";
   if (input.node.config.enabled === false) {
-    if (input.node.config.templateKey === "website-lead-acknowledgement")
+    if (tracksDelivery)
       await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
         status: "skipped",
         attemptedAt: new Date().toISOString(),
@@ -666,11 +692,18 @@ handlers.set("communication.sendEmail", async (input) => {
       fallback: String(input.node.config.fallbackValue || ""),
     },
   );
-  if (subject.skipped || body.skipped)
+  if (subject.skipped || body.skipped) {
+    if (tracksDelivery)
+      await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
+        status: "skipped",
+        attemptedAt: new Date().toISOString(),
+        detail: "A required workflow value was missing",
+      });
     return {
       status: "skipped",
       summary: "Email skipped because a required value is missing.",
     };
+  }
   const contactId =
     typeof input.context.contact?.id === "string"
       ? input.context.contact.id
@@ -687,7 +720,18 @@ handlers.set("communication.sendEmail", async (input) => {
       });
       throw new Error(sent.detail || "Website lead email delivery failed.");
     }
+    if (sent.status === "not_configured") {
+      await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
+        ...sent,
+      });
+      throw new WorkflowConfigurationError(
+        "Connect the company Google mailbox before this email action can run.",
+      );
+    }
     if (sent.status === "sent" && contactId) {
+      const businessConfig = await getBusinessConfigForOrganization(
+        input.organizationId,
+      );
       const leadId =
         typeof input.context.outputs?.leadResult === "object" &&
         input.context.outputs.leadResult &&
@@ -704,7 +748,15 @@ handlers.set("communication.sendEmail", async (input) => {
         channel: "email",
         recipient,
         subject: "We received your remodel request",
-        body: renderLeadAcknowledgement({ firstName }).text,
+        body: renderLeadAcknowledgement({
+          firstName,
+          business: {
+            name: businessConfig.profile.name,
+            website: businessConfig.profile.website,
+            email: businessConfig.profile.email,
+            phone: businessConfig.profile.phone,
+          },
+        }).text,
         relatedKind: "lead",
         relatedId: leadId,
         ...(sent.googleMessageId ? { providerId: sent.googleMessageId } : {}),
@@ -737,17 +789,51 @@ handlers.set("communication.sendEmail", async (input) => {
       recipient,
       subject: subject.value,
       body: body.value,
+      presentation:
+        input.node.config.presentation === "business" ? "business" : "plain",
       ...(contactId ? { contactId } : {}),
       idempotencyKey: input.idempotencyKey,
     });
   } catch (error) {
-    if (error instanceof WorkflowEmailUncertainError)
+    if (error instanceof WorkflowEmailUncertainError) {
+      if (tracksDelivery)
+        await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
+          status: "unknown",
+          attemptedAt: new Date().toISOString(),
+          detail: error.message,
+        });
       return {
         summary: error.message,
         output: { status: "unknown", retrySuppressed: true },
       };
+    }
+    if (
+      error instanceof Error &&
+      error.message ===
+        "Connect the company Google mailbox before sending email."
+    ) {
+      if (tracksDelivery)
+        await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
+          status: "not_configured",
+          attemptedAt: new Date().toISOString(),
+          detail: error.message,
+        });
+      throw new WorkflowConfigurationError(error.message);
+    }
+    if (tracksDelivery)
+      await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
+        status: "failed",
+        attemptedAt: new Date().toISOString(),
+        detail: error instanceof Error ? error.message : "Email failed",
+      });
     throw error;
   }
+  if (tracksDelivery)
+    await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
+      status: "sent",
+      attemptedAt: new Date().toISOString(),
+      ...(sent.messageId ? { googleMessageId: sent.messageId } : {}),
+    });
   return {
     summary: `Email sent to ${recipient}.`,
     output: sent,
@@ -763,8 +849,11 @@ handlers.set("policy.sms", async () => ({
 
 handlers.set("communication.sendSms", async (input) => {
   assertOrganizationSender(input, "sms");
+  const tracksDelivery =
+    Boolean(input.node.config.resultTracking) ||
+    input.node.config.templateKey === "website-lead-acknowledgement";
   if (input.node.config.enabled === false) {
-    if (input.node.config.templateKey === "website-lead-acknowledgement")
+    if (tracksDelivery)
       await recordWebsiteLeadDelivery(input, "smsAcknowledgement", {
         status: "skipped",
         attemptedAt: new Date().toISOString(),
@@ -802,11 +891,18 @@ handlers.set("communication.sendSms", async (input) => {
         fallback: String(input.node.config.fallbackValue || ""),
       },
     );
-    if (rendered.skipped)
+    if (rendered.skipped) {
+      if (tracksDelivery)
+        await recordWebsiteLeadDelivery(input, "smsAcknowledgement", {
+          status: "skipped",
+          attemptedAt: new Date().toISOString(),
+          detail: "A required workflow value was missing",
+        });
       return {
         status: "skipped",
         summary: "SMS skipped because a required value is missing.",
       };
+    }
     body = rendered.value;
   }
   let sent: Awaited<ReturnType<typeof sendCustomerSms>>;
@@ -821,12 +917,20 @@ handlers.set("communication.sendSms", async (input) => {
           : "appointment",
     });
   } catch (error) {
+    if (error instanceof TwilioConnectionError) {
+      if (tracksDelivery)
+        await recordWebsiteLeadDelivery(input, "smsAcknowledgement", {
+          status: "not_configured",
+          attemptedAt: new Date().toISOString(),
+          detail: error.message,
+        });
+      throw new WorkflowConfigurationError(error.message);
+    }
     if (
       error instanceof SmsConsentRequiredError ||
-      error instanceof SmsDoNotDisturbError ||
-      error instanceof TwilioConnectionError
+      error instanceof SmsDoNotDisturbError
     ) {
-      if (input.node.config.templateKey === "website-lead-acknowledgement")
+      if (tracksDelivery)
         await recordWebsiteLeadDelivery(input, "smsAcknowledgement", {
           status: "skipped",
           attemptedAt: new Date().toISOString(),
@@ -838,7 +942,7 @@ handlers.set("communication.sendSms", async (input) => {
         output: { status: "skipped", reason: error.message },
       };
     }
-    if (input.node.config.templateKey === "website-lead-acknowledgement")
+    if (tracksDelivery)
       await recordWebsiteLeadDelivery(input, "smsAcknowledgement", {
         status: "unknown",
         attemptedAt: new Date().toISOString(),
@@ -850,7 +954,7 @@ handlers.set("communication.sendSms", async (input) => {
       output: { status: "unknown", retrySuppressed: true },
     };
   }
-  if (input.node.config.templateKey === "website-lead-acknowledgement")
+  if (tracksDelivery)
     await recordWebsiteLeadDelivery(input, "smsAcknowledgement", {
       status: "sent",
       attemptedAt: new Date().toISOString(),
@@ -898,6 +1002,10 @@ handlers.set("communication.internalNotification", async (input) => {
     await recordWebsiteLeadDelivery(input, "discordNotification", {
       ...result,
     });
+  if (result.status === "not_configured")
+    throw new WorkflowConfigurationError(
+      result.detail || "Connect the team notification destination before this action can run.",
+    );
   return {
     status: result.status === "sent" ? "completed" : "skipped",
     summary:
@@ -910,6 +1018,7 @@ handlers.set("communication.internalNotification", async (input) => {
 
 handlers.set("integration.webhook", async (input) => {
   const websiteLeadRequest =
+    Boolean(input.node.config.resultTracking) ||
     input.node.config.templateKey === "website-lead-team-notification";
   const attemptedAt = new Date().toISOString();
   if (input.node.config.enabled === false) {
@@ -925,20 +1034,25 @@ handlers.set("integration.webhook", async (input) => {
   const destination = String(input.node.config.destination || "custom");
   const configuredUrl =
     destination === "discord_lead_webhook"
-      ? configuredDiscordLeadWebhook()
-      : String(input.node.config.url || "");
+      ? isOriginalOrganization(input.organizationId)
+        ? configuredDiscordLeadWebhook()
+        : ""
+      : input.node.config.urlSecretId
+        ? await organizationSecretValue(
+            input.organizationId,
+            String(input.node.config.urlSecretId),
+          )
+        : String(input.node.config.url || "");
   if (!configuredUrl) {
     if (websiteLeadRequest)
       await recordWebsiteLeadDelivery(input, "discordNotification", {
         status: "not_configured",
         attemptedAt,
-        detail: "Discord lead webhook is not connected",
+        detail: "The lead-notification HTTPS destination is not connected",
       });
-    return {
-      status: "skipped",
-      summary: "The selected HTTPS connection is not configured.",
-      output: { status: "not_configured" },
-    };
+    throw new WorkflowConfigurationError(
+      "Configure the selected HTTPS destination before this action can run.",
+    );
   }
 
   const url = await assertPublicWorkflowWebhookUrl(configuredUrl);
@@ -979,12 +1093,24 @@ handlers.set("integration.webhook", async (input) => {
     };
   }
 
+  const secretHeaderEntries = await Promise.all(
+    Object.entries(
+      (input.node.config.secretHeaders || {}) as Record<string, string>,
+    ).map(
+      async ([name, secretId]) =>
+        [
+          name,
+          await organizationSecretValue(input.organizationId, secretId),
+        ] as const,
+    ),
+  );
   const response = await fetch(url, {
     method: String(input.node.config.method || "POST"),
     headers: {
       "Content-Type":
         bodyType === "json" ? "application/json" : "text/plain; charset=utf-8",
       ...((input.node.config.headers || {}) as Record<string, string>),
+      ...Object.fromEntries(secretHeaderEntries),
       "Idempotency-Key": input.idempotencyKey,
     },
     body: input.node.config.method === "GET" ? undefined : rendered.value,

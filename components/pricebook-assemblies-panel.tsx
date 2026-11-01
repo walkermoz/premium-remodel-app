@@ -10,6 +10,7 @@ import {
   writeDemoAssemblies,
 } from "@/lib/demo-pricebook-assemblies";
 import styles from "./pricebook-assemblies-panel.module.css";
+import { useRegionalFormat } from "./regional-format-context";
 
 type Draft = Pick<
   PricebookAssembly,
@@ -21,11 +22,6 @@ const empty: Draft = {
   category: "General",
   components: [],
 };
-const dollar = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    cents / 100,
-  );
-
 export default function PricebookAssembliesPanel({
   items,
   contractors,
@@ -37,6 +33,7 @@ export default function PricebookAssembliesPanel({
   editable: boolean;
   demo?: boolean;
 }) {
+  const { cents: dollar } = useRegionalFormat();
   const [assemblies, setAssemblies] = useState<PricebookAssembly[]>([]);
   const [loading, setLoading] = useState(!demo);
   const [editing, setEditing] = useState<PricebookAssembly | null>(null);

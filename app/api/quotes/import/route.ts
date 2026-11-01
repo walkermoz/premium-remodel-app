@@ -17,6 +17,7 @@ import { allocateQuoteNumber } from "@/lib/repository";
 import { schemas } from "@/lib/schemas";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { getBusinessConfig } from "@/lib/business-config";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
         "Review the extracted quote details and try again.",
       );
     const now = new Date().toISOString();
+    const business = await getBusinessConfig(user);
     const records: {
       id: string;
       organization_id: string;
@@ -152,7 +154,7 @@ export async function POST(request: Request) {
       const quote = {
         ...quoteData,
         quoteNumber: await allocateQuoteNumber(user),
-        preparedBy: primary.preparedBy || user.name || "Premium Remodel",
+        preparedBy: primary.preparedBy || user.name || business.profile.name,
         id: randomUUID(),
         createdAt: now,
         updatedAt: now,

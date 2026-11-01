@@ -13,6 +13,7 @@ import {
   TwilioConnectionError,
 } from "@/lib/twilio-client";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -23,11 +24,7 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Automation");
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only administrators can manage phone automation.",
-      );
+    await requireOrganizationCapability(user, "workflows.manage");
     await limitAttempts(`twilio-inbound-config:${user.id}`, 10);
     const credentials = await twilioCredentialsForOrganization(
       user.organizationId,

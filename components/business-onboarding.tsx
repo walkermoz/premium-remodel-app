@@ -6,13 +6,23 @@ import type { BusinessConfig } from "@/lib/business-config";
 type Section = "business" | "connections";
 type Status = {
   organizationId: string;
+  canCreateBusiness: boolean;
   mail: { configured: boolean; connected: boolean; email: string | null };
   phone: { connected: boolean };
-  websiteLeads: { connected: boolean };
+  websiteLeads: {
+    connected: boolean;
+    mode?: "legacy_static" | "workflow_webhook" | "not_configured";
+  };
   payments: {
     stripeConnected: boolean;
+    stripeReady?: boolean;
     selectedProvider: "stripe" | "manual";
     enabled: boolean;
+  };
+  modules?: {
+    automations: { enabled: boolean; configured: boolean; optional: boolean };
+    agreements: { enabled: boolean; configured: boolean; optional: boolean };
+    payments: { enabled: boolean; configured: boolean; optional: boolean };
   };
 };
 
@@ -65,13 +75,11 @@ function Step({
 
 export default function BusinessOnboarding({
   config,
-  owner,
   admin,
   demo,
   onNavigate,
 }: {
   config: BusinessConfig;
-  owner: boolean;
   admin: boolean;
   demo: boolean;
   onNavigate: (section: Section) => void;
@@ -127,7 +135,7 @@ export default function BusinessOnboarding({
 
   async function createBusiness(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!owner || demo || creating) return;
+    if (!status?.canCreateBusiness || demo || creating) return;
     setCreating(true);
     setCreateError("");
     try {
@@ -274,11 +282,13 @@ export default function BusinessOnboarding({
             state={status?.websiteLeads.connected ? "ready" : "blocked"}
             detail={
               status?.websiteLeads.connected
-                ? "The existing website lead form is connected."
-                : "Website lead intake currently routes to the original company. Your site needs its own verified intake connection before its form can send leads here."
+                ? status.websiteLeads.mode === "workflow_webhook"
+                  ? "A private workflow endpoint is ready for this business’s website form."
+                  : "The existing website lead form is connected."
+                : "Review the Website lead intake starter in Automation, publish it, and generate its private webhook URL for your site."
             }
-            action="Set website"
-            onAction={() => onNavigate("business")}
+            action="Open Automation"
+            onAction={() => window.location.assign("/?view=Automation")}
           />
           <Step
             number="05"
@@ -296,24 +306,86 @@ export default function BusinessOnboarding({
             number="06"
             title="Choose payments"
             state={
-              status?.payments.selectedProvider === "manual"
+              !status?.modules?.payments.enabled
+                ? "optional"
+                : status?.payments.selectedProvider === "manual"
                 ? "ready"
                 : status?.payments.stripeConnected
-                  ? status.payments.enabled
+                  ? status.payments.stripeReady && status.payments.enabled
                     ? "connected"
                     : "todo"
                   : "blocked"
             }
             detail={
-              status?.payments.selectedProvider === "manual"
+              !status?.modules?.payments.enabled
+                ? "Optional. Payments are disabled for this business and can be enabled in Business modules."
+                : status?.payments.selectedProvider === "manual"
                 ? "Manual payments are selected. Stripe can be enabled after the platform connects an account."
                 : status?.payments.stripeConnected
-                  ? status.payments.enabled
+                  ? !status.payments.stripeReady
+                    ? "Stripe is connected but needs additional account verification before collecting card payments."
+                    : status.payments.enabled
                     ? "Stripe is connected for this business."
                     : "Stripe is connected. Enable payment links in Business settings to use it."
                   : "Stripe is selected but this business has no Stripe account configured yet."
             }
-            action="Payment settings"
+            action={
+              status?.modules?.payments.enabled
+                ? "Payment settings"
+                : "Manage modules"
+            }
+            onAction={() => onNavigate("business")}
+          />
+          <Step
+            number="07"
+            title="Choose automations"
+            state={
+              !status?.modules?.automations.enabled
+                ? "optional"
+                : status.modules.automations.configured
+                  ? "ready"
+                  : "todo"
+            }
+            detail={
+              !status?.modules?.automations.enabled
+                ? "Optional. Automations are disabled for this business; existing workflow drafts are retained."
+                : status.modules.automations.configured
+                  ? "The module is enabled and at least one optional workflow is published."
+                  : "The module is enabled. Review a starter or build and publish this business’s first workflow."
+            }
+            action={
+              status?.modules?.automations.enabled
+                ? "Open Automation"
+                : "Manage modules"
+            }
+            onAction={() =>
+              status?.modules?.automations.enabled
+                ? window.location.assign("/?view=Automation")
+                : onNavigate("business")
+            }
+          />
+          <Step
+            number="08"
+            title="Set up agreements"
+            state={
+              !status?.modules?.agreements.enabled
+                ? "optional"
+                : status.modules.agreements.configured
+                  ? "ready"
+                  : "todo"
+            }
+            detail={
+              !status?.modules?.agreements.enabled
+                ? "Optional. Agreements are disabled for this business; saved templates are retained."
+                : status.modules.agreements.configured
+                  ? "The module is enabled and a published agreement template is available."
+                  : "The module is enabled. Upload a PDF or write this business’s first agreement."
+            }
+            action={
+              status?.modules?.agreements.enabled
+                ? "Agreement library"
+                : "Manage modules"
+            }
             onAction={() => onNavigate("business")}
           />
         </ol>
@@ -379,7 +451,7 @@ export default function BusinessOnboarding({
           {smsResult}
         </div>
       )}
-      {owner && !demo && (
+      {status?.canCreateBusiness && !demo && (
         <form
           className="onboarding-create"
           onSubmit={(event) => void createBusiness(event)}

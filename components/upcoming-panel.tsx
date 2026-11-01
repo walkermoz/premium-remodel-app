@@ -36,6 +36,7 @@ import {
 } from "@/lib/work";
 import CalendarPanel from "./calendar-panel";
 import { Badge } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 const icons = {
   Task: CheckSquare,
@@ -73,11 +74,14 @@ export default function UpcomingPanel({
   onDeleteTask: (task: Task) => void;
   initialItemId?: string;
 }) {
+  const regional = useRegionalFormat();
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("All types");
   const [statusFilter, setStatusFilter] = useState("Open");
-  const [selectedDay, setSelectedDay] = useState(workToday);
+  const [selectedDay, setSelectedDay] = useState(() =>
+    workToday(new Date(), regional.timezone),
+  );
   const openedItemRef = useRef("");
   useEffect(() => {
     if (!initialItemId || openedItemRef.current === initialItemId) return;
@@ -87,7 +91,7 @@ export default function UpcomingPanel({
     onEditTask(task);
   }, [initialItemId, onEditTask, workspace.tasks]);
   const scopedProject = projectId || projectFilter;
-  const today = workToday();
+  const today = workToday(new Date(), regional.timezone);
   const entries = calendarEntries(workspace, scopedProject, true, true).filter(
     (entry) => {
       const contractor = workspace.contractors.find(
@@ -278,7 +282,7 @@ export default function UpcomingPanel({
                     (c) => c.id === entry.task?.contractorId,
                   );
                   const date = entry.date
-                    ? calendarDate(entry.date).toLocaleDateString("en-US", {
+                    ? regional.date(calendarDate(entry.date), {
                         month: "short",
                         day: "numeric",
                         ...(entry.date.slice(0, 4) !== today.slice(0, 4)

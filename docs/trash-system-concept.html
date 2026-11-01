@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Composable Trash System · Premium Remodel</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0c1621;
+        --panel: #101d29;
+        --panel-2: #172635;
+        --panel-3: #1c3042;
+        --line: #2a4052;
+        --line-soft: #203545;
+        --text: #eef7ff;
+        --muted: #a8bfd1;
+        --quiet: #6f899e;
+        --blue: #65afff;
+        --blue-2: #2f78b9;
+        --green: #65d3a2;
+        --red: #ff8b8b;
+        --radius: 10px;
+      }
+
+      * { box-sizing: border-box; }
+      html { background: var(--bg); }
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      button { font: inherit; }
+      .page { max-width: 1280px; margin: 0 auto; padding: 36px 28px 80px; }
+      .eyebrow {
+        color: var(--blue);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+      }
+      h1 { margin: 8px 0 8px; font-size: clamp(27px, 4vw, 44px); line-height: 1.08; letter-spacing: -1.5px; }
+      h2 { margin: 0; font-size: 20px; letter-spacing: -.25px; }
+      p { margin: 0; }
+      .lede { color: var(--muted); font-size: 16px; max-width: 800px; }
+      .recommendation {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 20px;
+        padding: 18px 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .recommendation strong { color: var(--green); }
+      .recommendation p { color: var(--muted); }
+
+      .section { margin-top: 38px; }
+      .section-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 14px; }
+      .section-head p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+      .ideas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .idea {
+        appearance: none;
+        min-height: 190px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        color: var(--text);
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+      }
+      .idea:hover { transform: translateY(-2px); border-color: #42627a; }
+      .idea.active { border-color: var(--blue); background: var(--panel-2); }
+      .idea-kicker { color: var(--quiet); font-size: 10px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; }
+      .idea.active .idea-kicker { color: var(--blue); }
+      .idea h3 { margin: 9px 0 8px; font-size: 17px; }
+      .idea p { color: var(--muted); font-size: 13px; }
+      .idea .tradeoff { margin-top: 14px; color: var(--quiet); font-size: 12px; }
+
+      .screen-tabs { display: flex; flex-wrap: wrap; gap: 7px; }
+      .tab, .filter {
+        appearance: none;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        padding: 6px 11px;
+        cursor: pointer;
+        transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+      }
+      .tab.active, .filter.active { background: var(--panel-3); color: var(--text); border-color: #41627c; }
+
+      .demo-shell {
+        position: relative;
+        display: grid;
+        grid-template-columns: 205px minmax(0, 1fr);
+        grid-template-rows: 62px minmax(458px, auto);
+        min-height: 520px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--panel);
+      }
+      .sidebar { grid-row: 1 / 3; padding: 18px 14px; background: #0b151e; border-right: 1px solid var(--line-soft); }
+      .brand { display: flex; gap: 10px; align-items: center; font-weight: 800; letter-spacing: .5px; margin: 2px 6px 24px; }
+      .brand-mark { width: 28px; height: 28px; display: grid; place-items: center; background: var(--blue-2); border-radius: 5px; }
+      .nav-label { margin: 0 9px 8px; color: var(--quiet); font-size: 9px; font-weight: 800; letter-spacing: 1px; }
+      .side-nav { display: grid; gap: 4px; }
+      .side-nav button {
+        border: 0;
+        border-radius: 7px;
+        padding: 9px 10px;
+        text-align: left;
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+      }
+      .side-nav button.active { color: var(--text); background: #19334a; }
+      .side-rule { height: 1px; background: var(--line-soft); margin: 16px 8px; }
+      .side-note { margin: 0 9px; color: var(--quiet); font-size: 11px; }
+
+      .mock-topbar {
+        grid-column: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-width: 0;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--panel-2);
+      }
+      .crumb { color: var(--muted); font-size: 12px; }
+      .crumb b { color: var(--blue); margin-left: 14px; }
+      .top-tools { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 12px; }
+      .search-pill { min-width: 150px; padding: 7px 10px; color: var(--muted); }
+      .avatar { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 50%; background: #234a3a; color: #aef0cb; font-size: 10px; font-weight: 800; }
+      .workspace { grid-column: 2; grid-row: 2; min-width: 0; padding: 25px; }
+      .view { animation: viewIn 180ms ease both; }
+      @keyframes viewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      .workspace-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+      .workspace h3 { margin: 0; font-size: 22px; }
+      .workspace-sub { margin-top: 5px; color: var(--muted); font-size: 13px; }
+      .primary, .secondary, .ghost {
+        border-radius: 7px;
+        padding: 8px 11px;
+        cursor: pointer;
+      }
+      .primary { border: 1px solid #5596cf; background: #2c6fa9; color: white; }
+      .secondary { border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+      .ghost { border: 0; background: transparent; color: var(--blue); }
+      .table { margin-top: 20px; border-top: 1px solid var(--line); }
+      .record-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 110px 110px 44px;
+        align-items: center;
+        gap: 12px;
+        min-height: 72px;
+        padding: 0 8px;
+        border-bottom: 1px solid var(--line-soft);
+        transition: background 120ms ease;
+      }
+      .record-row:hover { background: rgba(255,255,255,.025); }
+      .record-name { font-weight: 750; }
+      .record-detail { margin-top: 4px; color: var(--muted); font-size: 12px; }
+      .record-status { color: var(--muted); font-size: 12px; }
+      .record-value { text-align: right; font-weight: 750; }
+      .more {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 17px;
+        cursor: pointer;
+        padding: 9px;
+      }
+      .menu {
+        position: absolute;
+        top: 50px;
+        right: 6px;
+        z-index: 4;
+        width: 165px;
+        padding: 6px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #162634;
+      }
+      .menu button { width: 100%; border: 0; border-radius: 5px; padding: 9px; text-align: left; background: transparent; color: var(--text); cursor: pointer; }
+      .menu button:hover { background: var(--panel-3); }
+      .trash-action { color: #ffd0d0 !important; }
+      .helper { margin-top: 13px; color: var(--quiet); font-size: 11px; }
+
+      .heading-actions { display: flex; align-items: center; gap: 10px; }
+      .metric-box { min-width: 126px; border: 1px solid var(--line); border-radius: 9px; padding: 10px 13px; }
+      .metric-box span { display: block; color: var(--muted); font-size: 10px; }
+      .metric-box strong { display: block; margin-top: 2px; font-size: 18px; }
+      .lead-filters, .quote-filters { display: flex; gap: 4px; margin-top: 20px; }
+      .lead-filters button, .quote-filters button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 8px 10px; cursor: pointer; }
+      .lead-filters button.active, .quote-filters button.active { color: var(--text); border-color: var(--blue); }
+      .lead-filters em, .quote-filters em { margin-left: 6px; padding: 2px 5px; border-radius: 4px; background: var(--panel-3); font-size: 9px; font-style: normal; }
+      .leads-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 22px; margin-top: 22px; }
+      .lead-list, .lead-card { border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+      .lead-list-head { display: flex; justify-content: space-between; padding: 10px 13px; color: var(--quiet); font-size: 9px; font-weight: 800; letter-spacing: .7px; }
+      .lead-list-row { padding: 15px 13px; border-left: 3px solid var(--blue); background: #23425b; }
+      .lead-list-row strong { display: block; }
+      .lead-list-row span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+      .lead-card { padding: 20px; }
+      .lead-card-top { display: flex; justify-content: space-between; gap: 20px; }
+      .lead-tag { color: var(--blue); font-size: 9px; font-weight: 800; letter-spacing: .8px; }
+      .lead-card h4 { margin: 7px 0 0; font-size: 22px; }
+      .lead-card .project-kind { color: var(--muted); margin-top: 3px; font-size: 12px; }
+      .lead-actions { position: relative; display: flex; flex-wrap: wrap; align-items: start; justify-content: end; gap: 7px; }
+      .mark-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+      .lead-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin-top: 18px; }
+      .lead-form label { color: var(--muted); font-size: 11px; }
+      .lead-form .wide { grid-column: 1 / 3; }
+      .fake-input { margin-top: 6px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); }
+
+      .quote-summary-bar { display: flex; align-items: center; gap: 12px; margin-top: 22px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 9px; }
+      .quote-summary-bar strong, .quote-summary-bar span { display: block; }
+      .quote-summary-bar span { color: var(--muted); font-size: 11px; }
+      .close-rate { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 12px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+      .close-rate div { padding: 12px 14px; border-right: 1px solid var(--line-soft); }
+      .close-rate div:last-child { border-right: 0; }
+      .close-rate strong, .close-rate span { display: block; }
+      .close-rate strong { font-size: 17px; }
+      .close-rate span { color: var(--muted); font-size: 10px; }
+      .quote-list { margin-top: 16px; border-top: 1px solid var(--line); }
+      .quote-list-row { position: relative; display: grid; grid-template-columns: minmax(0, 1.5fr) 130px 120px 42px; gap: 15px; align-items: center; min-height: 82px; border-bottom: 1px solid var(--line-soft); }
+      .quote-list-row strong, .quote-list-row span, .quote-list-row small { display: block; }
+      .quote-list-row span, .quote-list-row small { margin-top: 3px; color: var(--muted); font-size: 11px; }
+      .quote-status { display: inline-block !important; width: auto; padding: 3px 7px; border-radius: 999px; background: var(--panel-3); color: var(--blue) !important; font-size: 9px !important; font-weight: 800; }
+
+      .detail-actions { display: flex; gap: 8px; position: relative; }
+      .detail-grid { display: grid; grid-template-columns: 1.5fr .8fr; gap: 28px; margin-top: 26px; }
+      .scope-title { font-weight: 750; margin-bottom: 10px; }
+      .scope-row { display: flex; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid var(--line-soft); }
+      .quote-total { background: var(--panel-2); border-radius: 9px; padding: 18px; align-self: start; }
+      .quote-total small { color: var(--muted); }
+      .quote-total strong { display: block; margin-top: 4px; font-size: 23px; }
+      .quote-total p { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+      .filters { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 18px; }
+      .trash-row { display: grid; grid-template-columns: 86px minmax(0,1fr) auto auto; gap: 12px; min-height: 72px; align-items: center; border-bottom: 1px solid var(--line-soft); }
+      .type { display: inline-flex; justify-content: center; border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; color: var(--muted); font-size: 11px; }
+
+      .toast {
+        position: absolute;
+        left: 225px;
+        right: 22px;
+        bottom: 18px;
+        z-index: 8;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 11px 13px;
+        border: 1px solid #4b6478;
+        border-radius: 8px;
+        background: #1b2c3a;
+      }
+      .toast.show { display: flex; animation: toastIn 180ms ease both; }
+      @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      .toast-actions { display: flex; gap: 7px; }
+
+      .system-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 30px; }
+      .system-row { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+      .system-row b:first-child { color: var(--blue); }
+      .system-row p { margin-top: 3px; color: var(--muted); font-size: 12px; }
+      .lifecycle { padding: 19px; border-radius: var(--radius); background: var(--panel-2); }
+      .lifecycle-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 14px 0 18px; }
+      .state { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; }
+      .state.active { background: var(--panel-3); }
+      .arrow { color: var(--quiet); }
+      .lifecycle p { color: var(--muted); font-size: 12px; }
+      .lifecycle p + p { margin-top: 10px; }
+
+      @media (max-width: 800px) {
+        .page { padding: 26px 16px 60px; }
+        .recommendation, .ideas, .system-grid, .detail-grid { grid-template-columns: 1fr; }
+        .section-head { align-items: start; flex-direction: column; }
+        .demo-shell { grid-template-columns: 1fr; grid-template-rows: 55px auto; }
+        .sidebar { display: none; }
+        .mock-topbar, .workspace { grid-column: 1; }
+        .mock-topbar { grid-row: 1; padding: 0 14px; }
+        .workspace { grid-row: 2; }
+        .leads-layout { grid-template-columns: 1fr; }
+        .lead-list { display: none; }
+        .quote-list-row { grid-template-columns: minmax(0,1fr) 100px 40px; }
+        .quote-list-row > div:nth-child(3) { display: none; }
+        .record-row { grid-template-columns: minmax(0, 1fr) 80px 40px; }
+        .record-status { display: none; }
+        .trash-row { grid-template-columns: 75px minmax(0,1fr); padding: 12px 0; }
+        .trash-row button { justify-self: start; }
+        .toast { left: 16px; right: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <div class="eyebrow">ServiceBuddy product concept</div>
+        <h1>A composable Trash system</h1>
+        <p class="lede">Status answers where a record is in the business. Trash answers whether it should still appear. Those should be separate everywhere.</p>
+        <div class="recommendation">
+          <strong>Recommended standard</strong>
+          <p>One-click soft delete with Undo, a shared 30-day Trash area, and confirmation only for permanent deletion or records with important dependencies.</p>
+        </div>
+      </header>
+
+      <section class="section">
+        <div class="section-head">
+          <div><h2>Three functionally different systems</h2><p>These change the record lifecycle and recovery model, not merely the confirmation screen.</p></div>
+        </div>
+        <div class="ideas" id="ideas">
+          <button class="idea active" data-idea="undo"><div class="idea-kicker">Recommended · Active ↔ Trash → Purged</div><h3>Universal Trash service</h3><p>Every record type uses the same soft-delete fields, recovery view, Undo behavior, permissions, and 30-day purge policy.</p><div class="tradeoff">Simple mental model and one reusable implementation across the program.</div></button>
+          <button class="idea" data-idea="archive"><div class="idea-kicker">Active ↔ Archive · Trash → Purged</div><h3>Archive plus Trash</h3><p>Archive is an indefinite, searchable business state. Trash is reserved for mistakes and is automatically purged.</p><div class="tradeoff">Best for strict record retention, but adds lifecycle complexity to every object.</div></button>
+          <button class="idea" data-idea="confirm"><div class="idea-kicker">Object statuses only · No shared recovery</div><h3>Status-driven cleanup</h3><p>Leads use Junk or Archive, quotes use Declined or Expired, contacts use Inactive, and each screen hides its own terminal states.</p><div class="tradeoff">Preserves business meaning but stays inconsistent and does not solve accidental records well.</div></button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div><h2>How it looks across the app</h2><p>Open a row menu, move a record to Trash, and restore it.</p></div>
+          <div class="screen-tabs" id="screen-tabs"></div>
+        </div>
+        <div class="demo-shell">
+          <aside class="sidebar">
+            <div class="brand"><span class="brand-mark">P</span><span>PREMIUM<br>REMODEL</span></div>
+            <div class="nav-label">WORKSPACE</div>
+            <nav class="side-nav" id="side-nav"></nav>
+            <div class="side-rule"></div>
+            <p class="side-note">Trash is shared across all record types and stays near Settings.</p>
+          </aside>
+          <header class="mock-topbar"><div class="crumb">Premium Remodel <b id="current-crumb">Leads</b></div><div class="top-tools"><span>☼</span><span class="search-pill" id="mock-search">⌕ &nbsp; Search leads…</span><span>⌘ K</span><span class="avatar">AM</span></div></header>
+          <section class="workspace" id="workspace"></section>
+          <div class="toast" id="toast"><span id="toast-copy"></span><div class="toast-actions"><button class="ghost" id="undo">Undo</button><button class="secondary" id="view-trash">View trash</button></div></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><div><h2>One standard, reused everywhere</h2><p>The UI stays consistent because every resource uses the same lifecycle tools.</p></div></div>
+        <div class="system-grid">
+          <div>
+            <div class="system-row"><b>1</b><div><b>Resource action</b><p>Leads, quotes, contacts, projects, tasks, and files get the same Move to trash action.</p></div></div>
+            <div class="system-row"><b>2</b><div><b>Undo toast</b><p>The record disappears immediately; Undo restores it without a page reload.</p></div></div>
+            <div class="system-row"><b>3</b><div><b>Unified Trash</b><p>Filter by record type, organization, deleted by, and deletion date.</p></div></div>
+            <div class="system-row"><b>4</b><div><b>Permission rules</b><p>Separate permissions for trash, restore, and permanent deletion.</p></div></div>
+          </div>
+          <div class="lifecycle">
+            <b>Shared lifecycle</b>
+            <div class="lifecycle-flow"><span class="state active">Active</span><span class="arrow">→</span><span class="state">Trashed</span><span class="arrow">→ 30 days →</span><span class="state">Purged</span></div>
+            <p>Store deletedAt, deletedBy, and an optional reason on every trashable resource. Normal queries automatically exclude trashed records.</p>
+            <p>Linked records are preserved by default. Trashing a lead never silently deletes its contact, quote, files, or project.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const screens = ["Leads", "Quotes", "Quote detail", "Trash"];
+      const leads = [
+        { id: "lead-1", name: "Jordan Lee", detail: "Kitchen remodel · Raleigh", status: "New", value: "$48,000", type: "Lead" },
+        { id: "lead-2", name: "Maria Thompson", detail: "Primary bathroom · Cary", status: "Contacted", value: "$31,500", type: "Lead" },
+        { id: "lead-3", name: "Chris Walker", detail: "Basement finish · Apex", status: "Unqualified", value: "$0", type: "Lead" }
+      ];
+      const quotes = [
+        { id: "quote-1", name: "Lee kitchen renovation", detail: "Jordan Lee · Updated today", status: "Draft", value: "$62,600", type: "Quote" },
+        { id: "quote-2", name: "Thompson primary bathroom", detail: "Maria Thompson · Sent Oct 27", status: "Sent", value: "$36,850", type: "Quote" },
+        { id: "quote-3", name: "Old test quote", detail: "Demo Customer · Draft", status: "Draft", value: "$225", type: "Quote" }
+      ];
+      const baselineTrash = { id: "trash-1", name: "Campbell bathroom draft", detail: "Moved by Walker · 3 days ago", type: "Quote" };
+      let screen = "Leads";
+      let menu = null;
+      let trashed = [];
+      let lastAction = null;
+
+      const tabs = document.getElementById("screen-tabs");
+      const sideNav = document.getElementById("side-nav");
+      const workspace = document.getElementById("workspace");
+      const toast = document.getElementById("toast");
+      const toastCopy = document.getElementById("toast-copy");
+
+      document.querySelectorAll(".idea").forEach(button => button.addEventListener("click", () => {
+        document.querySelectorAll(".idea").forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+      }));
+
+      function setScreen(next) { screen = next; menu = null; render(); }
+      function visible(records) { return records.filter(record => !trashed.some(item => item.id === record.id)); }
+      function showToast(copy) { toastCopy.textContent = copy; toast.classList.add("show"); }
+      function hideToast() { toast.classList.remove("show"); }
+      function trashRecord(record) {
+        if (!trashed.some(item => item.id === record.id)) trashed.unshift({ ...record, detail: "Moved just now · Kept for 30 days" });
+        lastAction = record;
+        menu = null;
+        showToast(`${record.name} moved to Trash`);
+        render();
+      }
+      function restoreRecord(id) {
+        const record = trashed.find(item => item.id === id);
+        trashed = trashed.filter(item => item.id !== id);
+        lastAction = null;
+        showToast(`${record?.name || "Record"} restored`);
+        render();
+      }
+
+      function renderNav() {
+        tabs.innerHTML = screens.map(item => `<button class="tab ${screen === item ? "active" : ""}" data-screen="${item}">${item}</button>`).join("");
+        const activeNav = screen === "Quote detail" ? "Quotes" : screen;
+        const navItems = ["Overview", "Projects", "Quotes", "Price book", "Leads", "Contacts", "Upcoming", "Trade contacts", "Generate", "Settings", "Trash"];
+        sideNav.innerHTML = navItems.map(item => {
+          const target = ["Leads", "Quotes", "Trash"].includes(item) ? ` data-screen="${item}"` : "";
+          return `<button class="${activeNav === item ? "active" : ""}"${target}>${item}${item === "Leads" ? " <small>1</small>" : item === "Upcoming" ? " <small>9</small>" : ""}</button>`;
+        }).join("");
+        document.getElementById("current-crumb").textContent = screen === "Quote detail" ? "Quotes / Lee kitchen renovation" : screen;
+        document.getElementById("mock-search").innerHTML = `⌕ &nbsp; Search ${screen === "Quote detail" ? "quotes" : screen.toLowerCase()}…`;
+        document.querySelectorAll("[data-screen]").forEach(button => button.addEventListener("click", () => setScreen(button.dataset.screen)));
+      }
+
+      function leadsView() {
+        const active = visible(leads);
+        const selected = active[0];
+        const selectedMarkup = selected ? `
+          <article class="lead-card">
+            <div class="lead-card-top">
+              <div><div class="lead-tag">NEW LEAD</div><h4>${selected.name}</h4><div class="project-kind">Kitchen Remodel</div></div>
+              <div class="lead-actions">
+                <button class="primary">Create quote</button><button class="secondary">Edit consultation</button>
+                <button class="more" id="lead-more">•••</button>
+                ${menu === "lead-actions" ? `<div class="menu"><button>Edit lead</button><button class="trash-action" data-trash="${selected.id}">Move to trash</button></div>` : ""}
+              </div>
+            </div>
+            <div class="mark-actions"><button class="secondary">Mark Future</button><button class="secondary">Mark Archive</button><button class="secondary">Mark Junk</button></div>
+            <div class="lead-form"><label>Stage<div class="fake-input">New</div></label><label>Due<div class="fake-input">mm/dd/yyyy</div></label><label class="wide">Next action<div class="fake-input">Call homeowner, send follow-up…</div></label><label class="wide">Notes<div class="fake-input">Operator notes, disposition context, follow-up detail.</div></label></div>
+          </article>` : `<article class="lead-card"><h4>Lead moved to Trash</h4><p class="workspace-sub">Use Undo or open Trash to restore it.</p></article>`;
+        workspace.innerHTML = `<div class="view"><div class="workspace-head"><div><div class="eyebrow">NEW BUSINESS</div><h3 style="margin-top:5px">Leads.</h3><div class="workspace-sub">Track new inquiries and follow-up through quotes and projects.</div></div><div class="heading-actions"><button class="primary">＋ New lead</button><div class="metric-box"><span>Active leads</span><strong>0${active.length}</strong></div></div></div><div class="lead-filters"><button class="active">Active <em>${active.length}</em></button><button>Future <em>0</em></button><button>Archive <em>0</em></button><button>Junk <em>0</em></button></div><div class="leads-layout"><section class="lead-list"><div class="lead-list-head"><span>NEWEST FIRST</span><span>${active.length}</span></div>${selected ? `<div class="lead-list-row"><strong>${selected.name}</strong><span>Kitchen Remodel</span><span>Oct 29, 1:00 AM</span></div>` : ""}</section>${selectedMarkup}</div><p class="helper">Archive and Junk remain lead classifications. Move to trash is for duplicates, tests, or records that should no longer exist.</p></div>`;
+        const leadMore = document.getElementById("lead-more");
+        if (leadMore) leadMore.addEventListener("click", () => { menu = menu === "lead-actions" ? null : "lead-actions"; render(); });
+        const trashButton = workspace.querySelector("[data-trash]");
+        if (trashButton) trashButton.addEventListener("click", () => trashRecord(selected));
+      }
+
+      function quotesView() {
+        const active = visible(quotes);
+        const rows = active.map(record => `<div class="quote-list-row"><div><strong>${record.name}</strong><span>${record.detail.split(" · ")[0]}</span><small>⌖ ${record.name.includes("Lee") ? "1214 Willowbrook Drive, Cary" : "No address added"}</small></div><div><strong>${record.value}</strong><small>Scope total</small></div><div><span class="quote-status">${record.status}</span><small>Updated Oct 29</small></div><button class="more" data-menu="${record.id}">•••</button>${menu === record.id ? `<div class="menu"><button>Open quote</button><button class="trash-action" data-trash="${record.id}">Move to trash</button></div>` : ""}</div>`).join("");
+        workspace.innerHTML = `<div class="view"><div class="workspace-head"><div><div class="eyebrow">BEFORE THE WORK BEGINS</div><h3 style="margin-top:5px">Quotes.</h3><div class="workspace-sub">Track quotes through customer approval, agreement signing, and the deposit before work moves into Projects.</div></div><button class="primary">＋ New quote</button></div><div class="quote-summary-bar"><div><strong>1 quote awaiting a decision</strong><span>$36,850 in sent quotes</span></div></div><div class="close-rate"><div><strong>1</strong><span>Quotes sent</span></div><div><strong>0</strong><span>Quotes won</span></div><div><strong>0%</strong><span>Close rate</span></div></div><div class="quote-filters"><button class="active">All quotes <em>${active.length}</em></button><button>Draft <em>${active.filter(item => item.status === "Draft").length}</em></button><button>Sent <em>1</em></button><button>Accepted <em>0</em></button><button>Declined <em>0</em></button><button>Expired <em>0</em></button></div><div class="quote-list">${rows}</div></div>`;
+        workspace.querySelectorAll("[data-menu]").forEach(button => button.addEventListener("click", () => { menu = menu === button.dataset.menu ? null : button.dataset.menu; render(); }));
+        workspace.querySelectorAll("[data-trash]").forEach(button => button.addEventListener("click", () => trashRecord(quotes.find(item => item.id === button.dataset.trash))));
+      }
+
+      function detailView() {
+        workspace.innerHTML = `<div class="view"><div class="workspace-head"><div><div class="eyebrow">Quotes / Draft</div><h3 style="margin-top:5px">Lee kitchen renovation</h3><div class="workspace-sub">Jordan Lee · Raleigh · $62,600</div></div><div class="detail-actions"><button class="secondary">Download PDF</button><button class="ghost" id="detail-more">More</button>${menu === "detail" ? `<div class="menu"><button>Edit quote</button><button class="trash-action" id="trash-detail">Move to trash</button></div>` : ""}</div></div><div class="detail-grid"><div><div class="scope-title">Scope & pricing</div><div class="scope-row"><span>Demolition</span><b>$4,200</b></div><div class="scope-row"><span>Cabinet installation</span><b>$18,500</b></div><div class="scope-row"><span>Tile backsplash</span><b>$6,800</b></div></div><aside class="quote-total"><small>Quote price</small><strong>$62,600</strong><p>Status stays “Draft” until the quote is sent. Trash is a separate lifecycle action.</p></aside></div></div>`;
+        document.getElementById("detail-more").addEventListener("click", () => { menu = menu === "detail" ? null : "detail"; render(); });
+        const trashButton = document.getElementById("trash-detail");
+        if (trashButton) trashButton.addEventListener("click", () => { trashRecord(quotes[0]); setScreen("Quotes"); });
+      }
+
+      function trashView() {
+        const rows = [...trashed, baselineTrash].map(record => `<div class="trash-row"><span class="type">${record.type}</span><div><div class="record-name">${record.name}</div><div class="record-detail">${record.detail}</div></div>${record.id !== "trash-1" ? `<button class="secondary" data-restore="${record.id}">Restore</button>` : `<button class="secondary">Restore</button>`}<button class="ghost">Delete forever</button></div>`).join("");
+        workspace.innerHTML = `<div class="view"><div class="workspace-head"><div><h3>Trash</h3><div class="workspace-sub">One recovery area for leads, quotes, contacts, projects, tasks, and files.</div></div><span class="type">30-day retention</span></div><div class="filters"><button class="filter active">All</button><button class="filter">Leads</button><button class="filter">Quotes</button><button class="filter">Contacts</button><button class="filter">Projects</button></div><div class="table">${rows}</div><p class="helper">Delete forever is permission-gated and requires confirmation. Normal trash actions do not.</p></div>`;
+        workspace.querySelectorAll("[data-restore]").forEach(button => button.addEventListener("click", () => restoreRecord(button.dataset.restore)));
+      }
+
+      function render() {
+        renderNav();
+        if (screen === "Leads") leadsView();
+        if (screen === "Quotes") quotesView();
+        if (screen === "Quote detail") detailView();
+        if (screen === "Trash") trashView();
+      }
+
+      document.getElementById("undo").addEventListener("click", () => {
+        if (lastAction) { trashed = trashed.filter(item => item.id !== lastAction.id); lastAction = null; render(); }
+        hideToast();
+      });
+      document.getElementById("view-trash").addEventListener("click", () => { hideToast(); setScreen("Trash"); });
+      render();
+    </script>
+  </body>
+</html>

@@ -158,7 +158,7 @@ export function useLocationSharing(user: User, demo: boolean) {
     try {
       if (!demo && (!window.isSecureContext || !navigator.geolocation))
         throw new Error(
-          "Location is unavailable here. Open Premium Remodel in Safari or Chrome on your phone.",
+          "Location is unavailable here. Open ServiceBuddy in Safari or Chrome on your phone.",
         );
       const point = demo
         ? sampleLocation()

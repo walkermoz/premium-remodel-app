@@ -287,6 +287,10 @@ export interface WorkspaceAlert extends Base {
   lastEditedById?: string;
   lastEditedByName?: string;
   lastEditedAt?: string;
+  /** System alerts can lead directly to the record that requires attention. */
+  link?: string;
+  linkLabel?: string;
+  systemKind?: "workflow_incident";
 }
 export interface Contact extends Base {
   firstName: string;

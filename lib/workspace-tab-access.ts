@@ -40,9 +40,10 @@ export function canOpenWorkspaceTab(
   const tab = page === "Activity" ? "Overview" : page;
   if (tab === "Settings") return true;
   if (!config.roleNavigation[group].includes(tab)) return false;
-  if (tab === "Door knocking") return config.features.doorKnocking;
-  if (tab === "Price book") return config.features.priceBook;
-  if (tab === "Generate") return config.features.imageGeneration;
+  if (tab === "Door knocking") return config.modules.doorKnocking;
+  if (tab === "Price book") return config.modules.priceBook;
+  if (tab === "Generate") return config.modules.imageGeneration;
+  if (tab === "Automation") return config.modules.automations;
   return true;
 }
 

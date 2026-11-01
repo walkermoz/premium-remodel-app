@@ -17,6 +17,7 @@ import { findRecord } from "@/lib/repository";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Project, Quote } from "@/lib/types";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -39,12 +40,10 @@ function projectIdFrom(request: Request) {
   return value;
 }
 
-function requireAdministrator(user: Awaited<ReturnType<typeof requireUser>>) {
-  if (user.role !== "admin")
-    throw new HttpError(
-      403,
-      "Only administrators can manage client portal links.",
-    );
+async function requireAdministrator(
+  user: Awaited<ReturnType<typeof requireUser>>,
+) {
+  await requireOrganizationCapability(user, "quotes.manage");
 }
 
 async function findLinkTarget(
@@ -91,7 +90,7 @@ export async function GET(request: Request) {
   try {
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Quotes");
-    requireAdministrator(user);
+    await requireAdministrator(user);
     const kind = linkKind(new URL(request.url).searchParams.get("kind"));
     const projectId = projectIdFrom(request);
     const record = await findLinkTarget(user, projectId, kind);
@@ -130,7 +129,7 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Quotes");
-    requireAdministrator(user);
+    await requireAdministrator(user);
     await limitAttempts(`client-links:${user.id}`, 30);
     const body = await request.json();
     const kind = linkKind(body.kind);
@@ -243,7 +242,7 @@ export async function DELETE(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Quotes");
-    requireAdministrator(user);
+    await requireAdministrator(user);
     const body = await request.json();
     const kind = linkKind(body.kind);
     const projectId = String(body.projectId || "");

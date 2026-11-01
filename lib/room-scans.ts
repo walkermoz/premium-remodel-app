@@ -7,6 +7,8 @@ import { supabaseAdmin } from "./supabase/server";
 import { supabaseConfig } from "./supabase/config";
 import type { RoomScanCapture, RoomScanSummary } from "./room-scan-types";
 import type { Quote } from "./types";
+import { getBusinessConfigForOrganization } from "./business-config";
+import { getBusinessLogoBytes } from "./business-logo";
 
 const bucket = "remodel-files";
 const sessionMinutes = 20;
@@ -159,6 +161,18 @@ async function captureSession(token: string) {
 
 export async function getRoomScanCaptureSession(token: string) {
   const session = await captureSession(token);
+  const businessConfig = await getBusinessConfigForOrganization(
+    session.organization_id,
+  );
+  const business = {
+    name: businessConfig.profile.name,
+    regional: businessConfig.regional,
+    logoUrl:
+      businessConfig.profile.logoUrl === "/api/business-logo" ||
+      businessConfig.profile.logoUrl === "/images/logo.png"
+        ? `/api/room-scans/capture/${encodeURIComponent(token)}/logo`
+        : businessConfig.profile.logoUrl,
+  };
   const existing = session.completed_at
     ? await supabaseAdmin()
         .from("remodel_room_scans")
@@ -172,6 +186,7 @@ export async function getRoomScanCaptureSession(token: string) {
     return {
       completed: true as const,
       expiresAt: session.expires_at,
+      business,
       quote: {
         name: session.quote.name,
         address: session.quote.address,
@@ -196,6 +211,7 @@ export async function getRoomScanCaptureSession(token: string) {
   return {
     completed: false as const,
     expiresAt: session.expires_at,
+    business,
     quote: {
       name: session.quote.name,
       address: session.quote.address,
@@ -217,6 +233,13 @@ export async function getRoomScanCaptureSession(token: string) {
       },
     },
   };
+}
+
+export async function getRoomScanLogoBytes(token: string) {
+  const session = await captureSession(token);
+  const logo = await getBusinessLogoBytes(session.organization_id);
+  if (!logo) throw new HttpError(404, "This organization has no saved logo.");
+  return logo;
 }
 
 function storedSize(file: { metadata?: Record<string, unknown> | null }) {

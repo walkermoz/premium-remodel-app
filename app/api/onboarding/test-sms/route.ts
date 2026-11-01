@@ -12,6 +12,7 @@ import {
   SmsDoNotDisturbError,
 } from "@/lib/sms-compliance";
 import { TwilioConnectionError } from "@/lib/twilio-client";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -19,8 +20,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can send a test text.");
+    await requireOrganizationCapability(user, "connections.manage");
     await limitAttempts(`onboarding-test-sms:${user.authUserId}`, 3);
     const { phone, confirmOwnNumber } = z
       .object({

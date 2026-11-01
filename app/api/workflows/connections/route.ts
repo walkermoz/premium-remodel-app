@@ -3,6 +3,9 @@ import { googleMailAddressForOrganization } from "@/lib/google-mail";
 import { hasTwilioConnection } from "@/lib/twilio-connection-store";
 import { configuredDiscordLeadWebhook } from "@/lib/discord-leads";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { listOrganizationSecrets } from "@/lib/organization-secrets";
+import { isOriginalOrganization } from "@/lib/original-organization";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -10,13 +13,17 @@ export async function GET() {
   try {
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Automation");
-    const [email, smsConnected] = await Promise.all([
+    await requireOrganizationCapability(user, "workflows.manage");
+    const [email, smsConnected, secrets] = await Promise.all([
       googleMailAddressForOrganization(user.organizationId),
       hasTwilioConnection(user.organizationId),
+      listOrganizationSecrets(user.organizationId),
     ]);
     let discordConnected = false;
     try {
-      discordConnected = Boolean(configuredDiscordLeadWebhook());
+      discordConnected =
+        isOriginalOrganization(user.organizationId) &&
+        Boolean(configuredDiscordLeadWebhook());
     } catch {
       discordConnected = false;
     }
@@ -39,6 +46,10 @@ export async function GET() {
               },
             ]
           : [],
+        secrets: secrets.map((secret) => ({
+          id: secret.id,
+          label: secret.name,
+        })),
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

@@ -119,34 +119,38 @@ function drawParagraph(
   return top + lines.length * lineHeight;
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat("en-US", {
+type QuotePdfBusiness = {
+  name: string;
+  website: string;
+  phone: string;
+  regional?: { locale: string; currency: string; timezone: string };
+};
+
+function money(value: number, business: QuotePdfBusiness) {
+  return new Intl.NumberFormat(business.regional?.locale || "en-US", {
     style: "currency",
-    currency: "USD",
+    currency: business.regional?.currency || "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
 }
 
-function displayDate(value: string | undefined, fallback: string) {
+function displayDate(
+  value: string | undefined,
+  fallback: string,
+  business: QuotePdfBusiness,
+) {
   const raw = value || fallback.slice(0, 10);
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
   if (!match) return safeText(raw);
-  const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  return `${months[Number(match[2]) - 1]} ${Number(match[3])}, ${match[1]}`;
+  return new Intl.DateTimeFormat(business.regional?.locale || "en-US", {
+    dateStyle: "long",
+    timeZone: "UTC",
+  }).format(
+    new Date(
+      Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+    ),
+  );
 }
 
 function addressLines(address: string) {
@@ -175,7 +179,7 @@ function drawFooter(
   quote: Quote,
   pageNumber: number,
   pageCount: number,
-  business: { name: string; website: string; phone: string },
+  business: QuotePdfBusiness,
 ) {
   page.drawLine({
     start: { x: 42, y: 44 },
@@ -231,12 +235,8 @@ export async function buildQuotePdf(
   quote: Quote,
   scope: ScopeItem[],
   logoBytes: Uint8Array | null,
-  photos: (QuotePhoto & { bytes: Uint8Array })[] = [],
-  business: { name: string; website: string; phone: string } = {
-    name: "Premium Remodel",
-    website: "https://premiumremodel.com",
-    phone: "(919) 454-4012",
-  },
+  photos: (QuotePhoto & { bytes: Uint8Array })[],
+  business: QuotePdfBusiness,
   display: { showLineItemPrices?: boolean } = {},
 ) {
   const priceDisplay = resolveQuotePriceDisplay(
@@ -302,7 +302,7 @@ export async function buildQuotePdf(
   drawTop(page, heading, LEFT, 117, bold, headingSize);
   const meta = [
     `Quote #${quote.quoteNumber || quote.id.slice(0, 8).toUpperCase()}`,
-    `Revised ${displayDate(quote.revisedDate, quote.updatedAt)}`,
+    `Revised ${displayDate(quote.revisedDate, quote.updatedAt, business)}`,
   ]
     .filter(Boolean)
     .join("  |  ");
@@ -351,7 +351,7 @@ export async function buildQuotePdf(
     color: colors.blue,
   });
   drawTop(page, "TOTAL PROJECT INVESTMENT", 54, 267, bold, 9.5, colors.white);
-  drawRight(page, money(total), 558, 263, bold, 17, colors.white);
+  drawRight(page, money(total, business), 558, 263, bold, 17, colors.white);
 
   let tableTop = 301;
   drawTableHeader(page, bold, tableTop, showLineItemPrices);
@@ -411,7 +411,7 @@ export async function buildQuotePdf(
       if (showSectionPrices)
         drawRight(
           page,
-          `SECTION TOTAL  ${money(section.total)}`,
+          `SECTION TOTAL  ${money(section.total, business)}`,
           558,
           rowTop + 5,
           bold,
@@ -443,7 +443,14 @@ export async function buildQuotePdf(
       ),
     );
     if (showLineItemPrices)
-      drawRight(page, money(item.estimate), 558, rowTop + 6, regular, 9);
+      drawRight(
+        page,
+        money(item.estimate, business),
+        558,
+        rowTop + 6,
+        regular,
+        9,
+      );
     page.drawLine({
       start: { x: LEFT, y: PAGE_HEIGHT - rowTop - rowHeight },
       end: { x: RIGHT, y: PAGE_HEIGHT - rowTop - rowHeight },
@@ -469,7 +476,7 @@ export async function buildQuotePdf(
     color: colors.pale,
   });
   drawTop(page, "TOTAL PROJECT INVESTMENT", 54, rowTop + 8, bold, 9.5);
-  drawRight(page, money(total), 558, rowTop + 6, bold, 12.5);
+  drawRight(page, money(total, business), 558, rowTop + 6, bold, 12.5);
 
   let notesTop = rowTop + 37;
   if (notesTop > 600) {
@@ -519,11 +526,11 @@ export async function buildQuotePdf(
     drawTop(page, acceptance.signedName, 280, cursor + 22, regular, 9);
     drawTop(
       page,
-      `Date: ${new Intl.DateTimeFormat("en-US", {
+      `Date: ${new Intl.DateTimeFormat(business.regional?.locale || "en-US", {
         month: "long",
         day: "numeric",
         year: "numeric",
-        timeZone: "America/New_York",
+        timeZone: business.regional?.timezone || "America/New_York",
       }).format(new Date(acceptance.signedAt))}`,
       LEFT,
       cursor + 58,
@@ -615,7 +622,7 @@ export async function buildQuotePdf(
 
 export function quotePdfFileName(
   quote: Quote,
-  businessName = "Premium Remodel",
+  businessName: string,
 ) {
   const client = safeText(quote.client || quote.name)
     .replace(/[^a-zA-Z0-9]+/g, " ")

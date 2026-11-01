@@ -10,13 +10,13 @@ import {
   Check,
 } from "lucide-react";
 import type { Attachment } from "@/lib/types";
-import { dateLabel } from "@/lib/utils";
 import { Modal } from "./ui";
 import {
   FILE_ACCEPT,
   FILE_TYPES_LABEL,
   checkFileSelection,
 } from "@/lib/file-policy";
+import { useRegionalFormat } from "./regional-format-context";
 export default function FilesPanel({
   files,
   onUpload,
@@ -36,6 +36,7 @@ export default function FilesPanel({
   demo: boolean;
   hideEmpty?: boolean;
 }) {
+  const { date } = useRegionalFormat();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -150,7 +151,7 @@ export default function FilesPanel({
             <div className="file-meta">
               <strong title={file.name}>{file.name}</strong>
               <span>
-                {(file.size / 1024).toFixed(0)} KB · {dateLabel(file.createdAt)}
+                {(file.size / 1024).toFixed(0)} KB · {date(file.createdAt)}
               </span>
               <small>Added by {file.authorName}</small>
               {coverId === file.id && (

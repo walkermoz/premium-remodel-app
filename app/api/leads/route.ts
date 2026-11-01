@@ -15,6 +15,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Contact, Lead } from "@/lib/types";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
 import { websiteSmsConsentEvidence } from "@/lib/sms-consent";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
+import { readClientQuoteSource } from "@/lib/client-quote";
 import { workspaceActionLabels } from "@/lib/workspace-objects";
 import {
   createWorkflowEvent,
@@ -130,13 +132,47 @@ export async function POST(request: Request) {
 
   let response: Response;
   try {
-    const organizationId = process.env.SUPABASE_ORGANIZATION_ID;
+    const rawInput = await request.json();
+    const portalToken =
+      rawInput &&
+      typeof rawInput === "object" &&
+      !Array.isArray(rawInput) &&
+      typeof rawInput.client_portal_token === "string"
+        ? rawInput.client_portal_token
+        : "";
+    const portalSource = portalToken
+      ? await readClientQuoteSource(portalToken, { recordView: false })
+      : null;
+    if (portalToken && !portalSource)
+      throw new HttpError(403, "This client portal link is no longer valid.");
+    const organizationId =
+      portalSource?.organizationId || process.env.SUPABASE_ORGANIZATION_ID;
     if (!organizationId || !z.uuid().safeParse(organizationId).success)
       throw new Error("Lead intake organization is not configured.");
 
-    const { data, otherSubmittedFields, leadAttribution } = parseWebsiteLead(
-      await request.json(),
+    const { data, otherSubmittedFields, leadAttribution } =
+      parseWebsiteLead(rawInput);
+    const business = await getBusinessConfigForOrganization(organizationId);
+    const smsPolicyReady = Boolean(
+      business.compliance.smsPolicyVersion &&
+      business.compliance.privacyUrl &&
+      business.compliance.termsUrl,
     );
+    if (
+      (data.sms_appointment_opt_in || data.sms_marketing_opt_in) &&
+      !smsPolicyReady
+    )
+      throw new HttpError(
+        400,
+        "Text consent is not configured for this organization.",
+      );
+    const consentSource = (() => {
+      try {
+        return `${new URL(business.profile.website).hostname.replace(/^www\./, "")} consultation form`;
+      } catch {
+        return `${business.profile.name} client request form`;
+      }
+    })();
     const firstName =
       data.first_name ||
       (data.last_name ? "" : data.email || data.phone || "Website lead");
@@ -207,12 +243,24 @@ export async function POST(request: Request) {
       approvalState: "none",
       smsAppointmentOptIn: data.sms_appointment_opt_in,
       smsMarketingOptIn: data.sms_marketing_opt_in,
-      smsConsentEvidence: websiteSmsConsentEvidence({
-        capturedAt: now,
-        origin,
-        appointment: data.sms_appointment_opt_in,
-        marketing: data.sms_marketing_opt_in,
-      }),
+      ...(smsPolicyReady
+        ? {
+            smsConsentEvidence: websiteSmsConsentEvidence(
+              {
+                capturedAt: now,
+                origin,
+                appointment: data.sms_appointment_opt_in,
+                marketing: data.sms_marketing_opt_in,
+              },
+              {
+                source: consentSource,
+                policyVersion: business.compliance.smsPolicyVersion,
+                privacyUrl: business.compliance.privacyUrl,
+                termsUrl: business.compliance.termsUrl,
+              },
+            ),
+          }
+        : {}),
       otherSubmittedFields,
       ...(leadAttribution ? { leadAttribution } : {}),
       source: automation.sourceLabel,
@@ -220,7 +268,10 @@ export async function POST(request: Request) {
       createdAt: now,
       updatedAt: now,
     };
-    if (workflowMode === "execute" && (!automation.sendAcknowledgement || !email))
+    if (
+      workflowMode === "execute" &&
+      (!automation.sendAcknowledgement || !email)
+    )
       lead.emailAcknowledgement = {
         status: "skipped",
         attemptedAt: now,
@@ -230,7 +281,9 @@ export async function POST(request: Request) {
       };
     if (
       workflowMode === "execute" &&
-      (!automation.sendSmsAcknowledgement || !data.sms_appointment_opt_in || !phone)
+      (!automation.sendSmsAcknowledgement ||
+        !data.sms_appointment_opt_in ||
+        !phone)
     )
       lead.smsAcknowledgement = {
         status: "skipped",
@@ -306,7 +359,8 @@ export async function POST(request: Request) {
             p_match_existing: automation.matchExistingContacts,
             p_steps: runSteps,
           });
-    const { data: capture, error: captureError } = await captureRequest.single();
+    const { data: capture, error: captureError } =
+      await captureRequest.single();
     if (captureError) {
       if (
         data.submission_id &&
@@ -324,13 +378,15 @@ export async function POST(request: Request) {
       workflowMode === "execute"
         ? {
             contactId: String((capture as Record<string, unknown>).contactId),
-            contactReused: (capture as Record<string, unknown>).contactReused === true,
+            contactReused:
+              (capture as Record<string, unknown>).contactReused === true,
             eventId: String((capture as Record<string, unknown>).eventId),
             runId: null,
           }
         : {
             contactId: String((capture as Record<string, unknown>).contact_id),
-            contactReused: (capture as Record<string, unknown>).contact_reused === true,
+            contactReused:
+              (capture as Record<string, unknown>).contact_reused === true,
             eventId: null,
             runId: String((capture as Record<string, unknown>).run_id),
           };
@@ -343,7 +399,10 @@ export async function POST(request: Request) {
       } catch (error) {
         // Contact and Lead capture is already committed atomically with the
         // outbox event. The worker will retry without failing the public form.
-        console.error("Could not execute the website lead workflow immediately.", error);
+        console.error(
+          "Could not execute the website lead workflow immediately.",
+          error,
+        );
       }
       return cors(Response.json({ received: true }, { status: 201 }), origin);
     }
@@ -489,7 +548,10 @@ export async function POST(request: Request) {
     } catch (error) {
       // Shadow automation must never turn a successfully captured lead into a
       // failed form submission. The durable outbox is retried after rollout.
-      console.error("Could not record the website lead workflow shadow run.", error);
+      console.error(
+        "Could not record the website lead workflow shadow run.",
+        error,
+      );
     }
 
     response = Response.json({ received: true }, { status: 201 });

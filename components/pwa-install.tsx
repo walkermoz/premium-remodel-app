@@ -65,13 +65,13 @@ export function InstallAppPanel() {
   return (
     <section
       className="settings-section install-app"
-      aria-label="Install Premium Remodel"
+      aria-label="Install ServiceBuddy"
     >
       <div className="settings-title">
         <Smartphone size={22} />
         <div>
           <h2>Use on your phone</h2>
-          <p>Add Premium Remodel to your home screen for quick access.</p>
+          <p>Add ServiceBuddy to your home screen for quick access.</p>
         </div>
       </div>
       {installed ? (
@@ -97,7 +97,7 @@ export function InstallAppPanel() {
               }}
             >
               <Download size={16} />
-              Install Premium Remodel
+              Install ServiceBuddy
             </button>
           )}
           <p>

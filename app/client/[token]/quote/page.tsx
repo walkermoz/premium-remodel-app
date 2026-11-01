@@ -32,8 +32,8 @@ import {
   msaPaymentRows,
 } from "@/lib/msa-contract";
 import {
-  stripeClient,
-  stripeEnabledForOrganization,
+  organizationStripeEnabled,
+  organizationStripePayoutsEnabled,
 } from "@/lib/stripe-payments";
 import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import type { BusinessConfig } from "@/lib/business-config-schema";
@@ -60,14 +60,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, noarchive: true },
 };
 
-function money(value: number) {
-  return new Intl.NumberFormat("en-US", {
+function money(value: number, business: BusinessConfig) {
+  return new Intl.NumberFormat(business.regional.locale, {
     style: "currency",
-    currency: "USD",
+    currency: business.regional.currency,
   }).format(value);
 }
 
-function date(value?: string) {
+function date(value: string | undefined, business: BusinessConfig) {
   if (!value) return "";
   const day = value.slice(0, 10);
   const parsed = /^\d{4}-\d{2}-\d{2}$/.test(day)
@@ -75,11 +75,11 @@ function date(value?: string) {
     : new Date(value);
   return Number.isNaN(parsed.valueOf())
     ? ""
-    : new Intl.DateTimeFormat("en-US", {
+    : new Intl.DateTimeFormat(business.regional.locale, {
         month: "long",
         day: "numeric",
         year: "numeric",
-        timeZone: "UTC",
+        timeZone: business.regional.timezone,
       }).format(parsed);
 }
 
@@ -186,7 +186,7 @@ async function ClientSectionView({
     let cardAvailable =
       business.features.payments &&
       business.quotePreferences.paymentProvider === "stripe" &&
-      stripeEnabledForOrganization(organizationId);
+      (await organizationStripeEnabled(organizationId));
     if (agreement.status === "signed") {
       const { data: payments, error } = await supabaseAdmin()
         .from("remodel_records")
@@ -205,8 +205,7 @@ async function ClientSectionView({
       if (cardAvailable) {
         try {
           cardAvailable =
-            (await stripeClient(organizationId).accounts.retrieve(null))
-              .payouts_enabled === true;
+            await organizationStripePayoutsEnabled(organizationId);
         } catch {
           cardAvailable = false;
         }
@@ -241,7 +240,7 @@ async function ClientSectionView({
             <h2>Deposit</h2>
             <p>
               {dueCents > 0
-                ? `${money(dueCents / 100)} remaining toward the ${money(depositCents / 100)} deposit.`
+                ? `${money(dueCents / 100, business)} remaining toward the ${money(depositCents / 100, business)} deposit.`
                 : "Deposit recorded. Thank you."}{" "}
               Work begins after the deposit is received.
             </p>
@@ -264,13 +263,20 @@ async function ClientSectionView({
                 ) : (
                   <p>Online card payment is temporarily unavailable.</p>
                 )}
-                <h3>Pay by check</h3>
-                <p>
-                  Make the check payable to Premium Living Home Improvement LLC
-                  d/b/a Premium Remodel. Contact us to arrange delivery, or mail
-                  it to 309 Amiable Loop, Cary, North Carolina 27519. We will
-                  record it when received.
-                </p>
+                {business.compliance.checkPayee && (
+                  <>
+                    <h3>Pay by check</h3>
+                    <p>
+                      Make the check payable to {business.compliance.checkPayee}.
+                      {business.compliance.checkMailingAddress
+                        ? " Contact us to arrange delivery, or mail it to " +
+                          business.compliance.checkMailingAddress +
+                          "."
+                        : " Contact us to arrange delivery."}
+                      &nbsp;We will record it when received.
+                    </p>
+                  </>
+                )}
               </>
             )}
             {result === "payment-return" && (
@@ -338,7 +344,20 @@ async function ClientSectionView({
     return (
       <main className={styles.sectionPage}>
         <h1>New request</h1>
-        <ClientNewRequestForm requestsUrl={`${quoteUrl}?view=requests`} />
+        <ClientNewRequestForm
+          requestsUrl={`${quoteUrl}?view=requests`}
+          portalToken={token}
+          businessName={
+            business.compliance.smsProgramName || business.profile.name
+          }
+          privacyUrl={business.compliance.privacyUrl}
+          termsUrl={business.compliance.termsUrl}
+          smsConsentEnabled={Boolean(
+            business.compliance.smsPolicyVersion &&
+            business.compliance.privacyUrl &&
+            business.compliance.termsUrl,
+          )}
+        />
       </main>
     );
 
@@ -392,14 +411,19 @@ async function ClientSectionView({
                     entryApproved
                       ? entry.quote.quoteAcceptedAt
                       : entry.quote.quoteSentAt,
-                  ) || date(entry.quote.revisedDate || entry.quote.updatedAt)}
+                    business,
+                  ) ||
+                    date(
+                      entry.quote.revisedDate || entry.quote.updatedAt,
+                      business,
+                    )}
                 </span>
                 <span className={styles.quoteAddress}>
                   {entry.quote.address || "Project address to be confirmed"}
                 </span>
                 <span className={styles.quoteCardTotal}>
                   <small>Total</small>
-                  <b>{money(entryTotal)}</b>
+                  <b>{money(entryTotal, business)}</b>
                 </span>
               </a>
             </div>
@@ -412,7 +436,7 @@ async function ClientSectionView({
   let methodsUnavailable =
     !business.features.payments ||
     business.quotePreferences.paymentProvider !== "stripe" ||
-    !stripeEnabledForOrganization(organizationId);
+    !(await organizationStripeEnabled(organizationId));
   if (!methodsUnavailable) {
     try {
       methods = await savedPaymentMethods(token);
@@ -507,7 +531,7 @@ export default async function ClientQuotePage({
   const walletEnabled =
     business.features.payments &&
     business.quotePreferences.paymentProvider === "stripe" &&
-    stripeEnabledForOrganization(source.organizationId);
+    (await organizationStripeEnabled(source.organizationId));
   const logoSrc =
     business.profile.logoUrl === "/api/business-logo"
       ? `/api/client-quote/${encodeURIComponent(token)}/logo`
@@ -683,7 +707,7 @@ export default async function ClientQuotePage({
                 <h1>{quote.name}</h1>
                 <p>
                   Quote #{number} <span aria-hidden="true">|</span> Revised{" "}
-                  {date(quote.revisedDate || quote.updatedAt)}
+                  {date(quote.revisedDate || quote.updatedAt, business)}
                 </p>
               </header>
 
@@ -717,7 +741,7 @@ export default async function ClientQuotePage({
                 aria-label="Total project investment"
               >
                 <span>Total project investment</span>
-                <strong>{money(total)}</strong>
+                <strong>{money(total, business)}</strong>
               </section>
 
               <section className={styles.scope} aria-label="Scope of work">
@@ -734,7 +758,10 @@ export default async function ClientQuotePage({
                           {priceDisplay !== "total" && (
                             <span>
                               Section total&nbsp;{" "}
-                              {money(sectionTotals.get(section.key) || 0)}
+                              {money(
+                                sectionTotals.get(section.key) || 0,
+                                business,
+                              )}
                             </span>
                           )}
                         </div>
@@ -749,7 +776,7 @@ export default async function ClientQuotePage({
                           {item.details && <p>{item.details}</p>}
                         </div>
                         {priceDisplay === "itemized" && (
-                          <span>{money(item.estimate)}</span>
+                          <span>{money(item.estimate, business)}</span>
                         )}
                       </div>
                     ))}
@@ -757,7 +784,7 @@ export default async function ClientQuotePage({
                 ))}
                 <div className={styles.scopeTotal}>
                   <span>Total project investment</span>
-                  <strong>{money(total)}</strong>
+                  <strong>{money(total, business)}</strong>
                 </div>
               </section>
 
@@ -813,15 +840,18 @@ export default async function ClientQuotePage({
                 <CustomerAcceptance
                   token={token}
                   clientName={quote.client}
-                  today={new Intl.DateTimeFormat("en-US", {
+                  today={new Intl.DateTimeFormat(business.regional.locale, {
                     month: "long",
                     day: "numeric",
                     year: "numeric",
-                    timeZone: "America/New_York",
+                    timeZone: business.regional.timezone,
                   }).format(new Date())}
                   quoteUpdatedAt={quote.updatedAt}
                   approved={approved}
                   acceptance={view.acceptance}
+                  businessName={business.profile.name}
+                  locale={business.regional.locale}
+                  timeZone={business.regional.timezone}
                 />
               </section>
 
@@ -832,7 +862,7 @@ export default async function ClientQuotePage({
                     : business.profile.name}
                   &nbsp; | &nbsp;
                   {quote.preparedBy || business.profile.name}&nbsp; | &nbsp;
-                  {quote.preparedByPhone || "(919) 413-9782"}
+                  {quote.preparedByPhone || business.profile.phone}
                 </span>
                 <span>Page 1</span>
               </footer>

@@ -27,6 +27,7 @@ import {
 } from "../lib/workflows/webhook-safety";
 import {
   runWorkflowRuntime,
+  WorkflowConfigurationError,
   WorkflowNodeExecutionError,
   type WorkflowRuntimeExecutor,
 } from "../lib/workflows/runtime";
@@ -62,6 +63,38 @@ test("workflow events accept PostgreSQL timestamptz offsets", () => {
   ).toBe(true);
 });
 
+test("configuration failures are explicitly non-retryable and preserve a stable error code", async () => {
+  let failure: WorkflowNodeExecutionError | undefined;
+  try {
+    await runWorkflowRuntime({
+      definition: websiteLeadWorkflowSeed(),
+      event: event("website.form.submitted", {
+        firstName: "Taylor",
+        lastName: "Reed",
+        name: "Taylor Reed",
+        email: "taylor@example.com",
+        phone: "",
+        project: "Kitchen Remodel",
+        description: "New cabinets",
+        smsAppointmentOptIn: false,
+      }),
+      execute: async ({ node }) => {
+        if (node.id === "confirmation-email")
+          throw new WorkflowConfigurationError(
+            "Connect the company mailbox before this action can run.",
+          );
+        return { status: "completed" as const };
+      },
+    });
+  } catch (error) {
+    expect(error).toBeInstanceOf(WorkflowNodeExecutionError);
+    failure = error as WorkflowNodeExecutionError;
+  }
+  expect(failure?.errorCode).toBe("CONFIGURATION_REQUIRED");
+  expect(failure?.retryable).toBe(false);
+  expect(failure?.node.id).toBe("confirmation-email");
+});
+
 test("seeded production workflows are valid registered graphs", () => {
   const website = workflowCanPublish(websiteLeadWorkflowSeed());
   const compliance = workflowCanPublish(smsComplianceWorkflowSeed());
@@ -86,6 +119,66 @@ test("seeded production workflows are valid registered graphs", () => {
         }),
       }),
     ]),
+  );
+  expect(JSON.stringify(website.definition)).not.toContain("templateKey");
+  expect(
+    website.definition?.graph.nodes.find(
+      (node) => node.id === "confirmation-email",
+    )?.config,
+  ).toMatchObject({
+    presentation: "business",
+    resultTracking: { field: "emailAcknowledgement" },
+  });
+});
+
+test("new-organization website starter is generic, disabled, and publishable", () => {
+  const starter = websiteLeadWorkflowSeed({
+    sendTeamNotification: false,
+    teamNotificationMode: "disabled_custom_https",
+    triggerMode: "inbound_webhook",
+  });
+  const validation = workflowCanPublish(starter);
+  expect(validation.valid, JSON.stringify(validation.issues, null, 2)).toBe(
+    true,
+  );
+  const notification = starter.graph.nodes.find(
+    (node) => node.id === "team-notification",
+  );
+  expect(notification).toMatchObject({
+    type: "action.webhook",
+    name: "Notify team with HTTPS",
+    config: {
+      enabled: false,
+      destination: "custom",
+      url: "",
+    },
+  });
+  expect(JSON.stringify(notification)).not.toContain("Premium Remodel");
+  expect(JSON.stringify(notification)).not.toContain("discord_lead_webhook");
+  expect(starter.graph.nodes[0]).toMatchObject({
+    type: "trigger.inboundWebhook",
+    config: { eventType: "webhook.inbound.received" },
+  });
+  expect(JSON.stringify(starter)).not.toContain("templateKey");
+});
+
+test("Premium lead HTTPS delivery moves its URL into the organization vault", () => {
+  const secretId = randomUUID();
+  const migrated = websiteLeadWorkflowSeed({
+    teamNotificationMode: "legacy_discord",
+    compatibilityMode: "premium_legacy",
+    teamNotificationUrlSecretId: secretId,
+  });
+  const notification = migrated.graph.nodes.find(
+    (node) => node.id === "team-notification",
+  );
+  expect(notification?.config).toMatchObject({
+    destination: "custom",
+    url: "",
+    urlSecretId: secretId,
+  });
+  expect(JSON.stringify(notification?.config)).not.toContain(
+    "discord_lead_webhook",
   );
 });
 
@@ -117,6 +210,46 @@ test("every registered capability publishes typed executor input and output cont
       `${definition.type} must declare the contexts its editor and executor may use`,
     ).toBeGreaterThan(0);
   }
+});
+
+test("HTTPS actions reference vault secrets without storing their values", () => {
+  const definition = workflowNodeDefinition("action.webhook");
+  expect(definition).toBeTruthy();
+  const urlSecretId = randomUUID();
+  const authorizationSecretId = randomUUID();
+  const parsed = definition!.configSchema.safeParse({
+    enabled: true,
+    destination: "custom",
+    method: "POST",
+    url: "",
+    urlSecretId,
+    headers: { "X-Visible-Metadata": "workflow" },
+    secretHeaders: { Authorization: authorizationSecretId },
+    bodyType: "json",
+    body: '{"lead":"{{event.objectId}}"}',
+    missingValueBehavior: "blank",
+    timeoutSeconds: 15,
+    saveResponse: false,
+  });
+  expect(parsed.success).toBe(true);
+  expect(JSON.stringify(parsed.success ? parsed.data : {})).not.toContain(
+    "Bearer private",
+  );
+  expect(
+    definition!.configSchema.safeParse({
+      enabled: true,
+      destination: "custom",
+      method: "POST",
+      url: "https://example.com/hook",
+      headers: { Authorization: "Bearer private" },
+      secretHeaders: {},
+      bodyType: "json",
+      body: "{}",
+      missingValueBehavior: "blank",
+      timeoutSeconds: 15,
+      saveResponse: false,
+    }).success,
+  ).toBe(false);
 });
 
 test("workflow traces recursively redact credentials and authorization material", () => {

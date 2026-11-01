@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Premium Remodel — Folder Design Review</title>
+  <style>
+    :root{font-family:Arial,Helvetica,sans-serif;color:#0a2d50;background:#eaf0f5}
+    *{box-sizing:border-box}
+    body{margin:0}
+    button{font:inherit;cursor:pointer}
+    .shell{max-width:1640px;margin:auto;padding:34px 28px 70px}
+    .eyebrow{color:#2173c5;font-weight:700;font-size:12px;letter-spacing:.2em;text-transform:uppercase}
+    h1{font-size:clamp(32px,4vw,56px);line-height:1.04;margin:12px 0 13px;letter-spacing:-.045em}
+    .intro{font-size:17px;color:#50677c;max-width:720px;line-height:1.5;margin:0 0 30px}
+    .hero{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:stretch;margin-bottom:26px}
+    .preview-card,.selection-card,.gallery{background:white;border:1px solid #cad8e5;box-shadow:0 12px 34px rgba(16,51,83,.07)}
+    .preview-card{padding:21px}
+    .section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:17px}
+    .section-head h2{font-size:15px;margin:0;text-transform:uppercase;letter-spacing:.13em}
+    .section-head span{color:#657f94;font-size:13px}
+    .preview-layout{display:grid;grid-template-columns:1fr 1fr 1.52fr;gap:13px;align-items:start}
+    .preview-item{min-width:0}
+    .preview-item .label{font-size:12px;font-weight:700;letter-spacing:.12em;color:#668098;margin-bottom:8px}
+    .preview-item img{display:block;width:100%;height:auto;border:1px solid #d5e0e9;background:#f6f9fc}
+    .selection-card{padding:22px;display:flex;flex-direction:column}
+    .selection-card h2{font-size:21px;letter-spacing:-.03em;margin:0 0 8px}
+    .selection-card p{color:#647b8d;font-size:14px;line-height:1.45;margin:0 0 21px}
+    .selection-line{border-top:1px solid #dbe5ed;padding:15px 0;display:flex;justify-content:space-between;gap:12px}
+    .selection-line span{color:#62798d;font-size:13px}
+    .selection-line strong{font-size:14px;text-align:right}
+    .copy{margin-top:auto;border:0;background:#2577cb;color:#fff;font-weight:700;padding:14px 16px;border-radius:6px;text-align:center}
+    .copy:hover{background:#0b5fac}
+    .tabbar{display:flex;gap:7px;margin:0 0 0;border-bottom:1px solid #bdcedd}
+    .tab{border:1px solid transparent;border-bottom:0;background:transparent;color:#547189;font-weight:700;padding:15px 22px;margin-bottom:-1px;border-radius:7px 7px 0 0}
+    .tab[aria-selected="true"]{background:white;border-color:#bdcedd;color:#0b3964}
+    .gallery{padding:24px}
+    .gallery-intro{color:#60798f;font-size:14px;margin:0 0 21px}
+    .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}
+    .option{display:block;width:100%;border:2px solid #dde6ee;background:#fff;padding:0;text-align:left;border-radius:8px;overflow:hidden;transition:transform .15s,border-color .15s,box-shadow .15s}
+    .option:hover{transform:translateY(-3px);border-color:#80b5e4;box-shadow:0 10px 24px rgba(18,69,111,.13)}
+    .option[aria-pressed="true"]{border-color:#1477d4;box-shadow:0 0 0 3px #c8e5ff}
+    .option img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:#f5f8fb}
+    .option.inside img{aspect-ratio:3/2}
+    .option .info{display:flex;align-items:center;gap:9px;padding:12px}
+    .number{font-size:12px;color:#227bcc;font-weight:700;letter-spacing:.08em}
+    .name{font-size:13px;color:#193b58;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hint{font-size:12px;color:#698095;margin:17px 0 0}
+    @media(max-width:1100px){.hero{grid-template-columns:1fr}.selection-card{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 18px}.selection-card h2,.selection-card p,.copy{grid-column:1/-1}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:650px){.shell{padding:22px 13px 45px}.hero{gap:12px}.preview-card{padding:12px}.preview-layout{grid-template-columns:1fr 1fr}.preview-item:last-child{grid-column:1/-1}.selection-card{display:block;padding:17px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.gallery{padding:13px}.tab{padding:12px 14px}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="eyebrow">Premium Remodel / Print design review</div>
+    <h1>Build your folder.</h1>
+    <p class="intro">Choose a front, a back, and an inside. Every piece can be mixed with the others. These are design concepts; the final selection will be fitted to the printer’s exact cut and fold template.</p>
+    <section class="hero" aria-label="Current folder combination">
+      <div class="preview-card">
+        <div class="section-head"><h2>Your current combination</h2><span>Outside covers + open interior</span></div>
+        <div class="preview-layout">
+          <div class="preview-item"><div class="label">BACK</div><img id="selected-back" alt="Selected back cover"></div>
+          <div class="preview-item"><div class="label">FRONT</div><img id="selected-front" alt="Selected front cover"></div>
+          <div class="preview-item"><div class="label">INSIDE</div><img id="selected-inside" alt="Selected open interior"></div>
+        </div>
+      </div>
+      <div class="selection-card">
+        <h2>Your picks</h2>
+        <p>Select one option from each tab. Your choices are saved in this browser.</p>
+        <div class="selection-line"><span>Front</span><strong id="pick-front"></strong></div>
+        <div class="selection-line"><span>Back</span><strong id="pick-back"></strong></div>
+        <div class="selection-line"><span>Inside</span><strong id="pick-inside"></strong></div>
+        <button class="copy" id="copy">Copy my choices</button>
+      </div>
+    </section>
+    <nav class="tabbar" aria-label="Design parts">
+      <button class="tab" data-tab="front" aria-selected="true">Front covers</button>
+      <button class="tab" data-tab="back" aria-selected="false">Back covers</button>
+      <button class="tab" data-tab="inside" aria-selected="false">Inside &amp; pockets</button>
+    </nav>
+    <section class="gallery" aria-live="polite">
+      <p class="gallery-intro" id="gallery-intro"></p>
+      <div class="grid" id="grid"></div>
+      <p class="hint">Numbering is independent: Front 04 can go with Back 09 and Inside 02, for example.</p>
+    </section>
+  </main>
+  <script>
+    const names={
+      front:['Signature','Midnight','Blue horizon','Photo foundation','Navy panel','Gallery frame','Pale blue','Navy + tile','Editorial type','Two projects'],
+      back:['Services','Navy statement','Outdoor photo','Blue rail','Service grid','Photo split','Framed','Project mosaic','Blueprint','Bold type'],
+      inside:['Clean pockets','Split story','Photo ribbon','Quiet blue','Deep navy','Useful contact','Project photo','Service marks','Strong header','Welcome']
+    };
+    const descriptions={front:'A clean first impression. Choose how much photography and color belongs on the outside.',back:'Contact details and capabilities can be quiet or prominent. Choose the tone you want people to see when they turn the folder over.',inside:'This is the open view and pocket treatment. The printed folder will use the printer’s actual pocket die line.'};
+const asset=(part,n)=>part==='front'
+  ? `../output/print-review/folder-front-simple-${String(n).padStart(2,'0')}.png`
+  : part==='back'
+    ? `../output/print-review/folder-mix-match/back-${String(n).padStart(2,'0')}.png`
+    : `../output/print-review/folder-mix-match/inside-${String(n).padStart(2,'0')}.png`;
+    let picks={front:2,back:1,inside:1};
+    try{
+      const saved=JSON.parse(localStorage.getItem('premium-folder-picks')||'{}');
+      for(const part of Object.keys(picks)){
+        if(Number.isInteger(saved[part])&&saved[part]>=1&&saved[part]<=10)picks[part]=saved[part];
+      }
+    }catch{}
+    let active='front';
+    const number=n=>String(n).padStart(2,'0');
+    function render(){
+      for(const part of ['front','back','inside']){
+        document.getElementById(`selected-${part}`).src=asset(part,picks[part]);
+        document.getElementById(`pick-${part}`).textContent=`${number(picks[part])} ${names[part][picks[part]-1]}`;
+      }
+      document.querySelectorAll('.tab').forEach(el=>el.setAttribute('aria-selected',String(el.dataset.tab===active)));
+      document.getElementById('gallery-intro').textContent=descriptions[active];
+      document.getElementById('grid').innerHTML=names[active].map((name,i)=>`<button class="option ${active==='inside'?'inside':''}" data-n="${i+1}" aria-pressed="${picks[active]===i+1}" aria-label="Select ${active} ${number(i+1)} ${name}"><img src="${asset(active,i+1)}" alt="${active} design ${number(i+1)} ${name}" loading="lazy"><span class="info"><span class="number">${number(i+1)}</span><span class="name">${name}</span></span></button>`).join('');
+      document.querySelectorAll('.option').forEach(el=>el.addEventListener('click',()=>{
+        picks[active]=Number(el.dataset.n);
+        try{localStorage.setItem('premium-folder-picks',JSON.stringify(picks))}catch{}
+        render();window.scrollTo({top:0,behavior:'smooth'});
+      }));
+    }
+    document.querySelectorAll('.tab').forEach(el=>el.addEventListener('click',()=>{active=el.dataset.tab;render()}));
+    document.getElementById('copy').addEventListener('click',async()=>{
+      const value=`Premium Remodel folder: Front ${number(picks.front)} (${names.front[picks.front-1]}), Back ${number(picks.back)} (${names.back[picks.back-1]}), Inside ${number(picks.inside)} (${names.inside[picks.inside-1]}).`;
+      try{await navigator.clipboard.writeText(value);document.getElementById('copy').textContent='Copied!'}catch{window.prompt('Copy these choices:',value)}
+      setTimeout(()=>document.getElementById('copy').textContent='Copy my choices',2200);
+    });
+    render();
+  </script>
+</body>
+</html>

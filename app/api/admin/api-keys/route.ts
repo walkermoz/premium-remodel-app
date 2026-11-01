@@ -1,25 +1,20 @@
 import { z } from "zod";
-import {
-  apiError,
-  checkOrigin,
-  HttpError,
-  limitAttempts,
-  requireUser,
-} from "@/lib/auth";
+import { apiError, checkOrigin, limitAttempts, requireUser } from "@/lib/auth";
 import {
   createApiKey,
   listApiKeys,
   revokeApiKey,
 } from "@/lib/api-keys";
 import { recordAuditEvent } from "@/lib/audit-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
+import { apiKeyScopes } from "@/lib/api-key-types";
 
 export const runtime = "nodejs";
 
 async function requireAdmin(request: Request, write = false) {
   if (write) checkOrigin(request);
   const user = await requireUser();
-  if (user.role !== "admin")
-    throw new HttpError(403, "Only administrators can manage API keys.");
+  await requireOrganizationCapability(user, "api_keys.manage");
   return user;
 }
 
@@ -41,9 +36,31 @@ export async function POST(request: Request) {
     const user = await requireAdmin(request, true);
     await limitAttempts(`api-keys-create:${user.id}`, 20);
     const body = z
-      .object({ name: z.string().trim().min(1).max(100) })
+      .object({
+        name: z.string().trim().min(1).max(100),
+        scopes: z
+          .array(z.enum(apiKeyScopes))
+          .min(1)
+          .max(apiKeyScopes.length)
+          .refine(
+            (scopes) => new Set(scopes).size === scopes.length,
+            "Choose each API scope once.",
+          ),
+        expiresAt: z.iso.datetime().nullable(),
+      })
+      .superRefine((input, context) => {
+        if (
+          input.expiresAt &&
+          Date.parse(input.expiresAt) < Date.now() + 5 * 60_000
+        )
+          context.addIssue({
+            code: "custom",
+            path: ["expiresAt"],
+            message: "Choose an expiration time in the future.",
+          });
+      })
       .parse(await request.json());
-    const created = await createApiKey(user, body.name);
+    const created = await createApiKey(user, body);
     await recordAuditEvent(user, {
       action: "created",
       entityKind: "api_key",
@@ -53,6 +70,8 @@ export async function POST(request: Request) {
         id: created.key.id,
         name: created.key.name,
         keyPrefix: created.key.keyPrefix,
+        scopes: created.key.scopes,
+        expiresAt: created.key.expiresAt,
       },
     });
     return Response.json(

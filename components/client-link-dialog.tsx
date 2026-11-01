@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Project, Quote } from "@/lib/types";
 import { Modal } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 interface ClientLinkState {
   active: boolean;
@@ -28,16 +29,6 @@ const emptyState: ClientLinkState = {
   viewCount: 0,
 };
 
-function linkDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 export default function ClientLinkDialog({
   project,
   onClose,
@@ -49,6 +40,15 @@ export default function ClientLinkDialog({
   onClose: () => void;
   notify?: (message: string, error?: boolean) => void;
 }) {
+  const regional = useRegionalFormat();
+  const linkDate = (value: string) =>
+    regional.dateTime(value, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   const [link, setLink] = useState<ClientLinkState>(emptyState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

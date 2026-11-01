@@ -18,16 +18,13 @@ import type {
 } from "@/lib/room-scan-types";
 import RoomScanModelViewer from "./room-scan-model-viewer";
 import styles from "./room-scans-panel.module.css";
+import { useRegionalFormat } from "./regional-format-context";
 
 type ScanSession = {
   launchUrl: string;
   expiresAt: string;
   knownIds: Set<string>;
 };
-
-function measurement(value: number, suffix: string) {
-  return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${suffix}`;
-}
 
 const objectLabels: Record<RoomScanObjectCategory, string> = {
   bathtub: "Bathtub",
@@ -58,6 +55,9 @@ export default function RoomScansPanel({
   quoteId: string;
   readOnly: boolean;
 }) {
+  const { date, number } = useRegionalFormat();
+  const measurement = (value: number, suffix: string) =>
+    `${number(value, { maximumFractionDigits: 1 })} ${suffix}`;
   const [scans, setScans] = useState<RoomScanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -398,7 +398,7 @@ export default function RoomScansPanel({
             </div>
             <p className={styles.expires}>
               This private scan session expires at{" "}
-              {new Date(session.expiresAt).toLocaleTimeString([], {
+              {date(session.expiresAt, {
                 hour: "numeric",
                 minute: "2-digit",
               })}

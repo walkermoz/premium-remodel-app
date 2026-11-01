@@ -8,27 +8,30 @@ export const premiumRemodelSmsPolicy = {
 export type SmsMessageCategory = "appointment" | "marketing";
 
 export interface SmsConsentEvidence {
-  source: typeof premiumRemodelSmsPolicy.source;
-  policyVersion: typeof premiumRemodelSmsPolicy.policyVersion;
-  privacyUrl: typeof premiumRemodelSmsPolicy.privacyUrl;
-  termsUrl: typeof premiumRemodelSmsPolicy.termsUrl;
+  source: string;
+  policyVersion: string;
+  privacyUrl: string;
+  termsUrl: string;
   capturedAt: string;
   origin: string;
   appointment: boolean;
   marketing: boolean;
 }
 
-export function websiteSmsConsentEvidence(input: {
-  capturedAt: string;
-  origin: string;
-  appointment: boolean;
-  marketing: boolean;
-}): SmsConsentEvidence {
+export function websiteSmsConsentEvidence(
+  input: {
+    capturedAt: string;
+    origin: string;
+    appointment: boolean;
+    marketing: boolean;
+  },
+  policy: Pick<
+    SmsConsentEvidence,
+    "source" | "policyVersion" | "privacyUrl" | "termsUrl"
+  > = premiumRemodelSmsPolicy,
+): SmsConsentEvidence {
   return {
-    source: premiumRemodelSmsPolicy.source,
-    policyVersion: premiumRemodelSmsPolicy.policyVersion,
-    privacyUrl: premiumRemodelSmsPolicy.privacyUrl,
-    termsUrl: premiumRemodelSmsPolicy.termsUrl,
+    ...policy,
     ...input,
   };
 }

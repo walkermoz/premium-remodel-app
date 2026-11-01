@@ -54,6 +54,11 @@ export default function OverviewAlerts({
       <div key={alert.id} className="overview-alert-copy">
         <span>Company alert</span>
         <p>{alert.message}</p>
+        {alert.link && (
+          <a className="overview-alert-link" href={alert.link}>
+            {alert.linkLabel || "Review"}
+          </a>
+        )}
       </div>
       {visible.length > 1 && (
         <div className="overview-alert-controls">

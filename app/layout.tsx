@@ -9,15 +9,15 @@ import "./team-map.css";
 import { ThemeController } from "@/components/theme-controls";
 import { themeInitScript } from "@/lib/theme";
 export const metadata: Metadata = {
-  title: "Premium Remodel",
-  applicationName: "Premium Remodel",
+  title: "ServiceBuddy",
+  applicationName: "ServiceBuddy",
   appleWebApp: {
     capable: true,
-    title: "Premium Remodel",
+    title: "ServiceBuddy",
     statusBarStyle: "default",
   },
-  icons: { apple: "/icons/apple-touch-icon.png" },
-  description: "The shared project workspace for Premium Remodel.",
+  icons: { apple: "/icons/servicebuddy-apple.png" },
+  description: "The shared workspace for service businesses and field teams.",
   robots: { index: false, follow: false },
 };
 export const viewport: Viewport = {

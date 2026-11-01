@@ -58,8 +58,8 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Image
-            accessibilityLabel="Premium Remodel"
-            source={require("../../assets/premium-remodel-logo.png")}
+            accessibilityLabel="ServiceBuddy"
+            source={require("../../assets/servicebuddy-icon.png")}
             resizeMode="contain"
             style={styles.logo}
           />
@@ -85,7 +85,7 @@ export default function LoginScreen() {
               value={email}
               onChangeText={setEmail}
               onSubmitEditing={() => passwordRef.current?.focus()}
-              placeholder="you@premiumremodel.com"
+              placeholder="you@company.com"
               placeholderTextColor="#8A9AA6"
               style={styles.input}
             />

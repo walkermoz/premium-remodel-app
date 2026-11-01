@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
-  Image,
   Linking,
   Pressable,
   RefreshControl,
@@ -129,6 +128,7 @@ export default function FieldApp() {
   const mapRef = useRef<MapView>(null);
   const [tab, setTab] = useState<Tab>("workspace");
   const [member, setMember] = useState<Member | null>(null);
+  const [businessName, setBusinessName] = useState("Your company");
   const [visits, setVisits] = useState<DoorVisit[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -162,6 +162,28 @@ export default function FieldApp() {
       return;
     }
     setMember(current);
+    const [businessResult, organizationsResult] = await Promise.all([
+      supabase
+        .from("remodel_business_config")
+        .select("profile")
+        .eq("organization_id", current.organization_id)
+        .maybeSingle(),
+      supabase.rpc("remodel_my_organizations"),
+    ]);
+    if (businessResult.error) throw businessResult.error;
+    if (organizationsResult.error) throw organizationsResult.error;
+    const profile = businessResult.data?.profile as { name?: unknown } | null;
+    const organization = (
+      (organizationsResult.data || []) as Array<{
+        organization_id: string;
+        name: string;
+      }>
+    ).find((item) => item.organization_id === current.organization_id);
+    setBusinessName(
+      typeof profile?.name === "string" && profile.name.trim()
+        ? profile.name.trim()
+        : organization?.name || "Your company",
+    );
     const rows = recordsResult.data || [];
     setVisits(
       rows
@@ -407,12 +429,9 @@ export default function FieldApp() {
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safe}>
       <View style={styles.topbar}>
         <View>
-          <Image
-            accessibilityLabel="Premium Remodel"
-            source={require("../../assets/premium-remodel-logo.png")}
-            resizeMode="contain"
-            style={styles.wordmark}
-          />
+          <Text accessibilityRole="header" style={styles.businessName}>
+            {businessName}
+          </Text>
           <Text style={styles.welcome}>
             Hi, {member?.full_name.split(" ")[0] || "there"}
           </Text>
@@ -714,15 +733,15 @@ export default function FieldApp() {
                 Location stays in your control
               </Text>
               <Text style={styles.privacyCopy}>
-                Premium Remodel stores only your latest position while a shift
-                is active. Ending the shift clears that position. Location
-                access can also be revoked in your phone settings.
+                {businessName} stores only your latest position while a shift is
+                active. Ending the shift clears that position. Location access
+                can also be revoked in your phone settings.
               </Text>
             </View>
             <Pressable onPress={signOut} style={styles.signOutButton}>
               <Text style={styles.signOutText}>Sign out</Text>
             </Pressable>
-            <Text style={styles.version}>Premium Remodel · Version 1.1</Text>
+            <Text style={styles.version}>ServiceBuddy Field · Version 1.1</Text>
           </ScrollView>
         )}
       </View>
@@ -793,7 +812,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  wordmark: { width: 123, height: 34 },
+  businessName: {
+    maxWidth: 190,
+    color: colors.navy,
+    fontSize: 15,
+    fontWeight: "900",
+  },
   welcome: { color: colors.ink, fontSize: 13, fontWeight: "800", marginTop: 1 },
   shift: {
     minWidth: 106,

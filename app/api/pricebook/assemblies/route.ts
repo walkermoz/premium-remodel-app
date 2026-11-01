@@ -8,6 +8,7 @@ import {
 import { mapPricebookItem } from "@/lib/pricebook";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -26,12 +27,11 @@ async function access(edit = false) {
       403,
       "The price book is not available for this organization.",
     );
-  if (
-    edit &&
-    (user.role !== "admin" ||
-      !canOpenWorkspaceTab(config, user.group, "Price book"))
-  )
-    throw new HttpError(403, "Only administrators can edit the price book.");
+  if (edit) {
+    if (!canOpenWorkspaceTab(config, user.group, "Price book"))
+      throw new HttpError(403, "The price book is not available to your role.");
+    await requireOrganizationCapability(user, "pricebook.manage");
+  }
   return user;
 }
 

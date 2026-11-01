@@ -34,6 +34,11 @@ const item: ScopeItem = {
   contractorId: "",
   status: "To do",
 };
+const business = {
+  name: "Test Service Company",
+  website: "https://example.test",
+  phone: "(555) 010-1000",
+};
 
 async function pdfText(mode: Quote["priceDisplay"]) {
   const bytes = await buildQuotePdf(
@@ -41,7 +46,7 @@ async function pdfText(mode: Quote["priceDisplay"]) {
     [item],
     null,
     [],
-    undefined,
+    business,
     { showLineItemPrices: true },
   );
   const document = await getDocument({ data: bytes }).promise;

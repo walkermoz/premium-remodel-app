@@ -10,6 +10,7 @@ import { getBusinessConfig } from "@/lib/business-config";
 import { mapPricebookItem, pricebookInput } from "@/lib/pricebook";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -72,8 +73,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requirePricebook();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can edit the price book.");
+    await requireOrganizationCapability(user, "pricebook.manage");
     const input = pricebookInput.parse(await request.json());
     await validateContractorRates(user, input.contractorRates);
     const { data, error } = await supabaseAdmin()
@@ -105,8 +105,7 @@ export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
     const user = await requirePricebook();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can edit the price book.");
+    await requireOrganizationCapability(user, "pricebook.manage");
     const { id, revision, ...input } = pricebookInput
       .extend({ id: z.uuid(), revision: z.number().int().positive() })
       .parse(await request.json());
@@ -151,8 +150,7 @@ export async function DELETE(request: Request) {
   try {
     checkOrigin(request);
     const user = await requirePricebook();
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can edit the price book.");
+    await requireOrganizationCapability(user, "pricebook.manage");
     const { id } = z.object({ id: z.uuid() }).parse(await request.json());
     const { data, error } = await supabaseAdmin()
       .from("remodel_pricebook_items")

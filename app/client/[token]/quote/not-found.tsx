@@ -1,15 +1,16 @@
+import Link from "next/link";
 import styles from "./quote.module.css";
 
 export default function QuoteNotFound() {
   return (
     <main className={styles.unavailable}>
-      <img src="/images/logo.png" alt="Premium Remodel" />
+      <img src="/icons/servicebuddy-512.png" alt="ServiceBuddy" />
       <h1>This quote is unavailable</h1>
       <p>
-        The link may have been replaced or disabled. Please contact Premium
-        Remodel for a current copy.
+        The link may have been replaced or disabled. Please contact the company
+        that sent it for a current copy.
       </p>
-      <a href="mailto:contact@premiumremodel.com">Contact Premium Remodel</a>
+      <Link href="/client/sign-in">Request a new private link</Link>
     </main>
   );
 }

@@ -11,12 +11,12 @@ type PublicAcceptance = {
   signatureStrokes: SignatureStroke[];
 };
 
-function displayDate(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
+function displayDate(value: Date, locale: string, timeZone: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "long",
     day: "numeric",
     year: "numeric",
-    timeZone: "America/New_York",
+    timeZone,
   }).format(value);
 }
 
@@ -51,6 +51,9 @@ export default function CustomerAcceptance({
   quoteUpdatedAt,
   approved,
   acceptance,
+  businessName,
+  locale,
+  timeZone,
 }: {
   token: string;
   clientName: string;
@@ -58,6 +61,9 @@ export default function CustomerAcceptance({
   quoteUpdatedAt: string;
   approved: boolean;
   acceptance?: PublicAcceptance;
+  businessName: string;
+  locale: string;
+  timeZone: string;
 }) {
   const router = useRouter();
   const pad = useRef<SVGSVGElement>(null);
@@ -163,7 +169,7 @@ export default function CustomerAcceptance({
           </div>
           <div>
             <span className={styles.acceptanceLabel}>Date</span>
-            <p>{displayDate(new Date(acceptance.signedAt))}</p>
+            <p>{displayDate(new Date(acceptance.signedAt), locale, timeZone)}</p>
           </div>
         </div>
         <div className={styles.acceptanceSignature}>
@@ -174,7 +180,7 @@ export default function CustomerAcceptance({
     );
 
   if (approved)
-    return <p>This quote was accepted by Premium Remodel on your behalf.</p>;
+    return <p>This quote was accepted by {businessName} on your behalf.</p>;
 
   return (
     <form className={styles.signForm} onSubmit={submit}>

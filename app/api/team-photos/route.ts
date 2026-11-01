@@ -11,6 +11,7 @@ import {
 import { recordAuditEvent } from "@/lib/audit-server";
 import { MAX_FILE_SIZE } from "@/lib/file-policy";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 import { validateStoredFile } from "@/lib/validate-file";
 
 export const runtime = "nodejs";
@@ -76,8 +77,8 @@ export async function POST(request: Request) {
       throw new HttpError(413, "Choose a photo smaller than 4 MB.");
     const form = await request.formData();
     const memberId = memberIdSchema.parse(form.get("memberId"));
-    if (user.role !== "admin" && memberId !== user.id)
-      throw new HttpError(403, "You can change only your own photo.");
+    if (memberId !== user.id)
+      await requireOrganizationCapability(user, "team.manage");
     const file = form.get("file");
     if (!(file instanceof File) || !file.size || file.size > MAX_FILE_SIZE)
       throw new HttpError(400, "Choose a photo up to 4 MB.");
@@ -138,8 +139,8 @@ export async function DELETE(request: Request) {
     const { memberId } = z
       .object({ memberId: memberIdSchema })
       .parse(await request.json());
-    if (user.role !== "admin" && memberId !== user.id)
-      throw new HttpError(403, "You can remove only your own photo.");
+    if (memberId !== user.id)
+      await requireOrganizationCapability(user, "team.manage");
     const member = await membership(user.organizationId, memberId);
     const { error } = await supabaseAdmin()
       .from("remodel_memberships")

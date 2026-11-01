@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import BrowserRoomScan from "./browser-room-scan";
 
 export const metadata: Metadata = {
-  title: "Room scan | Premium Remodel",
-  description: "Capture room measurements for a Premium Remodel quote.",
+  title: "Room scan | ServiceBuddy",
+  description: "Capture room measurements for a project quote.",
   robots: { index: false, follow: false },
 };
 

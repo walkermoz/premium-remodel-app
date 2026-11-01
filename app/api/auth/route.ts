@@ -17,6 +17,7 @@ import {
 } from "@/lib/supabase/server";
 import { inviteTeammate } from "@/lib/team";
 import { recordAuditEvent } from "@/lib/audit-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
@@ -212,11 +213,7 @@ export async function PUT(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only the administrator can invite team members.",
-      );
+    await requireOrganizationCapability(user, "team.manage");
     const data = z
       .object({
         email: z.email().max(250),
@@ -244,11 +241,7 @@ export async function DELETE(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only the administrator can remove team members.",
-      );
+    await requireOrganizationCapability(user, "team.manage");
     const { id } = z.object({ id: z.uuid() }).parse(await request.json());
     if (id === user.id)
       throw new HttpError(400, "You cannot remove your own access.");

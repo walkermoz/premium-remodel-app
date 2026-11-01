@@ -1,20 +1,31 @@
 import Stripe from "stripe";
 import {
+  organizationStripeEnabled,
+  stripeContextForOrganization,
   stripeClient,
-  stripeEnabledForOrganization,
   stripeConnections,
+  stripeRequestOptions,
 } from "@/lib/stripe-payments";
 import { stripePaymentId } from "@/lib/stripe-payment-utils";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { promotePaidQuote } from "@/lib/quote-promotion";
 import { enqueueWorkflowEvent } from "@/lib/workflows/events";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
+import {
+  organizationIdForStripeAccount,
+  stripeConnectWebhookSecret,
+  stripePlatformClient,
+} from "@/lib/stripe-connect";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const connections = stripeConnections();
-  if (!connections.length || !signature)
+  if (
+    (!connections.length && !stripeConnectWebhookSecret()) ||
+    !signature
+  )
     return Response.json(
       { error: "Webhook is not configured." },
       { status: 503 },
@@ -42,6 +53,30 @@ export async function POST(request: Request) {
       // Try the next company's webhook secret.
     }
   }
+  if (!verified && stripeConnectWebhookSecret()) {
+    try {
+      const event = stripePlatformClient().webhooks.constructEvent(
+        payload,
+        signature,
+        stripeConnectWebhookSecret(),
+      );
+      const organizationId = event.account
+        ? await organizationIdForStripeAccount(event.account)
+        : null;
+      if (organizationId)
+        verified = {
+          event,
+          organizationId,
+          live:
+            (process.env.STRIPE_PLATFORM_SECRET_KEY ||
+              process.env.STRIPE_SECRET_KEY ||
+              ""
+            ).startsWith("sk_live_"),
+        };
+    } catch {
+      // Signature did not match the platform Connect endpoint.
+    }
+  }
   if (!verified) {
     return Response.json(
       { error: "Invalid Stripe signature." },
@@ -67,12 +102,16 @@ export async function POST(request: Request) {
 
   const session = event.data.object as Stripe.Checkout.Session;
   const meta = session.metadata;
-  if (meta?.source !== "premium_remodel_project")
+  if (
+    meta?.source !== "servicebuddy_project_payment_v1" &&
+    // Preserve already-issued Premium Remodel checkout sessions.
+    meta?.source !== "premium_remodel_project"
+  )
     return Response.json({ received: true });
   if (
     !meta.organizationId ||
     meta.organizationId !== verified.organizationId ||
-    !stripeEnabledForOrganization(meta.organizationId)
+    !(await organizationStripeEnabled(meta.organizationId))
   )
     return Response.json(
       { error: "Payment organization did not match." },
@@ -118,14 +157,15 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const customer =
     project.data?.client || session.customer_details?.name || "Customer";
+  const business = await getBusinessConfigForOrganization(meta.organizationId);
   const data = {
     id,
     projectId: meta.projectId,
     activityType: "Payment received",
     actorId: meta.createdById,
-    actorName: meta.createdByName || "Premium Remodel",
+    actorName: meta.createdByName || business.profile.name,
     authorId: meta.createdById,
-    authorName: meta.createdByName || "Premium Remodel",
+    authorName: meta.createdByName || business.profile.name,
     occurredAt: now,
     createdAt: now,
     updatedAt: now,
@@ -210,15 +250,22 @@ async function recordRefund(charge: Stripe.Charge, organizationId: string) {
       ? charge.payment_intent
       : charge.payment_intent?.id;
   if (!paymentIntentId) return Response.json({ received: true });
-  const intent =
-    await stripeClient(organizationId).paymentIntents.retrieve(paymentIntentId);
+  const stripeContext = await stripeContextForOrganization(organizationId);
+  const intent = await stripeContext.stripe.paymentIntents.retrieve(
+    paymentIntentId,
+    {},
+    stripeRequestOptions(stripeContext),
+  );
   const meta = intent.metadata;
-  if (meta.source !== "premium_remodel_project")
+  if (
+    meta.source !== "servicebuddy_project_payment_v1" &&
+    meta.source !== "premium_remodel_project"
+  )
     return Response.json({ received: true });
   if (
     !meta.organizationId ||
     meta.organizationId !== organizationId ||
-    !stripeEnabledForOrganization(meta.organizationId)
+    !(await organizationStripeEnabled(meta.organizationId))
   )
     return Response.json(
       { error: "Payment organization did not match." },

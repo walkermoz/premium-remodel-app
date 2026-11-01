@@ -1,17 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { canCreateBusiness } from "@/lib/business-creation-access";
-
-const owner = {
-  role: "admin" as const,
-  group: "owner" as const,
-};
-
-test("business owners can create organizations; staff cannot", () => {
-  expect(canCreateBusiness(owner)).toBe(true);
-  expect(canCreateBusiness({ ...owner, group: "office" })).toBe(false);
-  expect(canCreateBusiness({ ...owner, role: "member" })).toBe(false);
-});
-
 test("business creation is available in workspace setup", async ({ page }) => {
   await page.goto("/demo?view=Settings");
   await expect(

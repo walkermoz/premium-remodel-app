@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
+import { apiError, checkOrigin, requireUser } from "@/lib/auth";
 import { workflowObjectTypeSchema } from "@/lib/workflows/schema";
 import { createWorkflow, listWorkflows } from "@/lib/workflows/store";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
@@ -33,8 +34,7 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Automation");
-    if (user.role !== "admin")
-      throw new HttpError(403, "Only administrators can create workflows.");
+    await requireOrganizationCapability(user, "workflows.manage");
     const input = createInput.parse(await request.json());
     return Response.json(await createWorkflow(user, input), {
       status: 201,

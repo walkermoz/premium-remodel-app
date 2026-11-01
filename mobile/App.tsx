@@ -18,7 +18,10 @@ function parseRoomScanLink(value: string | null): RoomScanLink | null {
   if (!value) return null;
   try {
     const url = new URL(value);
-    if (url.protocol !== "premiumremodelfield:" || url.hostname !== "room-scan")
+    if (
+      !["servicebuddyfield:", "premiumremodelfield:"].includes(url.protocol) ||
+      url.hostname !== "room-scan"
+    )
       return null;
     const token = url.searchParams.get("token") || "";
     const server = new URL(url.searchParams.get("server") || "");
@@ -80,7 +83,7 @@ export default function App() {
         <View style={styles.config}>
           <Text style={styles.configTitle}>App setup needed</Text>
           <Text style={styles.configText}>
-            Add the Premium Remodel Supabase values to the mobile build
+            Add the ServiceBuddy platform configuration to the mobile build
             environment.
           </Text>
         </View>

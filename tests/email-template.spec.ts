@@ -4,11 +4,19 @@ import {
   renderQuoteEmail,
 } from "../lib/email-template";
 
+const premiumBusiness = {
+  name: "Premium Remodel",
+  website: "https://premiumremodel.com",
+  email: "contact@premiumremodel.com",
+  phone: "(919) 454-4012",
+};
+
 test("quote message remains readable in both formats and escapes customer text", () => {
   const email = renderQuoteEmail({
     message:
       'Hi Alex,\n\nPlease review <the scope> & reply. <script>alert("x")</script>',
     portalUrl: "https://servicebuddy-ui.vercel.app/client/private-link/quote",
+    business: premiumBusiness,
   });
 
   expect(email.html).toContain("Please review &lt;the scope&gt; &amp; reply.");
@@ -16,7 +24,7 @@ test("quote message remains readable in both formats and escapes customer text",
     "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;",
   );
   expect(email.html).not.toContain("<script>alert");
-  expect(email.html).toContain('src="cid:premium-remodel-logo"');
+  expect(email.html).toContain('src="cid:servicebuddy-business-logo"');
   expect(email.html).toContain(
     "background:#ffffff;border-bottom:3px solid #e2e7e9",
   );
@@ -41,7 +49,10 @@ test("quote message remains readable in both formats and escapes customer text",
 });
 
 test("lead acknowledgement uses the same remodel wording for every lead", () => {
-  const email = renderLeadAcknowledgement({ firstName: "Walker" });
+  const email = renderLeadAcknowledgement({
+    firstName: "Walker",
+    business: premiumBusiness,
+  });
   expect(email.text).toContain(
     "We received your remodel request and will review",
   );
@@ -50,4 +61,23 @@ test("lead acknowledgement uses the same remodel wording for every lead", () => 
   expect(email.text).not.toContain("undefined");
   expect(email.text).toContain("Thanks,\nPremium Remodel Team");
   expect(email.text).toContain("contact@premiumremodel.com");
+});
+
+test("lead acknowledgement uses organization-owned identity", () => {
+  const email = renderLeadAcknowledgement({
+    firstName: "Alex",
+    business: {
+      name: "North Star Renovations",
+      website: "https://northstar.example",
+      email: "hello@northstar.example",
+      phone: "(555) 010-2020",
+    },
+  });
+  expect(email.text).toContain(
+    "Thanks for reaching out to North Star Renovations",
+  );
+  expect(email.text).toContain("North Star Renovations Team");
+  expect(email.text).toContain("hello@northstar.example");
+  expect(email.text).not.toContain("Premium Remodel");
+  expect(email.html).not.toContain("premiumremodel.com");
 });

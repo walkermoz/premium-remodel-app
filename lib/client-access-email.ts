@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { renderPremiumEmail } from "./email-template";
+import { renderBusinessEmail } from "./email-template";
 import { getBusinessConfigForOrganization } from "./business-config";
 import { getBusinessLogoBytes } from "./business-logo";
 import {
@@ -37,20 +37,20 @@ export async function sendClientAccessEmail(input: {
   );
   if (!fromEmail)
     throw new Error("Connect the company mailbox before sending email.");
-  const content = renderPremiumEmail({
+  const content = renderBusinessEmail({
     preheader: `Your secure ${business.name} client portal link.`,
     title: "Open your client portal",
     message: `Use the button below to open your ${business.name} client portal and review your quote. If you did not request this link, you can ignore this email.`,
     business,
-    logoSrc: logo ? "cid:premium-remodel-logo" : "",
+    logoSrc: logo ? "cid:servicebuddy-business-logo" : "",
     action: {
       label: "Open client portal",
       url: input.url,
       note: "This private link is valid for 30 days.",
     },
   });
-  const related = `premium-client-${randomUUID()}`;
-  const alternative = `premium-client-alt-${randomUUID()}`;
+  const related = `servicebuddy-client-${randomUUID()}`;
+  const alternative = `servicebuddy-client-alt-${randomUUID()}`;
   const lines = [
     `From: =?UTF-8?B?${Buffer.from(business.name, "utf8").toString("base64")}?= <${fromEmail}>`,
     `To: ${recipient}`,
@@ -77,7 +77,7 @@ export async function sendClientAccessEmail(input: {
           `--${related}`,
           'Content-Type: image/png; name="business-logo.png"',
           "Content-Transfer-Encoding: base64",
-          "Content-ID: <premium-remodel-logo>",
+          "Content-ID: <servicebuddy-business-logo>",
           'Content-Disposition: inline; filename="business-logo.png"',
           "",
           encoded(logo),

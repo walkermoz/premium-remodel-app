@@ -1,9 +1,10 @@
 "use client";
 import { Check, CalendarDays, Plus, Pencil, Trash2 } from "lucide-react";
 import type { Task, Workspace } from "@/lib/types";
-import { dateLabel, overdue } from "@/lib/utils";
+import { overdue } from "@/lib/utils";
 import { Avatar, Badge, Empty } from "./ui";
 import { workType, workTime } from "@/lib/work";
+import { useRegionalFormat } from "./regional-format-context";
 export default function TaskList({
   tasks,
   workspace,
@@ -23,6 +24,7 @@ export default function TaskList({
   onProject?: (id: string) => void;
   compact?: boolean;
 }) {
+  const { date } = useRegionalFormat();
   if (!tasks.length)
     return (
       <Empty
@@ -86,7 +88,7 @@ export default function TaskList({
             >
               <CalendarDays size={13} />
               {task.dueDate
-                ? dateLabel(task.dueDate).replace(/, \d{4}$/, "")
+                ? date(task.dueDate, { month: "short", day: "numeric" })
                 : "No date"}
               {overdue(task.dueDate, task.status) && (
                 <span className="overdue-label">Overdue</span>

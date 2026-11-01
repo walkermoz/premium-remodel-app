@@ -1,15 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { KeyRound, LoaderCircle, Trash2 } from "lucide-react";
-import type { ApiKeyRecord } from "@/lib/api-key-types";
+import {
+  apiKeyScopes,
+  apiKeyScopeLabels,
+  type ApiKeyRecord,
+  type ApiKeyScope,
+} from "@/lib/api-key-types";
+import { useRegionalFormat } from "./regional-format-context";
 
 export default function ApiKeysSettings({ demo }: { demo: boolean }) {
+  const regional = useRegionalFormat();
   const [keys, setKeys] = useState<ApiKeyRecord[]>([]);
   const [loading, setLoading] = useState(!demo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [secret, setSecret] = useState("");
+  const [scopes, setScopes] = useState<ApiKeyScope[]>(["leads.read"]);
+  const [expiration, setExpiration] = useState("365");
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -54,7 +63,16 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
       const response = await fetch("/api/admin/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          scopes,
+          expiresAt:
+            expiration === "never"
+              ? null
+              : new Date(
+                  Date.now() + Number(expiration) * 24 * 60 * 60_000,
+                ).toISOString(),
+        }),
       });
       const data = await response.json();
       if (!response.ok)
@@ -62,6 +80,8 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
       setSecret(data.secret || "");
       setKeys((current) => [data.key, ...current]);
       setName("");
+      setScopes(["leads.read"]);
+      setExpiration("365");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not create API key.",
@@ -136,7 +156,8 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
                 <code className="api-key-secret">{secret}</code>
               </div>
             )}
-            <form className="form-row two" onSubmit={createKey}>
+            <form className="api-key-create-form" onSubmit={createKey}>
+              <div className="form-row two">
               <label>
                 Key name
                 <input
@@ -147,8 +168,49 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
                   placeholder="Dispatch"
                 />
               </label>
+              <label>
+                Expires
+                <select
+                  value={expiration}
+                  onChange={(event) => setExpiration(event.target.value)}
+                >
+                  <option value="90">90 days</option>
+                  <option value="365">1 year</option>
+                  <option value="730">2 years</option>
+                  <option value="never">No expiration</option>
+                </select>
+              </label>
+              </div>
+              <fieldset className="api-key-scope-picker">
+                <legend>Allowed actions</legend>
+                <p>Choose only what this integration needs.</p>
+                <div>
+                  {apiKeyScopes.map((scope) => (
+                    <label key={scope}>
+                      <input
+                        type="checkbox"
+                        checked={scopes.includes(scope)}
+                        onChange={(event) =>
+                          setScopes((current) =>
+                            event.target.checked
+                              ? [...current, scope]
+                              : current.filter((item) => item !== scope),
+                          )
+                        }
+                      />
+                      <span>
+                        <strong>{apiKeyScopeLabels[scope].label}</strong>
+                        <small>{apiKeyScopeLabels[scope].description}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div className="settings-inline-actions">
-                <button className="button primary" disabled={busy}>
+                <button
+                  className="button primary"
+                  disabled={busy || scopes.length === 0}
+                >
                   {busy && <LoaderCircle size={15} className="spin" />}
                   Create key
                 </button>
@@ -161,12 +223,22 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
                     <strong>{key.name}</strong>
                     <span>
                       {key.keyPrefix}… · created{" "}
-                      {new Date(key.createdAt).toLocaleString()}
+                      {regional.dateTime(key.createdAt)}
                       {key.revokedAt
-                        ? ` · revoked ${new Date(key.revokedAt).toLocaleString()}`
+                        ? ` · revoked ${regional.dateTime(key.revokedAt)}`
                         : key.lastUsedAt
-                          ? ` · last used ${new Date(key.lastUsedAt).toLocaleString()}`
+                          ? ` · last used ${regional.dateTime(key.lastUsedAt)}`
                           : " · unused"}
+                    </span>
+                    <span>
+                      {key.scopes
+                        .map((scope) => apiKeyScopeLabels[scope]?.label || scope)
+                        .join(" · ")}
+                    </span>
+                    <span>
+                      {key.expiresAt
+                        ? `Expires ${regional.dateTime(key.expiresAt)}`
+                        : "No expiration"}
                     </span>
                   </div>
                   {!key.revokedAt && (
@@ -188,7 +260,8 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
             </ul>
             <p className="generation-note">
               Use <code>Authorization: Bearer sbk_…</code> or{" "}
-              <code>X-API-Key</code> with <code>GET/PATCH /api/v1/leads</code>.
+              <code>X-API-Key</code>. Every request is checked against the
+              key&apos;s allowed actions.
             </p>
           </>
         )}

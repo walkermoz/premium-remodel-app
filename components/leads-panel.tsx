@@ -28,6 +28,7 @@ import { manualLeadInput, type ManualLeadInput } from "@/lib/manual-lead";
 import { workspaceObjects } from "@/lib/workspace-objects";
 import AddressInput from "./address-input";
 import { Modal } from "./ui";
+import { useRegionalFormat } from "./regional-format-context";
 
 const contactObject = workspaceObjects.contact;
 
@@ -102,6 +103,8 @@ export default function LeadsPanel({
   canQuote?: boolean;
   initialLeadId?: string;
 }) {
+  const regional = useRegionalFormat();
+  const today = workToday(new Date(), regional.timezone);
   const initialLead = leads.find((candidate) => candidate.id === initialLeadId);
   const [selectedId, setSelectedId] = useState(initialLead?.id || "");
   const [scheduling, setScheduling] = useState<Lead | null>(null);
@@ -279,7 +282,7 @@ export default function LeadsPanel({
                         {lead.leadAttribution?.lastTouch.source
                           ? `${leadSourceName(lead.leadAttribution.lastTouch)} · `
                           : ""}
-                        {new Date(lead.submittedAt).toLocaleString("en-US", {
+                        {regional.dateTime(lead.submittedAt, {
                           month: "short",
                           day: "numeric",
                           hour: "numeric",
@@ -358,7 +361,7 @@ export default function LeadsPanel({
                 <div className="lead-detail-actions">
                   <time dateTime={selected.submittedAt}>
                     <CalendarClock size={14} />
-                    {new Date(selected.submittedAt).toLocaleString()}
+                    {regional.dateTime(selected.submittedAt)}
                   </time>
                   {canQuote && (
                     <button
@@ -511,7 +514,7 @@ export default function LeadsPanel({
                         <br />
                         <span>
                           Recorded from the website form on
-                          {` ${new Date(selected.smsConsentEvidence.capturedAt).toLocaleString()} `}
+                          {` ${regional.dateTime(selected.smsConsentEvidence.capturedAt)} `}
                           under the {selected.smsConsentEvidence.policyVersion}
                           SMS policy.
                         </span>
@@ -640,15 +643,13 @@ export default function LeadsPanel({
                   <div>
                     <span>CONSULTATION</span>
                     <strong>
-                      {new Date(
-                        `${selected.quoteDate}T12:00:00`,
-                      ).toLocaleDateString("en-US", {
+                      {regional.date(`${selected.quoteDate}T12:00:00Z`, {
                         weekday: "long",
                         month: "long",
                         day: "numeric",
                       })}
                       {selected.quoteStartTime
-                        ? ` at ${new Date(`2000-01-01T${selected.quoteStartTime}`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                        ? ` at ${regional.wallTime(selected.quoteStartTime)}`
                         : ""}
                     </strong>
                     {selected.quoteNotes && <p>{selected.quoteNotes}</p>}
@@ -895,7 +896,7 @@ export default function LeadsPanel({
                   <input
                     name="quoteDate"
                     type="date"
-                    min={workToday()}
+                    min={today}
                     defaultValue={scheduling.quoteDate || ""}
                     required
                   />

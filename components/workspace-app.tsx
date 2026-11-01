@@ -65,10 +65,9 @@ import {
   type Lead,
   type DoorVisit,
 } from "@/lib/types";
-import { dateLabel, overdue, projectReference } from "@/lib/utils";
+import { overdue, projectReference } from "@/lib/utils";
 import {
   scopeTotal,
-  projectMoney as money,
   preserveScopeCosts,
 } from "@/lib/project-finances";
 import { nextQuoteNumber, preserveProjectHistory } from "@/lib/quotes";
@@ -114,6 +113,7 @@ import PricebookPanel from "./pricebook-panel";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import AutomationPanel from "./automation-panel";
 import { workspaceObjects } from "@/lib/workspace-objects";
+import { RegionalFormatProvider } from "./regional-format-context";
 
 const tradeContactObject = workspaceObjects.tradeContact;
 type Page =
@@ -144,11 +144,37 @@ export default function WorkspaceApp({
   demo?: boolean;
   demoScenario?: "quote-project-handoff";
 }) {
+  const money = useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(config.regional.locale, {
+        style: "currency",
+        currency: config.regional.currency,
+        maximumFractionDigits: 0,
+      }).format(value),
+    [config.regional.currency, config.regional.locale],
+  );
+  const date = useCallback(
+    (
+      value: string,
+      options: Intl.DateTimeFormatOptions = {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      },
+    ) =>
+      new Intl.DateTimeFormat(config.regional.locale, {
+        timeZone: config.regional.timezone,
+        ...options,
+      }).format(new Date(value)),
+    [config.regional.locale, config.regional.timezone],
+  );
   const locationSharing = useLocationSharing(user, demo);
   const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
   const workspaceRef = useRef(workspace);
   const [loaded, setLoaded] = useState(false);
-  const [contractToday, setContractToday] = useState(workToday);
+  const [contractToday, setContractToday] = useState(() =>
+    workToday(new Date(), config.regional.timezone),
+  );
   const [loadError, setLoadError] = useState("");
   const [page, setPage] = useState<Page>(
     canOpenWorkspaceTab(config, user.group, "Overview")
@@ -271,7 +297,8 @@ export default function WorkspaceApp({
   }, [demo, demoScenario, commit]);
   useEffect(() => {
     const timer = setTimeout(() => void refresh(), 0);
-    const updateDay = () => setContractToday(workToday());
+    const updateDay = () =>
+      setContractToday(workToday(new Date(), config.regional.timezone));
     const interval = setInterval(() => {
       updateDay();
       if (!demo && !document.hidden && !pending.current.size) void refresh();
@@ -282,7 +309,7 @@ export default function WorkspaceApp({
       clearInterval(interval);
       window.removeEventListener("focus", updateDay);
     };
-  }, [demo, refresh]);
+  }, [config.regional.timezone, demo, refresh]);
   useEffect(() => {
     function readLocation() {
       const params = new URLSearchParams(window.location.search);
@@ -500,7 +527,7 @@ export default function WorkspaceApp({
             data.quoteNumber =
               prior?.quoteNumber || nextQuoteNumber(workspaceRef.current);
             data.preparedBy =
-              prior?.preparedBy || user.name || "Premium Remodel";
+              prior?.preparedBy || user.name || config.profile.name;
             if (data.status === "Sent" && prior?.status !== "Sent")
               data.quoteSentAt = now;
             if (
@@ -1285,7 +1312,7 @@ export default function WorkspaceApp({
         config.roleNavigation[user.group].indexOf(b.name as NavigationPage),
     );
   function projectCard(project: Project) {
-    const clock = contractClock(project, contractToday);
+    const clock = contractClock(project, contractToday, date);
     const tasks = workspace.tasks.filter((t) => t.projectId === project.id);
     const done = tasks.filter((t) => t.status === "Done").length;
     const progress = tasks.length
@@ -1351,7 +1378,7 @@ export default function WorkspaceApp({
               <span>Target completion</span>
               <strong className="card-date">
                 {project.endDate
-                  ? dateLabel(project.endDate).replace(/, \d{4}$/, "")
+                  ? date(project.endDate, { month: "short", day: "numeric" })
                   : "Not scheduled"}
               </strong>
             </div>
@@ -1383,6 +1410,7 @@ export default function WorkspaceApp({
   const visiblePageName =
     page === "Contractors" ? tradeContactObject.pluralTitle : page;
   return (
+    <RegionalFormatProvider value={config.regional}>
     <div className="app-shell">
       {sidebar && (
         <button
@@ -1690,9 +1718,14 @@ export default function WorkspaceApp({
               )}
               {page === "Price book" && config.features.priceBook && (
                 <PricebookPanel
-                  user={user}
                   contractors={workspace.contractors}
                   demo={demo}
+                  canManage={
+                    user.group === "owner" ||
+                    config.rolePermissions[user.group].includes(
+                      "pricebook.manage",
+                    )
+                  }
                 />
               )}
               {page === "Door knocking" && (
@@ -1726,9 +1759,21 @@ export default function WorkspaceApp({
               )}
               {page === "Automation" && (
                 <AutomationPanel
-                  user={user}
                   leads={workspace.leads}
                   demo={demo}
+                  businessName={config.profile.name}
+                  website={config.profile.website}
+                  smsPolicy={{
+                    version: config.compliance.smsPolicyVersion,
+                    privacyUrl: config.compliance.privacyUrl,
+                    termsUrl: config.compliance.termsUrl,
+                  }}
+                  canManage={
+                    user.group === "owner" ||
+                    config.rolePermissions[user.group].includes(
+                      "workflows.manage",
+                    )
+                  }
                 />
               )}
               {page === "Contacts" && (
@@ -1738,6 +1783,7 @@ export default function WorkspaceApp({
                   quotes={workspace.quotes || []}
                   search={search}
                   demo={demo}
+                  businessName={config.profile.name}
                   initialContactId={recordId}
                   canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
                   onAdd={() => setEditor({ kind: "contact" })}
@@ -2249,6 +2295,10 @@ export default function WorkspaceApp({
                   notify={notify}
                   twilioEnabled={config.features.twilio}
                   businessName={config.profile.name}
+                  canManageTeam={
+                    user.group === "owner" ||
+                    config.rolePermissions[user.group].includes("team.manage")
+                  }
                 />
               )}
               {page === "Team map" && (
@@ -2383,5 +2433,6 @@ export default function WorkspaceApp({
         />
       )}
     </div>
+    </RegionalFormatProvider>
   );
 }

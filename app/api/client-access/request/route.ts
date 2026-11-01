@@ -12,6 +12,7 @@ import {
   findContactIdForRecipient,
   recordContactCommunication,
 } from "@/lib/contact-communications";
+import { getBusinessConfigForOrganization } from "@/lib/business-config";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     );
     if (matches.length) {
       try {
+        const business = await getBusinessConfigForOrganization(organizationId);
         const messageId = await sendClientAccessEmail({
           organizationId,
           email,
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
               contactId,
               channel: "email",
               recipient: email,
-              subject: "Your Premium Remodel client portal link",
+              subject: `Your ${business.profile.name} client portal link`,
               body: "A secure link to the customer’s quote and client portal was sent. The private link is valid for 30 days.",
               relatedKind: "client_portal",
               relatedId: matches[0].quote.id,

@@ -74,7 +74,7 @@ export async function GET(
       pdfScope,
       logo,
       photos,
-      business.profile,
+      { ...business.profile, regional: business.regional },
       {
         showLineItemPrices:
           business.quotePreferences.showCustomerLineItemPrices,

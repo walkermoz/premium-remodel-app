@@ -86,12 +86,6 @@ const inputSchema = z
         path: ["quoteDate"],
         message: "Choose a date and start time for the consultation.",
       });
-    if (data.scheduleQuote && data.quoteDate && data.quoteDate < workToday())
-      ctx.addIssue({
-        code: "custom",
-        path: ["quoteDate"],
-        message: "Consultations cannot be scheduled in the past.",
-      });
     if (
       data.scheduleQuote &&
       data.quoteEndTime &&
@@ -108,15 +102,25 @@ export async function POST(request: Request) {
   try {
     checkOriginOrBearer(request);
     const user = await requireRequestUser(request);
+    const business = await getBusinessConfig(user);
     if (
       !canOpenWorkspaceTab(
-        await getBusinessConfig(user),
+        business,
         user.group,
         "Door knocking",
       )
     )
       throw new HttpError(403, "Door knocking is not available to your role.");
     const data = inputSchema.parse(await request.json());
+    if (
+      data.scheduleQuote &&
+      data.quoteDate &&
+      data.quoteDate < workToday(new Date(), business.regional.timezone)
+    )
+      throw new HttpError(
+        400,
+        "Consultations cannot be scheduled in the past.",
+      );
     await limitAttempts(`door-visit:${user.id}`, 120);
     if (Date.parse(data.visitedAt) < Date.now() - 366 * 24 * 60 * 60_000)
       throw new HttpError(400, "Visit time must be within the last year.");

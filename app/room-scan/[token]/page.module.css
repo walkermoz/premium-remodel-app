@@ -18,7 +18,16 @@
 
 .brandBar img {
   width: 190px;
+  max-height: 58px;
   height: auto;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.brandName {
+  color: #112c3c;
+  font-size: 18px;
+  letter-spacing: -0.02em;
 }
 
 .brandBar span {

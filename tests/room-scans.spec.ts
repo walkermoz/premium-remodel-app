@@ -60,7 +60,7 @@ cloudTest(
       const launch = new URL(createdSession.launchUrl);
       expect(launch.pathname).toMatch(/^\/room-scan\/[A-Za-z0-9_-]{40,80}$/);
       expect(createdSession.appUrl).toMatch(
-        /^premiumremodelfield:\/\/room-scan\?/,
+        /^servicebuddyfield:\/\/room-scan\?/,
       );
       const token = launch.pathname.split("/").at(-1);
       expect(token).toMatch(/^[A-Za-z0-9_-]{40,80}$/);

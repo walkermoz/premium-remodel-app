@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Premium Remodel",
-    short_name: "Premium Remodel",
-    description: "Your company projects, schedule, and team.",
+    name: "ServiceBuddy",
+    short_name: "ServiceBuddy",
+    description: "Your company projects, customers, schedule, and field team.",
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -12,19 +12,19 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#173d52",
     icons: [
       {
-        src: "/icons/app-192.png",
+        src: "/icons/servicebuddy-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/app-512.png",
+        src: "/icons/servicebuddy-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/app-maskable.png",
+        src: "/icons/servicebuddy-maskable.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

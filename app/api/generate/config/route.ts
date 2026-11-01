@@ -7,6 +7,7 @@ import {
   getGenerationDefault,
   saveGenerationDefault,
 } from "@/lib/generation-server";
+import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export async function GET() {
   try {
@@ -54,11 +55,7 @@ export async function PATCH(request: Request) {
         403,
         "Image generation is not enabled for this organization.",
       );
-    if (user.role !== "admin")
-      throw new HttpError(
-        403,
-        "Only administrators can change the company default model.",
-      );
+    await requireOrganizationCapability(user, "generation.manage");
     const { defaultModel } = z
       .object({ defaultModel: z.string().min(1).max(150) })
       .strict()

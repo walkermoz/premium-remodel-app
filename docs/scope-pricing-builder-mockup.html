@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Premium Remodel · quote builder walkthrough</title>
+  <style>
+    :root { color-scheme:dark; font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#0b1722; color:#eaf2f8; }
+    * { box-sizing:border-box; }
+    body { margin:0; }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:2px solid #81c0ef; outline-offset:1px; }
+    .shell { max-width:1510px; margin:auto; padding:28px 33px 64px; }
+    .eyebrow { color:#80b9e7; font-size:10px; font-weight:750; letter-spacing:.15em; text-transform:uppercase; }
+    h1,h2,h3,p { margin:0; }
+    h1 { margin-top:6px; font-size:26px; letter-spacing:-.035em; font-weight:650; }
+    .lede { margin-top:7px; color:#a7bbca; font-size:12px; line-height:1.5; }
+    .top { display:flex; justify-content:space-between; align-items:start; gap:20px; }
+    .demo-mark { flex:none; border:1px solid #3a5e78; color:#a9d3f2; padding:8px 10px; font-size:10px; font-weight:700; letter-spacing:.03em; }
+    .path { display:flex; gap:0; border-top:1px solid #31495b; border-bottom:1px solid #31495b; margin:24px 0 21px; padding:11px 0; color:#a3b8c7; font-size:11px; }
+    .path span { display:flex; align-items:center; gap:8px; padding:0 21px; border-left:1px solid #31495b; }
+    .path span:first-child { padding-left:0; border-left:0; }
+    .path b { display:flex; align-items:center; justify-content:center; height:18px; width:18px; border:1px solid #477a9f; color:#a7d5f5; font-size:10px; font-weight:700; }
+    .start { display:flex; align-items:center; gap:16px; margin:-1px 0 18px; padding:13px 15px; border:1px solid #344c5e; background:#10202e; }
+    .start label { flex:none; color:#bdcfdb; font-size:11px; font-weight:650; }
+    .start select { min-width:205px; height:34px; border:1px solid #49657a; background:#1a3040; color:#eaf2f8; font-size:11px; padding:0 8px; }
+    .start p { color:#98b1c2; font-size:10px; line-height:1.4; }
+    .layout { display:grid; grid-template-columns:minmax(0,1fr) 274px; gap:19px; align-items:start; }
+    .project { border:1px solid #344c5e; background:#10202e; margin-bottom:14px; }
+    .project-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:11px 15px; border-bottom:1px solid #344c5e; }
+    .project-head-left { display:flex; align-items:center; gap:10px; min-width:0; }
+    .accent { height:18px; width:4px; flex:none; background:#3185d1; }
+    .project:nth-child(2n) .accent { background:#00b894; }
+    .project-name { min-width:0; max-width:280px; border:0; background:transparent; color:#eaf2f8; font-size:13px; font-weight:700; padding:4px 3px; }
+    .project-sum { color:#b4c8d6; font-size:10px; white-space:nowrap; }
+    .project-sum strong { color:#eaf2f8; }
+    .item { border-bottom:1px solid #344c5e; }
+    .item-bar { display:grid; grid-template-columns:minmax(0,1fr) 100px 120px 20px; gap:13px; align-items:center; width:100%; border:0; background:transparent; color:inherit; text-align:left; min-height:60px; padding:10px 15px; }
+    .item-bar:hover { background:#182b3a; }
+    .item-name { display:block; font-size:12px; font-weight:700; }
+    .item-caption { display:block; margin-top:3px; color:#94acbd; font-size:10px; line-height:1.3; }
+    .mini-label { display:block; color:#8ea8bb; font-size:9px; margin-bottom:4px; }
+    .mini-value { display:block; font-size:11px; font-weight:650; font-variant-numeric:tabular-nums; }
+    .mini-price { text-align:right; }
+    .chevron { color:#9ec6e2; font-size:16px; text-align:right; }
+    .editor { padding:18px 19px 19px; border-top:1px solid #344c5e; background:#142636; }
+    .editor-part + .editor-part { border-top:1px solid #344c5e; margin-top:17px; padding-top:16px; }
+    .part-head { display:flex; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .part-head h3 { font-size:11px; font-weight:700; }
+    .part-head span { color:#8eacbf; font-size:10px; }
+    .scope-grid { display:grid; grid-template-columns:minmax(0,1fr) 2fr; gap:10px; }
+    .field { min-width:0; }
+    .field label { display:block; margin-bottom:6px; color:#a3b9c9; font-size:10px; }
+    .control { display:block; width:100%; min-width:0; height:37px; border:1px solid #415b6f; background:#192e3e; color:#eef5fa; font-size:11px; padding:0 9px; }
+    textarea.control { height:62px; padding:9px; line-height:1.4; resize:vertical; }
+    select.control { appearance:none; padding-right:25px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='m1 1 4 4 4-4' stroke='%23c8dae8' stroke-width='1.4' fill='none'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 9px center; }
+    input[type=number] { appearance:textfield; -moz-appearance:textfield; text-align:right; font-variant-numeric:tabular-nums; }
+    input::-webkit-inner-spin-button { -webkit-appearance:none; }
+    .pricing-grid { display:grid; grid-template-columns:1.25fr 1fr 1fr 1fr; gap:10px; align-items:end; }
+    .measure { display:grid; grid-template-columns:42% 1fr; gap:4px; }
+    .dollar { display:flex; align-items:center; height:37px; border:1px solid #415b6f; background:#192e3e; }
+    .dollar > span { color:#a6c1d4; padding-left:10px; font-size:11px; }
+    .dollar input { width:100%; min-width:0; height:100%; border:0; background:transparent; color:#eef5fa; text-align:right; padding:0 10px; font-size:11px; outline:0; }
+    .dollar:focus-within { outline:2px solid #81c0ef; outline-offset:1px; }
+    .calculated { display:flex; align-items:center; justify-content:flex-end; height:37px; padding:0 10px; background:#1c3545; border:1px solid #415b6f; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }
+    .help { color:#8daabb; font-size:10px; line-height:1.4; margin-top:8px; }
+    .cost-grid { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+    .cost-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+    .cost-head label { color:#a3b9c9; font-size:10px; }
+    .cost-head select { max-width:118px; border:0; appearance:none; color:#93ccf5; background:transparent; font-size:10px; padding:0 15px 0 2px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='m1 1 4 4 4-4' stroke='%2393ccf5' stroke-width='1.4' fill='none'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right center; }
+    .cost-result { display:flex; justify-content:space-between; gap:7px; margin-top:6px; color:#98b0c0; font-size:10px; }
+    .cost-result strong { color:#e1edf6; font-weight:650; }
+    .extra-costs { margin-top:14px; padding-top:13px; border-top:1px solid #344c5e; }
+    .extra-cost-row { display:grid; grid-template-columns:130px minmax(120px,1fr) 105px 112px 78px 20px; gap:7px; align-items:end; margin-top:9px; }
+    .extra-cost-row label { display:block; color:#9eb5c5; font-size:9px; margin-bottom:5px; }
+    .extra-cost-row .calculated { font-size:10px; }
+    .extra-remove { border:0; background:transparent; color:#d1a6a0; font-size:17px; padding:8px 0; }
+    .extra-add { margin-top:10px; }
+    .item-bottom { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:18px; border-top:1px solid #344c5e; padding-top:13px; }
+    .item-bottom .item-math { color:#aec5d4; font-size:10px; }
+    .item-bottom .item-math strong { color:#e3eff7; font-size:11px; }
+    .text-action { border:0; background:transparent; color:#90c8f1; font-size:11px; font-weight:650; padding:0; }
+    .text-action:hover { text-decoration:underline; }
+    .delete { color:#d5a7a0; }
+    .project-add { border:0; background:transparent; color:#93ccf5; font-size:11px; font-weight:700; padding:15px; }
+    .add-project { margin-top:4px; }
+    .summary { border:1px solid #344c5e; background:#10202e; padding:17px; position:sticky; top:18px; }
+    .summary h2 { font-size:13px; margin-bottom:17px; }
+    .summary-row { display:flex; justify-content:space-between; gap:10px; margin-top:12px; color:#aec2d0; font-size:11px; }
+    .summary-row strong { color:#e6f0f7; font-weight:650; font-variant-numeric:tabular-nums; }
+    .summary-row.lead { margin-top:0; color:#e6f0f7; font-weight:650; }
+    .summary-row.lead strong { font-size:16px; }
+    .summary hr { border:0; border-top:1px solid #354d60; margin:18px 0; }
+    .summary-row.remainder { color:#d9e8f2; font-weight:650; }
+    .summary-row.remainder strong { font-size:14px; }
+    .fineprint { margin-top:7px; color:#899faf; font-size:10px; line-height:1.45; }
+    .primary { display:block; width:100%; border:1px solid #78b6e5; background:#2c79bb; color:#fff; font-size:11px; font-weight:700; padding:11px 12px; text-align:center; }
+    .primary:disabled { cursor:not-allowed; background:#31506a; border-color:#4d687b; color:#a8bdcc; }
+    .summary .primary { margin-top:22px; }
+    .summary .secondary { margin-top:10px; text-align:center; }
+    .empty { padding:17px; color:#9fb4c3; font-size:11px; }
+    .overlay[hidden] { display:none; }
+    .overlay { position:fixed; inset:0; z-index:10; background:rgba(4,12,20,.82); display:flex; align-items:center; justify-content:center; padding:20px; }
+    .modal { width:min(840px,100%); max-height:calc(100vh - 40px); overflow:auto; background:#10202e; border:1px solid #4b6b80; }
+    .modal-head { display:flex; justify-content:space-between; align-items:start; padding:20px 23px 16px; border-bottom:1px solid #344c5e; }
+    .modal-head h2 { font-size:18px; margin-top:5px; }
+    .close { border:0; background:transparent; color:#b4cee0; font-size:22px; }
+    .tabs { display:flex; gap:20px; border-bottom:1px solid #344c5e; padding:0 23px; }
+    .tab { border:0; border-bottom:2px solid transparent; background:transparent; color:#9fb8c9; padding:12px 1px 10px; font-size:11px; }
+    .tab.active { color:#cfe9fa; border-bottom-color:#4da3e6; font-weight:700; }
+    .review-body { padding:20px 23px 23px; }
+    .email-panel { max-width:610px; }
+    .email-panel p { color:#a9bdca; font-size:11px; line-height:1.5; margin-bottom:19px; }
+    .email-field { display:grid; grid-template-columns:90px minmax(0,1fr); gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid #344c5e; font-size:11px; }
+    .email-field span { color:#9fb8c9; }
+    .email-field strong { color:#e8f1f7; font-weight:600; }
+    .email-file { display:flex; justify-content:space-between; gap:15px; margin-top:22px; padding:14px; border:1px solid #3e5a6e; font-size:11px; }
+    .email-file span { color:#9eb5c6; }
+    .done-mark { color:#a7d8c8; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .done-title { margin-top:10px; font-size:19px; font-weight:700; }
+    .done-copy { margin-top:9px; max-width:570px; color:#afc2d0; font-size:12px; line-height:1.55; }
+    .check { padding:10px 12px; margin-bottom:16px; border:1px solid #426b61; background:#17352f; color:#bfe1d7; font-size:11px; }
+    .check.warn { border-color:#775c3d; background:#382d1f; color:#ead6b6; }
+    .customer-paper { background:#f8fafc; color:#173049; padding:26px 28px; }
+    .paper-brand { color:#2479c4; font-size:16px; font-weight:750; letter-spacing:.14em; }
+    .paper-meta { margin-top:17px; color:#536c80; font-size:11px; }
+    .paper-title { margin-top:10px; font-size:21px; font-weight:700; }
+    .paper-project { border-top:1px solid #cbd8e2; margin-top:20px; padding-top:12px; }
+    .paper-project h3 { font-size:12px; }
+    .paper-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; padding:13px 0; border-bottom:1px solid #dde6ed; }
+    .paper-item strong { font-size:12px; }
+    .paper-item p { margin-top:4px; color:#5d7282; font-size:10px; line-height:1.4; }
+    .paper-item .paper-price { font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }
+    .paper-total { display:flex; justify-content:space-between; margin-top:18px; font-size:15px; font-weight:750; }
+    .internal-table { width:100%; border-collapse:collapse; font-size:11px; }
+    .internal-table th { color:#9fb8c9; font-weight:600; text-align:right; padding:0 0 10px; border-bottom:1px solid #344c5e; }
+    .internal-table th:first-child,.internal-table td:first-child { text-align:left; }
+    .internal-table td { text-align:right; border-bottom:1px solid #344c5e; padding:12px 0; font-variant-numeric:tabular-nums; }
+    .internal-table tfoot td { font-weight:700; color:#eaf2f8; }
+    .modal-foot { display:flex; align-items:center; justify-content:space-between; gap:20px; border-top:1px solid #344c5e; padding:15px 23px; }
+    .modal-foot p { color:#96acbc; font-size:10px; }
+    .modal-foot .primary { width:auto; }
+    @media(max-width:950px) { .layout { grid-template-columns:1fr; } .summary { position:static; } }
+    @media(max-width:650px) { .shell { padding:21px 14px 45px; } .top { display:block; } .demo-mark { display:inline-block; margin-top:11px; } .path { flex-wrap:wrap; gap:9px; } .path span { padding:0 8px; } .start { display:block; } .start select { display:block; width:100%; margin:9px 0; } .item-bar { grid-template-columns:1fr 80px 16px; } .item-bar .measure-summary { display:none; } .scope-grid,.pricing-grid,.cost-grid { grid-template-columns:1fr; } .extra-cost-row { grid-template-columns:1fr 1fr; } .item-bottom { align-items:start; flex-direction:column; } .modal-foot { align-items:start; flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="top"><div><div class="eyebrow">Premium Remodel · quote builder concept</div><h1>Build a quote from scope to review</h1><p class="lede">Try the whole flow: organize projects, write work items, set customer prices, estimate costs, and review the customer-facing quote.</p></div><span class="demo-mark">Interactive demo · nothing saved or sent</span></header>
+    <nav class="path" aria-label="Quote workflow"><span><b>1</b> Projects &amp; items</span><span><b>2</b> Scope &amp; measurement</span><span><b>3</b> Price &amp; costs</span><span><b>4</b> Review</span><span><b>5</b> Email quote</span></nav>
+    <div class="start"><label for="start-mode">Start this estimate</label><select id="start-mode"><option value="custom">Custom scope</option><option value="template">Saved scope template</option><option value="budget">Preliminary budget</option></select><p id="start-description">Write project-specific work items directly. A catalog is optional.</p></div>
+    <div class="layout"><div id="projects"></div><aside id="summary" class="summary"></aside></div>
+  </div>
+  <div id="review" class="overlay" hidden></div>
+  <script>
+    const initialState = () => ({
+      mode:"custom",
+      projects: [{id:"kitchen",name:"Kitchen remodel",items:[
+        {id:"countertops",title:"New Countertops",details:"Supply and install quartz countertops, including template, fabrication, finished edges, and standard installation.",quantity:250,unit:"sq ft",priceMode:"unit",rate:250,flatPrice:0,sub:{mode:"unit",amount:100},material:{mode:"flat",amount:10},otherCosts:[],contractor:"Unassigned"},
+        {id:"backsplash",title:"Tile Backsplash",details:"Supply and install kitchen backsplash tile with grout and standard trim.",quantity:1,unit:"job",priceMode:"flat",rate:0,flatPrice:4200,sub:{mode:"flat",amount:2100},material:{mode:"flat",amount:350},otherCosts:[],contractor:"Unassigned"}
+      ]}]
+    });
+    const templateState = () => ({
+      mode:"template",
+      projects:[{id:"bathroom",name:"Bathroom remodel",items:[
+        {id:"demo",title:"Demolition and preparation",details:"Protect adjacent areas, remove existing finishes, and prepare surfaces for the remodel.",quantity:1,unit:"job",priceMode:"flat",rate:0,flatPrice:3800,sub:{mode:"flat",amount:1600},material:{mode:"flat",amount:250},otherCosts:[],contractor:"Unassigned"},
+        {id:"tile",title:"Tile installation",details:"Install customer-selected tile on shower walls and bathroom floor, including waterproofing and grout.",quantity:190,unit:"sq ft",priceMode:"unit",rate:85,flatPrice:0,sub:{mode:"unit",amount:40},material:{mode:"unit",amount:16},otherCosts:[],contractor:"Unassigned"}
+      ]}]
+    });
+    const budgetState = () => ({
+      mode:"budget",
+      projects:[{id:"bathroom-budget",name:"Bathroom remodel",items:[
+        {id:"allowance",title:"Preliminary remodel budget",details:"Preliminary allowance for the bathroom remodel. Final selections and detailed scope to be confirmed before sending a firm quote.",quantity:1,unit:"job",priceMode:"flat",rate:0,flatPrice:25000,sub:{mode:"flat",amount:14000},material:{mode:"flat",amount:4500},otherCosts:[],contractor:"Unassigned",preliminary:true}
+      ]}]
+    });
+    let state = initialState();
+    let openItem = "countertops";
+    let reviewTab = "customer";
+    let reviewStage = "preview";
+    let nextId = 1;
+    const formatMoney = value => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:0,maximumFractionDigits:2}).format(Math.round((value+Number.EPSILON)*100)/100);
+    const clean = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    const number = value => Math.max(0, Number(value) || 0);
+    const price = item => item.priceMode === "flat" ? number(item.flatPrice) : number(item.quantity)*number(item.rate);
+    const cost = (item,kind) => number(item[kind].amount)*(item[kind].mode === "unit" ? number(item.quantity) : 1);
+    const extraCost = (item,entry) => number(entry.amount)*(entry.mode === "unit" ? number(item.quantity) : 1);
+    const otherCost = item => (item.otherCosts||[]).reduce((sum,entry)=>sum+extraCost(item,entry),0);
+    const allItems = () => state.projects.flatMap(project => project.items);
+    const totals = () => { const items=allItems(); return {price:items.reduce((sum,item)=>sum+price(item),0),sub:items.reduce((sum,item)=>sum+cost(item,"sub"),0),material:items.reduce((sum,item)=>sum+cost(item,"material"),0),other:items.reduce((sum,item)=>sum+otherCost(item),0)}; };
+    const findProject = id => state.projects.find(project => project.id === id);
+    const findItem = id => allItems().find(item => item.id === id);
+    function selectUnit(unit, selected) { return '<option value="'+unit+'"'+(selected === unit ? ' selected' : '')+'>'+unit+'</option>'; }
+    function modeOptions(item,kind) {
+      const current=item[kind].mode;
+      return '<option value="flat"'+(current==="flat"?' selected':'')+'>flat total</option><option value="unit"'+(current==="unit"?' selected':'')+'>per '+clean(item.unit)+'</option>';
+    }
+    function editor(item) {
+      const isFlat=item.priceMode==="flat";
+      let html='<div class="editor">';
+      html+='<section class="editor-part"><div class="part-head"><h3>Scope of work</h3><span>Shown on customer quote</span></div><div class="scope-grid"><div class="field"><label for="title-'+item.id+'">Work item</label><input id="title-'+item.id+'" class="control" data-item="'+item.id+'" data-field="title" value="'+clean(item.title)+'" placeholder="e.g. New Countertops"></div><div class="field"><label for="details-'+item.id+'">What is included</label><textarea id="details-'+item.id+'" class="control" data-item="'+item.id+'" data-field="details" placeholder="Describe the work the customer is approving">'+clean(item.details)+'</textarea></div></div></section>';
+      html+='<section class="editor-part"><div class="part-head"><h3>Measurement &amp; customer price</h3><span>Shown on customer quote</span></div><div class="pricing-grid">';
+      html+='<div class="field"><label>Measurement</label><div class="measure"><input class="control" type="number" min="0" step="any" data-item="'+item.id+'" data-field="quantity" value="'+item.quantity+'" aria-label="Quantity"><select class="control" data-item="'+item.id+'" data-field="unit" aria-label="Measurement unit">'+["job","sq ft","linear ft","each","hours"].map(unit=>selectUnit(unit,item.unit)).join("")+'</select></div></div>';
+      html+='<div class="field"><label>Charge customer</label><select class="control" data-item="'+item.id+'" data-field="priceMode" aria-label="Customer pricing mode"><option value="unit"'+(!isFlat?' selected':'')+'>per '+clean(item.unit)+'</option><option value="flat"'+(isFlat?' selected':'')+'>flat total</option></select></div>';
+      html+='<div class="field"><label>'+(isFlat?'Flat price':'Price per '+clean(item.unit))+'</label><div class="dollar"><span>$</span><input type="number" min="0" step="any" data-item="'+item.id+'" data-field="'+(isFlat?'flatPrice':'rate')+'" value="'+(isFlat?item.flatPrice:item.rate)+'" aria-label="Customer price"></div></div>';
+      html+='<div class="field"><label>Customer line total</label><output class="calculated" data-out="price" data-item="'+item.id+'">'+formatMoney(price(item))+'</output></div></div><p class="help">Measurement can still be used for costs when the customer price is flat.</p></section>';
+      html+='<section class="editor-part"><div class="part-head"><h3>Estimated costs</h3><span>Internal only · never shown to customer</span></div><div class="cost-grid">';
+      for (const kind of ["sub","material"]) {
+        const title=kind==="sub"?"Subcontractor":"Materials";
+        html+='<div class="field"><div class="cost-head"><label>'+title+'</label><select data-item="'+item.id+'" data-field="'+kind+'Mode" aria-label="'+title+' cost basis">'+modeOptions(item,kind)+'</select></div><div class="dollar"><span>$</span><input type="number" min="0" step="any" data-item="'+item.id+'" data-field="'+kind+'Amount" value="'+item[kind].amount+'" aria-label="'+title+' cost amount"></div><div class="cost-result"><span data-out="'+kind+'Formula" data-item="'+item.id+'">'+(item[kind].mode==="unit"?number(item.quantity)+" × "+formatMoney(item[kind].amount):"Flat cost")+'</span><strong data-out="'+kind+'" data-item="'+item.id+'">'+formatMoney(cost(item,kind))+'</strong></div></div>';
+      }
+      html+='</div><div class="extra-costs"><div class="part-head"><h3>Other direct costs</h3><span>Permits, rentals, disposal, and more</span></div>';
+      for (const entry of item.otherCosts||[]) {
+        html+='<div class="extra-cost-row"><div><label>Type</label><select class="control" data-item="'+item.id+'" data-cost="'+entry.id+'" data-field="extraCategory">'+["Permit","Equipment / rental","Disposal","Other"].map(category=>'<option'+(entry.category===category?' selected':'')+'>'+category+'</option>').join("")+'</select></div><div><label>Description</label><input class="control" data-item="'+item.id+'" data-cost="'+entry.id+'" data-field="extraDescription" value="'+clean(entry.description)+'" placeholder="What is this cost for?"></div><div><label>Basis</label><select class="control" data-item="'+item.id+'" data-cost="'+entry.id+'" data-field="extraMode"><option value="flat"'+(entry.mode==="flat"?' selected':'')+'>flat total</option><option value="unit"'+(entry.mode==="unit"?' selected':'')+'>per '+clean(item.unit)+'</option></select></div><div><label>Amount</label><div class="dollar"><span>$</span><input type="number" min="0" step="any" data-item="'+item.id+'" data-cost="'+entry.id+'" data-field="extraAmount" value="'+entry.amount+'"></div></div><div><label>Total</label><output class="calculated" data-out="extra" data-cost="'+entry.id+'">'+formatMoney(extraCost(item,entry))+'</output></div><button class="extra-remove" data-action="remove-cost" data-item="'+item.id+'" data-cost="'+entry.id+'" aria-label="Remove cost">×</button></div>';
+      }
+      html+='<button class="text-action extra-add" data-action="add-cost" data-item="'+item.id+'">+ Add direct cost</button></div><p class="help">Switching between a rate and a flat cost keeps the current total; edit the amount to change it.</p><div class="field" style="max-width:225px;margin-top:15px"><label>Assigned contractor</label><select class="control" data-item="'+item.id+'" data-field="contractor"><option'+(item.contractor==="Unassigned"?' selected':'')+'>Unassigned</option><option'+(item.contractor==="Skyler Pagan"?' selected':'')+'>Skyler Pagan</option><option'+(item.contractor==="Other contractor"?' selected':'')+'>Other contractor</option></select></div></section>';
+      html+='<div class="item-bottom"><span class="item-math">After entered costs: <strong data-out="remaining" data-item="'+item.id+'">'+formatMoney(price(item)-cost(item,"sub")-cost(item,"material")-otherCost(item))+'</strong></span><div>'+(item.preliminary?'<button class="text-action" data-action="mark-firm" data-item="'+item.id+'" style="margin-right:18px">Mark scope as firm</button>':'')+'<button class="text-action delete" data-action="delete-item" data-item="'+item.id+'">Remove work item</button></div></div></div>';
+      return html;
+    }
+    function itemView(item) {
+      const open=openItem===item.id;
+      const caption=item.details.trim() ? item.details.trim().slice(0,65)+(item.details.trim().length>65?"…":"") : "Add scope details";
+      return '<article class="item" data-id="'+item.id+'"><button class="item-bar" data-action="open-item" data-item="'+item.id+'" aria-expanded="'+open+'"><span><span class="item-name" data-item-name="'+item.id+'">'+clean(item.title.trim()||"Untitled work item")+'</span><span class="item-caption" data-item-caption="'+item.id+'">'+(item.preliminary?'Preliminary allowance · ':'')+clean(caption)+'</span></span><span class="measure-summary"><span class="mini-label">Measurement</span><span class="mini-value" data-out="measure" data-item="'+item.id+'">'+number(item.quantity)+' '+clean(item.unit)+'</span></span><span class="mini-price"><span class="mini-label">Customer price</span><span class="mini-value" data-out="price" data-item="'+item.id+'">'+formatMoney(price(item))+'</span></span><span class="chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?editor(item):'')+'</article>';
+    }
+    function projectView(project) {
+      const total=project.items.reduce((sum,item)=>sum+price(item),0);
+      return '<section class="project" data-project="'+project.id+'"><div class="project-head"><div class="project-head-left"><span class="accent"></span><input class="project-name" aria-label="Project name" data-project="'+project.id+'" data-field="projectName" value="'+clean(project.name)+'"></div><span class="project-sum">'+project.items.length+' item'+(project.items.length===1?'':'s')+' · <strong data-project-total="'+project.id+'">'+formatMoney(total)+'</strong></span></div>'+(project.items.length?project.items.map(itemView).join(""):'<div class="empty">Start this project with a work item.</div>')+'<button class="project-add" data-action="add-item" data-project="'+project.id+'">+ Add work item</button></section>';
+    }
+    function renderSummary() {
+      const total=totals();
+      document.querySelector("#summary").innerHTML='<h2>Quote summary</h2><div class="summary-row lead"><span>Customer total</span><strong data-summary="price">'+formatMoney(total.price)+'</strong></div><hr><div class="summary-row"><span>Subcontractors</span><strong data-summary="sub">'+formatMoney(total.sub)+'</strong></div><div class="summary-row"><span>Materials</span><strong data-summary="material">'+formatMoney(total.material)+'</strong></div><div class="summary-row"><span>Other direct costs</span><strong data-summary="other">'+formatMoney(total.other)+'</strong></div><hr><div class="summary-row remainder"><span>After entered costs</span><strong data-summary="remaining">'+formatMoney(total.price-total.sub-total.material-total.other)+'</strong></div><p class="fineprint">Based only on costs entered here. This is not a final profit figure.</p><button class="primary" data-action="review">Review customer quote</button><div class="secondary"><button class="text-action" data-action="reset">Reset demo</button></div>';
+    }
+    function render() {
+      document.querySelector("#projects").innerHTML=state.projects.map(projectView).join("")+'<button class="text-action add-project" data-action="add-project">+ Add project</button>';
+      renderSummary();
+      document.querySelector("#start-mode").value=state.mode;
+      document.querySelector("#start-description").textContent=state.mode==="template"?"Start with reusable wording and example quantities, then tailor every item and price to this job.":state.mode==="budget"?"Use a rough allowance while selections are unknown; replace it with detailed scope before a firm quote.":"Write project-specific work items directly. A catalog is optional.";
+    }
+    function setText(selector,value) { document.querySelectorAll(selector).forEach(node=>node.textContent=value); }
+    function updateNumbers() {
+      for (const project of state.projects) {
+        setText('[data-project-total="'+project.id+'"]',formatMoney(project.items.reduce((sum,item)=>sum+price(item),0)));
+        for (const item of project.items) {
+          const id=item.id;
+          setText('[data-out="measure"][data-item="'+id+'"]',number(item.quantity)+' '+item.unit);
+          setText('[data-out="price"][data-item="'+id+'"]',formatMoney(price(item)));
+          for (const kind of ["sub","material"]) {
+            setText('[data-out="'+kind+'"][data-item="'+id+'"]',formatMoney(cost(item,kind)));
+            setText('[data-out="'+kind+'Formula"][data-item="'+id+'"]',item[kind].mode==="unit"?number(item.quantity)+" × "+formatMoney(item[kind].amount):"Flat cost");
+          }
+          for (const entry of item.otherCosts||[]) setText('[data-out="extra"][data-cost="'+entry.id+'"]',formatMoney(extraCost(item,entry)));
+          setText('[data-out="remaining"][data-item="'+id+'"]',formatMoney(price(item)-cost(item,"sub")-cost(item,"material")-otherCost(item)));
+        }
+      }
+      const total=totals();
+      setText('[data-summary="price"]',formatMoney(total.price));
+      setText('[data-summary="sub"]',formatMoney(total.sub));
+      setText('[data-summary="material"]',formatMoney(total.material));
+      setText('[data-summary="other"]',formatMoney(total.other));
+      setText('[data-summary="remaining"]',formatMoney(total.price-total.sub-total.material-total.other));
+    }
+    function renderReview() {
+      const items=allItems();
+      const total=totals();
+      const missing=items.filter(item=>!item.title.trim() || price(item)<=0);
+      const withoutScope=items.filter(item=>!item.details.trim());
+      const preliminary=items.filter(item=>item.preliminary);
+      const heading=reviewStage==="preview"?"Check the quote before sending":reviewStage==="email"?"Email the quote":"Demo complete";
+      const step=reviewStage==="preview"?"Step 4 / review":"Step 5 / email quote";
+      let content='<div class="modal" role="dialog" aria-modal="true" aria-label="Review quote"><div class="modal-head"><div><div class="eyebrow">'+step+'</div><h2>'+heading+'</h2></div><button class="close" data-action="close-review" aria-label="Close review">×</button></div>';
+      if (reviewStage==="email") {
+        content+='<div class="review-body"><div class="email-panel"><p>This is the final handoff after approving the customer quote. In the real dashboard, sending would email the quote PDF and record that it was sent.</p><div class="email-field"><span>To</span><strong>alex@example.com <span style="color:#8faabd;font-weight:400">(sample recipient)</span></strong></div><div class="email-field"><span>Subject</span><strong>Premium Remodel Quote #134</strong></div><div class="email-file"><strong>Premium-Remodel-Quote-134.pdf</strong><span>Customer-facing quote · internal costs excluded</span></div></div></div><div class="modal-foot"><button class="text-action" data-action="back-preview">← Back to review</button><button class="primary" data-action="simulate-send">Simulate sending quote</button></div></div>';
+        const overlay=document.querySelector("#review"); overlay.innerHTML=content; overlay.hidden=false; return;
+      }
+      if (reviewStage==="done") {
+        content+='<div class="review-body"><div class="done-mark">Sent in this demo</div><h3 class="done-title">The quote workflow is complete.</h3><p class="done-copy">A real send would email the customer and change the quote status to Sent. This local prototype did neither. You can return to editing or reset the walkthrough.</p></div><div class="modal-foot"><p>No email was sent.</p><button class="primary" data-action="close-review">Back to editor</button></div></div>';
+        const overlay=document.querySelector("#review"); overlay.innerHTML=content; overlay.hidden=false; return;
+      }
+      content+='<div class="tabs"><button class="tab'+(reviewTab==="customer"?' active':'')+'" data-action="review-tab" data-tab="customer">Customer view</button><button class="tab'+(reviewTab==="internal"?' active':'')+'" data-action="review-tab" data-tab="internal">Internal estimate</button></div><div class="review-body">';
+      if (missing.length) content+='<div class="check warn">'+missing.length+' work item'+(missing.length===1?' needs':'s need')+' a name or customer price before sending.</div>';
+      else if (preliminary.length) content+='<div class="check warn">This is a preliminary budget. Confirm selections and replace the allowance with firm scope before sending a final quote.</div>';
+      else if (withoutScope.length) content+='<div class="check warn">'+withoutScope.length+' work item'+(withoutScope.length===1?' has':'s have')+' no scope description. Check that the customer will understand what is included.</div>';
+      else content+='<div class="check">Every work item has a name, scope description, and customer price.</div>';
+      if (reviewTab==="customer") {
+        content+='<div class="customer-paper"><div class="paper-brand">PREMIUM REMODEL</div><p class="paper-meta">Example customer quote · Draft preview</p><h3 class="paper-title">Your remodeling quote</h3>';
+        for (const project of state.projects) {
+          content+='<div class="paper-project"><h3>'+clean(project.name||"Untitled project")+'</h3>';
+          for (const item of project.items) content+='<div class="paper-item"><div><strong>'+clean(item.title||"Untitled work item")+'</strong><p>'+clean(item.details||"Scope details to be added")+'</p></div><span class="paper-price">'+formatMoney(price(item))+'</span></div>';
+          content+='</div>';
+        }
+        content+='<div class="paper-total"><span>Total</span><span>'+formatMoney(total.price)+'</span></div></div>';
+      } else {
+        content+='<table class="internal-table"><thead><tr><th>Work item</th><th>Customer price</th><th>Sub</th><th>Materials</th><th>Other</th><th>After costs</th></tr></thead><tbody>';
+        for (const item of items) content+='<tr><td>'+clean(item.title||"Untitled work item")+'</td><td>'+formatMoney(price(item))+'</td><td>'+formatMoney(cost(item,"sub"))+'</td><td>'+formatMoney(cost(item,"material"))+'</td><td>'+formatMoney(otherCost(item))+'</td><td>'+formatMoney(price(item)-cost(item,"sub")-cost(item,"material")-otherCost(item))+'</td></tr>';
+        content+='</tbody><tfoot><tr><td>Total</td><td>'+formatMoney(total.price)+'</td><td>'+formatMoney(total.sub)+'</td><td>'+formatMoney(total.material)+'</td><td>'+formatMoney(total.other)+'</td><td>'+formatMoney(total.price-total.sub-total.material-total.other)+'</td></tr></tfoot></table>';
+      }
+      const blocked=missing.length>0 || preliminary.length>0 || withoutScope.length>0;
+      content+='</div><div class="modal-foot"><p>'+(blocked?'Resolve the review warning before continuing.':'This prototype only demonstrates the workflow. Nothing is saved or sent.')+'</p><button class="primary" data-action="review-email"'+(blocked?' disabled':'')+'>Continue to email step</button></div></div>';
+      const overlay=document.querySelector("#review");
+      overlay.innerHTML=content;
+      overlay.hidden=false;
+    }
+    document.addEventListener("click",event=>{
+      const button=event.target.closest("[data-action]");
+      if (!button) return;
+      const action=button.dataset.action;
+      if (action==="open-item") { openItem=openItem===button.dataset.item?null:button.dataset.item; render(); }
+      if (action==="add-project") { const id="project-"+nextId++; state.projects.push({id,name:"New project",items:[]}); render(); document.querySelector('[data-field="projectName"][data-project="'+id+'"]').focus(); }
+      if (action==="add-item") { const project=findProject(button.dataset.project); const id="item-"+nextId++; project.items.push({id,title:"",details:"",quantity:1,unit:"job",priceMode:"flat",rate:0,flatPrice:0,sub:{mode:"flat",amount:0},material:{mode:"flat",amount:0},otherCosts:[],contractor:"Unassigned"}); openItem=id; render(); document.querySelector('[data-field="title"][data-item="'+id+'"]').focus(); }
+      if (action==="delete-item") { for (const project of state.projects) project.items=project.items.filter(item=>item.id!==button.dataset.item); openItem=null; render(); }
+      if (action==="mark-firm") { findItem(button.dataset.item).preliminary=false; render(); }
+      if (action==="add-cost") { const item=findItem(button.dataset.item); const id="cost-"+nextId++; item.otherCosts.push({id,category:"Permit",description:"",mode:"flat",amount:0}); render(); document.querySelector('[data-field="extraDescription"][data-cost="'+id+'"]').focus(); }
+      if (action==="remove-cost") { const item=findItem(button.dataset.item); item.otherCosts=item.otherCosts.filter(entry=>entry.id!==button.dataset.cost); render(); }
+      if (action==="review") { reviewTab="customer"; reviewStage="preview"; renderReview(); }
+      if (action==="close-review") { document.querySelector("#review").hidden=true; }
+      if (action==="review-tab") { reviewTab=button.dataset.tab; renderReview(); }
+      if (action==="review-email") { reviewStage="email"; renderReview(); }
+      if (action==="back-preview") { reviewStage="preview"; renderReview(); }
+      if (action==="simulate-send") { reviewStage="done"; renderReview(); }
+      if (action==="reset") { state=initialState(); openItem="countertops"; nextId=1; render(); }
+    });
+    document.addEventListener("input",event=>{
+      const field=event.target.dataset.field;
+      if (!field) return;
+      if (event.target.tagName==="SELECT") return;
+      if (field==="projectName") { findProject(event.target.dataset.project).name=event.target.value; return; }
+      const item=findItem(event.target.dataset.item);
+      if (!item) return;
+      if (field==="extraDescription" || field==="extraAmount") {
+        const entry=item.otherCosts.find(entry=>entry.id===event.target.dataset.cost);
+        if (field==="extraDescription") entry.description=event.target.value;
+        else entry.amount=number(event.target.value);
+        updateNumbers();
+        return;
+      }
+      if (["quantity","rate","flatPrice"].includes(field)) item[field]=number(event.target.value);
+      else if (field==="subAmount") item.sub.amount=number(event.target.value);
+      else if (field==="materialAmount") item.material.amount=number(event.target.value);
+      else item[field]=event.target.value;
+      if (field==="title") setText('[data-item-name="'+item.id+'"]',item.title.trim()||"Untitled work item");
+      if (field==="details") setText('[data-item-caption="'+item.id+'"]',(item.preliminary?"Preliminary allowance · ":"")+(item.details.trim()?item.details.trim().slice(0,65)+(item.details.trim().length>65?"…":""):"Add scope details"));
+      updateNumbers();
+    });
+    document.addEventListener("change",event=>{
+      if (event.target.id==="start-mode") {
+        state=event.target.value==="template"?templateState():event.target.value==="budget"?budgetState():initialState();
+        openItem=state.projects[0].items[0].id;
+        nextId=1;
+        render();
+        return;
+      }
+      const field=event.target.dataset.field;
+      if (!field) return;
+      if (field==="projectName") { render(); return; }
+      const item=findItem(event.target.dataset.item);
+      if (!item) return;
+      if (field==="extraMode" || field==="extraCategory") {
+        const entry=item.otherCosts.find(entry=>entry.id===event.target.dataset.cost);
+        if (field==="extraCategory") entry.category=event.target.value;
+        else {
+          const previousTotal=extraCost(item,entry);
+          entry.mode=event.target.value;
+          entry.amount=event.target.value==="unit" ? (number(item.quantity)>0?previousTotal/number(item.quantity):0) : previousTotal;
+        }
+      } else if (field==="subMode" || field==="materialMode") {
+        const kind=field==="subMode"?"sub":"material";
+        const previousTotal=cost(item,kind);
+        item[kind].mode=event.target.value;
+        item[kind].amount=event.target.value==="unit" ? (number(item.quantity)>0 ? previousTotal/number(item.quantity) : 0) : previousTotal;
+      } else if (field==="priceMode") {
+        const previousTotal=price(item);
+        item.priceMode=event.target.value;
+        if (item.priceMode==="flat") item.flatPrice=previousTotal;
+        else item.rate=number(item.quantity)>0 ? previousTotal/number(item.quantity) : 0;
+      } else if (field==="unit" || field==="contractor") item[field]=event.target.value;
+      if (["unit","priceMode","subMode","materialMode","extraMode"].includes(field)) render();
+      else updateNumbers();
+    });
+    document.addEventListener("keydown",event=>{ if (event.key==="Escape") document.querySelector("#review").hidden=true; });
+    render();
+  </script>
+</body>
+</html>

@@ -9,9 +9,10 @@ import {
 } from "@/lib/pricebook";
 import { readDemoPricebook, writeDemoPricebook } from "@/lib/demo-pricebook";
 import { pricingBases, rateLabel, costRateLabel } from "@/lib/scope-pricing";
-import type { Contractor, User } from "@/lib/types";
+import type { Contractor } from "@/lib/types";
 import { Modal } from "./ui";
 import PricebookAssembliesPanel from "./pricebook-assemblies-panel";
+import { useRegionalFormat } from "./regional-format-context";
 
 type Draft = {
   name: string;
@@ -39,10 +40,6 @@ const blank: Draft = {
   materialRate: "0",
   contractorRates: [],
 };
-const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    cents / 100,
-  );
 function cents(value: string) {
   if (!/^\d+(?:\.\d{1,2})?$/.test(value.trim()))
     throw new Error("Enter a dollar amount with no more than two decimals.");
@@ -70,14 +67,15 @@ function fromItem(item: PricebookItem): Draft {
 }
 
 export default function PricebookPanel({
-  user,
   contractors,
   demo = false,
+  canManage,
 }: {
-  user: User;
   contractors: Contractor[];
   demo?: boolean;
+  canManage: boolean;
 }) {
+  const { cents: money } = useRegionalFormat();
   const [items, setItems] = useState<PricebookItem[]>([]);
   const [view, setView] = useState<"items" | "assemblies">("items");
   const [loading, setLoading] = useState(true);
@@ -317,7 +315,7 @@ export default function PricebookPanel({
             their own editable copy.
           </p>
         </div>
-        {user.role === "admin" && view === "items" && (
+        {canManage && view === "items" && (
           <button className="button primary" type="button" onClick={openNew}>
             <Plus size={16} /> New item
           </button>
@@ -355,7 +353,7 @@ export default function PricebookPanel({
         <PricebookAssembliesPanel
           items={items}
           contractors={contractors}
-          editable={user.role === "admin"}
+          editable={canManage}
           demo={demo}
         />
       ) : (
@@ -400,7 +398,7 @@ export default function PricebookPanel({
                 Save a standard item once, then add it to quotes with the
                 quantity for each job.
               </p>
-              {user.role === "admin" && (
+              {canManage && (
                 <button
                   className="button secondary"
                   type="button"
@@ -492,7 +490,7 @@ export default function PricebookPanel({
                       ))}
                     </div>
                   )}
-                  {user.role === "admin" && (
+                  {canManage && (
                     <div className="pricebook-inspector-actions">
                       <button
                         type="button"
