@@ -1,0 +1,36 @@
+name: Workflow worker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-worker
+  cancel-in-progress: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Process workflow events and waits
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          response=$(curl --fail --silent --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --max-time 65 \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            --header "Content-Type: application/json" \
+            https://servicebuddy-ui.vercel.app/api/workflows/worker)
+          node -e '
+            const result = JSON.parse(process.argv[1]);
+            console.log(`Processed ${result.processed ?? 0} events and ${result.waits?.processed ?? 0} waits.`);
+            if ((result.failed ?? 0) > 0 || (result.waits?.failed ?? 0) > 0) process.exit(1);
+          ' "$response"
