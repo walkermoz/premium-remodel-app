@@ -1,6 +1,7 @@
 import { apiError, requireUser } from "@/lib/auth";
 import { googleMailAddressForOrganization } from "@/lib/google-mail";
 import { hasTwilioConnection } from "@/lib/twilio-connection-store";
+import { configuredDiscordLeadWebhook } from "@/lib/discord-leads";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 
 export const runtime = "nodejs";
@@ -13,6 +14,12 @@ export async function GET() {
       googleMailAddressForOrganization(user.organizationId),
       hasTwilioConnection(user.organizationId),
     ]);
+    let discordConnected = false;
+    try {
+      discordConnected = Boolean(configuredDiscordLeadWebhook());
+    } catch {
+      discordConnected = false;
+    }
     return Response.json(
       {
         email: email ? [{ id: user.organizationId, label: email }] : [],
@@ -21,6 +28,14 @@ export async function GET() {
               {
                 id: user.organizationId,
                 label: "Connected company texting number",
+              },
+            ]
+          : [],
+        webhook: discordConnected
+          ? [
+              {
+                id: "discord_lead_webhook",
+                label: "Connected Discord lead webhook",
               },
             ]
           : [],

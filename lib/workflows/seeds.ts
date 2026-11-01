@@ -21,6 +21,25 @@ const comparison = (
   ...(right ? { right } : {}),
 });
 
+const discordLeadRequestBody = JSON.stringify(
+  {
+    username: "Premium Remodel Bot",
+    allowed_mentions: { parse: [] },
+    embeds: [
+      {
+        title: "🔔 New Lead - Premium Living Home Improvement",
+        description:
+          "🔥 New inbound lead ready for follow-up\n\n**Name**\n{{event.payload.name}}\n\n**Email**\n{{event.payload.email}}\n\n**Phone**\n{{event.payload.phone}}\n\n**Address**\n{{event.payload.address}}, {{event.payload.zip}}\n\n**Project**\n{{event.payload.project}}\n\n**Project description**\n{{event.payload.description}}",
+        color: 3066993,
+        footer: { text: "Premium Remodel Lead Intake" },
+        timestamp: "{{event.occurredAt}}",
+      },
+    ],
+  },
+  null,
+  2,
+);
+
 export type WebsiteLeadSeedOptions = {
   name?: string;
   sourceLabel?: string;
@@ -240,15 +259,22 @@ export function websiteLeadWorkflowSeed(
         },
         {
           id: "team-notification",
-          type: "action.internalNotification",
+          type: "action.webhook",
           kind: "action",
-          name: "Notify the team",
+          name: "Send lead to Discord",
           config: {
             enabled: options.sendTeamNotification ?? true,
+            destination: "discord_lead_webhook",
+            method: "POST",
+            url: "",
+            headers: {},
+            bodyType: "json",
+            body: discordLeadRequestBody,
+            missingValueBehavior: "fallback",
+            fallbackValue: "Not provided",
+            timeoutSeconds: 15,
+            saveResponse: false,
             templateKey: "website-lead-team-notification",
-            channel: "connected_team",
-            title: "New Lead",
-            body: "{{event.payload.name}} requested {{event.payload.project}}.",
           },
           outgoing: [
             { id: "team-end", to: "end-team", label: "Done", order: 0 },

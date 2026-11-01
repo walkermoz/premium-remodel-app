@@ -183,25 +183,56 @@ const waitSchema = z.discriminatedUnion("mode", [
   }),
 ]);
 
-const webhookSchema = z.object({
-  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
-  url: z
-    .string()
-    .url()
-    .max(2_000)
-    .refine(isPublicWorkflowWebhookUrl, "Use a public HTTPS webhook URL."),
-  headers: z
-    .record(z.string().max(120), z.string().max(2_000))
-    .default({})
-    .refine(
-      (headers) =>
-        Object.keys(headers).every((name) => !isSensitiveWorkflowHeader(name)),
-      "Store credentials in an organization connection, not workflow headers.",
-    ),
-  body: z.string().max(100_000).default(""),
-  connectionId: z.string().uuid().optional(),
-  saveResponse: z.boolean().default(false),
-});
+const webhookSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    templateKey: z.string().trim().max(120).optional(),
+    destination: z
+      .enum(["custom", "discord_lead_webhook"])
+      .default("custom"),
+    method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+    url: z.string().max(2_000).default(""),
+    headers: z
+      .record(z.string().max(120), z.string().max(2_000))
+      .default({})
+      .refine(
+        (headers) =>
+          Object.keys(headers).every(
+            (name) => !isSensitiveWorkflowHeader(name),
+          ),
+        "Store credentials in an organization connection, not workflow headers.",
+      ),
+    bodyType: z.enum(["json", "text"]).default("json"),
+    body: z.string().max(100_000).default(""),
+    missingValueBehavior: z
+      .enum(["blank", "fallback", "skip", "error"])
+      .default("blank"),
+    fallbackValue: z.string().max(500).optional(),
+    connectionId: z.string().uuid().optional(),
+    timeoutSeconds: z.number().int().min(1).max(30).default(15),
+    saveResponse: z.boolean().default(false),
+  })
+  .superRefine((config, context) => {
+    if (
+      config.destination === "custom" &&
+      !isPublicWorkflowWebhookUrl(config.url)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["url"],
+        message: "Use a public HTTPS URL without embedded credentials.",
+      });
+    if (config.bodyType === "json" && config.body.trim())
+      try {
+        JSON.parse(config.body);
+      } catch {
+        context.addIssue({
+          code: "custom",
+          path: ["body"],
+          message: "Enter a valid JSON request body.",
+        });
+      }
+  });
 
 const workflowReferenceConfigSchema = z.object({
   workflowId: z.string().uuid(),
@@ -538,8 +569,8 @@ register({
   type: "action.webhook",
   kind: "action",
   category: "Integrations",
-  name: "Outbound webhook",
-  description: "Call a validated external HTTPS endpoint.",
+  name: "HTTPS request",
+  description: "Send a configurable request to a public HTTPS endpoint.",
   icon: "Webhook",
   configSchema: webhookSchema,
   outputFields: ["status", "response"],

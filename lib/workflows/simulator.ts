@@ -1,5 +1,6 @@
 import {
   evaluateWorkflowCondition,
+  interpolateWorkflowJson,
   interpolateWorkflowText,
   resolveWorkflowOperand,
   type ConditionTrace,
@@ -78,6 +79,42 @@ function previewAction(node: WorkflowNode, context: WorkflowContext) {
       body: interpolateWorkflowText(String(config.body || ""), context).value,
       skipped: config.enabled === false,
     };
+  if (node.type === "action.webhook") {
+    const missing =
+      config.missingValueBehavior === "fallback" ||
+      config.missingValueBehavior === "skip" ||
+      config.missingValueBehavior === "error"
+        ? config.missingValueBehavior
+        : "blank";
+    const template = String(config.body || "");
+    const body =
+      config.bodyType !== "text" && template.trim()
+        ? interpolateWorkflowJson(template, context, {
+            missing,
+            fallback:
+              typeof config.fallbackValue === "string"
+                ? config.fallbackValue
+                : undefined,
+          })
+        : interpolateWorkflowText(template, context, {
+            missing,
+            fallback:
+              typeof config.fallbackValue === "string"
+                ? config.fallbackValue
+                : undefined,
+          });
+    return {
+      method: String(config.method || "POST"),
+      destination:
+        config.destination === "discord_lead_webhook"
+          ? "Connected Discord lead webhook"
+          : String(config.url || ""),
+      headers: config.headers || {},
+      body: body.value,
+      skipped: config.enabled === false || body.skipped,
+      responseCapture: config.saveResponse === true,
+    };
+  }
   if (node.type.startsWith("action.create"))
     return {
       operation: "create",

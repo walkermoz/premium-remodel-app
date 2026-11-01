@@ -81,7 +81,7 @@ export function buildDiscordLeadMessage(
   };
 }
 
-function configuredWebhook() {
+export function configuredDiscordLeadWebhook() {
   const value = process.env.DISCORD_LEAD_WEBHOOK_URL;
   if (!value) return null;
   const url = new URL(value);
@@ -101,7 +101,7 @@ export async function sendDiscordLeadNotification(
   const attemptedAt = new Date().toISOString();
   let webhook: string | null;
   try {
-    webhook = configuredWebhook();
+    webhook = configuredDiscordLeadWebhook();
   } catch {
     return { status: "failed", attemptedAt, detail: "Invalid configuration" };
   }
@@ -138,7 +138,7 @@ export async function sendDiscordWorkflowNotification(input: {
   const attemptedAt = new Date().toISOString();
   let webhook: string | null;
   try {
-    webhook = configuredWebhook();
+    webhook = configuredDiscordLeadWebhook();
   } catch {
     return { status: "failed" as const, attemptedAt, detail: "Invalid configuration" };
   }

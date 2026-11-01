@@ -30,6 +30,7 @@ import {
   Trash2,
   Archive,
   Workflow,
+  Webhook,
   X,
   Zap,
   ZoomIn,
@@ -69,6 +70,10 @@ import type { Lead, User } from "@/lib/types";
 type StudioMode = "build" | "test" | "versions" | "runs";
 type InsertionPoint = { sourceId: string; edgeId: string };
 type TestFixtureSource = "manual" | "recent" | "object";
+
+const MIN_TREE_ZOOM = 0.3;
+const MAX_TREE_ZOOM = 1.5;
+const TREE_ZOOM_STEP = 0.1;
 
 type SenderOption = { id: string; label: string };
 
@@ -475,6 +480,7 @@ function nodeIcon(node: WorkflowNode) {
   if (node.type.startsWith("system.")) return ShieldCheck;
   if (node.type === "control.end") return CircleStop;
   if (node.type === "action.sendSms") return MessageSquareText;
+  if (node.type === "action.webhook") return Webhook;
   return Workflow;
 }
 
@@ -497,6 +503,8 @@ function nodeSummary(node: WorkflowNode) {
     return node.config.enabled === false
       ? "Disabled"
       : "Consent-checked Contact text";
+  if (node.type === "action.webhook")
+    return `${String(node.config.method || "POST")} · ${node.config.destination === "discord_lead_webhook" ? "Connected Discord webhook" : String(node.config.url || "Configure HTTPS URL")}`;
   if (node.type === "action.createLead") return "Create and link a Lead";
   if (node.type === "action.findOrCreateContact")
     return "Match email first, then phone";
@@ -1049,10 +1057,15 @@ function starterConfig(type: string): Record<string, unknown> {
     };
   if (type === "action.webhook")
     return {
+      enabled: true,
+      destination: "custom",
       method: "POST",
       url: "https://",
       headers: {},
+      bodyType: "json",
       body: "",
+      missingValueBehavior: "blank",
+      timeoutSeconds: 15,
       saveResponse: false,
     };
   if (type === "action.enrollWorkflow" || type === "action.removeWorkflow")
@@ -1195,7 +1208,8 @@ export default function WorkflowAutomationPanel({
   const [senderOptions, setSenderOptions] = useState<{
     email: SenderOption[];
     sms: SenderOption[];
-  }>({ email: [], sms: [] });
+    webhook: SenderOption[];
+  }>({ email: [], sms: [], webhook: [] });
   const detailRef = useRef<WorkflowDetail | null>(detail);
   const replaceDetail = useCallback((next: WorkflowDetail | null) => {
     detailRef.current = next;
@@ -1203,7 +1217,60 @@ export default function WorkflowAutomationPanel({
   }, []);
   const treeViewportRef = useRef<HTMLDivElement>(null);
   const treeSurfaceRef = useRef<HTMLDivElement>(null);
+  const centerWorkflow = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const viewport = treeViewportRef.current;
+      const surface = treeSurfaceRef.current;
+      if (!viewport || !surface) return;
+      viewport.scrollTo({
+        left: Math.max(0, (surface.scrollWidth - viewport.clientWidth) / 2),
+        top: 0,
+        behavior,
+      });
+    },
+    [],
+  );
+  const fitWorkflow = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const viewport = treeViewportRef.current;
+      const surface = treeSurfaceRef.current;
+      const tree = surface?.querySelector<HTMLElement>(".workflow-tree");
+      if (!viewport || !surface || !tree) return;
+
+      const availableWidth = Math.max(280, viewport.clientWidth - 64);
+      const availableHeight = Math.max(280, viewport.clientHeight - 48);
+      const contentWidth = Math.max(1, tree.scrollWidth);
+      const contentHeight = Math.max(1, tree.scrollHeight);
+      const nextZoom = Math.max(
+        MIN_TREE_ZOOM,
+        Math.min(
+          1,
+          availableWidth / contentWidth,
+          availableHeight / contentHeight,
+        ),
+      );
+
+      setTreeZoom(nextZoom);
+      requestAnimationFrame(() => centerWorkflow(behavior));
+    },
+    [centerWorkflow],
+  );
+  const adjustTreeZoom = useCallback(
+    (change: number) => {
+      setTreeZoom((zoom) =>
+        Math.max(MIN_TREE_ZOOM, Math.min(MAX_TREE_ZOOM, zoom + change)),
+      );
+      requestAnimationFrame(() => centerWorkflow("auto"));
+    },
+    [centerWorkflow],
+  );
   const editable = !demo && user.role === "admin" && !detail?.systemControlled;
+
+  useEffect(() => {
+    if (loading || mode !== "build" || !detail?.id) return;
+    const frame = requestAnimationFrame(() => fitWorkflow("auto"));
+    return () => cancelAnimationFrame(frame);
+  }, [detail?.id, fitWorkflow, loading, mode]);
 
   const loadDetail = useCallback(
     async (id: string) => {
@@ -1330,7 +1397,11 @@ export default function WorkflowAutomationPanel({
             data.error || "Could not load workflow sender connections.",
           );
         if (active)
-          setSenderOptions({ email: data.email || [], sms: data.sms || [] });
+          setSenderOptions({
+            email: data.email || [],
+            sms: data.sms || [],
+            webhook: data.webhook || [],
+          });
       })
       .catch((reason) => {
         if (active)
@@ -2640,49 +2711,40 @@ export default function WorkflowAutomationPanel({
                   >
                     <button
                       type="button"
-                      onClick={() =>
-                        setTreeZoom((zoom) => Math.max(0.55, zoom - 0.1))
-                      }
+                      onClick={() => adjustTreeZoom(-TREE_ZOOM_STEP)}
                       aria-label="Zoom out"
                     >
                       <ZoomOut size={15} />
                     </button>
-                    <span>{Math.round(treeZoom * 100)}%</span>
+                    <span aria-live="polite">{Math.round(treeZoom * 100)}%</span>
                     <button
                       type="button"
-                      onClick={() =>
-                        setTreeZoom((zoom) => Math.min(1.35, zoom + 0.1))
-                      }
+                      onClick={() => adjustTreeZoom(TREE_ZOOM_STEP)}
                       aria-label="Zoom in"
                     >
                       <ZoomIn size={15} />
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const viewport = treeViewportRef.current;
-                        const surface = treeSurfaceRef.current;
-                        if (!viewport || !surface) return;
-                        setTreeZoom(
-                          Math.max(
-                            0.55,
-                            Math.min(
-                              1,
-                              (viewport.clientWidth - 48) / surface.scrollWidth,
-                            ),
-                          ),
-                        );
-                        viewport.scrollTo({
-                          left: 0,
-                          top: 0,
-                          behavior: "smooth",
-                        });
-                      }}
+                      onClick={() => fitWorkflow()}
                     >
                       <Maximize2 size={14} /> Fit workflow
                     </button>
                   </div>
-                  <div className="workflow-tree-viewport" ref={treeViewportRef}>
+                  <div
+                    className="workflow-tree-viewport"
+                    ref={treeViewportRef}
+                    onWheel={(event) => {
+                      if (!event.ctrlKey && !event.metaKey) return;
+                      event.preventDefault();
+                      adjustTreeZoom(
+                        event.deltaY > 0
+                          ? -TREE_ZOOM_STEP
+                          : TREE_ZOOM_STEP,
+                      );
+                    }}
+                    aria-label="Workflow canvas. Hold Control and scroll to zoom."
+                  >
                     <div
                       className="workflow-tree-surface"
                       ref={treeSurfaceRef}
@@ -4902,6 +4964,52 @@ export default function WorkflowAutomationPanel({
                 )}
                 {selectedNode.type === "action.webhook" && (
                   <div className="workflow-schedule-editor">
+                    <label className="workflow-checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={selectedNode.config.enabled !== false}
+                        disabled={!editable}
+                        onChange={(event) =>
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              enabled: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                      <span>Request enabled</span>
+                    </label>
+                    <label className="workflow-field">
+                      <span>Destination</span>
+                      <select
+                        value={String(
+                          selectedNode.config.destination || "custom",
+                        )}
+                        disabled={!editable}
+                        onChange={(event) =>
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              destination: event.target.value,
+                            },
+                          })
+                        }
+                      >
+                        <option value="custom">Custom HTTPS URL</option>
+                        <option value="discord_lead_webhook">
+                          Connected Discord lead webhook
+                        </option>
+                      </select>
+                      {selectedNode.config.destination ===
+                        "discord_lead_webhook" && (
+                        <small>
+                          {demo || senderOptions.webhook.length
+                            ? "The secret URL is stored securely and never exposed in the workflow."
+                            : "Discord is not connected. Add the webhook in secure server settings before publishing."}
+                        </small>
+                      )}
+                    </label>
                     <div className="workflow-schedule-interval">
                       <label className="workflow-field">
                         <span>Method</span>
@@ -4930,8 +5038,17 @@ export default function WorkflowAutomationPanel({
                         <span>Public HTTPS URL</span>
                         <input
                           type="url"
-                          value={String(selectedNode.config.url || "")}
-                          disabled={!editable}
+                          value={
+                            selectedNode.config.destination ===
+                            "discord_lead_webhook"
+                              ? "https://discord.com/api/webhooks/••••••••"
+                              : String(selectedNode.config.url || "")
+                          }
+                          disabled={
+                            !editable ||
+                            selectedNode.config.destination ===
+                              "discord_lead_webhook"
+                          }
                           onChange={(event) =>
                             updateNode({
                               config: {
@@ -4943,9 +5060,130 @@ export default function WorkflowAutomationPanel({
                         />
                       </label>
                     </div>
+                    <div className="workflow-inspector-section-title">
+                      <span>Headers</span>
+                      <button
+                        type="button"
+                        disabled={!editable}
+                        onClick={() => {
+                          const headers = {
+                            ...((selectedNode.config.headers || {}) as Record<
+                              string,
+                              string
+                            >),
+                          };
+                          let index = Object.keys(headers).length + 1;
+                          let name = `X-Custom-Header-${index}`;
+                          while (name in headers)
+                            name = `X-Custom-Header-${++index}`;
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              headers: { ...headers, [name]: "" },
+                            },
+                          });
+                        }}
+                      >
+                        <Plus size={13} /> Add header
+                      </button>
+                    </div>
+                    {Object.entries(
+                      (selectedNode.config.headers || {}) as Record<
+                        string,
+                        string
+                      >,
+                    ).map(([name, value]) => (
+                      <div className="workflow-request-header" key={name}>
+                        <input
+                          aria-label="Header name"
+                          value={name}
+                          disabled={!editable}
+                          onChange={(event) => {
+                            const headers = Object.fromEntries(
+                              Object.entries(
+                                (selectedNode.config.headers || {}) as Record<
+                                  string,
+                                  string
+                                >,
+                              ).map(([currentName, currentValue]) => [
+                                currentName === name
+                                  ? event.target.value
+                                  : currentName,
+                                currentValue,
+                              ]),
+                            );
+                            updateNode({
+                              config: { ...selectedNode.config, headers },
+                            });
+                          }}
+                        />
+                        <input
+                          aria-label={`${name} header value`}
+                          value={value}
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                headers: {
+                                  ...((selectedNode.config.headers || {}) as Record<
+                                    string,
+                                    string
+                                  >),
+                                  [name]: event.target.value,
+                                },
+                              },
+                            })
+                          }
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Remove ${name} header`}
+                          disabled={!editable}
+                          onClick={() =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                headers: Object.fromEntries(
+                                  Object.entries(
+                                    (selectedNode.config.headers || {}) as Record<
+                                      string,
+                                      string
+                                    >,
+                                  ).filter(
+                                    ([currentName]) => currentName !== name,
+                                  ),
+                                ),
+                              },
+                            })
+                          }
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="workflow-field">
+                      <span>Body format</span>
+                      <select
+                        value={String(selectedNode.config.bodyType || "json")}
+                        disabled={!editable}
+                        onChange={(event) =>
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              bodyType: event.target.value,
+                            },
+                          })
+                        }
+                      >
+                        <option value="json">JSON</option>
+                        <option value="text">Plain text</option>
+                      </select>
+                    </label>
                     <label className="workflow-field">
                       <span>Request body</span>
                       <textarea
+                        className="workflow-request-body"
                         value={String(selectedNode.config.body || "")}
                         disabled={!editable}
                         placeholder='{"contactId":"{{contact.id}}"}'
@@ -4959,6 +5197,77 @@ export default function WorkflowAutomationPanel({
                         }
                       />
                     </label>
+                    <div className="workflow-setting-pair">
+                      <label className="workflow-field">
+                        <span>If a value is missing</span>
+                        <select
+                          value={String(
+                            selectedNode.config.missingValueBehavior ||
+                              "blank",
+                          )}
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                missingValueBehavior: event.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option value="blank">Leave it blank</option>
+                          <option value="fallback">Use fallback</option>
+                          <option value="skip">Skip request</option>
+                          <option value="error">Stop with an error</option>
+                        </select>
+                      </label>
+                      <label className="workflow-field">
+                        <span>Timeout in seconds</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={30}
+                          value={Number(
+                            selectedNode.config.timeoutSeconds || 15,
+                          )}
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                timeoutSeconds: Math.min(
+                                  30,
+                                  Math.max(
+                                    1,
+                                    Number(event.target.value) || 15,
+                                  ),
+                                ),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    {selectedNode.config.missingValueBehavior ===
+                      "fallback" && (
+                      <label className="workflow-field">
+                        <span>Fallback value</span>
+                        <input
+                          value={String(
+                            selectedNode.config.fallbackValue || "",
+                          )}
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                fallbackValue: event.target.value,
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    )}
                     <label className="workflow-checkbox-row">
                       <input
                         type="checkbox"
@@ -4976,9 +5285,10 @@ export default function WorkflowAutomationPanel({
                       <span>Expose the response to later steps</span>
                     </label>
                     <p className="workflow-condition-help">
-                      Private network addresses and inline authorization
-                      credentials are blocked. Use a managed organization
-                      connection for secrets.
+                      Requests are limited to public HTTPS destinations.
+                      Private networks, redirects, embedded credentials, and
+                      secret headers are blocked. Use a managed connection for
+                      credentials.
                     </p>
                   </div>
                 )}

@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from "node:util";
 import { getBusinessConfigForOrganization } from "../business-config";
 import { recordContactCommunication } from "../contact-communications";
 import {
+  configuredDiscordLeadWebhook,
   sendDiscordLeadNotification,
   sendDiscordWorkflowNotification,
 } from "../discord-leads";
@@ -19,7 +20,11 @@ import {
 } from "../sms-compliance";
 import { supabaseAdmin } from "../supabase/server";
 import { TwilioConnectionError } from "../twilio-client";
-import { interpolateWorkflowText, resolveWorkflowOperand } from "./conditions";
+import {
+  interpolateWorkflowJson,
+  interpolateWorkflowText,
+  resolveWorkflowOperand,
+} from "./conditions";
 import { workflowNodeDefinition } from "./registry";
 import type {
   WorkflowContext,
@@ -904,23 +909,92 @@ handlers.set("communication.internalNotification", async (input) => {
 });
 
 handlers.set("integration.webhook", async (input) => {
-  const url = await assertPublicWorkflowWebhookUrl(
-    String(input.node.config.url || ""),
-  );
-  const body = interpolateWorkflowText(
-    String(input.node.config.body || ""),
-    input.context,
-  ).value;
+  const websiteLeadRequest =
+    input.node.config.templateKey === "website-lead-team-notification";
+  const attemptedAt = new Date().toISOString();
+  if (input.node.config.enabled === false) {
+    if (websiteLeadRequest)
+      await recordWebsiteLeadDelivery(input, "discordNotification", {
+        status: "skipped",
+        attemptedAt,
+        detail: "Disabled by automation",
+      });
+    return { status: "skipped", summary: "HTTPS request is disabled." };
+  }
+
+  const destination = String(input.node.config.destination || "custom");
+  const configuredUrl =
+    destination === "discord_lead_webhook"
+      ? configuredDiscordLeadWebhook()
+      : String(input.node.config.url || "");
+  if (!configuredUrl) {
+    if (websiteLeadRequest)
+      await recordWebsiteLeadDelivery(input, "discordNotification", {
+        status: "not_configured",
+        attemptedAt,
+        detail: "Discord lead webhook is not connected",
+      });
+    return {
+      status: "skipped",
+      summary: "The selected HTTPS connection is not configured.",
+      output: { status: "not_configured" },
+    };
+  }
+
+  const url = await assertPublicWorkflowWebhookUrl(configuredUrl);
+  const missing =
+    input.node.config.missingValueBehavior === "fallback" ||
+    input.node.config.missingValueBehavior === "skip" ||
+    input.node.config.missingValueBehavior === "error"
+      ? input.node.config.missingValueBehavior
+      : "blank";
+  const bodyType = input.node.config.bodyType === "text" ? "text" : "json";
+  const bodyTemplate = String(input.node.config.body || "");
+  const rendered =
+    bodyType === "json" && bodyTemplate.trim()
+      ? interpolateWorkflowJson(bodyTemplate, input.context, {
+          missing,
+          fallback:
+            typeof input.node.config.fallbackValue === "string"
+              ? input.node.config.fallbackValue
+              : undefined,
+        })
+      : interpolateWorkflowText(bodyTemplate, input.context, {
+          missing,
+          fallback:
+            typeof input.node.config.fallbackValue === "string"
+              ? input.node.config.fallbackValue
+              : undefined,
+        });
+  if (rendered.skipped) {
+    if (websiteLeadRequest)
+      await recordWebsiteLeadDelivery(input, "discordNotification", {
+        status: "skipped",
+        attemptedAt,
+        detail: "A required workflow value was missing",
+      });
+    return {
+      status: "skipped",
+      summary: "HTTPS request skipped because a required value is missing.",
+    };
+  }
+
   const response = await fetch(url, {
     method: String(input.node.config.method || "POST"),
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type":
+        bodyType === "json" ? "application/json" : "text/plain; charset=utf-8",
       ...((input.node.config.headers || {}) as Record<string, string>),
       "Idempotency-Key": input.idempotencyKey,
     },
-    body: input.node.config.method === "GET" ? undefined : body,
+    body: input.node.config.method === "GET" ? undefined : rendered.value,
     redirect: "manual",
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(
+      Math.min(
+        30,
+        Math.max(1, Number(input.node.config.timeoutSeconds) || 15),
+      ) * 1_000,
+    ),
   });
   if (response.status >= 300 && response.status < 400)
     throw new Error("Webhook redirects are not allowed.");
@@ -929,6 +1003,12 @@ handlers.set("integration.webhook", async (input) => {
   const responseText = input.node.config.saveResponse
     ? (await response.text()).slice(0, 50_000)
     : "";
+  if (websiteLeadRequest)
+    await recordWebsiteLeadDelivery(input, "discordNotification", {
+      status: "sent",
+      attemptedAt,
+      detail: `HTTPS ${response.status}`,
+    });
   return {
     summary: `Webhook returned HTTP ${response.status}.`,
     output: {

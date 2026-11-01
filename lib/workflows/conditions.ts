@@ -221,3 +221,47 @@ export function interpolateWorkflowText(
   );
   return { value, skipped: missing && options.missing === "skip", missing };
 }
+
+export function interpolateWorkflowJson(
+  template: string,
+  context: WorkflowContext,
+  options: { missing: MissingValueBehavior; fallback?: string } = {
+    missing: "blank",
+  },
+) {
+  const parsed = JSON.parse(template) as unknown;
+  let missing = false;
+
+  function render(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(render);
+    if (value && typeof value === "object")
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([key, child]) => [
+          key,
+          render(child),
+        ]),
+      );
+    if (typeof value !== "string") return value;
+
+    const exact = value.match(/^\{\{\s*([^{}]+?)\s*\}\}$/);
+    if (exact) {
+      const path = exact[1].trim();
+      const resolved = resolveWorkflowPath(context, path);
+      if (resolved === undefined || resolved === null || resolved === "") {
+        missing = true;
+        if (options.missing === "fallback") return options.fallback || "";
+        if (options.missing === "error")
+          throw new Error(`Workflow value ${path} is missing.`);
+        return "";
+      }
+      return resolved;
+    }
+
+    const interpolated = interpolateWorkflowText(value, context, options);
+    missing ||= interpolated.missing;
+    return interpolated.value;
+  }
+
+  const value = JSON.stringify(render(parsed));
+  return { value, skipped: missing && options.missing === "skip", missing };
+}

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import {
   evaluateWorkflowCondition,
+  interpolateWorkflowJson,
   interpolateWorkflowText,
   isSafeWorkflowRegex,
 } from "../lib/workflows/conditions";
@@ -74,6 +75,16 @@ test("seeded production workflows are valid registered graphs", () => {
       expect.objectContaining({ type: "action.createLead" }),
       expect.objectContaining({ type: "system.smsPolicyGate" }),
       expect.objectContaining({ type: "logic.router" }),
+      expect.objectContaining({
+        id: "team-notification",
+        type: "action.webhook",
+        name: "Send lead to Discord",
+        config: expect.objectContaining({
+          destination: "discord_lead_webhook",
+          method: "POST",
+          bodyType: "json",
+        }),
+      }),
     ]),
   );
 });
@@ -393,6 +404,33 @@ test("interpolation has explicit missing-value behavior", () => {
       },
     ),
   ).toThrow("contact.firstName is missing");
+});
+
+test("JSON request interpolation preserves types and escapes customer text", () => {
+  const rendered = interpolateWorkflowJson(
+    JSON.stringify({
+      name: "{{event.payload.name}}",
+      optedIn: "{{event.payload.optedIn}}",
+      note: "Lead: {{event.payload.note}}",
+      missing: "{{event.payload.missing}}",
+    }),
+    {
+      event: {
+        payload: {
+          name: 'Taylor "T" Reed',
+          optedIn: true,
+          note: "Kitchen\nremodel",
+        },
+      },
+    },
+    { missing: "fallback", fallback: "Not provided" },
+  );
+  expect(JSON.parse(rendered.value)).toEqual({
+    name: 'Taylor "T" Reed',
+    optedIn: true,
+    note: "Lead: Kitchen\nremodel",
+    missing: "Not provided",
+  });
 });
 
 test("outbound webhooks reject private networks and inline credentials", () => {
