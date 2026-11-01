@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClock,
   CalendarPlus,
@@ -89,6 +89,7 @@ export default function LeadsPanel({
   onCreateLead,
   onQuote,
   canQuote = true,
+  initialLeadId = "",
 }: {
   leads: Lead[];
   contacts: Contact[];
@@ -99,8 +100,10 @@ export default function LeadsPanel({
   onCreateLead: (data: ManualLeadInput) => Promise<Lead>;
   onQuote: (lead: Lead, contact: Contact | null, quote?: Quote) => void;
   canQuote?: boolean;
+  initialLeadId?: string;
 }) {
-  const [selectedId, setSelectedId] = useState("");
+  const initialLead = leads.find((candidate) => candidate.id === initialLeadId);
+  const [selectedId, setSelectedId] = useState(initialLead?.id || "");
   const [scheduling, setScheduling] = useState<Lead | null>(null);
   const [saving, setSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
@@ -108,8 +111,23 @@ export default function LeadsPanel({
   const [creating, setCreating] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState("");
-  const [filter, setFilter] = useState<LeadFilter>("Active");
+  const [filter, setFilter] = useState<LeadFilter>(
+    initialLead ? (leadDisposition(initialLead) as LeadFilter) : "Active",
+  );
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+  const openedLeadRef = useRef(initialLead?.id || "");
+
+  useEffect(() => {
+    if (!initialLeadId || openedLeadRef.current === initialLeadId) return;
+    const lead = leads.find((candidate) => candidate.id === initialLeadId);
+    if (!lead) return;
+    openedLeadRef.current = initialLeadId;
+    const timer = window.setTimeout(() => {
+      setFilter(leadDisposition(lead) as LeadFilter);
+      setSelectedId(lead.id);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [initialLeadId, leads]);
 
   const visible = useMemo(
     () =>

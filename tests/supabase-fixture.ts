@@ -4,6 +4,29 @@ import { randomUUID } from "node:crypto";
 import { config } from "dotenv";
 config({ path: ".env.local", quiet: true });
 export const password = "A-long-test-passphrase-927!";
+
+const retryingLocalFetch: typeof fetch = async (input, init) => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    const originalSignal = init?.signal;
+    const abort = () => controller.abort();
+    originalSignal?.addEventListener("abort", abort, { once: true });
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2)
+        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    } finally {
+      clearTimeout(timeout);
+      originalSignal?.removeEventListener("abort", abort);
+    }
+  }
+  throw lastError;
+};
+
 type Company = {
   email: string;
   memberEmail: string;
@@ -17,7 +40,10 @@ export const test = base.extend<{ company: Company }>({
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } },
+      {
+        global: { fetch: retryingLocalFetch },
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
     );
     const suffix = randomUUID();
     const email = `v2-qa-owner-${suffix}@premiumremodel.test`;
@@ -26,7 +52,10 @@ export const test = base.extend<{ company: Company }>({
     try {
       const createdOrg = await admin
         .from("organizations")
-        .insert({ id: org, name: "Temporary v2 integration test" });
+        .upsert(
+          { id: org, name: "Temporary v2 integration test" },
+          { onConflict: "id" },
+        );
       if (createdOrg.error) throw createdOrg.error;
       const owner = await admin.auth.admin.createUser({
         email,
@@ -35,14 +64,14 @@ export const test = base.extend<{ company: Company }>({
       });
       if (owner.error) throw owner.error;
       ownerId = owner.data.user.id;
-      const profile = await admin.from("profiles").insert({
+      const profile = await admin.from("profiles").upsert({
         organization_id: org,
         auth_user_id: ownerId,
         full_name: "Workspace Owner",
         email,
         role: "owner",
         active: true,
-      });
+      }, { onConflict: "auth_user_id" });
       if (profile.error) throw profile.error;
       await runTest({ email, memberEmail, organizationId: org, admin });
     } finally {

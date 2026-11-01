@@ -25,12 +25,13 @@ test("Twilio demo does not request live company credentials", async ({
 cloudTest(
   "Twilio settings are private, administrator-only, responsive, and recover after an error",
   async ({ company, page, request }) => {
+    const testPhone = `+1919${String(Date.now()).slice(-7)}`;
     expect((await request.get("/api/twilio/config")).status()).toBe(401);
     expect(
       (
         await request.post("/api/twilio/install-link", {
           headers: { Origin: "http://localhost:3100" },
-          data: { phone: "(919) 555-0123" },
+          data: { phone: testPhone },
         })
       ).status(),
     ).toBe(401);
@@ -63,7 +64,7 @@ cloudTest(
     expect((await api.get("/api/twilio/config")).status()).toBe(200);
     const unavailableMessage = await api.post("/api/twilio/install-link", {
       headers: { Origin: "http://localhost:3100" },
-      data: { phone: "(919) 555-0123" },
+      data: { phone: testPhone },
     });
     expect(unavailableMessage.status()).toBe(503);
     expect(await unavailableMessage.json()).toEqual({
@@ -78,7 +79,9 @@ cloudTest(
       name: "Phone & texting",
       exact: true,
     });
-    await expect(section).toContainText("Twilio is not connected.");
+    await expect(section).toContainText(
+      "The platform-managed phone account is not configured yet.",
+    );
     const sid = `AC${"a".repeat(32)}`;
     let fail = false;
     await page.route("**/api/twilio/config", (route) =>
@@ -155,11 +158,18 @@ cloudTest(
     await section.getByRole("button", { name: "Check connection" }).click();
     await expect(section).toContainText("Connected · Active account");
     await page.unroute("**/api/twilio/config");
-    const changed = await company.admin
+    const owner = await company.admin
       .from("profiles")
+      .select("id")
+      .eq("organization_id", company.organizationId)
+      .eq("email", company.email)
+      .single();
+    expect(owner.error).toBeNull();
+    const changed = await company.admin
+      .from("remodel_memberships")
       .update({ role: "crew" })
       .eq("organization_id", company.organizationId)
-      .eq("email", company.email);
+      .eq("profile_id", owner.data!.id);
     expect(changed.error).toBeNull();
     expect((await api.get("/api/twilio/config")).status()).toBe(403);
     expect(
@@ -174,7 +184,7 @@ cloudTest(
       (
         await api.post("/api/twilio/install-link", {
           headers: { Origin: "http://localhost:3100" },
-          data: { phone: "(919) 555-0123" },
+          data: { phone: testPhone },
         })
       ).status(),
     ).toBe(403);

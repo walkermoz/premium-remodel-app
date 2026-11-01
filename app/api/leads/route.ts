@@ -16,6 +16,12 @@ import type { Contact, Lead } from "@/lib/types";
 import { parseWebsiteLead } from "@/lib/website-lead-input";
 import { websiteSmsConsentEvidence } from "@/lib/sms-consent";
 import { workspaceActionLabels } from "@/lib/workspace-objects";
+import {
+  createWorkflowEvent,
+  currentWorkflowRolloutMode,
+  recordWorkflowShadowEvent,
+} from "@/lib/workflows/events";
+import { processWorkflowEvent } from "@/lib/workflows/engine";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -174,6 +180,7 @@ export async function POST(request: Request) {
 
     const admin = supabaseAdmin();
     const automation = await getWebsiteLeadAutomation(organizationId);
+    const workflowMode = currentWorkflowRolloutMode();
     const now = new Date().toISOString();
     const contact: Contact = {
       id: randomUUID(),
@@ -213,6 +220,27 @@ export async function POST(request: Request) {
       createdAt: now,
       updatedAt: now,
     };
+    if (workflowMode === "execute" && (!automation.sendAcknowledgement || !email))
+      lead.emailAcknowledgement = {
+        status: "skipped",
+        attemptedAt: now,
+        detail: automation.sendAcknowledgement
+          ? "No email address"
+          : "Disabled by automation",
+      };
+    if (
+      workflowMode === "execute" &&
+      (!automation.sendSmsAcknowledgement || !data.sms_appointment_opt_in || !phone)
+    )
+      lead.smsAcknowledgement = {
+        status: "skipped",
+        attemptedAt: now,
+        detail: !automation.sendSmsAcknowledgement
+          ? "Disabled by automation"
+          : !data.sms_appointment_opt_in
+            ? "Customer did not select appointment and project texts"
+            : "No phone number",
+      };
     const runSteps: AutomationRunStep[] = [
       { key: "contact", label: websiteLeadActions.contact, status: "created" },
       { key: "lead", label: websiteLeadActions.lead, status: "created" },
@@ -236,15 +264,49 @@ export async function POST(request: Request) {
         status: automation.sendTeamNotification ? "pending" : "skipped",
       },
     ];
-    const { data: capture, error: captureError } = await admin
-      .rpc("remodel_capture_website_lead", {
-        p_organization_id: organizationId,
-        p_contact: contact,
-        p_lead: lead,
-        p_match_existing: automation.matchExistingContacts,
-        p_steps: runSteps,
-      })
-      .single();
+    const workflowEvent = createWorkflowEvent({
+      organizationId,
+      type: "website.form.submitted",
+      objectType: "lead",
+      objectId: lead.id,
+      actor: { type: "contact", name: lead.name },
+      occurredAt: lead.submittedAt || lead.createdAt,
+      idempotencyKey: `website-form:${lead.id}`,
+      payload: {
+        firstName,
+        lastName,
+        name,
+        email,
+        phone,
+        zip: data.zip || "",
+        address: data.address || "",
+        project: lead.project,
+        description: lead.projectDescription,
+        smsAppointmentOptIn: lead.smsAppointmentOptIn === true,
+        smsMarketingOptIn: lead.smsMarketingOptIn === true,
+        websiteSubmission: lead.websiteSubmission,
+        smsConsentEvidence: lead.smsConsentEvidence,
+        leadAttribution: lead.leadAttribution || null,
+        otherSubmittedFields: lead.otherSubmittedFields || {},
+      },
+    });
+    const captureRequest =
+      workflowMode === "execute"
+        ? admin.rpc("remodel_capture_workflow_website_lead", {
+            p_organization_id: organizationId,
+            p_contact: contact,
+            p_lead: lead,
+            p_match_existing: automation.matchExistingContacts,
+            p_event: workflowEvent,
+          })
+        : admin.rpc("remodel_capture_website_lead", {
+            p_organization_id: organizationId,
+            p_contact: contact,
+            p_lead: lead,
+            p_match_existing: automation.matchExistingContacts,
+            p_steps: runSteps,
+          });
+    const { data: capture, error: captureError } = await captureRequest.single();
     if (captureError) {
       if (
         data.submission_id &&
@@ -258,14 +320,34 @@ export async function POST(request: Request) {
         return cors(Response.json({ received: true, duplicate: true }), origin);
       throw captureError;
     }
-    const captured = capture as {
-      contact_id: string;
-      run_id: string;
-      contact_reused: boolean;
-    };
-    lead.contactId = captured.contact_id;
-    runSteps[0].status = captured.contact_reused ? "reused" : "created";
-    const runId = captured.run_id;
+    const captured =
+      workflowMode === "execute"
+        ? {
+            contactId: String((capture as Record<string, unknown>).contactId),
+            contactReused: (capture as Record<string, unknown>).contactReused === true,
+            eventId: String((capture as Record<string, unknown>).eventId),
+            runId: null,
+          }
+        : {
+            contactId: String((capture as Record<string, unknown>).contact_id),
+            contactReused: (capture as Record<string, unknown>).contact_reused === true,
+            eventId: null,
+            runId: String((capture as Record<string, unknown>).run_id),
+          };
+    lead.contactId = captured.contactId;
+    runSteps[0].status = captured.contactReused ? "reused" : "created";
+
+    if (workflowMode === "execute") {
+      try {
+        await processWorkflowEvent(captured.eventId!, { mode: "execute" });
+      } catch (error) {
+        // Contact and Lead capture is already committed atomically with the
+        // outbox event. The worker will retry without failing the public form.
+        console.error("Could not execute the website lead workflow immediately.", error);
+      }
+      return cors(Response.json({ received: true }, { status: 201 }), origin);
+    }
+    const runId = captured.runId!;
 
     const [notificationResult, acknowledgementResult, smsResult] =
       await Promise.allSettled([
@@ -373,6 +455,42 @@ export async function POST(request: Request) {
       console.error("Could not record the website lead communication history.");
     }
     await finishWebsiteLeadRun({ organizationId, runId, steps: runSteps });
+
+    try {
+      await recordWorkflowShadowEvent({
+        organizationId,
+        type: "website.form.submitted",
+        objectType: "lead",
+        objectId: lead.id,
+        contactId: lead.contactId,
+        actor: { type: "contact", id: lead.contactId, name: lead.name },
+        occurredAt: lead.submittedAt || lead.createdAt,
+        idempotencyKey: `website-form:${lead.id}`,
+        payload: {
+          firstName,
+          lastName,
+          name,
+          email,
+          phone,
+          zip: data.zip || "",
+          address: data.address || "",
+          project: lead.project,
+          description: lead.projectDescription,
+          smsAppointmentOptIn: lead.smsAppointmentOptIn === true,
+          smsMarketingOptIn: lead.smsMarketingOptIn === true,
+          websiteSubmission: lead.websiteSubmission,
+          smsConsentEvidence: lead.smsConsentEvidence,
+          leadAttribution: lead.leadAttribution || null,
+          otherSubmittedFields: lead.otherSubmittedFields || {},
+          legacyRunId: runId,
+          contactReused: captured.contactReused,
+        },
+      });
+    } catch (error) {
+      // Shadow automation must never turn a successfully captured lead into a
+      // failed form submission. The durable outbox is retried after rollout.
+      console.error("Could not record the website lead workflow shadow run.", error);
+    }
 
     response = Response.json({ received: true }, { status: 201 });
   } catch (error) {

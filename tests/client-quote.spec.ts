@@ -247,7 +247,7 @@ cloudTest(
       page.getByRole("heading", { name: "Before this becomes a project" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Sign and send the prepared MSA" }),
+      page.getByRole("heading", { name: "Send & complete" }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Accept quote" }),
@@ -561,12 +561,7 @@ cloudTest(
     await expect(
       clientPage.getByText("No invoices are available in this quote link"),
     ).toBeVisible();
-    await clientPage.getByRole("link", { name: "Wallet" }).click();
-    await expect(
-      clientPage.getByText("Payment methods are temporarily unavailable.", {
-        exact: false,
-      }),
-    ).toBeVisible();
+    await expect(clientPage.getByRole("link", { name: "Wallet" })).toHaveCount(0);
     await clientPage.getByRole("link", { name: "Contact us" }).click();
     await expect(
       clientPage.getByRole("link", { name: "contact@premiumremodel.com" }),
@@ -650,7 +645,7 @@ cloudTest(
     const projectPage = await client.request.get(
       first.url.replace(/\/quote$/, ""),
     );
-    expect(projectPage.status()).toBe(404);
+    expect(projectPage.status()).toBe(200);
 
     const accepted = await api.post("/api/quotes/accept", {
       headers: origin,

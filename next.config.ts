@@ -37,6 +37,15 @@ const config: NextConfig = {
         ],
       },
       {
+        source: "/api/files",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; sandbox",
+          },
+        ],
+      },
+      {
         source: "/sw.js",
         headers: [
           {

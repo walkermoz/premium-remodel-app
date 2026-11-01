@@ -7,6 +7,7 @@ import {
 import { stripePaymentId } from "@/lib/stripe-payment-utils";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { promotePaidQuote } from "@/lib/quote-promotion";
+import { enqueueWorkflowEvent } from "@/lib/workflows/events";
 
 export const runtime = "nodejs";
 
@@ -158,6 +159,32 @@ export async function POST(request: Request) {
     return Response.json(
       { error: "Could not record payment." },
       { status: 500 },
+    );
+  }
+  try {
+    await enqueueWorkflowEvent({
+      organizationId: meta.organizationId,
+      type: "payment.deposit.received",
+      objectType: "payment",
+      objectId: id,
+      ...(typeof project.data?.contactId === "string"
+        ? { contactId: project.data.contactId }
+        : {}),
+      actor: { type: "integration", id: event.id, name: "Stripe" },
+      occurredAt: now,
+      idempotencyKey: `deposit:stripe:${session.id}`,
+      payload: {
+        quoteId: project.kind === "quote" ? meta.projectId : null,
+        projectId: project.kind === "project" ? meta.projectId : null,
+        amount: session.amount_total / 100,
+        paymentMethod: "Card",
+        stripeSessionId: session.id,
+      },
+    });
+  } catch (workflowError) {
+    console.error(
+      "Could not enqueue the Stripe deposit workflow event",
+      workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
     );
   }
   if (project.kind === "quote") {

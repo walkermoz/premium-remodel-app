@@ -130,3 +130,50 @@ export async function sendDiscordLeadNotification(
     };
   }
 }
+
+export async function sendDiscordWorkflowNotification(input: {
+  title: string;
+  body: string;
+}) {
+  const attemptedAt = new Date().toISOString();
+  let webhook: string | null;
+  try {
+    webhook = configuredWebhook();
+  } catch {
+    return { status: "failed" as const, attemptedAt, detail: "Invalid configuration" };
+  }
+  if (!webhook)
+    return { status: "not_configured" as const, attemptedAt };
+  try {
+    const response = await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "Premium Remodel Bot",
+        allowed_mentions: { parse: [] },
+        embeds: [
+          {
+            title: safeDiscordText(input.title).slice(0, 256),
+            description: safeDiscordText(input.body).slice(0, 4_096),
+            color: 3066993,
+            timestamp: attemptedAt,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok)
+      return {
+        status: response.status >= 500 ? "unknown" as const : "failed" as const,
+        attemptedAt,
+        detail: `Discord returned HTTP ${response.status}`,
+      };
+    return { status: "sent" as const, attemptedAt };
+  } catch {
+    return {
+      status: "unknown" as const,
+      attemptedAt,
+      detail: "Delivery could not be confirmed",
+    };
+  }
+}

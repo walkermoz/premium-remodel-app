@@ -158,6 +158,7 @@ export default function WorkspaceApp({
         ) as Page | undefined) || "Settings",
   );
   const [projectId, setProjectId] = useState("");
+  const [recordId, setRecordId] = useState("");
   const [projectTab, setProjectTab] = useState<ProjectTab>("Overview");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Project["status"]>("In progress");
@@ -307,6 +308,11 @@ export default function WorkspaceApp({
           ? params.get("project") || ""
           : "",
       );
+      setRecordId(
+        nextPage === "Contacts" || nextPage === "Leads" || nextPage === "Upcoming"
+          ? params.get("record") || ""
+          : "",
+      );
       const legacyTab = params.get("tab");
       const nextTab =
         legacyTab === "Tasks" || legacyTab === "Calendar"
@@ -345,6 +351,7 @@ export default function WorkspaceApp({
     if (!canOpenWorkspaceTab(config, user.group, next)) return;
     setPage(next);
     setProjectId(id);
+    setRecordId("");
     setProjectTab(tab);
     setUpcomingView(layout);
     setSidebar(false);
@@ -1702,6 +1709,7 @@ export default function WorkspaceApp({
                   quotes={workspace.quotes || []}
                   search={search}
                   demo={demo}
+                  initialLeadId={recordId}
                   onSaveLead={(data, lead) => save("lead", data, lead)}
                   onCreateLead={createLead}
                   onQuote={(lead, contact, quote) => {
@@ -1730,6 +1738,7 @@ export default function WorkspaceApp({
                   quotes={workspace.quotes || []}
                   search={search}
                   demo={demo}
+                  initialContactId={recordId}
                   canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
                   onAdd={() => setEditor({ kind: "contact" })}
                   onEdit={(contact) =>
@@ -2017,6 +2026,7 @@ export default function WorkspaceApp({
                   </div>
                   <UpcomingPanel
                     workspace={workspace}
+                    initialItemId={recordId}
                     view={upcomingView}
                     onViewChange={changeUpcomingView}
                     onEditTask={(task) =>

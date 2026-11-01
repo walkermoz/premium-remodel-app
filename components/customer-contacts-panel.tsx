@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Ban,
@@ -82,6 +82,7 @@ export default function CustomerContactsPanel({
   onAdd,
   onEdit,
   onQuote,
+  initialContactId = "",
 }: {
   contacts: Contact[];
   leads: Lead[];
@@ -92,8 +93,13 @@ export default function CustomerContactsPanel({
   onAdd: () => void;
   onEdit: (contact: Contact) => void;
   onQuote: (contact: Contact, lead?: Lead) => void;
+  initialContactId?: string;
 }) {
-  const [selected, setSelected] = useState<Contact | null>(null);
+  const all = customerContacts(contacts, leads);
+  const [selected, setSelected] = useState<Contact | null>(
+    () => all.find((contact) => contact.id === initialContactId) || null,
+  );
+  const initialHistoryRef = useRef("");
   const [communications, setCommunications] = useState<ContactCommunication[]>(
     [],
   );
@@ -103,7 +109,6 @@ export default function CustomerContactsPanel({
   const [communicationsLoading, setCommunicationsLoading] = useState(false);
   const [communicationsError, setCommunicationsError] = useState("");
   const [hasMoreCommunications, setHasMoreCommunications] = useState(false);
-  const all = customerContacts(contacts, leads);
   const matching = all
     .filter((contact) =>
       `${contact.name} ${contact.email} ${contact.phone} ${contact.address} ${contact.zip}`
@@ -112,7 +117,7 @@ export default function CustomerContactsPanel({
     )
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  async function loadCommunications(
+  const loadCommunications = useCallback(async function loadCommunications(
     contact: Contact,
     offset = 0,
     append = false,
@@ -147,14 +152,25 @@ export default function CustomerContactsPanel({
     } finally {
       setCommunicationsLoading(false);
     }
-  }
+  }, [demo]);
 
-  function openContact(contact: Contact) {
+  const openContact = useCallback(function openContact(contact: Contact) {
     setSelected(contact);
     setCommunicationFilter("all");
     setCommunications([]);
     void loadCommunications(contact);
-  }
+  }, [loadCommunications]);
+
+  useEffect(() => {
+    if (!initialContactId || initialHistoryRef.current === initialContactId) return;
+    const contact = customerContacts(contacts, leads).find(
+      (candidate) => candidate.id === initialContactId,
+    );
+    if (!contact) return;
+    initialHistoryRef.current = initialContactId;
+    const timer = window.setTimeout(() => openContact(contact), 0);
+    return () => window.clearTimeout(timer);
+  }, [contacts, initialContactId, leads, openContact]);
 
   const visibleCommunications = communications.filter(
     (item) =>

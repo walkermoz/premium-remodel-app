@@ -187,9 +187,10 @@ cloudTest(
     expect(
       (
         await company.admin
-          .from("profiles")
+          .from("remodel_memberships")
           .update({ role: "crew" })
-          .eq("id", profile!.id)
+          .eq("organization_id", company.organizationId)
+          .eq("profile_id", profile!.id)
       ).error,
     ).toBeNull();
     expect(

@@ -56,6 +56,7 @@ import {
 } from "@/lib/workspace-tab-access";
 import { normalizeSmsRecipient } from "@/lib/install-link";
 import { smsDoNotDisturbPhones } from "@/lib/sms-compliance";
+import { emitWorkspaceRecordEvents } from "@/lib/workflows/domain-events";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const filesBucket = "remodel-files";
@@ -505,6 +506,19 @@ async function save(request: Request, editing: boolean) {
       entity: Record<string, unknown> | import("@/lib/types").Entity,
       status: number,
     ) => {
+      after(() =>
+        emitWorkspaceRecordEvents({
+          user,
+          kind: kind as EntityKind,
+          before: (current as Record<string, unknown> | null) || null,
+          after: entity as Record<string, unknown>,
+        }).catch((error) =>
+          console.error(
+            "Could not enqueue workspace workflow events",
+            error instanceof Error ? error.name : "WorkflowEventError",
+          ),
+        ),
+      );
       if (kind === "quote") {
         const quote = entity as Quote;
         if (quote.leadId) {

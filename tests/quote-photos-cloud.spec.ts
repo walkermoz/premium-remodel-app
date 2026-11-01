@@ -98,7 +98,8 @@ cloudTest(
       });
     });
     await page.goto("/?view=Quotes");
-    await page.getByRole("button", { name: /Photo quote/ }).click();
+    await page.getByRole("button", { name: /^Photo quote / }).click();
+    await page.getByRole("button", { name: /Quote & pricing/ }).click();
     await page
       .getByLabel("Caption for before.jpg")
       .fill("Updated existing bathroom");
@@ -124,7 +125,9 @@ cloudTest(
     });
     await page.getByRole("button", { name: "Add concept to quote" }).click();
     await expect(page.getByText("2 of 8 selected")).toBeVisible();
-    await expect(page.getByText("AI concept", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("AI concept", { exact: true }).first(),
+    ).toBeVisible();
     await expect(
       page.getByLabel("Photo type for finished-concept.jpg"),
     ).toHaveCount(0);

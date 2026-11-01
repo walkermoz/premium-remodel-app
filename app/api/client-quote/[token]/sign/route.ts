@@ -11,6 +11,7 @@ import { acceptedScopeSnapshot } from "@/lib/msa-draft";
 import { preparedMsaMatchesQuote } from "@/lib/msa-quote-match";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { QuoteAcceptance } from "@/lib/types";
+import { enqueueWorkflowEvent } from "@/lib/workflows/events";
 
 export const runtime = "nodejs";
 
@@ -161,6 +162,36 @@ export async function POST(
       source.organizationId,
       source.pdfQuote.leadId,
     );
+    try {
+      await Promise.all(
+        (["quote.accepted", "quote.signed"] as const).map((type) =>
+          enqueueWorkflowEvent({
+            organizationId: source.organizationId,
+            type,
+            objectType: "quote",
+            objectId: source.pdfQuote.id,
+            ...(source.pdfQuote.contactId
+              ? { contactId: source.pdfQuote.contactId }
+              : {}),
+            actor: { type: "contact", name: input.signedName },
+            occurredAt: now,
+            idempotencyKey: `${type}:${source.pdfQuote.id}:${now}`,
+            payload: {
+              signedName: input.signedName,
+              linkId,
+              changes: {
+                status: { from: source.pdfQuote.status, to: "Accepted" },
+              },
+            },
+          }),
+        ),
+      );
+    } catch (workflowError) {
+      console.error(
+        "Could not enqueue signed quote workflow events",
+        workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
+      );
+    }
     return Response.json(
       { accepted: true, signedAt: now, nextStep },
       { headers: { "Cache-Control": "private, no-store" } },

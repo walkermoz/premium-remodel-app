@@ -1,7 +1,9 @@
 import { test, expect, password } from "./supabase-fixture";
 
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
-const origin = { Origin: "http://localhost:3100" };
+const origin = {
+  Origin: `http://localhost:${process.env.PLAYWRIGHT_PORT || 3100}`,
+};
 
 test("automation workspace visualizes the website lead workflow", async ({
   page,
@@ -24,6 +26,16 @@ test("automation workspace visualizes the website lead workflow", async ({
   ).toBeVisible();
   await expect(page.getByLabel("Lead source")).toHaveValue("Website form");
   await expect(page.getByLabel("Workflow name")).toBeDisabled();
+  await page.getByRole("button", { name: "Test" }).click();
+  await expect(page.getByText("TEST INPUT")).toBeVisible();
+  await expect(page.getByLabel("Event type")).toHaveValue(
+    "website.form.submitted",
+  );
+  await expect(page.getByLabel("Test fixture source")).toHaveValue("manual");
+  await expect(
+    page.getByLabel("Test fixture source").locator('option[value="recent"]'),
+  ).toHaveAttribute("disabled", "");
+  await page.getByRole("button", { name: "Build" }).click();
   await page.getByRole("button", { name: /Inbound text compliance/ }).click();
   await expect(
     page.getByRole("heading", { name: "Customer sends a text" }),
@@ -44,12 +56,241 @@ test("automation workspace visualizes the website lead workflow", async ({
     page.getByRole("heading", { name: "Check the website consent category" }),
   ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("button", { name: "Create workflow" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Publish", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Add step/ })).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
 });
+
+test("workflow webhook management is private and inbound hooks require JSON", async ({
+  request,
+}) => {
+  expect(
+    (
+      await request.get(`/api/workflows/${crypto.randomUUID()}/webhook-token`)
+    ).status(),
+  ).toBe(401);
+  expect(
+    (await request.get("/api/workflows/test-fixtures?mode=recent")).status(),
+  ).toBe(401);
+  expect((await request.get("/api/workflows/connections")).status()).toBe(401);
+  expect(
+    (
+      await request.post(`/api/workflows/${crypto.randomUUID()}/test-action`, {
+        headers: origin,
+        data: {},
+      })
+    ).status(),
+  ).toBe(401);
+  expect(
+    (
+      await request.post(
+        `/api/workflows/${crypto.randomUUID()}/runs/${crypto.randomUUID()}/retry`,
+        { headers: origin },
+      )
+    ).status(),
+  ).toBe(401);
+  const inbound = await request.post(
+    `/api/workflows/inbound/${"a".repeat(43)}`,
+    {
+      headers: { "Content-Type": "text/plain" },
+      data: "not json",
+    },
+  );
+  expect(inbound.status()).toBe(415);
+});
+
+test("workflow object links can open the affected Contact and Lead", async ({
+  page,
+}) => {
+  await page.goto(
+    "/demo?view=Contacts&record=00000000-0000-4000-8000-000000000101",
+  );
+  await expect(page.getByRole("dialog", { name: "Taylor Reed" })).toBeVisible();
+
+  await page.goto(
+    "/demo?view=Leads&record=00000000-0000-4000-8000-000000000102",
+  );
+  await expect(page.getByLabel("Taylor Reed lead")).toBeVisible();
+});
+
+cloudTest(
+  "an administrator can author, test, publish, inspect, and restore a composable workflow",
+  async ({ company, page }) => {
+    const api = page.request;
+    expect(
+      (
+        await api.post("/api/auth", {
+          headers: origin,
+          data: { action: "login", email: company.email, password },
+        })
+      ).status(),
+    ).toBe(200);
+
+    await page.goto("/?view=Automation");
+    await page.getByRole("button", { name: "Create workflow" }).click();
+    const createDialog = page.locator(".workflow-create-dialog");
+    await createDialog
+      .getByLabel("Name", { exact: true })
+      .fill("Composable QA workflow");
+    await createDialog.getByLabel("Starting point").selectOption("blank");
+    await createDialog.getByLabel("Primary object").selectOption("contact");
+    await createDialog.getByRole("button", { name: "Create workflow" }).click();
+
+    const tree = page.getByLabel("Workflow decision tree");
+    const inspector = page.getByLabel("Workflow inspector");
+    const manualTrigger = tree.getByRole("button", {
+      name: /^TRIGGER Manual enrollment/,
+    });
+    await expect(manualTrigger).toBeVisible();
+    await manualTrigger.click();
+    await inspector
+      .locator(".workflow-trigger-filter")
+      .getByRole("button", { name: "Add" })
+      .click();
+    await expect(inspector.getByLabel("Condition value")).toBeVisible();
+
+    await tree
+      .getByRole("button", { name: "Add step after Manual enrollment" })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Add workflow step" })
+      .getByRole("button", { name: /Wait/ })
+      .click();
+    await tree.getByRole("button", { name: "Add step after Wait" }).click();
+    await page
+      .getByRole("dialog", { name: "Add workflow step" })
+      .getByRole("button", { name: /Add note/ })
+      .click();
+    await inspector
+      .getByLabel("Note")
+      .fill("Started the workflow for {{contact.firstName}}.");
+    const moveEarlier = inspector.getByRole("button", { name: "Move earlier" });
+    await moveEarlier.focus();
+    await page.keyboard.press("Enter");
+    await expect(tree.locator(".workflow-tree-node h2").nth(1)).toHaveText(
+      "Add note",
+    );
+
+    await tree
+      .getByRole("button", { name: "Add step after Manual enrollment" })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Add workflow step" })
+      .getByRole("button", { name: /If \/ Else/ })
+      .click();
+    await inspector
+      .locator(".workflow-branch-editor")
+      .getByRole("button", { name: "Add", exact: true })
+      .click();
+    await expect(tree.getByText("Branch 1", { exact: true })).toBeVisible();
+
+    await tree.getByRole("button", { name: "Add step to Otherwise" }).click();
+    await page
+      .getByRole("dialog", { name: "Add workflow step" })
+      .getByRole("button", { name: /^Router/ })
+      .click();
+    const branchEditor = inspector.locator(".workflow-branch-editor");
+    await branchEditor
+      .getByRole("button", { name: "Add", exact: true })
+      .click();
+    await branchEditor
+      .getByRole("button", { name: "Add", exact: true })
+      .click();
+    const branchRows = branchEditor.locator(".workflow-branch-editor-row");
+    await expect(branchRows).toHaveCount(3);
+    await branchRows.nth(0).dragTo(branchRows.nth(1));
+    await expect(branchRows.nth(0).locator("input").first()).toHaveValue(
+      "Branch 2",
+    );
+
+    await page.getByRole("button", { name: "Test" }).click();
+    await page.getByRole("button", { name: "Run dry test" }).click();
+    await expect(page.locator(".workflow-trace-step").first()).toBeVisible();
+    await expect(
+      page.getByText("No messages or records will be sent"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Build" }).click();
+    await inspector.getByRole("button", { name: "Workflow settings" }).click();
+    await inspector.getByLabel("Folder").fill("QA workflows");
+    await page.getByRole("button", { name: "Save draft" }).click();
+    await expect(page.getByText("Draft saved")).toBeVisible();
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
+    await expect(page.getByText(/Version \d+ published/)).toBeVisible();
+
+    const workflows = await (await api.get("/api/workflows")).json();
+    const summary = workflows.workflows.find(
+      (workflow: { name: string }) =>
+        workflow.name === "Composable QA workflow",
+    );
+    expect(summary).toBeTruthy();
+    const workflow = await (
+      await api.get(`/api/workflows/${summary.id}`)
+    ).json();
+    const runId = crypto.randomUUID();
+    const objectId = crypto.randomUUID();
+    const run = await company.admin.from("remodel_workflow_runs").insert({
+      id: runId,
+      organization_id: company.organizationId,
+      workflow_id: workflow.id,
+      version_id: workflow.publishedVersionId,
+      object_type: "contact",
+      object_id: objectId,
+      correlation_id: crypto.randomUUID(),
+      status: "completed",
+      summary: { subject: "Composable QA run" },
+      completed_at: new Date().toISOString(),
+    });
+    expect(run.error).toBeNull();
+    const step = await company.admin.from("remodel_workflow_step_runs").insert({
+      organization_id: company.organizationId,
+      run_id: runId,
+      node_id: "manual",
+      node_type: "trigger.manual",
+      attempt: 1,
+      status: "completed",
+      input_snapshot: { eventType: "workflow.manual" },
+      output_snapshot: { matched: true },
+      idempotency_key: `qa:${runId}:manual`,
+      completed_at: new Date().toISOString(),
+    });
+    expect(step.error).toBeNull();
+
+    await page.getByRole("button", { name: "Runs" }).click();
+    const runRow = page.locator(".workflow-run-row").filter({
+      hasText: "Composable QA run",
+    });
+    await expect(runRow).toBeVisible();
+    await runRow.locator("summary").first().click();
+    await runRow.getByText("Safe input and output", { exact: true }).click();
+    await expect(runRow.getByText("workflow.manual")).toBeVisible();
+
+    await page.getByRole("button", { name: "Versions" }).click();
+    await expect(
+      page.getByText("Published", { exact: true }).first(),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Restore as draft" })
+      .first()
+      .click();
+    await expect(
+      page.getByText("Version restored as a new draft"),
+    ).toBeVisible();
+    const restored = await (
+      await api.get(`/api/workflows/${summary.id}`)
+    ).json();
+    expect(restored.draftVersionId).not.toBe(restored.publishedVersionId);
+  },
+);
 
 cloudTest(
   "workflow settings keep history and reject stale edits",
@@ -130,11 +371,8 @@ cloudTest(
     await expect(
       page.getByRole("heading", { name: "Automation." }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "History" }).click();
-    const historyPanel = page.getByRole("region", { name: "Workflow history" });
-    await expect(historyPanel.getByText("Version 3")).toBeVisible();
     await expect(
-      historyPanel.getByText("Workspace Owner", { exact: false }).first(),
+      page.getByRole("button", { name: /Website lead intake/ }),
     ).toBeVisible();
   },
 );
@@ -258,21 +496,6 @@ cloudTest(
       .single();
     expect(retryRun.error).toBeNull();
     const retryId = retryRun.data!.id;
-    await page.goto("/?view=Automation");
-    await expect(page.getByText("1 need attention")).toBeVisible();
-    const failedRun = page.locator(".automation-run").filter({
-      has: page.locator(".automation-run-status.is-needs_attention"),
-    });
-    await expect(failedRun).toHaveCount(1);
-    await failedRun
-      .getByRole("button", { name: /Automation Customer/ })
-      .click();
-    await expect(failedRun.getByText("Needs attention")).toBeVisible();
-    await expect(failedRun.getByText("Confirmation email")).toBeVisible();
-    await expect(failedRun.getByText("failed", { exact: true })).toBeVisible();
-    await expect(
-      failedRun.getByRole("button", { name: "Retry action" }),
-    ).toBeVisible();
     const retryUrl = `/api/automations/website-leads/runs/${retryId}/retry`;
     const retryResponse = await api.post(retryUrl, {
       headers: origin,

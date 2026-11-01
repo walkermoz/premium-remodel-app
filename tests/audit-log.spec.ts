@@ -124,7 +124,7 @@ cloudTest(
     }
     await expect(historySection).toContainText("Workspace Owner");
     await expect(historySection).toContainText("Updated audit trail task");
-    await expect(historySection).toContainText("deleted work item");
+    await expect(historySection).toContainText("deleted item");
     await historySection.screenshot({
       path: "artifacts/workspace-history-desktop.png",
     });

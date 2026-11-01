@@ -4,6 +4,7 @@ import { quoteAcceptanceSchema } from "./quote-signature";
 import { msaPaymentRows } from "./msa-contract";
 import { supabaseAdmin } from "./supabase/server";
 import type { Activity, Project, Quote } from "./types";
+import { enqueueWorkflowEvent } from "./workflows/events";
 
 /** The quote remains a quote until the signed scope, signed MSA, and deposit exist. */
 export async function promotePaidQuote(
@@ -89,7 +90,31 @@ export async function promotePaidQuote(
     .eq("updated_at", row.updated_at)
     .select("id");
   if (updateError) throw updateError;
-  if (updated?.length) return project;
+  if (updated?.length) {
+    try {
+      await enqueueWorkflowEvent({
+        organizationId,
+        type: "project.created",
+        objectType: "project",
+        objectId: quoteId,
+        ...(quote.contactId ? { contactId: quote.contactId } : {}),
+        actor: { type: "system", name: "Quote handoff" },
+        occurredAt: now,
+        idempotencyKey: `project-created:${quoteId}:${now}`,
+        payload: {
+          quoteId,
+          status: project.status,
+          changes: { status: { from: quote.status, to: project.status } },
+        },
+      });
+    } catch (workflowError) {
+      console.error(
+        "Could not enqueue the project-created workflow event",
+        workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
+      );
+    }
+    return project;
+  }
   const { data: latest, error: latestError } = await admin
     .from("remodel_records")
     .select("kind,data")

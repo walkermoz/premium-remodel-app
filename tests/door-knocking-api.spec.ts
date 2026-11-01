@@ -5,6 +5,9 @@ import { test, expect, password } from "./supabase-fixture";
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 
 function visit(address: string, createLead = true) {
+  const consultationDate = new Date(Date.now() + 24 * 60 * 60_000)
+    .toISOString()
+    .slice(0, 10);
   return {
     address,
     latitude: 35.7796,
@@ -21,7 +24,7 @@ function visit(address: string, createLead = true) {
     project: createLead ? "Deck" : "",
     projectDescription: createLead ? "Replace the rear deck and railing." : "",
     scheduleQuote: createLead,
-    quoteDate: createLead ? "2026-10-05" : "",
+    quoteDate: createLead ? consultationDate : "",
     quoteStartTime: createLead ? "14:30" : "",
     quoteEndTime: createLead ? "15:30" : "",
     quoteNotes: createLead ? "Meet at the side gate." : "",
@@ -108,7 +111,7 @@ cloudTest(
         headers: { Origin: "http://localhost:3100" },
         data: visit("103 Door Test Lane, Raleigh, NC 27601"),
       });
-      expect(ownVisit.status()).toBe(201);
+      expect(ownVisit.status(), await ownVisit.text()).toBe(201);
       const after = await (await api.get("/api/workspace")).json();
       expect(after.doorVisits).toHaveLength(1);
       expect(after.leads).toHaveLength(1);

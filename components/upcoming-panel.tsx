@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   List,
@@ -58,6 +58,7 @@ export default function UpcomingPanel({
   onAddWork,
   onToggleTask,
   onDeleteTask,
+  initialItemId = "",
 }: {
   workspace: Workspace;
   projectId?: string;
@@ -70,12 +71,21 @@ export default function UpcomingPanel({
   onAddWork: (date?: string, projectId?: string, workType?: WorkType) => void;
   onToggleTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
+  initialItemId?: string;
 }) {
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("All types");
   const [statusFilter, setStatusFilter] = useState("Open");
   const [selectedDay, setSelectedDay] = useState(workToday);
+  const openedItemRef = useRef("");
+  useEffect(() => {
+    if (!initialItemId || openedItemRef.current === initialItemId) return;
+    const task = workspace.tasks.find((candidate) => candidate.id === initialItemId);
+    if (!task) return;
+    openedItemRef.current = initialItemId;
+    onEditTask(task);
+  }, [initialItemId, onEditTask, workspace.tasks]);
   const scopedProject = projectId || projectFilter;
   const today = workToday();
   const entries = calendarEntries(workspace, scopedProject, true, true).filter(

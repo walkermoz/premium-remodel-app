@@ -122,6 +122,8 @@ export async function sendOrganizationSms(
     throw new TwilioConnectionError("Enter a valid mobile phone number.");
   const credentials = await twilioCredentialsForOrganization(organizationId);
   const connection = await readTwilioConnection(credentials);
+  if (!connection.configured)
+    throw new TwilioConnectionError("Twilio messaging is not configured.");
   const sender = connection.numbers.find((number) => number.sms)?.number;
   if (!sender)
     throw new TwilioConnectionError(

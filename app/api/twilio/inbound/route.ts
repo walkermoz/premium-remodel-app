@@ -7,6 +7,11 @@ import {
   organizationForTwilioAccount,
   twilioCredentialsForOrganization,
 } from "@/lib/twilio-connection-store";
+import {
+  currentWorkflowRolloutMode,
+  recordWorkflowEvent,
+  recordWorkflowShadowEvent,
+} from "@/lib/workflows/events";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -52,6 +57,7 @@ export async function POST(request: Request) {
       return twimlResponse(403);
 
     const eventType = classifySmsComplianceEvent(input.Body, input.OptOutType);
+    const workflowMode = currentWorkflowRolloutMode();
     if (eventType)
       await applySmsComplianceEvent({
         organizationId,
@@ -60,6 +66,29 @@ export async function POST(request: Request) {
         eventType,
         messageSid: input.MessageSid,
       });
+
+    const workflowEvent = {
+      organizationId,
+      type: "sms.inbound.received" as const,
+      objectType: "communication" as const,
+      objectId: input.MessageSid,
+      actor: { type: "contact" as const, id: input.From },
+      idempotencyKey: `twilio-inbound:${input.MessageSid}`,
+      payload: {
+        messageSid: input.MessageSid,
+        from: input.From,
+        to: input.To,
+        body: input.Body,
+        complianceType: eventType || null,
+        verified: true,
+      },
+    };
+    try {
+      if (workflowMode === "execute") await recordWorkflowEvent(workflowEvent);
+      else await recordWorkflowShadowEvent(workflowEvent);
+    } catch (error) {
+      console.error("Could not record the inbound SMS workflow run.", error);
+    }
 
     // Twilio sends the HELP/STOP/START acknowledgement. Returning empty TwiML
     // avoids sending a duplicate message while still recording the event.

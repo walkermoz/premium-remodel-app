@@ -7,6 +7,7 @@ import { stripeClient } from "@/lib/stripe-payments";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Activity, Quote } from "@/lib/types";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { enqueueWorkflowEvent } from "@/lib/workflows/events";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,23 @@ export async function POST(
           "This payment request ID was used for another record.",
         );
       const promoted = await promotePaidQuote(user.organizationId, id);
+      try {
+        await enqueueWorkflowEvent({
+          organizationId: user.organizationId,
+          type: "payment.deposit.received",
+          objectType: "payment",
+          objectId: input.requestId,
+          actor: { type: "user", id: user.id, name: user.name },
+          idempotencyKey: `deposit:${input.requestId}`,
+          payload: {
+            quoteId: id,
+            amount: amountCents / 100,
+            paymentMethod: "Check",
+          },
+        });
+      } catch {
+        console.error("Could not enqueue the existing check deposit workflow event.");
+      }
       return Response.json({ recorded: true, projectReady: Boolean(promoted) });
     }
     const { data: row, error } = await admin
@@ -155,6 +173,26 @@ export async function POST(
       }
     }
     const promoted = await promotePaidQuote(user.organizationId, id);
+    try {
+      await enqueueWorkflowEvent({
+        organizationId: user.organizationId,
+        type: "payment.deposit.received",
+        objectType: "payment",
+        objectId: input.requestId,
+        ...(quote.contactId ? { contactId: quote.contactId } : {}),
+        actor: { type: "user", id: user.id, name: user.name },
+        occurredAt: now,
+        idempotencyKey: `deposit:${input.requestId}`,
+        payload: {
+          quoteId: id,
+          amount: amountCents / 100,
+          paymentMethod: "Check",
+          projectReady: Boolean(promoted),
+        },
+      });
+    } catch {
+      console.error("Could not enqueue the check deposit workflow event.");
+    }
     return Response.json({ recorded: true, projectReady: Boolean(promoted) });
   } catch (error) {
     return apiError(error);

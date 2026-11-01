@@ -221,6 +221,108 @@ cloudTest(
   },
 );
 
+cloudTest(
+  "live workflow capture commits Contact, Lead, event, and outbox without a legacy run",
+  async ({ company }) => {
+    const contactId = randomUUID();
+    const leadId = randomUUID();
+    const eventId = randomUUID();
+    const correlationId = randomUUID();
+    const now = new Date().toISOString();
+    const contact = {
+      id: contactId,
+      firstName: "Workflow",
+      lastName: "Capture",
+      name: "Workflow Capture",
+      email: `workflow-${leadId}@example.com`,
+      phone: "+19195550191",
+      zip: "27511",
+      address: "123 Main Street",
+      source: "Website form",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const lead = {
+      id: leadId,
+      contactId,
+      name: contact.name,
+      project: "Kitchen Remodel",
+      projectDescription: "Workflow capture test",
+      status: "New",
+      disposition: "Active",
+      approvalState: "none",
+      source: "Website form",
+      submittedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const captured = await company.admin.rpc(
+      "remodel_capture_workflow_website_lead",
+      {
+        p_organization_id: company.organizationId,
+        p_contact: contact,
+        p_lead: lead,
+        p_match_existing: true,
+        p_event: {
+          id: eventId,
+          schemaVersion: 1,
+          type: "website.form.submitted",
+          organizationId: company.organizationId,
+          actor: { type: "contact", name: contact.name },
+          objectType: "lead",
+          objectId: leadId,
+          occurredAt: now,
+          correlationId,
+          idempotencyKey: `website-form:${leadId}`,
+          payload: { name: contact.name, email: contact.email },
+        },
+      },
+    );
+    expect(captured.error).toBeNull();
+    expect(captured.data).toEqual(
+      expect.objectContaining({
+        contactId,
+        leadId,
+        eventId,
+        eventCreated: true,
+      }),
+    );
+    const [records, workflowEvent, outbox, legacyRun] = await Promise.all([
+      company.admin
+        .from("remodel_records")
+        .select("id,kind")
+        .eq("organization_id", company.organizationId)
+        .in("id", [contactId, leadId]),
+      company.admin
+        .from("remodel_workflow_events")
+        .select("id,contact_id,event_type")
+        .eq("id", eventId)
+        .single(),
+      company.admin
+        .from("remodel_automation_outbox")
+        .select("event_id,status")
+        .eq("event_id", eventId)
+        .single(),
+      company.admin
+        .from("remodel_automation_runs")
+        .select("id")
+        .eq("organization_id", company.organizationId)
+        .eq("lead_id", leadId),
+    ]);
+    expect(
+      records.error || workflowEvent.error || outbox.error || legacyRun.error,
+    ).toBeNull();
+    expect(records.data).toHaveLength(2);
+    expect(workflowEvent.data).toEqual({
+      id: eventId,
+      contact_id: contactId,
+      event_type: "website.form.submitted",
+    });
+    expect(outbox.data).toEqual({ event_id: eventId, status: "pending" });
+    expect(legacyRun.data).toHaveLength(0);
+  },
+);
+
 test("Discord lead notification preserves the form details safely", () => {
   const message = buildDiscordLeadMessage(
     {
