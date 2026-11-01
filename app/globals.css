@@ -856,8 +856,10 @@
   position: relative;
   display: flex;
   width: 100%;
+  height: 68px;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 }
 .workflow-tree-edge::before {
   position: absolute;
@@ -869,21 +871,6 @@
   content: "";
   background: color-mix(in srgb, #8299a9 42%, transparent);
   transform: translateX(-50%);
-}
-.workflow-tree-connector {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: 24px;
-  height: 30px;
-  place-items: end center;
-  color: #6b879a;
-}
-.workflow-tree-connector svg {
-  flex: 0 0 auto;
-  margin-bottom: -7px;
-  background: var(--theme-background, #0d1821);
-  box-shadow: 0 0 0 2px var(--theme-background, #0d1821);
 }
 .workflow-collapsed-branches {
   margin-top: 9px;
@@ -898,7 +885,7 @@
   display: grid;
   width: 24px;
   height: 24px;
-  margin: 7px 0;
+  margin: 0;
   place-items: center;
   padding: 0;
   color: #8dbce5;

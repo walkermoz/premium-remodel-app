@@ -62,8 +62,8 @@ test("automation workspace visualizes the website lead workflow", async ({
     .locator(".workflow-tree-next")
     .evaluateAll((items) =>
       items.slice(0, 4).map((item) => {
-        const connector = item.querySelector<HTMLElement>(
-          ":scope > .workflow-tree-edge > .workflow-tree-connector",
+        const edge = item.querySelector<HTMLElement>(
+          ":scope > .workflow-tree-edge",
         );
         const insert = item.querySelector<HTMLElement>(
           ":scope > .workflow-tree-edge > .workflow-insert-step",
@@ -75,10 +75,10 @@ test("automation workspace visualizes the website lead workflow", async ({
           const bounds = element.getBoundingClientRect();
           return bounds.left + bounds.width / 2;
         };
-        if (!connector || !nextNode) return null;
+        if (!edge || !nextNode) return null;
         const nodeCenter = center(nextNode);
         return {
-          connector: Math.abs(center(connector) - nodeCenter),
+          connector: Math.abs(center(edge) - nodeCenter),
           insert: insert ? Math.abs(center(insert) - nodeCenter) : null,
         };
       }),

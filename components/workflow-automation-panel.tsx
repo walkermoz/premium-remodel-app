@@ -677,9 +677,6 @@ function WorkflowTree({
           edges.map((edge) => (
             <div className="workflow-tree-next" key={edge.id}>
               <div className="workflow-tree-edge">
-                <span className="workflow-tree-connector" aria-hidden="true">
-                  <ArrowDown size={14} />
-                </span>
                 {editable && node.kind !== "terminal" && (
                   <button
                     type="button"
