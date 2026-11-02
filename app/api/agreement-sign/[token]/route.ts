@@ -37,13 +37,12 @@ export async function POST(
       ipHash: agreementSigningIpHash(ip),
       userAgent: request.headers.get("user-agent")?.slice(0, 300),
     });
-    const onsite = new URL(request.url).searchParams.get("mode") === "onsite";
     let nextSigningUrl: string | undefined;
     if (!result.completed && result.nextSigner) {
       const origin = new URL(request.url).origin;
       const signingUrl = `${origin}/agreement/${encodeURIComponent(result.nextSigner.token)}`;
-      if (onsite && result.deliveryMode === "onsite") {
-        nextSigningUrl = `${signingUrl}?mode=onsite`;
+      if (result.deliveryMode === "onsite") {
+        nextSigningUrl = signingUrl;
       } else {
         try {
           await sendWorkflowEmail({

@@ -17,6 +17,7 @@ type PublishedTemplate = {
 type SignerDraft = { roleId: string; name: string; email: string };
 type PacketSummary = {
   id: string;
+  template_id: string;
   status: "draft" | "sent" | "in_progress" | "completed" | "void";
   project_id: string | null;
   template_snapshot: { name?: string };
@@ -55,11 +56,17 @@ export default function AgreementPacketPanel({
   user,
   businessName,
   demo,
+  fixedTemplateId,
+  heading = "Agreement packet",
+  flowResponses = {},
 }: {
   quote: Quote;
   user: User;
   businessName: string;
   demo: boolean;
+  fixedTemplateId?: string | null;
+  heading?: string;
+  flowResponses?: Record<string, unknown>;
 }) {
   const [templates, setTemplates] = useState<PublishedTemplate[]>([]);
   const [packets, setPackets] = useState<PacketSummary[]>([]);
@@ -71,8 +78,11 @@ export default function AgreementPacketPanel({
   const [message, setMessage] = useState("");
   const [links, setLinks] = useState<Array<{ email: string; url: string }>>([]);
   const selected = useMemo(
-    () => templates.find((template) => template.id === templateId) || null,
-    [templateId, templates],
+    () =>
+      templates.find(
+        (template) => template.id === (fixedTemplateId || templateId),
+      ) || null,
+    [fixedTemplateId, templateId, templates],
   );
 
   async function createPacket(deliveryMode: "email" | "onsite") {
@@ -86,7 +96,7 @@ export default function AgreementPacketPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          templateId,
+          templateId: selected?.id || templateId,
           projectId: quote.id,
           contactId: quote.contactId || null,
           deliveryMode,
@@ -103,6 +113,9 @@ export default function AgreementPacketPanel({
               address: quote.address,
             },
             quote,
+            project: quote,
+            custom: flowResponses,
+            payment: { schedule: quote.msaPaymentSchedule || [] },
           },
         }),
       });
@@ -140,7 +153,9 @@ export default function AgreementPacketPanel({
       if (packetResponse.ok)
         setPackets(
           (packetBody.packets || []).filter(
-            (packet: PacketSummary) => packet.project_id === quote.id,
+            (packet: PacketSummary) =>
+              packet.project_id === quote.id &&
+              (!fixedTemplateId || packet.template_id === fixedTemplateId),
           ),
         );
     } catch (cause) {
@@ -186,10 +201,14 @@ export default function AgreementPacketPanel({
             template.sourceType !== "legacy_premium_msa",
         );
         setTemplates(published);
-        setTemplateId(published[0]?.id || "");
+        const initial =
+          published.find(
+            (template: PublishedTemplate) => template.id === fixedTemplateId,
+          ) || published[0];
+        setTemplateId(initial?.id || "");
         setSigners(
           signerDraftsForTemplate(
-            published[0] || null,
+            initial || null,
             quote.client,
             quote.clientEmail || "",
             user.name,
@@ -198,7 +217,9 @@ export default function AgreementPacketPanel({
         );
         setPackets(
           (packetBody.packets || []).filter(
-            (packet: PacketSummary) => packet.project_id === quote.id,
+            (packet: PacketSummary) =>
+              packet.project_id === quote.id &&
+              (!fixedTemplateId || packet.template_id === fixedTemplateId),
           ),
         );
       })
@@ -214,10 +235,18 @@ export default function AgreementPacketPanel({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [demo, quote.client, quote.clientEmail, quote.id, user.email, user.name]);
+  }, [
+    demo,
+    fixedTemplateId,
+    quote.client,
+    quote.clientEmail,
+    quote.id,
+    user.email,
+    user.name,
+  ]);
 
   if (loading) return <p>Loading published agreement templates…</p>;
-  if (!templates.length)
+  if (!templates.length || (fixedTemplateId && !selected))
     return (
       <div className="alert">
         Publish an agreement template in Settings before sending agreements.
@@ -229,42 +258,44 @@ export default function AgreementPacketPanel({
       <div className="business-panel-intro">
         <FileSignature size={22} aria-hidden="true" />
         <div>
-          <h3>Agreement packet</h3>
+          <h3>{heading}</h3>
           <p>
             Choose a published template, confirm every signer, and send a
             private signing link in the template’s signing order.
           </p>
         </div>
       </div>
-      <label>
-        Agreement template
-        <select
-          value={templateId}
-          disabled={busy}
-          onChange={(event) => {
-            const nextTemplateId = event.target.value;
-            const nextTemplate =
-              templates.find((template) => template.id === nextTemplateId) ||
-              null;
-            setTemplateId(nextTemplateId);
-            setSigners(
-              signerDraftsForTemplate(
-                nextTemplate,
-                quote.client,
-                quote.clientEmail || "",
-                user.name,
-                user.email,
-              ),
-            );
-          }}
-        >
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!fixedTemplateId && (
+        <label>
+          Agreement template
+          <select
+            value={templateId}
+            disabled={busy}
+            onChange={(event) => {
+              const nextTemplateId = event.target.value;
+              const nextTemplate =
+                templates.find((template) => template.id === nextTemplateId) ||
+                null;
+              setTemplateId(nextTemplateId);
+              setSigners(
+                signerDraftsForTemplate(
+                  nextTemplate,
+                  quote.client,
+                  quote.clientEmail || "",
+                  user.name,
+                  user.email,
+                ),
+              );
+            }}
+          >
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {selected?.description && <p>{selected.description}</p>}
       <div className="agreement-packet-signers">
         {selected?.signerRoles
@@ -317,7 +348,7 @@ export default function AgreementPacketPanel({
       <button
         type="button"
         className="button primary"
-        disabled={busy || !templateId}
+        disabled={busy || !selected}
         onClick={() => void createPacket("email")}
       >
         <Send size={16} /> {busy ? "Preparing…" : "Create & send agreement"}
@@ -325,7 +356,7 @@ export default function AgreementPacketPanel({
       <button
         type="button"
         className="button secondary"
-        disabled={busy || !templateId}
+        disabled={busy || !selected}
         onClick={() => void createPacket("onsite")}
       >
         <Tablet size={16} /> Sign on this device

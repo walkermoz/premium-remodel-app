@@ -1,0 +1,54 @@
+.control {
+  display: grid;
+  gap: 12px;
+}
+
+.control > label:not(.accept) {
+  display: grid;
+  gap: 6px;
+  color: #526774;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.accept {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #526774;
+  font-size: 12px;
+}
+
+.accept input {
+  width: 16px !important;
+  min-height: 16px !important;
+  flex: 0 0 auto;
+}
+
+.control button {
+  min-height: 42px;
+  justify-self: start;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 5px;
+  color: #07131c;
+  background: #88c3f2;
+  font-weight: 800;
+}
+
+.control button:disabled {
+  opacity: 0.5;
+}
+
+.complete {
+  display: grid;
+  gap: 3px;
+  padding: 14px;
+  border-left: 3px solid #3aa675;
+  background: #eef8f3;
+  color: #173d2c;
+}
+
+.complete span {
+  font-size: 12px;
+}

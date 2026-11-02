@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -24,10 +24,7 @@ import {
   type User,
   type Workspace,
 } from "@/lib/types";
-import {
-  projectFinances,
-  scopeTotal,
-} from "@/lib/project-finances";
+import { projectFinances, scopeTotal } from "@/lib/project-finances";
 import { msaPaymentRows } from "@/lib/msa-contract";
 import { DEFAULT_QUOTE_PROJECT_NAME } from "@/lib/scope-projects";
 import { orderedScopeItems } from "@/lib/scope-order";
@@ -54,6 +51,89 @@ import {
 } from "@/lib/quote-price-display";
 import { useRegionalFormat } from "./regional-format-context";
 import AgreementPacketPanel from "./agreement-packet-panel";
+import QuoteFlowRenderer from "./quote-flow-renderer";
+import QuoteFlowInPersonControl from "./quote-flow-in-person-control";
+import QuoteFlowFileControl from "./quote-flow-file-control";
+import QuoteFlowPaymentControl from "./quote-flow-payment-control";
+import {
+  quoteFlowConditionsMatch,
+  type QuoteFlowCondition,
+  type QuoteFlowDefinition,
+  type QuoteFlowStage,
+} from "@/lib/quote-flow-schema";
+
+type QuoteFlowInstanceDto = {
+  id: string;
+  status: "active" | "completed" | "cancelled";
+  currentStageId: string;
+  definition: QuoteFlowDefinition;
+  values: Array<{
+    stageId: string;
+    blockId: string;
+    value: unknown;
+  }>;
+  events: Array<{
+    id: string;
+    stageId: string;
+    blockId: string;
+    eventType: string;
+    actorName: string | null;
+    createdAt: string;
+  }>;
+};
+
+function legacyStepForStage(stage: QuoteFlowStage): QuoteWorkflowStep | null {
+  if (
+    stage.type === "quote_builder" &&
+    stage.blocks.some(
+      (block) => block.config.renderer === "premium_quote_builder_v1",
+    )
+  )
+    return "quote";
+  if (
+    stage.type === "agreement_details" &&
+    stage.blocks.some(
+      (block) => block.config.renderer === "legacy_premium_msa_v1",
+    )
+  )
+    return "agreement";
+  if (
+    stage.type === "delivery" &&
+    stage.blocks.some(
+      (block) => block.config.renderer === "legacy_quote_portal_v1",
+    )
+  )
+    return "completion";
+  if (
+    stage.type === "project_conversion" &&
+    stage.blocks.some(
+      (block) => block.config.renderer === "premium_quote_promotion_v1",
+    )
+  )
+    return "project";
+  return null;
+}
+
+function agreementTemplateForStage(
+  definition: QuoteFlowDefinition,
+  stageId: string,
+) {
+  const stageIndex = definition.stages.findIndex(
+    (stage) => stage.id === stageId,
+  );
+  for (let index = stageIndex; index >= 0; index -= 1) {
+    const document = [...definition.stages[index].blocks]
+      .reverse()
+      .find(
+        (block) =>
+          block.enabled &&
+          ["uploaded_pdf", "generated_document"].includes(block.type) &&
+          typeof block.config.templateId === "string",
+      );
+    if (document) return String(document.config.templateId);
+  }
+  return null;
+}
 
 export default function QuotesPanel({
   workspace,
@@ -394,9 +474,37 @@ export function QuoteDetail({
   const readyForProjects =
     signedScope && signedMsa && depositCents > 0 && dueCents === 0;
   const handoffDemo = quote.id === QUOTE_HANDOFF_DEMO_ID;
-  const [workflowStep, setWorkflowStep] = useState<QuoteWorkflowStep>(() =>
-    readyForProjects ? "project" : quote.quoteSentAt ? "completion" : "quote",
+  const canMarkInPerson =
+    user.group === "owner" ||
+    config.rolePermissions[user.group].includes("agreements.mark_in_person");
+  const canSignOnBehalf =
+    user.group === "owner" ||
+    config.rolePermissions[user.group].includes("agreements.sign_on_behalf");
+  const canViewStaffFlowContent =
+    user.group === "owner" ||
+    config.rolePermissions[user.group].includes(
+      "quote_flows.staff_content.view",
+    );
+  const canOverrideFlow =
+    user.group === "owner" ||
+    config.rolePermissions[user.group].includes("quote_flows.override");
+  const [workflowStep, setWorkflowStepState] = useState<QuoteWorkflowStep>(
+    () =>
+      readyForProjects ? "project" : quote.quoteSentAt ? "completion" : "quote",
   );
+  const [flowInstance, setFlowInstance] = useState<QuoteFlowInstanceDto | null>(
+    null,
+  );
+  const [configuredStageId, setConfiguredStageId] = useState("");
+  const [flowValueBusy, setFlowValueBusy] = useState("");
+  const [flowPaymentRequestIds, setFlowPaymentRequestIds] = useState<
+    Record<string, string>
+  >({});
+  const [pendingOverride, setPendingOverride] = useState<{
+    stage: QuoteFlowStage;
+    message: string;
+  } | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
   const quoteDetailsReady = Boolean(
     quote.client.trim() && quote.clientEmail?.trim() && items.length,
   );
@@ -409,6 +517,407 @@ export function QuoteDetail({
     !config.features.agreements ||
     (agreementDetailsReady &&
       (signedScope || quote.msaAgreement?.status === "prepared"));
+  const flowValues = Object.fromEntries(
+    (flowInstance?.values || []).map((item) => [item.blockId, item.value]),
+  );
+  function resolveFlowCondition(condition: QuoteFlowCondition) {
+    const key = condition.fieldKey || "";
+    const quoteData = quote as unknown as Record<string, unknown>;
+    if (condition.field === "quote.total") return finances.total;
+    if (condition.field === "quote.item_ids")
+      return items.map((item) => item.id);
+    if (condition.field === "quote.categories")
+      return items.map((item) => item.sectionName || quote.category);
+    if (condition.field === "project.type") return quote.category;
+    if (condition.field === "staff.role") return user.group;
+    if (condition.field === "payment.status")
+      return readyForProjects ? "paid" : paidCents > 0 ? "partial" : "unpaid";
+    if (condition.field === "signature.status")
+      return signedScope && signedMsa
+        ? "complete"
+        : signedScope
+          ? "quote_signed"
+          : "pending";
+    if (condition.field === "contact.field") {
+      const contact: Record<string, unknown> = {
+        name: quote.client,
+        email: quote.clientEmail,
+        phone: quote.clientPhone,
+        address: quote.address,
+      };
+      return contact[key];
+    }
+    if (condition.field === "project.field") return quoteData[key];
+    if (
+      condition.field === "custom.field" ||
+      condition.field === "customer.response"
+    )
+      return flowValues[key];
+    return undefined;
+  }
+  const configuredStages = (flowInstance?.definition.stages || []).filter(
+    (stage) =>
+      stage.enabled &&
+      quoteFlowConditionsMatch(stage.conditions, resolveFlowCondition),
+  );
+  const activeConfiguredStage = configuredStages.find(
+    (stage) => stage.id === configuredStageId,
+  );
+  const activeAgreementTemplateId =
+    flowInstance && activeConfiguredStage
+      ? agreementTemplateForStage(
+          flowInstance.definition,
+          activeConfiguredStage.id,
+        )
+      : null;
+  const activeLegacyStep = activeConfiguredStage
+    ? legacyStepForStage(activeConfiguredStage)
+    : workflowStep;
+  const showingCustomStage = Boolean(
+    activeConfiguredStage && !legacyStepForStage(activeConfiguredStage),
+  );
+  const showQuoteStage = !showingCustomStage && activeLegacyStep === "quote";
+  const showAgreementStage =
+    !showingCustomStage && activeLegacyStep === "agreement";
+  const showCompletionStage =
+    !showingCustomStage && activeLegacyStep === "completion";
+  const showProjectStage =
+    !showingCustomStage && activeLegacyStep === "project";
+
+  useEffect(() => {
+    if (demo || handoffDemo) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        let response = await fetch(
+          `/api/quote-flow-instances?quoteId=${encodeURIComponent(quote.id)}`,
+          { cache: "no-store" },
+        );
+        let body = await response.json().catch(() => ({}));
+        let instance = body.instance as QuoteFlowInstanceDto | null;
+        if (response.ok && !instance) {
+          response = await fetch("/api/quote-flow-instances", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ quoteId: quote.id }),
+          });
+          body = await response.json().catch(() => ({}));
+          instance = response.ok ? (body as QuoteFlowInstanceDto) : null;
+        }
+        if (!cancelled && instance) {
+          setFlowInstance(instance);
+          setConfiguredStageId(instance.currentStageId);
+          const stage = instance.definition.stages.find(
+            (candidate) => candidate.id === instance.currentStageId,
+          );
+          const mapped = stage ? legacyStepForStage(stage) : null;
+          if (mapped) setWorkflowStepState(mapped);
+        }
+      } catch {
+        // The legacy flow remains available if an organization has not
+        // published a modular template yet.
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [demo, handoffDemo, quote.id]);
+
+  async function selectConfiguredStage(
+    stage: QuoteFlowStage,
+    allowOverride = false,
+  ) {
+    if (!flowInstance) {
+      setConfiguredStageId(stage.id);
+      const mapped = legacyStepForStage(stage);
+      if (mapped) setWorkflowStepState(mapped);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/quote-flow-instances/${flowInstance.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "move_stage",
+            stageId: stage.id,
+            allowOverride,
+            overrideReason: allowOverride ? overrideReason : "",
+          }),
+        },
+      );
+      const body = await response.json();
+      if (!response.ok) {
+        if (response.status === 409 && canOverrideFlow)
+          setPendingOverride({
+            stage,
+            message: body.error || "Required steps are incomplete.",
+          });
+        else
+          setError(
+            body.error || "Complete the required step before continuing.",
+          );
+        return;
+      }
+      setFlowInstance(body as QuoteFlowInstanceDto);
+      setConfiguredStageId(stage.id);
+      const mapped = legacyStepForStage(stage);
+      if (mapped) setWorkflowStepState(mapped);
+      setPendingOverride(null);
+      setOverrideReason("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not move to this step.",
+      );
+    }
+  }
+
+  function setWorkflowStep(step: QuoteWorkflowStep) {
+    setWorkflowStepState(step);
+    const configured = configuredStages.find(
+      (stage) => legacyStepForStage(stage) === step,
+    );
+    if (configured) {
+      const currentIndex = configuredStages.findIndex(
+        (stage) => stage.id === configuredStageId,
+      );
+      const targetIndex = configuredStages.findIndex(
+        (stage) => stage.id === configured.id,
+      );
+      const next =
+        currentIndex >= 0 && targetIndex > currentIndex
+          ? configuredStages[currentIndex + 1]
+          : configured;
+      if (next) void selectConfiguredStage(next);
+    }
+  }
+
+  function selectWorkflowStage(id: string) {
+    const configured = configuredStages.find((stage) => stage.id === id);
+    if (configured) void selectConfiguredStage(configured);
+    else setWorkflowStepState(id as QuoteWorkflowStep);
+  }
+
+  async function saveFlowValue(blockId: string, value: unknown) {
+    if (!flowInstance || !activeConfiguredStage) return;
+    setFlowValueBusy(blockId);
+    try {
+      const response = await fetch(
+        `/api/quote-flow-instances/${flowInstance.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "save_value",
+            stageId: activeConfiguredStage.id,
+            blockId,
+            value,
+          }),
+        },
+      );
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not save this response.");
+      setFlowInstance(body as QuoteFlowInstanceDto);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not save this response.",
+      );
+    } finally {
+      setFlowValueBusy("");
+    }
+  }
+
+  async function uploadFlowFile(blockId: string, file: File) {
+    setFlowValueBusy(blockId);
+    try {
+      const form = new FormData();
+      form.set("projectId", quote.id);
+      form.set("file", file);
+      const response = await fetch("/api/files", {
+        method: "POST",
+        body: form,
+      });
+      const attachment = await response.json();
+      if (!response.ok)
+        throw new Error(attachment.error || "Could not upload this file.");
+      await saveFlowValue(blockId, {
+        id: attachment.id,
+        name: attachment.name,
+        mime: attachment.mime,
+        size: attachment.size,
+      });
+    } catch (cause) {
+      const message =
+        cause instanceof Error ? cause.message : "Could not upload this file.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setFlowValueBusy("");
+    }
+  }
+
+  async function markFlowSignedInPerson(
+    blockId: string,
+    input: { signedName: string; reference: string },
+  ) {
+    if (!flowInstance || !activeConfiguredStage) return;
+    setFlowValueBusy(blockId);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/quote-flow-instances/${flowInstance.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "mark_signed_in_person",
+            stageId: activeConfiguredStage.id,
+            blockId,
+            ...input,
+          }),
+        },
+      );
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not record this signature.");
+      setFlowInstance(body as QuoteFlowInstanceDto);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not record this signature.",
+      );
+      throw cause;
+    } finally {
+      setFlowValueBusy("");
+    }
+  }
+
+  async function signFlowOnBehalf(
+    blockId: string,
+    input: { signedName: string; authorization: string },
+  ) {
+    if (!flowInstance || !activeConfiguredStage) return;
+    setFlowValueBusy(blockId);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/quote-flow-instances/${flowInstance.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "sign_on_behalf",
+            stageId: activeConfiguredStage.id,
+            blockId,
+            ...input,
+          }),
+        },
+      );
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not record this signature.");
+      setFlowInstance(body as QuoteFlowInstanceDto);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not record this signature.",
+      );
+      throw cause;
+    } finally {
+      setFlowValueBusy("");
+    }
+  }
+
+  async function convertConfiguredFlowToProject(blockId: string) {
+    if (!flowInstance || !activeConfiguredStage) return;
+    setFlowValueBusy(blockId);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/quote-flow-instances/${flowInstance.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "convert_to_project",
+            stageId: activeConfiguredStage.id,
+            blockId,
+          }),
+        },
+      );
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not create this project.");
+      onProjectReady(quote.id);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not create this project.",
+      );
+    } finally {
+      setFlowValueBusy("");
+    }
+  }
+
+  async function recordConfiguredFlowPayment(
+    blockId: string,
+    input: {
+      amount: number;
+      method: "Check" | "Cash" | "Bank transfer" | "Other";
+      reference: string;
+    },
+  ) {
+    if (!flowInstance || !activeConfiguredStage) return;
+    const requestId = flowPaymentRequestIds[blockId] || crypto.randomUUID();
+    setFlowPaymentRequestIds((current) => ({
+      ...current,
+      [blockId]: requestId,
+    }));
+    setFlowValueBusy(blockId);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/quote-flow-instances/${flowInstance.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "record_manual_payment",
+            stageId: activeConfiguredStage.id,
+            blockId,
+            requestId,
+            ...input,
+          }),
+        },
+      );
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not record this payment.");
+      setFlowInstance(body as QuoteFlowInstanceDto);
+      setFlowPaymentRequestIds((current) => {
+        const next = { ...current };
+        delete next[blockId];
+        return next;
+      });
+      await onSent();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not record this payment.",
+      );
+    } finally {
+      setFlowValueBusy("");
+    }
+  }
   async function recordCheck(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (checkBusy) return;
@@ -628,7 +1137,7 @@ export function QuoteDetail({
           {!demo &&
             quote.clientEmail &&
             !signedScope &&
-            workflowStep === "completion" && (
+            showCompletionStage && (
               <button
                 className="button primary"
                 disabled={busy || sendBusy}
@@ -670,7 +1179,7 @@ export function QuoteDetail({
             <Download size={15} />
             {signedScope ? "Download signed quote" : "Download PDF"}
           </a>
-          {!signedScope && (handoffDemo || workflowStep === "quote") && (
+          {!signedScope && (handoffDemo || showQuoteStage) && (
             <button
               className="button secondary"
               disabled={busy}
@@ -839,14 +1348,434 @@ export function QuoteDetail({
       )}
       {!handoffDemo && (
         <QuoteWorkflowStepper
-          active={workflowStep}
+          active={configuredStageId || workflowStep}
           agreementReady={quoteDetailsReady}
           completionReady={agreementReadyForSharing}
           projectReady={readyForProjects}
-          onSelect={setWorkflowStep}
+          configuredStages={configuredStages}
+          onSelect={selectWorkflowStage}
         />
       )}
-      {(handoffDemo || workflowStep === "quote") && quote.description && (
+      {pendingOverride && (
+        <section
+          className="workflow-override-panel"
+          aria-label="Override required step"
+        >
+          <div>
+            <strong>Required work is incomplete</strong>
+            <p>{pendingOverride.message}</p>
+          </div>
+          <label>
+            Override reason
+            <input
+              value={overrideReason}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              placeholder="Explain why this quote can continue"
+              minLength={5}
+              maxLength={500}
+            />
+          </label>
+          <div>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => {
+                setPendingOverride(null);
+                setOverrideReason("");
+              }}
+            >
+              Keep working
+            </button>
+            <button
+              type="button"
+              className="button primary"
+              disabled={overrideReason.trim().length < 5}
+              onClick={() =>
+                void selectConfiguredStage(pendingOverride.stage, true)
+              }
+            >
+              Override and continue
+            </button>
+          </div>
+        </section>
+      )}
+      {!handoffDemo &&
+        showingCustomStage &&
+        flowInstance &&
+        activeConfiguredStage && (
+          <section
+            className="workflow-live-step"
+            aria-label={activeConfiguredStage.title}
+          >
+            <QuoteFlowRenderer
+              definition={flowInstance.definition}
+              audience="both"
+              mode="staff"
+              activeStageId={activeConfiguredStage.id}
+              values={flowValues}
+              resolveCondition={resolveFlowCondition}
+              showNavigation={false}
+              showFooter={false}
+              blockFilter={(block) =>
+                block.type !== "staff_information" || canViewStaffFlowContent
+              }
+              renderBlock={(block) => {
+                if (block.type === "contact_fields")
+                  return (
+                    <div className="workflow-configured-object">
+                      <dl>
+                        <div>
+                          <dt>Name</dt>
+                          <dd>{quote.client || "Not selected"}</dd>
+                        </div>
+                        <div>
+                          <dt>Email</dt>
+                          <dd>{quote.clientEmail || "Not provided"}</dd>
+                        </div>
+                        <div>
+                          <dt>Phone</dt>
+                          <dd>{quote.clientPhone || "Not provided"}</dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => onEdit({ kind: "quote", entity: quote })}
+                      >
+                        <Pencil size={15} /> Edit contact
+                      </button>
+                    </div>
+                  );
+                if (block.type === "project_fields")
+                  return (
+                    <div className="workflow-configured-object">
+                      <dl>
+                        <div>
+                          <dt>Project</dt>
+                          <dd>{quote.name || "Untitled quote"}</dd>
+                        </div>
+                        <div>
+                          <dt>Type</dt>
+                          <dd>{quote.category || "Not selected"}</dd>
+                        </div>
+                        <div>
+                          <dt>Address</dt>
+                          <dd>{quote.address || "Not provided"}</dd>
+                        </div>
+                      </dl>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => onEdit({ kind: "quote", entity: quote })}
+                      >
+                        <Pencil size={15} /> Edit project
+                      </button>
+                    </div>
+                  );
+                if (block.type === "quote_items")
+                  return signedScope ? (
+                    <table
+                      className="scope-table"
+                      aria-label="Signed quote scope"
+                    >
+                      <thead>
+                        <tr>
+                          <th>Item</th>
+                          <th>Price</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item) => (
+                          <tr key={item.id}>
+                            <td>
+                              <strong>{item.title}</strong>
+                              {item.details && <small>{item.details}</small>}
+                            </td>
+                            <td>{regional.money(item.estimate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <ScopeTable
+                      items={items}
+                      workspace={workspace}
+                      pricebookEnabled={
+                        config.features.priceBook &&
+                        config.quotePreferences.showPriceBookPicker
+                      }
+                      demoPricebook={demo}
+                      showInternalCosts={
+                        config.quotePreferences.showInternalCosts
+                      }
+                      inline
+                      compactQuoteRows
+                      showStatus={false}
+                      projectId={quote.id}
+                      defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
+                      onSave={(data, item) => onSave("scope", data, item)}
+                      onReorder={onReorderScope}
+                      onBulkPrice={onPriceScope}
+                      onRefresh={onSent}
+                      onDelete={(item) => onDelete("scope", item)}
+                    />
+                  );
+                if (block.type === "scope_of_work")
+                  return (
+                    <div className="workflow-configured-copy">
+                      <p>
+                        {quote.description || "No scope summary added yet."}
+                      </p>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => onEdit({ kind: "quote", entity: quote })}
+                      >
+                        <Pencil size={15} /> Edit scope
+                      </button>
+                    </div>
+                  );
+                if (block.type === "notes")
+                  return (
+                    <div className="workflow-configured-copy">
+                      <p>{quote.quoteNotes || "No notes added yet."}</p>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => onEdit({ kind: "quote", entity: quote })}
+                      >
+                        <Pencil size={15} /> Edit notes
+                      </button>
+                    </div>
+                  );
+                if (block.type === "photos_attachments")
+                  return (
+                    <div className="workflow-configured-files">
+                      <QuotePhotosPanel
+                        quote={quote}
+                        files={files}
+                        demo={demo}
+                        onSave={(photos) =>
+                          onSave(
+                            "quote",
+                            { ...quote, quotePhotos: photos },
+                            quote,
+                          )
+                        }
+                        onUpload={(file) => onUpload(file, quote.id)}
+                        onDelete={(file) => onDelete("attachment", file)}
+                        admin={user.role === "admin"}
+                      />
+                      <FilesPanel
+                        files={files.filter(
+                          (file) => !file.mime.startsWith("image/"),
+                        )}
+                        admin={user.role === "admin"}
+                        demo={demo}
+                        hideEmpty
+                        onUpload={async (file) => {
+                          await onUpload(file, quote.id);
+                        }}
+                        onDelete={(file) => onDelete("attachment", file)}
+                      />
+                    </div>
+                  );
+                if (block.type === "delivery_controls")
+                  return (
+                    <div className="workflow-configured-delivery">
+                      <div>
+                        <strong>
+                          {quote.quoteSentAt
+                            ? `Sent to ${quote.clientEmail}`
+                            : "Ready to send"}
+                        </strong>
+                        <span>
+                          {quote.quoteSentAt
+                            ? "The private customer portal is active."
+                            : "Email creates the private portal link and attaches the quote PDF."}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="button primary"
+                        disabled={!quote.clientEmail || sendBusy || signedScope}
+                        onClick={() => void openEmail()}
+                      >
+                        <Mail size={15} />
+                        {quote.quoteSentAt ? "Resend quote" : "Email quote"}
+                      </button>
+                      <a
+                        className="button secondary"
+                        href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Download size={15} /> Preview PDF
+                      </a>
+                    </div>
+                  );
+                if (block.type === "custom_file")
+                  return (
+                    <QuoteFlowFileControl
+                      value={flowValues[block.id]}
+                      busy={flowValueBusy === block.id}
+                      onUpload={(file) => uploadFlowFile(block.id, file)}
+                    />
+                  );
+                const blockTemplateId =
+                  typeof block.config.templateId === "string"
+                    ? block.config.templateId
+                    : null;
+                if (
+                  ["uploaded_pdf", "generated_document"].includes(block.type) &&
+                  blockTemplateId
+                )
+                  return (
+                    <AgreementPacketPanel
+                      quote={quote}
+                      user={user}
+                      businessName={config.profile.name}
+                      demo={demo}
+                      fixedTemplateId={blockTemplateId}
+                      heading={block.label}
+                      flowResponses={flowValues}
+                    />
+                  );
+                const methods = Array.isArray(block.config.methods)
+                  ? block.config.methods.map(String)
+                  : ["remote", "onsite", "in_person"];
+                const signatureValue = flowValues[block.id] as
+                  Record<string, unknown> | undefined;
+                if (block.type === "internal_approval") {
+                  if (signatureValue?.approved)
+                    return (
+                      <div className="success">
+                        <Check size={15} /> Approved by{" "}
+                        {String(
+                          signatureValue.approvedBy || "authorized staff",
+                        )}
+                      </div>
+                    );
+                  return (
+                    <button
+                      type="button"
+                      className="button primary"
+                      disabled={flowValueBusy === block.id}
+                      onClick={() => void saveFlowValue(block.id, true)}
+                    >
+                      {flowValueBusy === block.id
+                        ? "Approving…"
+                        : "Approve step"}
+                    </button>
+                  );
+                }
+                if (block.type === "project_conversion")
+                  return (
+                    <button
+                      type="button"
+                      className="button primary"
+                      disabled={flowValueBusy === block.id}
+                      onClick={() =>
+                        void convertConfiguredFlowToProject(block.id)
+                      }
+                    >
+                      {flowValueBusy === block.id
+                        ? "Creating project…"
+                        : "Create project"}
+                    </button>
+                  );
+                if (block.type === "deposit_collection")
+                  return (
+                    <QuoteFlowPaymentControl
+                      block={block}
+                      value={flowValues[block.id]}
+                      quoteTotal={finances.total}
+                      locale={config.regional.locale}
+                      currency={config.regional.currency}
+                      busy={flowValueBusy === block.id}
+                      staff
+                      onRecord={(input) =>
+                        recordConfiguredFlowPayment(block.id, input)
+                      }
+                    />
+                  );
+                if (
+                  ["signature", "initials"].includes(block.type) &&
+                  signatureValue?.method === "agreement_packet"
+                )
+                  return (
+                    <div className="success">
+                      <Check size={15} /> Completed in the signed agreement
+                      packet.
+                    </div>
+                  );
+                if (
+                  ["signature", "initials"].includes(block.type) &&
+                  ((methods.includes("in_person") && canMarkInPerson) ||
+                    (methods.includes("on_behalf") && canSignOnBehalf))
+                )
+                  return (
+                    <QuoteFlowInPersonControl
+                      block={block}
+                      value={flowValues[block.id]}
+                      busy={flowValueBusy === block.id}
+                      onComplete={(input) =>
+                        markFlowSignedInPerson(block.id, input)
+                      }
+                      canSignOnBehalf={
+                        methods.includes("on_behalf") && canSignOnBehalf
+                      }
+                      onSignOnBehalf={(input) =>
+                        signFlowOnBehalf(block.id, input)
+                      }
+                    />
+                  );
+                if (
+                  ["signature", "initials"].includes(block.type) &&
+                  activeAgreementTemplateId
+                )
+                  return (
+                    <div className="alert">
+                      This field is completed through the private agreement link
+                      created in the document step.
+                    </div>
+                  );
+                return undefined;
+              }}
+              onValue={(block, value) => {
+                if (
+                  activeConfiguredStage.audience !== "customer" &&
+                  block.audience !== "customer"
+                )
+                  void saveFlowValue(block.id, value);
+              }}
+            />
+            {flowValueBusy && (
+              <p className="muted-note" role="status">
+                Saving response…
+              </p>
+            )}
+            {flowInstance.events?.some(
+              (event) => event.stageId === activeConfiguredStage.id,
+            ) && (
+              <details className="workflow-flow-audit">
+                <summary>Step history</summary>
+                {flowInstance.events
+                  .filter((event) => event.stageId === activeConfiguredStage.id)
+                  .map((event) => (
+                    <div key={event.id}>
+                      <strong>{event.eventType.replaceAll("_", " ")}</strong>
+                      <span>{event.actorName || "System"}</span>
+                      <time dateTime={event.createdAt}>
+                        {regional.dateTime(event.createdAt)}
+                      </time>
+                    </div>
+                  ))}
+              </details>
+            )}
+          </section>
+        )}
+      {(handoffDemo || showQuoteStage) && quote.description && (
         <section className="content-section">
           <div className="section-heading">
             <h2>Scope brief</h2>
@@ -854,7 +1783,7 @@ export function QuoteDetail({
           <p className="scope-description">{quote.description}</p>
         </section>
       )}
-      {(handoffDemo || workflowStep === "quote") && (
+      {(handoffDemo || showQuoteStage) && (
         <section className="content-section">
           <div className="section-heading">
             <div>
@@ -959,7 +1888,7 @@ export function QuoteDetail({
           )}
         </section>
       )}
-      {!handoffDemo && workflowStep === "agreement" && (
+      {!handoffDemo && showAgreementStage && (
         <section className="workflow-live-step" aria-label="Agreement details">
           <header>
             <span className="project-handoff-eyebrow">Step 2</span>
@@ -991,7 +1920,7 @@ export function QuoteDetail({
           </footer>
         </section>
       )}
-      {!handoffDemo && workflowStep === "completion" && (
+      {!handoffDemo && showCompletionStage && (
         <section className="workflow-live-step" aria-label="Send and complete">
           <header>
             <span className="project-handoff-eyebrow">Step 3</span>
@@ -1163,7 +2092,7 @@ export function QuoteDetail({
         dueCents > 0 &&
         user.role === "admin" &&
         !demo &&
-        workflowStep === "completion" && (
+        showCompletionStage && (
           <section className="content-section" aria-label="Check deposit">
             <div className="section-heading">
               <h2>Check deposit</h2>
@@ -1214,7 +2143,7 @@ export function QuoteDetail({
             </form>
           </section>
         )}
-      {!handoffDemo && workflowStep === "project" && (
+      {!handoffDemo && showProjectStage && (
         <section className="workflow-live-step" aria-label="Create project">
           <header>
             <span className="project-handoff-eyebrow">Step 4</span>
@@ -1274,7 +2203,7 @@ export function QuoteDetail({
           </footer>
         </section>
       )}
-      {(handoffDemo || workflowStep === "quote") && (
+      {(handoffDemo || showQuoteStage) && (
         <section className="content-section">
           <div className="section-heading">
             <div>
@@ -1311,7 +2240,7 @@ export function QuoteDetail({
           />
         </section>
       )}
-      {!demo && workflowStep === "quote" && (
+      {!demo && showQuoteStage && (
         <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
       )}
     </div>

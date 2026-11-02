@@ -499,7 +499,11 @@
   border-radius: 4px;
   background: var(--theme-field, #13232f);
   color: var(--theme-text-muted, #a9bbc7);
-  font: 8px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font:
+    8px/1.55 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
 }
 .workflow-schedule-interval {
   display: grid;
@@ -552,10 +556,9 @@
 }
 .workflow-object-history-search {
   display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(130px, 0.45fr) minmax(
-      260px,
-      1fr
-    ) auto auto;
+  grid-template-columns:
+    minmax(180px, 0.8fr) minmax(130px, 0.45fr) minmax(260px, 1fr)
+    auto auto;
   align-items: end;
   gap: 10px;
   margin-bottom: 16px;
@@ -7397,6 +7400,167 @@ small {
     flex-direction: column;
   }
 }
+
+.workflow-override-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.7fr) auto;
+  align-items: end;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--line));
+  border-left: 3px solid var(--warning);
+  background: color-mix(in srgb, var(--warning) 7%, var(--surface));
+}
+
+.workflow-flow-audit {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.workflow-flow-audit summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-flow-audit > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(100px, 0.7fr) auto;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+
+.workflow-flow-audit strong {
+  text-transform: capitalize;
+}
+
+.workflow-flow-audit span,
+.workflow-flow-audit time {
+  color: var(--muted);
+}
+
+.workflow-configured-delivery {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
+}
+
+.workflow-configured-delivery > div {
+  display: grid;
+  gap: 3px;
+  margin-right: auto;
+}
+
+.workflow-configured-delivery span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.workflow-configured-object,
+.workflow-configured-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.workflow-configured-object dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.workflow-configured-object dl > div {
+  min-width: 0;
+}
+
+.workflow-configured-object dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.workflow-configured-object dd,
+.workflow-configured-copy p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.workflow-configured-object .button,
+.workflow-configured-copy .button {
+  justify-self: start;
+}
+
+.workflow-configured-files {
+  display: grid;
+  gap: 18px;
+}
+
+@media (max-width: 700px) {
+  .workflow-configured-object dl {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-configured-delivery {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workflow-configured-delivery > div {
+    margin-right: 0;
+  }
+}
+
+.workflow-override-panel strong,
+.workflow-override-panel p {
+  margin: 0;
+}
+
+.workflow-override-panel p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.workflow-override-panel label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-override-panel input {
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface-raised);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.workflow-override-panel > div:last-child {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 920px) {
+  .workflow-override-panel {
+    grid-template-columns: 1fr;
+  }
+}
 .business-settings-panel {
   max-width: 1080px;
 }
@@ -8304,8 +8468,16 @@ small {
 }
 .organization-deletion-pending {
   justify-content: flex-start;
-  border-color: color-mix(in srgb, var(--theme-warning, #d39b45) 50%, var(--line));
-  background: color-mix(in srgb, var(--theme-warning, #d39b45) 8%, var(--panel));
+  border-color: color-mix(
+    in srgb,
+    var(--theme-warning, #d39b45) 50%,
+    var(--line)
+  );
+  background: color-mix(
+    in srgb,
+    var(--theme-warning, #d39b45) 8%,
+    var(--panel)
+  );
 }
 .organization-deletion-pending > svg {
   flex: 0 0 auto;

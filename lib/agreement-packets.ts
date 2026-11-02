@@ -404,6 +404,10 @@ export async function readAgreementSigningSession(token: string) {
       status: signer.status,
     })),
     template: session.packet.template_snapshot,
+    deliveryMode:
+      session.packet.template_snapshot.deliveryMode === "onsite"
+        ? ("onsite" as const)
+        : ("email" as const),
     values: Object.fromEntries(
       (values.data || []).map((value) => [value.field_id, value.value]),
     ),
@@ -669,31 +673,22 @@ export async function signAgreementPacket(
       completed_at: new Date().toISOString(),
     };
   });
-  if (rows.length) {
-    const saved = await supabaseAdmin()
-      .from("remodel_agreement_field_values")
-      .upsert(rows, { onConflict: "organization_id,packet_id,field_id" });
-    if (saved.error) throw saved.error;
-  }
-
   const now = new Date().toISOString();
-  const signed = await supabaseAdmin()
-    .from("remodel_agreement_signers")
-    .update({
-      status: "signed",
-      signed_at: now,
-      signature_evidence: {
-        signedName: input.signedName,
-        accepted: true,
-        signedAt: now,
-        ...evidence,
-      },
-    })
-    .eq("organization_id", session.signer.organization_id)
-    .eq("id", session.signer.id)
-    .neq("status", "signed")
-    .select("id")
-    .maybeSingle();
+  const signed = await supabaseAdmin().rpc("remodel_sign_agreement_signer", {
+    p_organization_id: session.signer.organization_id,
+    p_packet_id: session.signer.packet_id,
+    p_signer_id: session.signer.id,
+    p_field_values: rows.map((row) => ({
+      fieldId: row.field_id,
+      value: row.value,
+    })),
+    p_signature_evidence: {
+      signedName: input.signedName,
+      accepted: true,
+      signedAt: now,
+      ...evidence,
+    },
+  });
   if (signed.error) throw signed.error;
   if (!signed.data)
     throw new HttpError(

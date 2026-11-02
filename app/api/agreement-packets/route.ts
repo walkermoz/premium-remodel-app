@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       signingUrl: string;
     }> = [];
     for (const signer of packet.firstSigners) {
-      const signingUrl = `${origin}/agreement/${encodeURIComponent(signer.token)}${packet.deliveryMode === "onsite" ? "?mode=onsite" : ""}`;
+      const signingUrl = `${origin}/agreement/${encodeURIComponent(signer.token)}`;
       if (packet.deliveryMode === "onsite") {
         delivery.push({
           signerId: signer.id,

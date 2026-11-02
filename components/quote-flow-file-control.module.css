@@ -1,0 +1,45 @@
+.control {
+  display: grid;
+  gap: 8px;
+}
+
+.upload,
+.saved {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed #8aa3b5;
+  border-radius: 5px;
+  background: #fff;
+  color: #223846;
+  text-align: left;
+}
+
+.upload span,
+.saved span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.upload small,
+.saved small {
+  color: #697f8e;
+  font-size: 10px;
+}
+
+.saved > button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #2675ad;
+  font-weight: 700;
+}
+
+.control > p {
+  margin: 0;
+  color: #b12d2d;
+  font-size: 11px;
+}

@@ -13,15 +13,13 @@ export const dynamic = "force-dynamic";
 
 export default async function AgreementSigningPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ mode?: string | string[] }>;
 }) {
-  const [{ token }, query] = await Promise.all([params, searchParams]);
-  const onsite = query.mode === "onsite";
+  const { token } = await params;
   const session = await readAgreementSigningSession(token).catch(() => null);
   if (!session) notFound();
+  const onsite = session.deliveryMode === "onsite";
   const template = session.template as {
     name: string;
     description: string;
@@ -137,6 +135,11 @@ export default async function AgreementSigningPage({
             <span>{session.signer.roleLabel}</span>
             <h1>{template.name}</h1>
             {template.description && <p>{template.description}</p>}
+            {!onsite && !complete && !session.blocked && (
+              <a className={styles.nextRequired} href="#required-signing">
+                Next required step
+              </a>
+            )}
           </div>
           {template.sourceType === "uploaded_pdf" ? (
             <iframe
@@ -185,7 +188,15 @@ export default async function AgreementSigningPage({
               </li>
             ))}
           </ol>
-          {!onsite && signingState}
+          {!onsite && (
+            <section
+              id="required-signing"
+              className={styles.requiredSigning}
+              aria-label="Required signing section"
+            >
+              {signingState}
+            </section>
+          )}
         </article>
         {onsite && (
           <aside className={styles.onsiteControls} aria-label="Signing panel">

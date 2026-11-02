@@ -16,16 +16,14 @@ import {
   stripeConnectWebhookSecret,
   stripePlatformClient,
 } from "@/lib/stripe-connect";
+import { quoteFlowDefinitionSchema } from "@/lib/quote-flow-schema";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const connections = stripeConnections();
-  if (
-    (!connections.length && !stripeConnectWebhookSecret()) ||
-    !signature
-  )
+  if ((!connections.length && !stripeConnectWebhookSecret()) || !signature)
     return Response.json(
       { error: "Webhook is not configured." },
       { status: 503 },
@@ -67,11 +65,11 @@ export async function POST(request: Request) {
         verified = {
           event,
           organizationId,
-          live:
-            (process.env.STRIPE_PLATFORM_SECRET_KEY ||
-              process.env.STRIPE_SECRET_KEY ||
-              ""
-            ).startsWith("sk_live_"),
+          live: (
+            process.env.STRIPE_PLATFORM_SECRET_KEY ||
+            process.env.STRIPE_SECRET_KEY ||
+            ""
+          ).startsWith("sk_live_"),
         };
     } catch {
       // Signature did not match the platform Connect endpoint.
@@ -104,6 +102,7 @@ export async function POST(request: Request) {
   const meta = session.metadata;
   if (
     meta?.source !== "servicebuddy_project_payment_v1" &&
+    meta?.source !== "servicebuddy_quote_flow_payment_v1" &&
     // Preserve already-issued Premium Remodel checkout sessions.
     meta?.source !== "premium_remodel_project"
   )
@@ -121,12 +120,11 @@ export async function POST(request: Request) {
     return Response.json({ received: true });
   if (
     session.mode !== "payment" ||
-    session.currency !== "usd" ||
     !session.amount_total ||
     session.amount_total !== Number(meta.amountCents) ||
     !meta.organizationId ||
     !meta.projectId ||
-    !meta.createdById
+    (meta.source !== "servicebuddy_quote_flow_payment_v1" && !meta.createdById)
   )
     return Response.json(
       { error: "Payment details did not match." },
@@ -142,7 +140,9 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (projectError || !project)
     return Response.json({ error: "Project is unavailable." }, { status: 500 });
+  const flowPayment = meta.source === "servicebuddy_quote_flow_payment_v1";
   if (
+    !flowPayment &&
     project.kind === "quote" &&
     (project.data?.status !== "Accepted" ||
       project.data?.msaAgreement?.status !== "signed" ||
@@ -158,13 +158,58 @@ export async function POST(request: Request) {
   const customer =
     project.data?.client || session.customer_details?.name || "Customer";
   const business = await getBusinessConfigForOrganization(meta.organizationId);
+  if (session.currency !== business.regional.currency.toLowerCase())
+    return Response.json(
+      { error: "Payment currency did not match." },
+      { status: 400 },
+    );
+  if (flowPayment) {
+    if (!meta.flowInstanceId || !meta.flowStageId || !meta.flowBlockId)
+      return Response.json(
+        { error: "Payment flow details did not match." },
+        { status: 400 },
+      );
+    const instance = await admin
+      .from("remodel_quote_flow_instances")
+      .select("id,quote_id,status,definition_snapshot")
+      .eq("organization_id", meta.organizationId)
+      .eq("id", meta.flowInstanceId)
+      .eq("quote_id", meta.projectId)
+      .maybeSingle();
+    if (instance.error || !instance.data || instance.data.status !== "active")
+      return Response.json(
+        { error: "Payment flow is unavailable." },
+        { status: 409 },
+      );
+    const definition = quoteFlowDefinitionSchema.safeParse(
+      instance.data.definition_snapshot,
+    );
+    const paymentBlock = definition.success
+      ? definition.data.stages
+          .find((stage) => stage.id === meta.flowStageId && stage.enabled)
+          ?.blocks.find(
+            (block) =>
+              block.id === meta.flowBlockId &&
+              block.enabled &&
+              block.type === "deposit_collection" &&
+              (Array.isArray(block.config.providers)
+                ? block.config.providers.map(String).includes("stripe")
+                : true),
+          )
+      : null;
+    if (!paymentBlock)
+      return Response.json(
+        { error: "Payment flow details did not match." },
+        { status: 400 },
+      );
+  }
   const data = {
     id,
     projectId: meta.projectId,
     activityType: "Payment received",
-    actorId: meta.createdById,
+    actorId: meta.createdById || "",
     actorName: meta.createdByName || business.profile.name,
-    authorId: meta.createdById,
+    authorId: meta.createdById || "",
     authorName: meta.createdByName || business.profile.name,
     occurredAt: now,
     createdAt: now,
@@ -183,12 +228,19 @@ export async function POST(request: Request) {
       typeof session.payment_intent === "string"
         ? session.payment_intent
         : session.payment_intent?.id || "",
+    ...(flowPayment
+      ? {
+          flowInstanceId: meta.flowInstanceId,
+          flowStageId: meta.flowStageId,
+          flowBlockId: meta.flowBlockId,
+        }
+      : {}),
   };
   const { error } = await admin.from("remodel_records").insert({
     id,
     organization_id: meta.organizationId,
-    created_by: meta.createdById,
-    updated_by: meta.createdById,
+    created_by: meta.createdById || null,
+    updated_by: meta.createdById || null,
     kind: "activity",
     project_id: meta.projectId,
     data,
@@ -200,6 +252,32 @@ export async function POST(request: Request) {
       { error: "Could not record payment." },
       { status: 500 },
     );
+  }
+  if (flowPayment) {
+    const completedValue = {
+      status: "paid",
+      method: "stripe",
+      amount: session.amount_total / 100,
+      stripeSessionId: session.id,
+      completedAt: now,
+    };
+    const completed = await admin.rpc("remodel_complete_quote_flow_block", {
+      p_organization_id: meta.organizationId,
+      p_instance_id: meta.flowInstanceId,
+      p_stage_id: meta.flowStageId,
+      p_block_id: meta.flowBlockId,
+      p_value: completedValue,
+      p_completed_by: null,
+      p_actor_type: "system",
+      p_event_type: "payment_completed",
+      p_actor_name: "Stripe",
+      p_evidence: completedValue,
+    });
+    if (completed.error)
+      return Response.json(
+        { error: "Payment recorded; flow completion is pending." },
+        { status: 500 },
+      );
   }
   try {
     await enqueueWorkflowEvent({
@@ -224,10 +302,12 @@ export async function POST(request: Request) {
   } catch (workflowError) {
     console.error(
       "Could not enqueue the Stripe deposit workflow event",
-      workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
+      workflowError instanceof Error
+        ? workflowError.name
+        : "WorkflowEventError",
     );
   }
-  if (project.kind === "quote") {
+  if (project.kind === "quote" && !flowPayment) {
     try {
       await promotePaidQuote(meta.organizationId, meta.projectId);
     } catch (cause) {
@@ -259,6 +339,7 @@ async function recordRefund(charge: Stripe.Charge, organizationId: string) {
   const meta = intent.metadata;
   if (
     meta.source !== "servicebuddy_project_payment_v1" &&
+    meta.source !== "servicebuddy_quote_flow_payment_v1" &&
     meta.source !== "premium_remodel_project"
   )
     return Response.json({ received: true });
@@ -326,5 +407,56 @@ async function recordRefund(charge: Stripe.Charge, organizationId: string) {
       { error: "Could not record refund." },
       { status: 500 },
     );
+  if (
+    meta.source === "servicebuddy_quote_flow_payment_v1" &&
+    meta.flowInstanceId &&
+    meta.flowStageId &&
+    meta.flowBlockId
+  ) {
+    const status = refunded === gross ? "refunded" : "partially_refunded";
+    const flowValue = await admin
+      .from("remodel_quote_flow_values")
+      .update({
+        value: {
+          status,
+          method: "stripe",
+          amount: (gross - refunded) / 100,
+          refundedAmount: refunded / 100,
+          stripePaymentIntentId: paymentIntentId,
+          updatedAt: now,
+        },
+        updated_at: now,
+      })
+      .eq("organization_id", meta.organizationId)
+      .eq("instance_id", meta.flowInstanceId)
+      .eq("stage_id", meta.flowStageId)
+      .eq("block_id", meta.flowBlockId);
+    if (flowValue.error)
+      return Response.json(
+        { error: "Refund recorded; flow status is pending." },
+        { status: 500 },
+      );
+    const refundEvent = await admin.from("remodel_quote_flow_events").insert({
+      organization_id: meta.organizationId,
+      instance_id: meta.flowInstanceId,
+      stage_id: meta.flowStageId,
+      block_id: meta.flowBlockId,
+      event_type: "payment_refunded",
+      actor_type: "system",
+      actor_name: "Stripe",
+      evidence: {
+        status,
+        grossAmount: gross / 100,
+        refundedAmount: refunded / 100,
+        stripePaymentIntentId: paymentIntentId,
+        recordedAt: now,
+      },
+    });
+    if (refundEvent.error)
+      return Response.json(
+        { error: "Refund recorded; flow audit is pending." },
+        { status: 500 },
+      );
+  }
   return Response.json({ received: true });
 }

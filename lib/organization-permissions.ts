@@ -6,16 +6,28 @@ import { getBusinessConfigForOrganization } from "./business-config";
 import type { OrganizationCapability } from "./business-config-schema";
 
 const capabilityModules: Partial<
-  Record<OrganizationCapability, "automations" | "agreements" | "payments" | "priceBook" | "imageGeneration">
+  Record<
+    OrganizationCapability,
+    "automations" | "agreements" | "payments" | "priceBook" | "imageGeneration"
+  >
 > = {
   "workflows.manage": "automations",
   "agreements.manage": "agreements",
+  "quote_flows.manage": "agreements",
+  "quote_flows.publish": "agreements",
+  "quote_flows.override": "agreements",
+  "quote_flows.staff_content.view": "agreements",
+  "agreements.sign_on_behalf": "agreements",
+  "agreements.mark_in_person": "agreements",
   "payments.manage": "payments",
   "pricebook.manage": "priceBook",
   "generation.manage": "imageGeneration",
 };
 
-const moduleLabels: Record<NonNullable<(typeof capabilityModules)[OrganizationCapability]>, string> = {
+const moduleLabels: Record<
+  NonNullable<(typeof capabilityModules)[OrganizationCapability]>,
+  string
+> = {
   automations: "Automations",
   agreements: "Agreements",
   payments: "Payments",

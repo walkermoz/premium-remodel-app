@@ -53,6 +53,8 @@ import { resolveQuotePriceDisplay } from "@/lib/quote-price-display";
 import ClientNewRequestForm from "./client-new-request-form";
 import CustomerAcceptance from "./customer-acceptance";
 import MsaAcceptance from "./msa-acceptance";
+import ClientQuoteFlow from "./client-quote-flow";
+import { getPublicQuoteFlowInstance } from "@/lib/quote-flow-instances";
 import styles from "./quote.module.css";
 
 export const dynamic = "force-dynamic";
@@ -534,9 +536,12 @@ export default async function ClientQuotePage({
     notFound();
   }
   const view = source.view;
-  const business = await getBusinessConfigForOrganization(
-    source.organizationId,
-  );
+  const [business, quoteFlow] = await Promise.all([
+    getBusinessConfigForOrganization(source.organizationId),
+    getPublicQuoteFlowInstance(source.organizationId, source.view.quote.id),
+  ]);
+  const customQuoteFlow =
+    quoteFlow?.portalRenderer === "legacy_quote_portal_v1" ? null : quoteFlow;
   const walletEnabled =
     business.features.payments &&
     business.quotePreferences.paymentProvider === "stripe" &&
@@ -724,6 +729,19 @@ export default async function ClientQuotePage({
                 </a>
               </div>
             </nav>
+
+            {customQuoteFlow &&
+              customQuoteFlow.definition.stages.length > 0 && (
+                <ClientQuoteFlow
+                  token={token}
+                  initial={customQuoteFlow}
+                  onsite={onsite}
+                  quoteTotal={total}
+                  projectType={quote.category}
+                  locale={business.regional.locale}
+                  currency={business.regional.currency}
+                />
+              )}
 
             <main className={styles.document}>
               <div className={styles.masthead}>

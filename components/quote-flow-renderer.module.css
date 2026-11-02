@@ -1,0 +1,321 @@
+.root {
+  min-height: 540px;
+  color: #e7f1fa;
+  background: #0c1721;
+  border: 1px solid #263b4b;
+  overflow: hidden;
+}
+
+.protectedHeader {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: #101e2a;
+  border-bottom: 1px solid #294052;
+}
+
+.protectedHeader > strong {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #07111a;
+  background: #8fc6f4;
+  border-radius: 8px;
+  letter-spacing: -0.05em;
+}
+
+.protectedHeader div {
+  display: grid;
+  gap: 2px;
+}
+.protectedHeader span {
+  font-size: 12px;
+  font-weight: 700;
+}
+.protectedHeader small {
+  color: #92a9bb;
+  font-size: 10px;
+}
+.protectedHeader p {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: #a9bdcc;
+  font-size: 11px;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  border-bottom: 1px solid #263b4b;
+  background: #101c27;
+}
+
+.steps > div {
+  min-width: 0;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 12px;
+  border-right: 1px solid #223645;
+  opacity: 0.64;
+}
+
+.steps > div:last-child {
+  border-right: 0;
+}
+.steps > .activeStep {
+  opacity: 1;
+  background: #162838;
+  box-shadow: inset 0 -2px #82bff2;
+}
+.steps > div > span {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid #476276;
+  border-radius: 50%;
+  font-size: 10px;
+}
+.steps p {
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.steps strong,
+.steps small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steps strong {
+  font-size: 11px;
+}
+.steps small {
+  color: #8ea5b7;
+  font-size: 9px;
+}
+
+.canvas {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 30px 28px 24px;
+}
+.canvas > header {
+  margin-bottom: 24px;
+}
+.canvas > header small {
+  color: #82bff2;
+  text-transform: uppercase;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.canvas > header h2 {
+  margin: 6px 0;
+  font-size: 25px;
+}
+.canvas > header p {
+  margin: 0;
+  color: #9eb2c1;
+  font-size: 12px;
+}
+.blocks {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid #2a4050;
+}
+.block {
+  padding: 18px 0;
+  border-bottom: 1px solid #2a4050;
+}
+.highlightedBlock {
+  margin-inline: -14px;
+  padding-inline: 14px;
+  background: color-mix(in srgb, #82bff2 10%, transparent);
+  box-shadow: inset 3px 0 #82bff2;
+}
+.block > header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 5px;
+}
+.block > header strong {
+  font-size: 12px;
+}
+.block > header span {
+  color: #82bff2;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.block > p {
+  margin: 0 0 10px;
+  color: #8fa5b6;
+  font-size: 11px;
+}
+.block input,
+.block select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  color: #eaf4fc;
+  background: #111f2b;
+  border: 1px solid #385063;
+  border-radius: 5px;
+}
+.block h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.checkRow input {
+  width: 16px;
+  min-height: 16px;
+}
+.choiceList {
+  display: grid;
+  gap: 7px;
+}
+.choiceList label {
+  font-size: 12px;
+}
+.fileButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  color: #cce7fb;
+  background: transparent;
+  border: 1px solid #466176;
+  border-radius: 5px;
+}
+.fieldPreview,
+.documentPreview {
+  padding: 14px;
+  color: #abc0cf;
+  background: #111f2b;
+  border: 1px dashed #3a5366;
+  font-size: 11px;
+}
+.documentPreview {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  background: #e9eef2;
+  color: #536879;
+}
+.signatureTarget {
+  min-height: 92px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  color: #8fc8f4;
+  background: #0e1d28;
+  border: 1px dashed #5a829f;
+}
+.signatureTarget span {
+  font-size: 12px;
+  font-weight: 700;
+}
+.signatureTarget small {
+  color: #839aaa;
+  font-size: 9px;
+}
+.canvas > footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding-top: 20px;
+}
+.canvas > footer span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8fa6b7;
+  font-size: 10px;
+}
+.canvas > footer button {
+  min-height: 40px;
+  padding: 0 15px;
+  color: #07131c;
+  background: #88c3f2;
+  border: 0;
+  border-radius: 5px;
+  font-weight: 800;
+}
+.empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: #91a6b6;
+}
+
+.portal {
+  background: #f4f6f7;
+  color: #15232e;
+}
+.portal .steps {
+  background: #fff;
+  border-color: #d8e0e5;
+}
+.portal .steps > div {
+  border-color: #e1e7eb;
+}
+.portal .steps > .activeStep {
+  background: #edf6fd;
+}
+.portal .steps small,
+.portal .canvas > header p,
+.portal .block > p {
+  color: #627583;
+}
+.portal .blocks,
+.portal .block {
+  border-color: #d8e0e5;
+}
+.portal .highlightedBlock {
+  background: #edf7fd;
+  box-shadow: inset 3px 0 #2f7fbd;
+}
+.portal .fieldPreview {
+  background: #fff;
+  border-color: #aebcc6;
+  color: #526774;
+}
+.portal .signatureTarget {
+  background: #fff;
+}
+
+@media (max-width: 700px) {
+  .steps {
+    display: flex;
+    overflow-x: auto;
+  }
+  .steps > div {
+    min-width: 155px;
+  }
+  .canvas {
+    padding: 24px 18px;
+  }
+  .canvas > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .protectedHeader p {
+    display: none;
+  }
+}

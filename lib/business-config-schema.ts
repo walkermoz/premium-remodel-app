@@ -34,6 +34,12 @@ export const organizationCapabilities = [
   "secrets.manage",
   "workflows.manage",
   "agreements.manage",
+  "quote_flows.manage",
+  "quote_flows.publish",
+  "quote_flows.override",
+  "quote_flows.staff_content.view",
+  "agreements.sign_on_behalf",
+  "agreements.mark_in_person",
   "payments.manage",
   "compliance.manage",
   "audit.view",
@@ -86,6 +92,33 @@ export const organizationCapabilityLabels: Record<
     label: "Agreements",
     description: "Create templates and manage signing configuration.",
   },
+  "quote_flows.manage": {
+    label: "Quote & agreement flows",
+    description:
+      "Build, preview, version, and publish the stages used from quote through project creation.",
+  },
+  "quote_flows.publish": {
+    label: "Publish quote flows",
+    description: "Publish a flow version and choose the organization default.",
+  },
+  "quote_flows.override": {
+    label: "Override quote flow steps",
+    description: "Override a required step when an exception is documented.",
+  },
+  "quote_flows.staff_content.view": {
+    label: "Staff-only quote content",
+    description:
+      "View internal blocks and responses in configured quote flows.",
+  },
+  "agreements.sign_on_behalf": {
+    label: "Sign on behalf of others",
+    description:
+      "Apply an authorized representative signature for another party.",
+  },
+  "agreements.mark_in_person": {
+    label: "Record in-person signatures",
+    description: "Mark configured signature fields as signed in person.",
+  },
   "payments.manage": {
     label: "Payments",
     description: "Manage payment providers and payment instructions.",
@@ -120,7 +153,8 @@ export const organizationCapabilityLabels: Record<
   },
   "locations.view": {
     label: "Team locations",
-    description: "View current location-sharing positions for the organization.",
+    description:
+      "View current location-sharing positions for the organization.",
   },
 };
 

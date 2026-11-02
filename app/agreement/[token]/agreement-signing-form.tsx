@@ -50,7 +50,7 @@ export default function AgreementSigningForm({
                   ?.checked,
               );
           const response = await fetch(
-            `/api/agreement-sign/${encodeURIComponent(token)}${onsite ? "?mode=onsite" : ""}`,
+            `/api/agreement-sign/${encodeURIComponent(token)}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },

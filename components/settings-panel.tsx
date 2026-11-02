@@ -19,6 +19,7 @@ import BusinessOnboarding from "./business-onboarding";
 import OrganizationSecretsSettings from "./organization-secrets-settings";
 import type { OrganizationCapability } from "@/lib/business-config-schema";
 import AgreementTemplatesSettings from "./agreement-templates-settings";
+import QuoteFlowTemplatesSettings from "./quote-flow-templates-settings";
 import StripePaymentSettings from "./stripe-payment-settings";
 import OrganizationLifecycleSettings from "./organization-lifecycle-settings";
 export default function SettingsPanel({
@@ -52,6 +53,8 @@ export default function SettingsPanel({
   const canManageGeneration = hasCapability("generation.manage");
   const canManageApiKeys = hasCapability("api_keys.manage");
   const canManageAgreements = hasCapability("agreements.manage");
+  const canManageQuoteFlows = hasCapability("quote_flows.manage");
+  const canPublishQuoteFlows = hasCapability("quote_flows.publish");
   const canViewSetup = canManageConnections;
   const canViewBusiness = [
     "business.manage",
@@ -59,9 +62,8 @@ export default function SettingsPanel({
     "compliance.manage",
     "permissions.manage",
     "agreements.manage",
-  ].some((capability) =>
-    hasCapability(capability as OrganizationCapability),
-  );
+    "quote_flows.manage",
+  ].some((capability) => hasCapability(capability as OrganizationCapability));
   const [section, setSection] = useState<
     "setup" | "business" | "workspace" | "connections" | "account"
   >(canViewSetup ? "setup" : canViewBusiness ? "business" : "workspace");
@@ -70,9 +72,9 @@ export default function SettingsPanel({
       ? "workspace"
       : section === "business" && !canViewBusiness
         ? "workspace"
-      : section === "connections" && !canManageConnections
-        ? "workspace"
-        : section;
+        : section === "connections" && !canManageConnections
+          ? "workspace"
+          : section;
   return (
     <>
       <div className="page-heading">
@@ -91,9 +93,7 @@ export default function SettingsPanel({
         {(
           [
             ...(canViewSetup
-              ? ([
-                  ["setup", "Get started", "Setup checklist"],
-                ] as const)
+              ? ([["setup", "Get started", "Setup checklist"]] as const)
               : []),
             ...(canViewBusiness
               ? ([
@@ -144,6 +144,12 @@ export default function SettingsPanel({
           {canManageAgreements && config.modules.agreements && (
             <AgreementTemplatesSettings demo={demo} />
           )}
+          {canManageQuoteFlows && config.modules.agreements && (
+            <QuoteFlowTemplatesSettings
+              demo={demo}
+              canPublish={canPublishQuoteFlows}
+            />
+          )}
           {user.group === "owner" && (
             <OrganizationLifecycleSettings
               demo={demo}
@@ -165,26 +171,28 @@ export default function SettingsPanel({
           )}
           {canViewAudit && <WorkspaceHistorySettings demo={demo} />}
           {canManageGeneration && <GenerationSettings demo={demo} admin />}
-          {hasCapability("business.manage") && config.profile.addressPriority === "wake" && (
-            <div className="settings-section">
-              <div className="settings-title">
-                <MapPin size={22} />
-                <div>
-                  <h2>Address suggestions</h2>
-                  <p>
-                    Wake County address records are searched first. If there is
-                    no local match, suggestions expand to other U.S. addresses.
-                  </p>
+          {hasCapability("business.manage") &&
+            config.profile.addressPriority === "wake" && (
+              <div className="settings-section">
+                <div className="settings-title">
+                  <MapPin size={22} />
+                  <div>
+                    <h2>Address suggestions</h2>
+                    <p>
+                      Wake County address records are searched first. If there
+                      is no local match, suggestions expand to other U.S.
+                      addresses.
+                    </p>
+                  </div>
+                </div>
+                <div className="settings-details">
+                  <label>
+                    Priority region
+                    <input value={addressPriorityRegion.name} readOnly />
+                  </label>
                 </div>
               </div>
-              <div className="settings-details">
-                <label>
-                  Priority region
-                  <input value={addressPriorityRegion.name} readOnly />
-                </label>
-              </div>
-            </div>
-          )}
+            )}
         </>
       )}
       {canManageConnections && visibleSection === "connections" && (
