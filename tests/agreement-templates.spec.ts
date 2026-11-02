@@ -170,6 +170,11 @@ test("on-device signing keeps Premium's quote and MSA in protected handoff mode"
   );
   const quotePanel = readFileSync("components/quotes-panel.tsx", "utf8");
   const msaPanel = readFileSync("components/msa-signing-panel.tsx", "utf8");
+  const signingPacket = readFileSync(
+    "components/signing-packet-summary.tsx",
+    "utf8",
+  );
+  const signingModel = readFileSync("lib/document-signing.ts", "utf8");
   const prepareRoute = readFileSync(
     "app/api/msa/[projectId]/prepare/route.ts",
     "utf8",
@@ -181,10 +186,11 @@ test("on-device signing keeps Premium's quote and MSA in protected handoff mode"
   expect(quotePage).toContain("highlightOwnerSignature");
   expect(acceptance).toContain("&onsite=1");
   expect(quotePanel).toContain("workflow-document-stack");
-  expect(quotePanel).toContain("Customer handoff");
+  expect(quotePanel).toContain("SigningPacketSummary");
+  expect(signingPacket).toContain("Signing packet");
   expect(quotePanel).toContain("Open on this device");
   expect(quotePanel).toContain("Send portal link");
-  expect(msaPanel).toContain("Company signature");
+  expect(signingModel).toContain("Company signature required");
   expect(msaPanel).toContain("Sign MSA on this device");
   expect(msaPanel).toContain("On-device MSA signing");
   expect(msaPanel).toContain("/onsite-signing");
