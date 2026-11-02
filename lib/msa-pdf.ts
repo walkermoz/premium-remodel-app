@@ -139,7 +139,7 @@ export async function buildMsaPdf(agreement: MsaAgreement) {
   );
   signature(
     agreement.staffSignature.signatureStrokes,
-    `Contractor: ${agreement.staffSignature.name}, ${agreement.staffSignature.title || ""} | ${date(agreement.staffSignature.signedAt)}`,
+    `Contractor: ${agreement.staffSignature.name}${agreement.staffSignature.title ? `, ${agreement.staffSignature.title}` : ""} | ${date(agreement.staffSignature.signedAt)}`,
   );
   if (agreement.customerSignature)
     signature(

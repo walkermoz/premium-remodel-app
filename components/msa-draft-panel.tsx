@@ -384,7 +384,10 @@ export default function MsaDraftPanel({
           <div>
             <dt>Contractor signer</dt>
             <dd>
-              {agreement.staffSignature.name}, {agreement.staffSignature.title}
+              {agreement.staffSignature.name}
+              {agreement.staffSignature.title
+                ? `, ${agreement.staffSignature.title}`
+                : ""}
             </dd>
           </div>
           {agreement.customerSignature && (
@@ -758,7 +761,7 @@ export default function MsaDraftPanel({
                 <input value={signer.name} readOnly />
               </label>
               <label>
-                Staff title
+                Staff title (optional)
                 <input
                   value={signerTitle}
                   maxLength={100}
@@ -783,7 +786,6 @@ export default function MsaDraftPanel({
                 hasUnsavedTerms ||
                 (needsHistorical && (!historical || !confirmedHistorical)) ||
                 !owner.trim() ||
-                !signerTitle.trim() ||
                 !ownerEmail.trim()
               }
               onClick={() => void sendAgreement()}

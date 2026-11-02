@@ -234,7 +234,7 @@ export default function MsaSigningPanel({
           <input value={signerName} readOnly />
         </label>
         <label>
-          Staff title
+          Staff title (optional)
           <input
             value={signerTitle}
             maxLength={100}
@@ -254,7 +254,6 @@ export default function MsaSigningPanel({
             sending ||
             !detailsReady ||
             !quote.clientEmail ||
-            !signerTitle.trim() ||
             !signatureStrokes.length
           }
           onClick={() => void sendAgreement()}

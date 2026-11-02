@@ -6,6 +6,7 @@ import {
   msaGeneralTerms,
   msaPaymentRows,
   prepareMsa,
+  staffMsaInput,
 } from "@/lib/msa-contract";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 import {
@@ -80,6 +81,21 @@ test("prepares a frozen MSA from the accepted quote and editable milestones", ()
   ]);
   expect(agreement.termsSha256).toMatch(/^[a-f0-9]{64}$/);
   expect(msaGeneralTerms.length).toBeGreaterThan(100);
+});
+
+test("staff title is optional when preparing an MSA", () => {
+  const agreement = prepareMsa(
+    base,
+    [],
+    staffMsaInput.parse({
+      owner: "Taylor Customer",
+      ownerEmail: "taylor@example.com",
+      signatureStrokes: strokes,
+    }),
+    { id: "22222222-2222-4222-8222-222222222222", name: "Alex Staff" },
+    at,
+  );
+  expect(agreement.staffSignature.title).toBe("");
 });
 
 test("refuses an agreement without a verified accepted quote", () => {

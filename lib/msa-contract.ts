@@ -13,7 +13,7 @@ export const msaGeneralTerms = source.blocks;
 export const staffMsaInput = z.object({
   owner: z.string().trim().min(2).max(150),
   ownerEmail: z.email().max(320),
-  signerTitle: z.string().trim().min(2).max(100),
+  signerTitle: z.string().trim().max(100).default(""),
   signatureStrokes: signatureStrokesSchema,
 });
 export const customerMsaInput = z.object({
