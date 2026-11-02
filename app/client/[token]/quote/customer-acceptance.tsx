@@ -54,6 +54,7 @@ export default function CustomerAcceptance({
   businessName,
   locale,
   timeZone,
+  onsite = false,
 }: {
   token: string;
   clientName: string;
@@ -64,6 +65,7 @@ export default function CustomerAcceptance({
   businessName: string;
   locale: string;
   timeZone: string;
+  onsite?: boolean;
 }) {
   const router = useRouter();
   const pad = useRef<SVGSVGElement>(null);
@@ -147,7 +149,9 @@ export default function CustomerAcceptance({
         );
       }
       if (result.nextStep === "msa")
-        router.replace(`/client/${encodeURIComponent(token)}/quote?view=msa`);
+        router.replace(
+          `/client/${encodeURIComponent(token)}/quote?view=msa${onsite ? "&onsite=1" : ""}`,
+        );
       else router.refresh();
     } catch (cause) {
       setError(
@@ -169,7 +173,9 @@ export default function CustomerAcceptance({
           </div>
           <div>
             <span className={styles.acceptanceLabel}>Date</span>
-            <p>{displayDate(new Date(acceptance.signedAt), locale, timeZone)}</p>
+            <p>
+              {displayDate(new Date(acceptance.signedAt), locale, timeZone)}
+            </p>
           </div>
         </div>
         <div className={styles.acceptanceSignature}>

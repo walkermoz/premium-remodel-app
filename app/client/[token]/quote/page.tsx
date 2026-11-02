@@ -12,6 +12,8 @@ import {
   Phone,
   Plus,
   ReceiptText,
+  ShieldCheck,
+  X,
 } from "lucide-react";
 import {
   readClientQuoteSource,
@@ -150,6 +152,7 @@ async function ClientSectionView({
   organizationId,
   emailQuotes,
   business,
+  onsite,
 }: {
   section: Exclude<PortalView, "detail">;
   quoteUrl: string;
@@ -161,6 +164,7 @@ async function ClientSectionView({
   organizationId: string;
   emailQuotes: ClientEmailQuote[];
   business: BusinessConfig;
+  onsite: boolean;
 }) {
   const { quote, total } = quoteView;
   const requestUrl = `${quoteUrl}?view=new-request`;
@@ -221,7 +225,10 @@ async function ClientSectionView({
             ? "Your signed agreement and deposit options are below."
             : "Review the full agreement before signing."}
         </p>
-        <MsaDocument agreement={displayedAgreement} />
+        <MsaDocument
+          agreement={displayedAgreement}
+          highlightOwnerSignature={onsite && agreement.status === "sent"}
+        />
         {agreement.status === "sent" && (
           <MsaAcceptance token={token} agreement={displayedAgreement} />
         )}
@@ -267,7 +274,8 @@ async function ClientSectionView({
                   <>
                     <h3>Pay by check</h3>
                     <p>
-                      Make the check payable to {business.compliance.checkPayee}.
+                      Make the check payable to {business.compliance.checkPayee}
+                      .
                       {business.compliance.checkMailingAddress
                         ? " Contact us to arrange delivery, or mail it to " +
                           business.compliance.checkMailingAddress +
@@ -515,6 +523,7 @@ export default async function ClientQuotePage({
   searchParams: Promise<{
     view?: string | string[];
     result?: string | string[];
+    onsite?: string | string[];
   }>;
 }) {
   const [{ token }, query] = await Promise.all([params, searchParams]);
@@ -540,6 +549,7 @@ export default async function ClientQuotePage({
     business.profile.bannerUrl === "/api/business-branding/banner"
       ? `/api/client-quote/${encodeURIComponent(token)}/banner`
       : business.profile.bannerUrl;
+  const onsite = query.onsite === "1";
 
   const rawSection = typeof query.view === "string" ? query.view : "";
   const section: PortalView = [
@@ -601,7 +611,32 @@ export default async function ClientQuotePage({
   });
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${onsite ? styles.onsitePage : ""}`}>
+      {onsite && (
+        <header className={styles.onsiteHeader}>
+          <div>
+            {logoSrc ? (
+              <img src={logoSrc} alt={business.profile.name} />
+            ) : (
+              <span className={styles.onsiteMark}>SB</span>
+            )}
+            <span>
+              <strong>On-device signing</strong>
+              <small>
+                {business.profile.name} · Protected customer handoff
+              </small>
+            </span>
+          </div>
+          <div>
+            <span className={styles.onsiteBadge}>
+              <ShieldCheck size={15} /> Staff workspace hidden
+            </span>
+            <Link href="/?view=Quotes">
+              <X size={16} /> Exit customer signing
+            </Link>
+          </div>
+        </header>
+      )}
       <aside
         className={styles.sidebar}
         aria-label={`${business.profile.name} client portal`}
@@ -662,9 +697,9 @@ export default async function ClientQuotePage({
       </aside>
 
       <div
-        className={`${styles.content} ${section !== "detail" ? styles.sectionContent : ""}`}
+        className={`${styles.content} ${section !== "detail" ? styles.sectionContent : ""} ${onsite ? styles.onsiteContent : ""}`}
       >
-        {bannerSrc && (
+        {bannerSrc && !onsite && (
           <div className={styles.portalBanner}>
             <img src={bannerSrc} alt="" />
           </div>
@@ -832,6 +867,30 @@ export default async function ClientQuotePage({
                 <p>{paymentTerms}</p>
               </section>
 
+              {onsite && !approved && (
+                <section className={styles.onsiteSignatureTarget}>
+                  <span>Signing here</span>
+                  <h2>Customer acceptance</h2>
+                  <div>
+                    <p>
+                      <small>Print name</small>
+                      <strong>{quote.client}</strong>
+                    </p>
+                    <p>
+                      <small>Date</small>
+                      <strong>
+                        {new Intl.DateTimeFormat(business.regional.locale, {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                          timeZone: business.regional.timezone,
+                        }).format(new Date())}
+                      </strong>
+                    </p>
+                  </div>
+                </section>
+              )}
+
               <section
                 className={styles.acceptance}
                 aria-label="Customer acceptance"
@@ -852,6 +911,7 @@ export default async function ClientQuotePage({
                   businessName={business.profile.name}
                   locale={business.regional.locale}
                   timeZone={business.regional.timezone}
+                  onsite={onsite}
                 />
               </section>
 
@@ -880,6 +940,7 @@ export default async function ClientQuotePage({
             organizationId={source.organizationId}
             emailQuotes={emailQuotes}
             business={business}
+            onsite={onsite}
           />
         )}
       </div>

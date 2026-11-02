@@ -1110,6 +1110,216 @@
   flex: none;
 }
 
+.onsitePage {
+  height: 100svh;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 64px minmax(0, 1fr);
+  overflow: hidden;
+  background: #e6ecef;
+}
+
+.onsitePage .sidebar {
+  display: none;
+}
+
+.onsiteHeader {
+  position: relative;
+  z-index: 10;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: #e7f0f5;
+  background: #0e1d27;
+  border-bottom: 1px solid #304350;
+}
+
+.onsiteHeader > div,
+.onsiteHeader > div > span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.onsiteHeader > div > span:not(.onsiteBadge) {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.onsiteHeader img {
+  width: auto;
+  max-width: 145px;
+  height: 36px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.onsiteHeader strong {
+  font-size: 13px;
+}
+
+.onsiteHeader small {
+  color: #8096a5;
+  font-size: 10px;
+}
+
+.onsiteMark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #10202b;
+  background: #79b8e3;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.onsiteBadge {
+  padding: 7px 9px;
+  border-radius: 4px;
+  color: #92c9aa;
+  background: #153326;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.onsiteHeader a {
+  min-height: 34px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #405563;
+  border-radius: 5px;
+  color: #c3d2db;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.onsiteContent {
+  min-height: 0;
+  padding: 24px 410px 48px 28px;
+  overflow: auto;
+}
+
+.onsiteContent.sectionContent {
+  background: #e6ecef;
+}
+
+.onsiteContent .sectionPage {
+  width: min(100%, 850px);
+  padding-top: 0;
+}
+
+.onsitePage .acceptance,
+.onsitePage .sectionPage > .signForm {
+  position: fixed;
+  z-index: 6;
+  top: 64px;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  margin: 0;
+  padding: 28px 24px;
+  overflow: auto;
+  color: #173142;
+  background: #fff;
+  border-left: 1px solid #bdcbd3;
+  box-shadow: -15px 0 40px rgb(36 59 73 / 10%);
+}
+
+.onsitePage .acceptance > h2,
+.onsitePage .sectionPage > .signForm > h2 {
+  margin: 0 0 18px;
+  color: #173142;
+  font-size: 22px;
+  text-transform: none;
+}
+
+.onsitePage .acceptance::before,
+.onsitePage .sectionPage > .signForm::before {
+  content: "ON-DEVICE SIGNING";
+  display: block;
+  margin-bottom: 7px;
+  color: #4c88af;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.onsitePage .acceptance .acceptanceSignature,
+.onsitePage .sectionPage > .signForm > div {
+  max-width: none;
+}
+
+.onsitePage .signaturePad,
+.onsitePage .signatureImage {
+  height: 145px;
+}
+
+.onsitePage .signButton {
+  width: 100%;
+  min-height: 44px;
+}
+
+.onsiteSignatureTarget {
+  position: relative;
+  margin-top: 22px;
+  padding: 17px 14px;
+  border: 1px solid #4d98c8;
+  border-radius: 4px;
+  background: #f0f8fd;
+  box-shadow: 0 0 0 3px rgb(77 152 200 / 15%);
+}
+
+.onsiteSignatureTarget > span {
+  position: absolute;
+  top: -12px;
+  right: 10px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  color: #fff;
+  background: #3f8ac0;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.onsiteSignatureTarget h2 {
+  margin: 0 0 13px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.onsiteSignatureTarget > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.onsiteSignatureTarget p {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.onsiteSignatureTarget small {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.onsiteSignatureTarget strong {
+  font-size: 11px;
+}
+
 @media (max-width: 900px) {
   .page {
     display: block;
@@ -1187,6 +1397,19 @@
   .content {
     padding: 24px 16px 48px;
   }
+
+  .onsitePage {
+    display: grid;
+  }
+
+  .onsiteContent {
+    padding: 20px 370px 40px 18px;
+  }
+
+  .onsitePage .acceptance,
+  .onsitePage .sectionPage > .signForm {
+    width: 350px;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1214,6 +1437,44 @@
     width: 100%;
     min-height: calc(100svh - 63px);
     padding: 34px 32px 28px;
+    box-shadow: none;
+  }
+
+  .onsitePage {
+    display: grid;
+    background: #fff;
+  }
+
+  .onsiteHeader {
+    padding: 0 12px;
+  }
+
+  .onsiteHeader small,
+  .onsiteBadge {
+    display: none;
+  }
+
+  .onsiteHeader a {
+    font-size: 0;
+  }
+
+  .onsiteContent {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .onsiteContent .toolbar,
+  .onsiteContent .document,
+  .onsiteContent .sectionPage > :not(.signForm) {
+    display: none;
+  }
+
+  .onsitePage .acceptance,
+  .onsitePage .sectionPage > .signForm {
+    position: absolute;
+    top: 64px;
+    width: 100%;
+    border-left: 0;
     box-shadow: none;
   }
 }

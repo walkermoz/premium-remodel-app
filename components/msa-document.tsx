@@ -81,9 +81,11 @@ function CancellationNotice({ agreement }: { agreement: MsaAgreement }) {
 export default function MsaDocument({
   agreement,
   preview = false,
+  highlightOwnerSignature = false,
 }: {
   agreement: MsaAgreement;
   preview?: boolean;
+  highlightOwnerSignature?: boolean;
 }) {
   return (
     <article className={styles.document}>
@@ -183,7 +185,14 @@ export default function MsaDocument({
             </>
           )}
         </div>
-        <div>
+        <div
+          className={
+            highlightOwnerSignature ? styles.ownerSignatureTarget : undefined
+          }
+        >
+          {highlightOwnerSignature && (
+            <span className={styles.signingChip}>Signing here</span>
+          )}
           <strong>Owner</strong>
           {agreement.customerSignature ? (
             <>

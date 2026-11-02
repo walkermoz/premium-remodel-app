@@ -11,10 +11,12 @@ export default function AgreementSigningForm({
   token,
   signerName,
   fields,
+  onsite = false,
 }: {
   token: string;
   signerName: string;
   fields: AgreementField[];
+  onsite?: boolean;
 }) {
   const router = useRouter();
   const [signedName, setSignedName] = useState(signerName);
@@ -48,7 +50,7 @@ export default function AgreementSigningForm({
                   ?.checked,
               );
           const response = await fetch(
-            `/api/agreement-sign/${encodeURIComponent(token)}`,
+            `/api/agreement-sign/${encodeURIComponent(token)}${onsite ? "?mode=onsite" : ""}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -63,6 +65,10 @@ export default function AgreementSigningForm({
           const body = await response.json().catch(() => ({}));
           if (!response.ok)
             throw new Error(body.error || "Could not sign this agreement.");
+          if (onsite && body.nextSigningUrl) {
+            window.location.assign(body.nextSigningUrl);
+            return;
+          }
           router.refresh();
         } catch (cause) {
           setError(

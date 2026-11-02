@@ -25,6 +25,7 @@ export const createAgreementPacketSchema = z.object({
   templateId: z.uuid(),
   projectId: z.uuid().nullable().optional(),
   contactId: z.uuid().nullable().optional(),
+  deliveryMode: z.enum(["email", "onsite"]).default("email"),
   dataSnapshot: z.record(z.string(), z.unknown()).default({}),
   signers: z.array(signerInputSchema).min(1).max(50),
 });
@@ -130,12 +131,14 @@ function templateDefinition(row: TemplateVersionRow) {
 
 function fieldValue(field: AgreementField, value: unknown) {
   if (field.type === "checkbox") {
-    if (typeof value !== "boolean") throw new Error(`${field.label} is required.`);
+    if (typeof value !== "boolean")
+      throw new Error(`${field.label} is required.`);
     return value;
   }
   if (field.type === "number" || field.type === "currency") {
     const numeric = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(numeric)) throw new Error(`${field.label} must be a number.`);
+    if (!Number.isFinite(numeric))
+      throw new Error(`${field.label} must be a number.`);
     return numeric;
   }
   if (field.type === "date") {
@@ -150,10 +153,7 @@ function fieldValue(field: AgreementField, value: unknown) {
   return text;
 }
 
-async function publishedTemplate(
-  organizationId: string,
-  templateId: string,
-) {
+async function publishedTemplate(organizationId: string, templateId: string) {
   const template = await supabaseAdmin()
     .from("remodel_agreement_templates")
     .select("published_version,status,source_type")
@@ -162,9 +162,15 @@ async function publishedTemplate(
     .maybeSingle();
   if (template.error) throw template.error;
   if (!template.data || template.data.status !== "published")
-    throw new HttpError(409, "Publish this agreement template before using it.");
+    throw new HttpError(
+      409,
+      "Publish this agreement template before using it.",
+    );
   if (template.data.source_type === "legacy_premium_msa")
-    throw new HttpError(409, "The legacy Premium agreement uses its existing quote flow.");
+    throw new HttpError(
+      409,
+      "The legacy Premium agreement uses its existing quote flow.",
+    );
   const version = await supabaseAdmin()
     .from("remodel_agreement_template_versions")
     .select(
@@ -175,24 +181,30 @@ async function publishedTemplate(
     .eq("version", template.data.published_version)
     .maybeSingle();
   if (version.error) throw version.error;
-  if (!version.data) throw new HttpError(409, "The published agreement version is unavailable.");
+  if (!version.data)
+    throw new HttpError(409, "The published agreement version is unavailable.");
   return version.data as unknown as TemplateVersionRow;
 }
 
-export async function createAgreementPacket(
-  user: WorkspaceUser,
-  raw: unknown,
-) {
+export async function createAgreementPacket(user: WorkspaceUser, raw: unknown) {
   const input = createAgreementPacketSchema.parse(raw);
-  const version = await publishedTemplate(user.organizationId, input.templateId);
+  const version = await publishedTemplate(
+    user.organizationId,
+    input.templateId,
+  );
   const definition = templateDefinition(version);
-  const signerByRole = new Map(input.signers.map((signer) => [signer.roleId, signer]));
+  const signerByRole = new Map(
+    input.signers.map((signer) => [signer.roleId, signer]),
+  );
   for (const role of definition.signerRoles)
     if (role.required && !signerByRole.has(role.id))
       throw new HttpError(400, `Add the required signer: ${role.label}.`);
   for (const signer of input.signers)
     if (!definition.signerRoles.some((role) => role.id === signer.roleId))
-      throw new HttpError(400, "A signer role does not exist in this template.");
+      throw new HttpError(
+        400,
+        "A signer role does not exist in this template.",
+      );
 
   const packetId = randomUUID();
   const now = new Date().toISOString();
@@ -238,6 +250,7 @@ export async function createAgreementPacket(
     originalFilename: version.original_filename,
     fileSha256: version.file_sha256,
     pageCount: version.page_count,
+    deliveryMode: input.deliveryMode,
   };
 
   const admin = supabaseAdmin();
@@ -299,6 +312,7 @@ export async function createAgreementPacket(
   return {
     id: packetId,
     status: "sent" as const,
+    deliveryMode: input.deliveryMode,
     firstSigners: signerRows
       .filter((signer) => signer.signing_order === firstOrder)
       .map((signer) => ({
@@ -321,7 +335,8 @@ async function signerSession(token: string) {
     .eq("access_token_hash", tokenHash(token))
     .maybeSingle();
   if (signer.error) throw signer.error;
-  if (!signer.data) throw new HttpError(404, "This agreement link is unavailable.");
+  if (!signer.data)
+    throw new HttpError(404, "This agreement link is unavailable.");
   const row = signer.data as unknown as SignerRow;
   if (
     !row.access_token_expires_at ||
@@ -354,7 +369,8 @@ async function signerSession(token: string) {
 export async function readAgreementSigningSession(token: string) {
   const session = await signerSession(token);
   const current = session.signers.find((signer) => signer.status !== "signed");
-  const blocked = current?.id !== session.signer.id && session.signer.status !== "signed";
+  const blocked =
+    current?.id !== session.signer.id && session.signer.status !== "signed";
   if (["pending", "notified"].includes(session.signer.status) && !blocked)
     await supabaseAdmin()
       .from("remodel_agreement_signers")
@@ -431,7 +447,9 @@ export async function agreementSigningDocument(token: string) {
     let page = pdf.addPage([612, 792]);
     let y = 738;
     const write = (text: string, size = 10, heading = false) => {
-      const lines = String(text || "").match(/.{1,92}(?:\s|$)|\S{1,92}/g) || [""];
+      const lines = String(text || "").match(/.{1,92}(?:\s|$)|\S{1,92}/g) || [
+        "",
+      ];
       for (const line of lines) {
         if (y < 54) {
           page = pdf.addPage([612, 792]);
@@ -462,7 +480,11 @@ export async function agreementSigningDocument(token: string) {
         });
         y -= 18;
       } else {
-        write(block.text, block.type === "heading" ? 14 : 10, block.type === "heading");
+        write(
+          block.text,
+          block.type === "heading" ? 14 : 10,
+          block.type === "heading",
+        );
         y -= block.type === "heading" ? 6 : 10;
       }
     }
@@ -565,12 +587,15 @@ export async function agreementSigningDocument(token: string) {
         size: 11,
         font: bold,
       });
-      audit.drawText(`${signer.email} | Signed ${signer.signed_at || "Pending"}`, {
-        x: 54,
-        y: auditY - 18,
-        size: 9,
-        font: regular,
-      });
+      audit.drawText(
+        `${signer.email} | Signed ${signer.signed_at || "Pending"}`,
+        {
+          x: 54,
+          y: auditY - 18,
+          size: 9,
+          font: regular,
+        },
+      );
       const evidence = signer.signature_evidence || {};
       audit.drawText(
         `Evidence: consent ${evidence.accepted === true ? "accepted" : "unavailable"}${typeof evidence.ipHash === "string" ? ` | IP hash ${evidence.ipHash.slice(0, 16)}...` : ""}`,
@@ -598,13 +623,25 @@ export async function signAgreementPacket(
 ) {
   const input = signAgreementPacketSchema.parse(raw);
   const session = await signerSession(token);
-  if (session.packet.status === "completed" || session.signer.status === "signed")
+  if (
+    session.packet.status === "completed" ||
+    session.signer.status === "signed"
+  )
     return { completed: true as const, alreadySigned: true as const };
   const current = session.signers.find((signer) => signer.status !== "signed");
   if (current?.id !== session.signer.id)
-    throw new HttpError(409, "An earlier signer must complete this agreement first.");
-  if (input.signedName.toLocaleLowerCase() !== session.signer.name.toLocaleLowerCase())
-    throw new HttpError(400, "The signer name must match the name on this agreement.");
+    throw new HttpError(
+      409,
+      "An earlier signer must complete this agreement first.",
+    );
+  if (
+    input.signedName.toLocaleLowerCase() !==
+    session.signer.name.toLocaleLowerCase()
+  )
+    throw new HttpError(
+      400,
+      "The signer name must match the name on this agreement.",
+    );
 
   const snapshot = session.packet.template_snapshot;
   const definition = agreementTemplateDefinitionSchema.parse({
@@ -618,7 +655,10 @@ export async function signAgreementPacket(
   const rows = assigned.map((field) => {
     const value =
       field.type === "signature"
-        ? { signedName: input.signedName, signatureStrokes: input.signatureStrokes }
+        ? {
+            signedName: input.signedName,
+            signatureStrokes: input.signatureStrokes,
+          }
         : fieldValue(field, input.values[field.id]);
     return {
       organization_id: session.signer.organization_id,
@@ -656,7 +696,10 @@ export async function signAgreementPacket(
     .maybeSingle();
   if (signed.error) throw signed.error;
   if (!signed.data)
-    throw new HttpError(409, "This agreement was already signed in another window.");
+    throw new HttpError(
+      409,
+      "This agreement was already signed in another window.",
+    );
 
   const next = session.signers.find(
     (signer) =>
@@ -682,9 +725,15 @@ export async function signAgreementPacket(
       .eq("id", session.signer.packet_id);
     return {
       completed: false as const,
+      deliveryMode:
+        session.packet.template_snapshot.deliveryMode === "onsite"
+          ? ("onsite" as const)
+          : ("email" as const),
       organizationId: session.signer.organization_id,
       packetId: session.signer.packet_id,
-      agreementName: String(session.packet.template_snapshot.name || "Agreement"),
+      agreementName: String(
+        session.packet.template_snapshot.name || "Agreement",
+      ),
       nextSigner: {
         id: next.id,
         name: next.name,

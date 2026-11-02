@@ -53,12 +53,21 @@ export async function POST(request: Request) {
     const delivery: Array<{
       signerId: string;
       email: string;
-      status: "sent" | "failed";
+      status: "sent" | "failed" | "ready";
       detail?: string;
       signingUrl: string;
     }> = [];
     for (const signer of packet.firstSigners) {
-      const signingUrl = `${origin}/agreement/${encodeURIComponent(signer.token)}`;
+      const signingUrl = `${origin}/agreement/${encodeURIComponent(signer.token)}${packet.deliveryMode === "onsite" ? "?mode=onsite" : ""}`;
+      if (packet.deliveryMode === "onsite") {
+        delivery.push({
+          signerId: signer.id,
+          email: signer.email,
+          status: "ready",
+          signingUrl,
+        });
+        continue;
+      }
       try {
         await sendWorkflowEmail({
           organizationId: user.organizationId,
@@ -93,6 +102,7 @@ export async function POST(request: Request) {
       afterData: {
         status: packet.status,
         signerCount: packet.firstSigners.length,
+        deliveryMode: packet.deliveryMode,
         delivered: delivery.filter((item) => item.status === "sent").length,
       },
     });

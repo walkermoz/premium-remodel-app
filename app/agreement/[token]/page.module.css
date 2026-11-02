@@ -36,6 +36,18 @@
   text-transform: uppercase;
 }
 
+.brandMark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #10202b;
+  background: #79b8e3;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .document {
   background: #fff;
   border-radius: 14px;
@@ -224,6 +236,174 @@
   margin-bottom: 0;
 }
 
+.onsiteShell {
+  height: 100svh;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  grid-template-rows: 64px minmax(0, 1fr);
+  overflow: hidden;
+  background: #e6ecef;
+}
+
+.onsiteHeader {
+  position: relative;
+  z-index: 2;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: #e7f0f5;
+  background: #0e1d27;
+  border-bottom: 1px solid #304350;
+}
+
+.onsiteHeader > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.onsiteHeader img {
+  width: auto;
+  max-width: 150px;
+  height: 36px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.onsiteTitle {
+  display: grid;
+  gap: 2px;
+}
+
+.onsiteTitle strong {
+  font-size: 13px;
+}
+
+.onsiteTitle small {
+  color: #8096a5;
+  font-size: 10px;
+}
+
+.handoffBadge {
+  padding: 7px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  color: #92c9aa;
+  background: #153326;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.onsiteHeader a {
+  min-height: 34px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #405563;
+  border-radius: 5px;
+  color: #c3d2db;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.onsiteBody {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+}
+
+.onsiteBody > .document {
+  width: min(calc(100% - 56px), 860px);
+  margin: 26px auto 50px;
+  overflow: visible;
+  align-self: start;
+  border-radius: 0;
+}
+
+.onsiteBody {
+  overflow: auto;
+}
+
+.onsiteControls {
+  position: sticky;
+  top: 0;
+  right: 0;
+  height: calc(100svh - 64px);
+  padding: 26px 24px 22px;
+  overflow: auto;
+  color: #173142;
+  background: #fff;
+  border-left: 1px solid #bdcbd3;
+  box-shadow: -15px 0 40px rgb(36 59 73 / 10%);
+}
+
+.onsiteControls > header > span {
+  color: #4c88af;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.onsiteControls > header h2 {
+  margin: 6px 0;
+  font-size: 22px;
+}
+
+.onsiteControls > header p {
+  margin: 0;
+  color: #718693;
+  font-size: 11px;
+}
+
+.onsiteProgress {
+  margin: 18px 0 22px;
+  display: flex;
+  gap: 5px;
+}
+
+.onsiteProgress span {
+  height: 3px;
+  flex: 1;
+  background: #d8e1e6;
+}
+
+.onsiteProgress span.progressComplete {
+  background: #4b94c6;
+}
+
+.onsiteControls .signingForm {
+  gap: 16px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.onsiteControls .signingForm > button {
+  width: 100%;
+  justify-self: stretch;
+}
+
+.onsiteControls .complete,
+.onsiteControls .paymentInstructions {
+  margin-top: 20px;
+}
+
+.onsiteControls > footer {
+  margin-top: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: #78909d;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 @media (max-width: 640px) {
   .shell {
     padding: 12px;
@@ -235,5 +415,39 @@
 
   .document {
     border-radius: 10px;
+  }
+
+  .onsiteShell {
+    padding: 0;
+  }
+
+  .onsiteHeader {
+    padding: 0 12px;
+  }
+
+  .onsiteTitle small,
+  .handoffBadge {
+    display: none;
+  }
+
+  .onsiteHeader a {
+    font-size: 0;
+  }
+
+  .onsiteBody {
+    grid-template-columns: 1fr;
+  }
+
+  .onsiteBody > .document {
+    display: none;
+  }
+
+  .onsiteControls {
+    position: static;
+    width: 100%;
+    height: auto;
+    min-height: calc(100svh - 64px);
+    border-left: 0;
+    box-shadow: none;
   }
 }

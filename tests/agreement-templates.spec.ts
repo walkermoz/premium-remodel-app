@@ -9,9 +9,7 @@ test("accepts reusable fields, data bindings, and ordered signers", () => {
   const parsed = agreementTemplateDefinitionSchema.parse({
     content: {
       title: "Service agreement",
-      blocks: [
-        { id: "terms", type: "paragraph", text: "Project terms" },
-      ],
+      blocks: [{ id: "terms", type: "paragraph", text: "Project terms" }],
     },
     signerRoles: [
       {
@@ -98,9 +96,7 @@ test("agreement storage is organization scoped and Premium legal content is seed
   expect(migration).toContain("remodel_agreement_template_versions");
   expect(migration).toContain("unique (organization_id, template_id, version)");
   expect(migration).toContain("remodel_publish_agreement_template");
-  expect(migration).toContain(
-    "where lower(trim(o.name)) = 'premium remodel'",
-  );
+  expect(migration).toContain("where lower(trim(o.name)) = 'premium remodel'");
   expect(migration).toContain("legacy_premium_msa");
 });
 
@@ -127,6 +123,7 @@ test("generic agreement packets use ordered private signing links and immutable 
   expect(service).toContain("signature_evidence");
   expect(service).toContain("Electronic signature audit");
   expect(service).toContain("signatureStrokes");
+  expect(service).toContain("deliveryMode: input.deliveryMode");
   expect(migration).toContain("access_token_expires_at timestamptz");
   expect(migration).toContain(
     "references public.remodel_agreement_signers(organization_id, id)",
@@ -136,6 +133,7 @@ test("generic agreement packets use ordered private signing links and immutable 
   );
   expect(signRoute).toContain("agreementSigningIpHash");
   expect(signRoute).toContain("markAgreementSignerNotified");
+  expect(signRoute).toContain('result.deliveryMode === "onsite"');
 });
 
 test("generic agreement signing has an organization-branded public UI", () => {
@@ -152,8 +150,26 @@ test("generic agreement signing has an organization-branded public UI", () => {
   expect(page).toContain("Signing order");
   expect(page).toContain("/document");
   expect(page).toContain("Download signed agreement");
+  expect(page).toContain("Staff workspace hidden");
   expect(form).toContain("MsaSignaturePad");
   expect(form).toContain("I have reviewed this agreement");
   expect(packetPanel).toContain("Create & send agreement");
+  expect(packetPanel).toContain("Sign on this device");
   expect(packetPanel).toContain("Copy link");
+});
+
+test("on-device signing keeps Premium's quote and MSA in protected handoff mode", () => {
+  const onsiteRoute = readFileSync(
+    "app/api/quotes/[id]/onsite-signing/route.ts",
+    "utf8",
+  );
+  const quotePage = readFileSync("app/client/[token]/quote/page.tsx", "utf8");
+  const acceptance = readFileSync(
+    "app/client/[token]/quote/customer-acceptance.tsx",
+    "utf8",
+  );
+  expect(onsiteRoute).toContain("?onsite=1");
+  expect(quotePage).toContain("Protected customer handoff");
+  expect(quotePage).toContain("highlightOwnerSignature");
+  expect(acceptance).toContain("&onsite=1");
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, FileSignature, Send } from "lucide-react";
+import { Check, Copy, FileSignature, Send, Tablet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { AgreementSignerRole } from "@/lib/agreement-template-schema";
 import type { Quote, User } from "@/lib/types";
@@ -75,6 +75,85 @@ export default function AgreementPacketPanel({
     [templateId, templates],
   );
 
+  async function createPacket(deliveryMode: "email" | "onsite") {
+    if (demo) return setError("Agreement delivery requires a real workspace.");
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setLinks([]);
+    try {
+      const response = await fetch("/api/agreement-packets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId,
+          projectId: quote.id,
+          contactId: quote.contactId || null,
+          deliveryMode,
+          signers: signers.filter(
+            (signer) => signer.name.trim() && signer.email.trim(),
+          ),
+          dataSnapshot: {
+            organization: { name: businessName },
+            contact: {
+              id: quote.contactId || null,
+              name: quote.client,
+              email: quote.clientEmail || "",
+              phone: quote.clientPhone || "",
+              address: quote.address,
+            },
+            quote,
+          },
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not create agreement packet.");
+      const delivered = (body.delivery || []) as Array<{
+        email: string;
+        status: "sent" | "failed" | "ready";
+        detail?: string;
+        signingUrl: string;
+      }>;
+      if (deliveryMode === "onsite") {
+        const firstLink = delivered[0]?.signingUrl;
+        if (!firstLink)
+          throw new Error("Could not open the first signer’s agreement.");
+        window.location.assign(firstLink);
+        return;
+      }
+      setLinks(
+        delivered.map((item) => ({
+          email: item.email,
+          url: item.signingUrl,
+        })),
+      );
+      setMessage(
+        delivered.every((item) => item.status === "sent")
+          ? "Agreement sent to the first signer."
+          : "The agreement is ready, but email could not be confirmed. Copy the private link below.",
+      );
+      const packetResponse = await fetch("/api/agreement-packets", {
+        cache: "no-store",
+      });
+      const packetBody = await packetResponse.json();
+      if (packetResponse.ok)
+        setPackets(
+          (packetBody.packets || []).filter(
+            (packet: PacketSummary) => packet.project_id === quote.id,
+          ),
+        );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not create agreement packet.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (demo) return;
     const controller = new AbortController();
@@ -98,7 +177,9 @@ export default function AgreementPacketPanel({
             templateBody.error || "Could not load agreement templates.",
           );
         if (!packetResponse.ok)
-          throw new Error(packetBody.error || "Could not load agreement packets.");
+          throw new Error(
+            packetBody.error || "Could not load agreement packets.",
+          );
         const published = (templateBody.templates || []).filter(
           (template: PublishedTemplate) =>
             template.status === "published" &&
@@ -133,14 +214,7 @@ export default function AgreementPacketPanel({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [
-    demo,
-    quote.client,
-    quote.clientEmail,
-    quote.id,
-    user.email,
-    user.name,
-  ]);
+  }, [demo, quote.client, quote.clientEmail, quote.id, user.email, user.name]);
 
   if (loading) return <p>Loading published agreement templates…</p>;
   if (!templates.length)
@@ -244,78 +318,17 @@ export default function AgreementPacketPanel({
         type="button"
         className="button primary"
         disabled={busy || !templateId}
-        onClick={async () => {
-          if (demo) return setError("Agreement delivery requires a real workspace.");
-          setBusy(true);
-          setError("");
-          setMessage("");
-          setLinks([]);
-          try {
-            const response = await fetch("/api/agreement-packets", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                templateId,
-                projectId: quote.id,
-                contactId: quote.contactId || null,
-                signers: signers.filter(
-                  (signer) => signer.name.trim() && signer.email.trim(),
-                ),
-                dataSnapshot: {
-                  organization: { name: businessName },
-                  contact: {
-                    id: quote.contactId || null,
-                    name: quote.client,
-                    email: quote.clientEmail || "",
-                    phone: quote.clientPhone || "",
-                    address: quote.address,
-                  },
-                  quote,
-                },
-              }),
-            });
-            const body = await response.json();
-            if (!response.ok)
-              throw new Error(body.error || "Could not create agreement packet.");
-            const delivered = (body.delivery || []) as Array<{
-              email: string;
-              status: string;
-              detail?: string;
-              signingUrl: string;
-            }>;
-            setLinks(
-              delivered.map((item) => ({
-                email: item.email,
-                url: item.signingUrl,
-              })),
-            );
-            setMessage(
-              delivered.every((item) => item.status === "sent")
-                ? "Agreement sent to the first signer."
-                : "The agreement is ready, but email could not be confirmed. Copy the private link below.",
-            );
-            const packetResponse = await fetch("/api/agreement-packets", {
-              cache: "no-store",
-            });
-            const packetBody = await packetResponse.json();
-            if (packetResponse.ok)
-              setPackets(
-                (packetBody.packets || []).filter(
-                  (packet: PacketSummary) => packet.project_id === quote.id,
-                ),
-              );
-          } catch (cause) {
-            setError(
-              cause instanceof Error
-                ? cause.message
-                : "Could not create agreement packet.",
-            );
-          } finally {
-            setBusy(false);
-          }
-        }}
+        onClick={() => void createPacket("email")}
       >
         <Send size={16} /> {busy ? "Preparing…" : "Create & send agreement"}
+      </button>
+      <button
+        type="button"
+        className="button secondary"
+        disabled={busy || !templateId}
+        onClick={() => void createPacket("onsite")}
+      >
+        <Tablet size={16} /> Sign on this device
       </button>
       {message && (
         <p className="success">
@@ -330,7 +343,11 @@ export default function AgreementPacketPanel({
       {links.map((link) => (
         <div className="agreement-packet-link" key={link.url}>
           <span>{link.email}</span>
-          <input value={link.url} readOnly aria-label={`Signing link for ${link.email}`} />
+          <input
+            value={link.url}
+            readOnly
+            aria-label={`Signing link for ${link.email}`}
+          />
           <button
             type="button"
             className="button secondary"

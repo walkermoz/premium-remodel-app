@@ -1,0 +1,1686 @@
+.demo {
+  --demo-blue: #65a8da;
+  min-height: 100svh;
+  color: #e9f2f8;
+  background: #08131d;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.demoBar {
+  min-height: 68px;
+  padding: 10px 18px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #243645;
+  background: #0d1924;
+}
+
+.demoBar > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.demoBar > div:first-child > div {
+  display: grid;
+  gap: 2px;
+}
+.demoBar strong {
+  font-size: 13px;
+}
+.demoBar small {
+  color: #8096a8;
+  font-size: 10px;
+}
+.demoMark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: #07131d;
+  background: #72b2e0;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.surfaceSwitcher {
+  display: flex;
+  padding: 3px;
+  border: 1px solid #2a3d4b;
+  border-radius: 7px;
+  background: #09131d;
+}
+.surfaceSwitcher button,
+.reset {
+  border: 0;
+  color: #91a6b5;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.surfaceSwitcher button {
+  padding: 9px 14px;
+  border-radius: 5px;
+}
+.surfaceSwitcher button.selected {
+  color: #f2f7fa;
+  background: #22394a;
+}
+.reset {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px;
+}
+.reset:hover {
+  color: #fff;
+}
+
+.previewFrame {
+  height: calc(100svh - 68px);
+  min-height: 650px;
+  overflow: hidden;
+}
+
+.appSurface {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  background: #0a151f;
+}
+.appSidebar {
+  padding: 21px 13px 15px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #263846;
+  background: #0c1721;
+}
+.appBrand {
+  height: 42px;
+  padding: 0 9px;
+  overflow: hidden;
+}
+.appBrand img {
+  width: 164px;
+  height: 42px;
+  object-fit: contain;
+  object-position: left center;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+.businessSwitcher {
+  margin: 17px 0 25px;
+  padding: 9px;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #2a3c49;
+  border-radius: 6px;
+  color: #dbe8ef;
+  background: #12222e;
+  text-align: left;
+}
+.businessSwitcher > span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: #10202c;
+  background: #83bde5;
+  font-size: 9px;
+  font-weight: 900;
+}
+.businessSwitcher strong {
+  font-size: 11px;
+}
+.navLabel {
+  margin: 0 10px 8px;
+  color: #60798b;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+.appSidebar nav {
+  display: grid;
+  gap: 3px;
+}
+.appSidebar nav button {
+  min-height: 38px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  border-radius: 5px;
+  color: #9db0bd;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+}
+.appSidebar nav button.activeNav {
+  color: #e8f4fb;
+  background: #1c3444;
+}
+.appUser {
+  margin-top: auto;
+  padding: 14px 5px 0;
+  display: grid;
+  grid-template-columns: 31px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  border-top: 1px solid #243744;
+}
+.appUser > span,
+.avatar {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #10202b;
+  background: #73b1db;
+  font-size: 9px;
+  font-weight: 900;
+}
+.appUser > div {
+  display: grid;
+  gap: 2px;
+}
+.appUser strong {
+  font-size: 10px;
+}
+.appUser small {
+  color: #6f8595;
+  font-size: 9px;
+}
+
+.appMain {
+  min-width: 0;
+  overflow: auto;
+  background: #0b1721;
+}
+.appTopbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  min-height: 55px;
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #2a3b47;
+  background: #0d1923;
+}
+.appTopbar > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #7890a0;
+  font-size: 10px;
+}
+.appTopbar strong {
+  color: #d9e6ec;
+}
+.appContent {
+  width: min(100%, 1150px);
+  margin: 0 auto;
+  padding: 24px 28px 60px;
+}
+.backLink {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  color: #7f9bae;
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+}
+.quoteHeading {
+  margin-top: 19px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+.quoteHeading span,
+.sectionHeading span {
+  color: #6fa9d2;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+.quoteHeading h1 {
+  margin: 6px 0;
+  color: #f3f8fb;
+  font-size: 29px;
+  line-height: 1;
+}
+.quoteHeading p {
+  margin: 0;
+  color: #8298a7;
+  font-size: 11px;
+}
+.headingActions {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.headingActions button,
+.deliveryStrip button {
+  min-height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #344957;
+  border-radius: 5px;
+  color: #b9cbd7;
+  background: #13232e;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+.sentBadge {
+  padding: 7px 10px;
+  border-radius: 4px;
+  color: #80cba3 !important;
+  background: #173429;
+  letter-spacing: 0 !important;
+}
+
+.workflowSteps {
+  margin: 27px 0 22px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid #2a3d4a;
+  background: #0c1923;
+}
+.workflowSteps button {
+  min-height: 58px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-right: 1px solid #2a3d4a;
+  color: #8195a3;
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  text-align: left;
+}
+.workflowSteps button:last-child {
+  border-right: 0;
+}
+.workflowSteps button > span {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #405564;
+  border-radius: 50%;
+  font-size: 9px;
+}
+.workflowSteps button.currentStep {
+  color: #eff7fb;
+  background: #172a37;
+  box-shadow: inset 0 -2px #68aada;
+}
+.workflowSteps button.currentStep > span {
+  color: #10202c;
+  border-color: #6baddb;
+  background: #6baddb;
+}
+
+.completionSection {
+  border: 1px solid #2a3e4c;
+  background: #0f1c26;
+}
+.sectionHeading {
+  padding: 20px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #293c49;
+}
+.sectionHeading h2 {
+  margin: 5px 0;
+  font-size: 19px;
+}
+.sectionHeading p {
+  margin: 0;
+  color: #8297a6;
+  font-size: 10px;
+}
+.primaryButton,
+.reviewButton,
+.signNow {
+  border: 0;
+  border-radius: 5px;
+  color: #07131c;
+  background: #79b8e3;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.primaryButton {
+  min-height: 38px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+.deliveryStrip {
+  padding: 14px 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid #293c49;
+  background: #101f2a;
+}
+.deliveryStrip > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #679ec5;
+}
+.deliveryStrip > div span {
+  display: grid;
+  gap: 3px;
+}
+.deliveryStrip small {
+  color: #718897;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+.deliveryStrip strong {
+  color: #c9d8e1;
+  font-size: 10px;
+}
+.statusList {
+  padding: 0 22px;
+}
+.statusRow {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 13px;
+  border-bottom: 1px solid #243744;
+}
+.statusRow > span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #405765;
+  border-radius: 50%;
+  color: #8da2b0;
+  font-size: 9px;
+  font-weight: 800;
+}
+.statusRow > span.completeDot {
+  color: #0f271c;
+  border-color: #65be91;
+  background: #65be91;
+}
+.statusRow > div {
+  display: grid;
+  gap: 5px;
+}
+.statusRow strong {
+  font-size: 11px;
+}
+.statusRow small {
+  color: #788e9c;
+  font-size: 9px;
+}
+.statusRow button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  color: #79b9e3;
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.auditLine {
+  margin: 18px 22px 22px;
+  padding: 14px 15px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #69a7d0;
+  background: #132531;
+  border-left: 2px solid #5d9ecb;
+}
+.auditLine > div {
+  display: grid;
+  gap: 4px;
+}
+.auditLine strong {
+  color: #d9e7ef;
+  font-size: 10px;
+}
+.auditLine span {
+  color: #78909f;
+  font-size: 9px;
+}
+
+.deviceSigning {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 64px minmax(0, 1fr);
+  color: #173142;
+  background: #e6ecef;
+  animation: deviceModeIn 220ms ease both;
+}
+
+@keyframes deviceModeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.992);
+  }
+}
+
+.deviceHeader {
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: #e7f0f5;
+  background: #0e1d27;
+  border-bottom: 1px solid #304350;
+}
+
+.deviceHeader > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.deviceHeader > div:first-child > div {
+  display: grid;
+  gap: 2px;
+}
+
+.deviceHeader strong {
+  font-size: 12px;
+}
+
+.deviceHeader small {
+  color: #8096a5;
+  font-size: 9px;
+}
+
+.deviceSb {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #10202b;
+  background: #79b8e3;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.handoffBadge {
+  padding: 7px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  color: #92c9aa;
+  background: #153326;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.deviceHeader button {
+  min-height: 34px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #405563;
+  border-radius: 5px;
+  color: #c3d2db;
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.deviceBody {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+}
+
+.deviceDocumentViewport {
+  min-width: 0;
+  overflow: auto;
+  padding: 24px 30px 50px;
+}
+
+.deviceIntro,
+.deviceDocument {
+  width: min(100%, 760px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.deviceMsaDocument {
+  width: min(100%, 850px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.deviceMsaDocument > article {
+  max-width: none;
+  box-shadow: 0 12px 35px rgb(25 48 62 / 12%);
+}
+
+.deviceIntro {
+  margin-bottom: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+}
+
+.deviceIntro > span {
+  grid-row: 1 / 3;
+  align-self: center;
+  padding: 6px 8px;
+  border-radius: 3px;
+  color: #326f98;
+  background: #d7eaf6;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.deviceIntro strong {
+  font-size: 11px;
+}
+
+.deviceIntro small {
+  color: #6f8491;
+  font-size: 9px;
+}
+
+.deviceDocument {
+  min-height: 760px;
+  padding: 34px 48px;
+  color: #1c3341;
+  background: #fff;
+  box-shadow: 0 12px 35px rgb(25 48 62 / 12%);
+}
+
+.deviceDocument > header {
+  height: 64px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid #c7d5dc;
+}
+
+.deviceDocument > header span {
+  color: #56778b;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.deviceDocument > header img {
+  width: 210px;
+  transform: translateY(-13px);
+}
+
+.deviceDocumentTitle {
+  padding: 18px 0 14px;
+}
+
+.deviceDocumentTitle h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.deviceDocumentTitle p {
+  margin: 5px 0 0;
+  color: #627a89;
+  font-size: 8px;
+}
+
+.deviceInvestment {
+  min-height: 42px;
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  background: #438dc1;
+}
+
+.deviceInvestment span,
+.deviceInvestment strong {
+  font-size: 10px;
+}
+
+.deviceScope,
+.deviceTerms {
+  margin-top: 15px;
+}
+
+.deviceScope h2,
+.deviceTerms h2 {
+  margin: 0;
+  padding: 8px 10px;
+  background: #eaf1f4;
+  font-size: 8px;
+}
+
+.deviceScope p,
+.deviceTerms p {
+  margin: 0;
+  padding: 9px 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #dbe4e8;
+}
+
+.deviceScope p {
+  display: grid;
+  justify-content: stretch;
+  gap: 3px;
+}
+
+.deviceScope strong,
+.deviceTerms strong {
+  font-size: 9px;
+}
+
+.deviceScope span,
+.deviceTerms span {
+  color: #5d7483;
+  font-size: 8px;
+}
+
+.deviceAgreementSummary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid #aec2cd;
+  background: #edf4f7;
+}
+
+.deviceAgreementSummary span {
+  min-height: 55px;
+  padding: 10px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  border-bottom: 1px solid #aec2cd;
+}
+
+.deviceAgreementSummary span:nth-child(odd) {
+  border-right: 1px solid #aec2cd;
+}
+
+.deviceAgreementSummary small,
+.deviceTarget small {
+  color: #6e8796;
+  font-size: 7px;
+}
+
+.deviceAgreementSummary strong {
+  font-size: 9px;
+}
+
+.deviceTarget {
+  position: relative;
+  margin-top: 20px;
+  padding: 15px 13px;
+  border: 1px solid #4d98c8;
+  border-radius: 4px;
+  background: #f0f8fd;
+  box-shadow: 0 0 0 3px rgb(77 152 200 / 15%);
+}
+
+.deviceTarget h2 {
+  margin: 0 0 12px;
+  color: #557487;
+  font-size: 8px;
+}
+
+.deviceTarget > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.deviceTarget > div span {
+  display: grid;
+  gap: 4px;
+}
+
+.deviceTarget strong {
+  font-size: 9px;
+}
+
+.deviceTarget > p {
+  width: 52%;
+  margin: 18px 0 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #92aab8;
+  color: #748895;
+  font-size: 8px;
+}
+
+.deviceControls {
+  min-width: 0;
+  padding: 25px 23px 20px;
+  overflow: auto;
+  color-scheme: light;
+  background: #fff;
+  border-left: 1px solid #bdcbd3;
+  box-shadow: -15px 0 40px rgb(36 59 73 / 10%);
+}
+
+.deviceControls > header > span {
+  color: #4c88af;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.deviceControls h2 {
+  margin: 5px 0;
+  font-size: 19px;
+}
+
+.deviceControls header p {
+  margin: 0;
+  color: #718693;
+  font-size: 9px;
+}
+
+.deviceProgress {
+  margin: 17px 0 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.deviceProgress span {
+  height: 3px;
+  background: #d8e1e6;
+}
+
+.deviceProgress span.doneSegment {
+  background: #4b94c6;
+}
+
+.deviceControls > footer {
+  margin-top: 15px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: #78909d;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 68px 0 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(2 9 14 / 78%);
+  backdrop-filter: blur(4px);
+}
+.methodModal {
+  width: min(100%, 640px);
+  border: 1px solid #354957;
+  border-radius: 8px;
+  background: #101d27;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 45%);
+}
+.methodModal > header {
+  padding: 22px 24px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #2d3f4c;
+}
+.methodModal header span {
+  color: #6fa9d2;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.methodModal h2 {
+  margin: 6px 0;
+  font-size: 20px;
+}
+.methodModal p {
+  margin: 0;
+  color: #8095a3;
+  font-size: 10px;
+}
+.methodModal header button,
+.signingPanel header button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #344955;
+  border-radius: 5px;
+  color: #a6b8c3;
+  background: transparent;
+}
+.methodChoices {
+  padding: 12px;
+  display: grid;
+  gap: 7px;
+}
+.methodChoices button {
+  min-height: 68px;
+  padding: 13px 15px;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  border: 1px solid #2d414e;
+  border-radius: 6px;
+  color: #85aac2;
+  background: #12222d;
+  text-align: left;
+  cursor: pointer;
+}
+.methodChoices button > svg:first-child {
+  grid-row: 1 / 3;
+}
+.methodChoices button > svg:last-child {
+  grid-column: 3;
+  grid-row: 1 / 3;
+}
+.methodChoices strong {
+  color: #e5eff4;
+  font-size: 11px;
+}
+.methodChoices span {
+  color: #7d929f;
+  font-size: 9px;
+}
+.methodChoices button.primaryChoice {
+  border-color: #4d86aa;
+  background: #162c3a;
+}
+
+.portalSurface {
+  color-scheme: light;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 206px minmax(0, 1fr);
+  color: #20313d;
+  background: #e8edf0;
+}
+.portalSidebar {
+  padding: 27px 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid #d2dade;
+  background: #fff;
+}
+.portalSidebar > img {
+  width: 166px;
+  margin: 0 auto 28px;
+}
+.portalSidebar > a {
+  min-height: 39px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-radius: 5px;
+  color: #274456;
+  font-size: 11px;
+  font-weight: 700;
+}
+.portalSidebar > a.portalActive {
+  color: #183d54;
+  background: #e7eef2;
+}
+.portalSidebar > div {
+  margin-top: auto;
+  padding: 17px 10px 0;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #dbe2e6;
+}
+.portalSidebar small {
+  color: #778895;
+  font-size: 9px;
+}
+.portalSidebar strong,
+.portalSidebar span {
+  color: #29485a;
+  font-size: 10px;
+}
+.portalMain {
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+.portalActionBar {
+  height: 72px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #cdd7dc;
+  background: #fff;
+}
+.portalActionBar > div {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.portalActionBar > div:first-child {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 10px;
+}
+.portalActionBar > div:first-child > span {
+  grid-row: 1 / 3;
+}
+.portalActionBar strong {
+  font-size: 12px;
+}
+.portalActionBar small {
+  color: #768995;
+  font-size: 9px;
+}
+.actionNeeded,
+.actionComplete {
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+}
+.actionNeeded {
+  color: #80550a;
+  background: #fff1cf;
+}
+.actionComplete {
+  color: #1f7047;
+  background: #dcf4e7;
+}
+.portalDownload {
+  min-height: 37px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #bbc9d0;
+  border-radius: 5px;
+  color: #29495c;
+  background: #fff;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+.reviewButton {
+  min-height: 38px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+}
+.portalDocumentArea {
+  height: calc(100% - 72px);
+  overflow: auto;
+  padding: 26px 32px 70px;
+  transition: padding-right 220ms ease;
+}
+.panelOpen .portalDocumentArea {
+  padding-right: 410px;
+}
+.quoteDocument {
+  width: min(100%, 790px);
+  min-height: 940px;
+  margin: 0 auto;
+  padding: 34px 49px 36px;
+  color: #182d3a;
+  background: #fff;
+  box-shadow: 0 10px 32px rgb(30 52 66 / 13%);
+}
+.documentBrand {
+  height: 68px;
+  position: relative;
+  border-bottom: 1px solid #cbd8df;
+}
+.documentBrand > span {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  color: #52758c;
+  font-size: 8px;
+  font-weight: 800;
+}
+.documentBrand img {
+  position: absolute;
+  top: -12px;
+  right: 0;
+  width: 230px;
+}
+.documentTitle {
+  padding: 19px 0 15px;
+}
+.documentTitle h1 {
+  margin: 0;
+  font-size: 19px;
+}
+.documentTitle p {
+  margin: 5px 0 0;
+  color: #5f7889;
+  font-size: 8px;
+}
+.customerGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid #aac1cf;
+  background: #edf4f7;
+}
+.customerGrid > div {
+  min-height: 80px;
+  padding: 13px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.customerGrid > div + div {
+  border-left: 1px solid #aac1cf;
+}
+.customerGrid small,
+.documentAcceptance small {
+  color: #6f8796;
+  font-size: 7px;
+  font-style: normal;
+}
+.customerGrid strong,
+.customerGrid span {
+  font-size: 9px;
+}
+.customerGrid em {
+  margin-top: 5px;
+  color: #6b8290;
+  font-size: 8px;
+  font-style: normal;
+}
+.investmentBar {
+  min-height: 43px;
+  margin-top: 14px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  background: #3f8ac0;
+}
+.investmentBar span {
+  font-size: 9px;
+  font-weight: 800;
+}
+.investmentBar strong {
+  font-size: 18px;
+}
+.documentScope {
+  margin-top: 16px;
+}
+.documentScope h2 {
+  margin: 0;
+  padding: 9px 12px;
+  background: #e8f0f4;
+  font-size: 9px;
+}
+.documentScope > div {
+  padding: 9px 12px;
+  border-bottom: 1px solid #dbe4e8;
+}
+.documentScope > div strong {
+  font-size: 9px;
+}
+.documentScope > div p {
+  margin: 3px 0 0;
+  color: #536d7d;
+  font-size: 8px;
+  line-height: 1.4;
+}
+.documentScope footer {
+  min-height: 37px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #edf3f5;
+  font-size: 9px;
+  font-weight: 800;
+}
+.documentNotes {
+  padding: 15px 0 12px;
+}
+.documentNotes h2 {
+  margin: 0;
+  color: #3f8ac0;
+  font-size: 11px;
+}
+.documentNotes p {
+  margin: 7px 0 0;
+  font-size: 8px;
+}
+.documentAcceptance {
+  position: relative;
+  border-top: 1px solid #cbd8df;
+  padding-top: 13px;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+.documentAcceptance h2 {
+  margin: 0 0 11px;
+  color: #627b8a;
+  font-size: 8px;
+}
+.documentAcceptance > div:first-of-type {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.documentAcceptance > div:first-of-type span {
+  display: grid;
+  gap: 4px;
+}
+.documentAcceptance strong {
+  font-size: 9px;
+}
+.documentAcceptance > small {
+  display: block;
+  margin-top: 12px;
+}
+.documentSignature {
+  width: 290px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #98afbd;
+  color: #8798a3;
+  font-size: 8px;
+  overflow: hidden;
+}
+.documentSignature svg {
+  height: 60px !important;
+}
+
+.agreementSignatureBlock {
+  position: relative;
+  margin-top: 16px;
+  padding: 13px 0;
+  border-top: 1px solid #cbd8df;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.agreementSignatureBlock h2 {
+  margin: 0 0 12px;
+  color: #627b8a;
+  font-size: 8px;
+}
+
+.agreementSignatureBlock > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.agreementSignatureBlock > div > span {
+  min-height: 55px;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  border-bottom: 1px solid #98afbd;
+}
+
+.agreementSignatureBlock small {
+  color: #6f8796;
+  font-size: 7px;
+}
+
+.agreementSignatureBlock strong {
+  font-size: 9px;
+}
+
+.agreementSignatureBlock em {
+  color: #6b8290;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.signatureTarget {
+  margin-right: -13px;
+  margin-left: -13px;
+  padding: 14px 13px;
+  border: 1px solid #4d98c8;
+  border-radius: 4px;
+  background: #f0f8fd;
+  box-shadow:
+    0 0 0 3px rgb(77 152 200 / 15%),
+    0 7px 20px rgb(47 111 152 / 10%);
+  animation: signatureFocus 420ms ease both;
+}
+
+@keyframes signatureFocus {
+  from {
+    transform: translateY(4px);
+    opacity: 0.55;
+  }
+}
+
+.signingHere {
+  position: absolute;
+  top: -12px;
+  right: 10px;
+  padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 3px;
+  color: #fff;
+  background: #3f8ac0;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.signingPanel {
+  color-scheme: light;
+  position: absolute;
+  z-index: 5;
+  top: 72px;
+  right: 0;
+  bottom: 0;
+  width: 390px;
+  padding: 0 22px 18px;
+  overflow: auto;
+  color: #183142;
+  background: #fff;
+  border-left: 1px solid #bdcbd3;
+  box-shadow: -15px 0 40px rgb(36 59 73 / 12%);
+  animation: panelIn 220ms ease both;
+}
+@keyframes panelIn {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+.signingPanel > header {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dce4e8;
+}
+.signingPanel header span {
+  color: #4986ae;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.signingPanel h2 {
+  margin: 5px 0 0;
+  font-size: 18px;
+}
+.signingProgress {
+  padding: 16px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.signingProgress span {
+  height: 3px;
+  background: #d8e1e6;
+}
+.signingProgress span.doneSegment {
+  background: #4b94c6;
+}
+.signingSummary {
+  padding: 13px;
+  display: flex;
+  gap: 10px;
+  color: #347dac;
+  background: #edf5fa;
+}
+.signingSummary > div {
+  display: grid;
+  gap: 4px;
+}
+.signingSummary strong {
+  color: #1c3a4c;
+  font-size: 10px;
+}
+.signingSummary span {
+  color: #688091;
+  font-size: 9px;
+}
+.reviewCopy {
+  margin: 17px 0 12px;
+  color: #526b7b;
+  font-size: 10px;
+  line-height: 1.55;
+}
+.jumpButton {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  color: #347dac;
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+}
+.signerField,
+.signatureField > label {
+  color: #607988;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.signerField {
+  margin-top: 18px;
+  display: grid;
+  gap: 6px;
+}
+.signerField input {
+  height: 37px;
+  padding: 0 10px;
+  border: 1px solid #b9c9d1;
+  border-radius: 4px;
+  color: #213d4e;
+  background: #f8fafb;
+  font: inherit;
+  font-size: 10px;
+}
+.signatureField {
+  margin-top: 15px;
+}
+.signatureField > div {
+  margin-top: 6px;
+}
+.consentField {
+  margin: 14px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #425f71;
+  font-size: 9px;
+  line-height: 1.45;
+}
+.consentField input {
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  min-height: 15px;
+  margin-top: 1px;
+  padding: 0;
+  accent-color: #3f8ac0;
+}
+.signNow {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 10px;
+}
+.signNow:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.signingPanel > footer {
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  color: #78909d;
+  font-size: 8px;
+}
+.mobileSignBar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .demoBar {
+    grid-template-columns: 1fr auto;
+  }
+  .surfaceSwitcher {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: stretch;
+  }
+  .surfaceSwitcher button {
+    flex: 1;
+  }
+  .previewFrame {
+    height: calc(100svh - 112px);
+  }
+  .appSurface {
+    grid-template-columns: 1fr;
+  }
+  .appSidebar {
+    display: none;
+  }
+  .deliveryStrip {
+    grid-template-columns: 1fr;
+  }
+  .workflowSteps button strong {
+    display: none;
+  }
+  .portalSurface {
+    grid-template-columns: 1fr;
+  }
+  .portalSidebar {
+    display: none;
+  }
+  .panelOpen .portalDocumentArea {
+    padding-right: 22px;
+  }
+  .signingPanel {
+    position: absolute;
+    top: 72px;
+    width: min(100%, 430px);
+  }
+  .deviceBody {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+  .deviceDocumentViewport {
+    padding: 20px 18px 40px;
+  }
+  .deviceDocument {
+    padding-right: 30px;
+    padding-left: 30px;
+  }
+}
+
+@media (max-width: 620px) {
+  .demoBar {
+    padding: 9px 12px;
+    gap: 8px;
+  }
+  .reset {
+    font-size: 0;
+  }
+  .appContent {
+    padding: 18px 13px 50px;
+  }
+  .quoteHeading {
+    align-items: flex-start;
+  }
+  .headingActions button {
+    display: none;
+  }
+  .workflowSteps {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .primaryButton {
+    width: 100%;
+    justify-content: center;
+  }
+  .deliveryStrip {
+    display: none;
+  }
+  .statusRow {
+    grid-template-columns: 28px 1fr;
+    padding: 10px 0;
+  }
+  .statusRow button {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .portalActionBar {
+    height: 64px;
+    padding: 0 13px;
+  }
+  .portalActionBar .portalDownload,
+  .portalActionBar .reviewButton {
+    display: none;
+  }
+  .portalDocumentArea {
+    height: calc(100% - 64px);
+    padding: 14px 0 82px;
+  }
+  .quoteDocument {
+    width: 100%;
+    min-height: 900px;
+    padding: 25px 18px;
+    box-shadow: none;
+  }
+  .documentBrand img {
+    width: 180px;
+  }
+  .customerGrid {
+    grid-template-columns: 1fr;
+  }
+  .customerGrid > div + div {
+    border-top: 1px solid #aac1cf;
+    border-left: 0;
+  }
+  .signingPanel {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    padding-bottom: 30px;
+  }
+  .mobileSignBar {
+    position: absolute;
+    z-index: 4;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    min-height: 58px;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    border: 0;
+    border-radius: 7px;
+    color: #07131c;
+    background: #79b8e3;
+    box-shadow: 0 12px 30px rgb(19 44 61 / 28%);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 900;
+  }
+  .mobileSignBar > span {
+    margin-right: auto;
+    display: grid;
+    gap: 2px;
+    text-align: left;
+  }
+  .mobileSignBar small {
+    font-size: 8px;
+    font-weight: 500;
+  }
+  .methodModal {
+    max-height: calc(100svh - 130px);
+    overflow: auto;
+  }
+  .deviceSigning {
+    grid-template-rows: 58px minmax(0, 1fr);
+  }
+  .deviceHeader {
+    padding: 0 12px;
+  }
+  .deviceHeader small,
+  .handoffBadge {
+    display: none;
+  }
+  .deviceHeader button {
+    font-size: 0;
+  }
+  .deviceBody {
+    grid-template-columns: 1fr;
+  }
+  .deviceDocumentViewport {
+    display: none;
+  }
+  .deviceControls {
+    padding: 24px 18px 30px;
+    border-left: 0;
+    box-shadow: none;
+  }
+}

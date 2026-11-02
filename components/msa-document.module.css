@@ -78,6 +78,28 @@
   padding: 10px 0;
   border-top: 1px solid #e5ebef;
 }
+.signatures > div.ownerSignatureTarget {
+  position: relative;
+  margin: 10px -8px 0;
+  padding: 14px 8px 10px;
+  border: 1px solid #4d98c8;
+  border-radius: 4px;
+  background: #f0f8fd;
+  box-shadow: 0 0 0 3px rgb(77 152 200 / 15%);
+}
+.signingChip {
+  position: absolute;
+  top: -13px;
+  right: 10px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  color: #fff;
+  background: #3f8ac0;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .signatures svg {
   display: block;
 }

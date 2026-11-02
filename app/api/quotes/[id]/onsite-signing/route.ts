@@ -65,7 +65,7 @@ export async function POST(
       );
     const token = createClientEmailToken(linkId, quote.clientEmail);
     return Response.json(
-      { url: `${appOrigin(request)}/client/${token}/quote` },
+      { url: `${appOrigin(request)}/client/${token}/quote?onsite=1` },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
