@@ -185,6 +185,9 @@ test("on-device signing keeps Premium's quote and MSA in protected handoff mode"
   expect(quotePanel).toContain("Open on this device");
   expect(quotePanel).toContain("Send portal link");
   expect(msaPanel).toContain("Company signature");
+  expect(msaPanel).toContain("Sign MSA on this device");
+  expect(msaPanel).toContain("On-device MSA signing");
+  expect(msaPanel).toContain("/onsite-signing");
   expect(msaPanel).toContain("/prepare");
   expect(prepareRoute).toContain("preparingAfterAcceptance");
 });

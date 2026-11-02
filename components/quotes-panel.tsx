@@ -2003,17 +2003,20 @@ export function QuoteDetail({
             {!signedMsa &&
               ["prepared", "sent"].includes(
                 quote.msaAgreement?.status || "",
-              ) && (
+              ) &&
+              (!signedScope || quote.msaAgreement?.status === "prepared") && (
                 <div className="workflow-customer-handoff-actions">
-                  <button
-                    type="button"
-                    className="button primary"
-                    disabled={!quote.clientEmail || onsiteBusy}
-                    onClick={() => void startOnsiteSigning()}
-                  >
-                    <Tablet size={15} aria-hidden="true" />
-                    {onsiteBusy ? "Opening…" : "Open on this device"}
-                  </button>
+                  {!signedScope && (
+                    <button
+                      type="button"
+                      className="button primary"
+                      disabled={!quote.clientEmail || onsiteBusy}
+                      onClick={() => void startOnsiteSigning()}
+                    >
+                      <Tablet size={15} aria-hidden="true" />
+                      {onsiteBusy ? "Opening…" : "Open on this device"}
+                    </button>
+                  )}
                   {quote.msaAgreement?.status === "prepared" && (
                     <button
                       type="button"

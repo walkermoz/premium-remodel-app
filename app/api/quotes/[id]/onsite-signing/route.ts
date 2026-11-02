@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth";
 import { createClientEmailToken } from "@/lib/client-portal";
 import { ensureEmailedQuoteLink } from "@/lib/client-quote-link";
+import { cancellationDeadline, easternDate } from "@/lib/msa-contract";
 import { preparedMsaMatchesQuote } from "@/lib/msa-quote-match";
 import { findRecord, getWorkspace, updateRecord } from "@/lib/repository";
 import type { Quote } from "@/lib/types";
@@ -89,9 +90,12 @@ export async function POST(
       );
     const token = createClientEmailToken(linkId, quote.clientEmail);
     const onsitePath = quoteAlreadySigned ? "?view=msa&onsite=1" : "?onsite=1";
+    const transactionDate = easternDate(new Date());
     return Response.json(
       {
         url: `${appOrigin(request)}/client/${token}/quote${onsitePath}`,
+        transactionDate,
+        cancellationDeadline: cancellationDeadline(transactionDate),
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

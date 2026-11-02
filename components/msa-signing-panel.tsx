@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   FileSignature,
   Hourglass,
+  Tablet,
 } from "lucide-react";
 import type { Quote, SignatureStroke } from "@/lib/types";
 import { projectMoney } from "@/lib/project-finances";
@@ -28,6 +29,18 @@ export default function MsaSigningPanel({
   );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [customerSigningOpen, setCustomerSigningOpen] = useState(false);
+  const [customerSigningToken, setCustomerSigningToken] = useState("");
+  const [customerName, setCustomerName] = useState(quote.client);
+  const [customerSignatureStrokes, setCustomerSignatureStrokes] = useState<
+    SignatureStroke[]
+  >([]);
+  const [customerAgreed, setCustomerAgreed] = useState(false);
+  const [customerSigningBusy, setCustomerSigningBusy] = useState(false);
+  const [customerSigningError, setCustomerSigningError] = useState("");
+  const [customerSigningNotice, setCustomerSigningNotice] = useState("");
+  const [transactionDate, setTransactionDate] = useState("");
+  const [cancellationDate, setCancellationDate] = useState("");
   const accepted =
     quote.status === "Accepted" &&
     Boolean(quote.quoteAcceptance) &&
@@ -89,6 +102,87 @@ export default function MsaSigningPanel({
     }
   }
 
+  async function openCustomerSigning() {
+    if (customerSigningBusy) return;
+    if (customerSigningOpen && customerSigningToken) {
+      setCustomerSigningOpen(false);
+      return;
+    }
+    setCustomerSigningBusy(true);
+    setCustomerSigningError("");
+    setCustomerSigningNotice("");
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/onsite-signing`,
+        { method: "POST" },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "Could not start MSA signing.");
+      const signingUrl = new URL(result.url, window.location.origin);
+      const segments = signingUrl.pathname.split("/").filter(Boolean);
+      const clientIndex = segments.indexOf("client");
+      const token = clientIndex >= 0 ? segments[clientIndex + 1] : "";
+      if (!token) throw new Error("The signing session could not be opened.");
+      setCustomerSigningToken(decodeURIComponent(token));
+      setTransactionDate(String(result.transactionDate || ""));
+      setCancellationDate(String(result.cancellationDeadline || ""));
+      setCustomerSigningOpen(true);
+      await onSent();
+    } catch (cause) {
+      setCustomerSigningError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not start MSA signing.",
+      );
+    } finally {
+      setCustomerSigningBusy(false);
+    }
+  }
+
+  async function signCustomerAgreement() {
+    if (
+      customerSigningBusy ||
+      !customerSigningToken ||
+      !agreement ||
+      !transactionDate
+    )
+      return;
+    setCustomerSigningBusy(true);
+    setCustomerSigningError("");
+    setCustomerSigningNotice("");
+    try {
+      const response = await fetch(
+        `/api/client-quote/${encodeURIComponent(customerSigningToken)}/msa/sign`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            signedName: customerName.trim(),
+            signatureStrokes: customerSignatureStrokes,
+            termsSha256: agreement.termsSha256,
+            transactionDate,
+            agreed: customerAgreed,
+          }),
+        },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "Could not save the MSA signature.");
+      if (result.emailWarning) setCustomerSigningNotice(result.emailWarning);
+      setCustomerSigningOpen(false);
+      await onSent();
+    } catch (cause) {
+      setCustomerSigningError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not save the MSA signature.",
+      );
+    } finally {
+      setCustomerSigningBusy(false);
+    }
+  }
+
   if (agreement) {
     const signed = agreement.status === "signed";
     const prepared = agreement.status === "prepared";
@@ -131,7 +225,7 @@ export default function MsaSigningPanel({
                   : `The customer portal is active for ${agreement.ownerEmail}.`}
             </p>
           </div>
-          {signed && (
+          {signed ? (
             <div className="workflow-document-actions">
               <a
                 className="button secondary"
@@ -142,7 +236,23 @@ export default function MsaSigningPanel({
                 View signed MSA
               </a>
             </div>
-          )}
+          ) : accepted ? (
+            <div className="workflow-document-actions">
+              <button
+                type="button"
+                className="button primary"
+                disabled={customerSigningBusy}
+                onClick={() => void openCustomerSigning()}
+              >
+                <Tablet size={15} aria-hidden="true" />
+                {customerSigningBusy
+                  ? "Opening…"
+                  : customerSigningOpen
+                    ? "Close signing"
+                    : "Sign MSA on this device"}
+              </button>
+            </div>
+          ) : null}
         </header>
         <dl>
           <div>
@@ -164,7 +274,106 @@ export default function MsaSigningPanel({
             </dd>
           </div>
         </dl>
-        {error && <p className="alert">{error}</p>}
+        {customerSigningOpen && transactionDate && (
+          <section
+            className="workflow-inline-msa-signing"
+            aria-label="On-device MSA signing"
+          >
+            <div className="workflow-inline-msa-heading">
+              <div>
+                <span className="project-handoff-eyebrow">
+                  Customer signature
+                </span>
+                <h4>Review and sign the MSA here</h4>
+                <p>
+                  The customer can review and sign on this device. The portal
+                  link remains active if it was already emailed.
+                </p>
+              </div>
+              <span className="workflow-inline-msa-date">
+                Effective date · {transactionDate}
+              </span>
+            </div>
+            <div
+              className="workflow-msa-document-scroll"
+              role="region"
+              aria-label="Scrollable MSA for customer signature"
+              tabIndex={0}
+            >
+              <MsaDocument
+                agreement={{
+                  ...agreement,
+                  status: "sent",
+                  transactionDate,
+                  cancellationDeadline: cancellationDate,
+                }}
+                highlightOwnerSignature
+              />
+            </div>
+            <div className="workflow-inline-msa-fields">
+              <label>
+                Customer legal name
+                <input
+                  value={customerName}
+                  minLength={2}
+                  maxLength={150}
+                  disabled={customerSigningBusy}
+                  onChange={(event) => setCustomerName(event.target.value)}
+                />
+              </label>
+              <div>
+                <span>Date</span>
+                <strong>{transactionDate}</strong>
+              </div>
+            </div>
+            <p className="workflow-signature-label">Customer signature</p>
+            <MsaSignaturePad
+              onChange={setCustomerSignatureStrokes}
+              disabled={customerSigningBusy}
+            />
+            <label className="workflow-inline-msa-consent">
+              <input
+                type="checkbox"
+                checked={customerAgreed}
+                disabled={customerSigningBusy}
+                onChange={(event) => setCustomerAgreed(event.target.checked)}
+              />
+              <span>
+                I reviewed and approve this Master Services Agreement,
+                including its exhibits, and intend my electronic signature to
+                sign it.
+              </span>
+            </label>
+            {customerSigningError && (
+              <p role="alert" className="alert">
+                {customerSigningError}
+              </p>
+            )}
+            {customerSigningNotice && (
+              <p role="status" className="alert">
+                {customerSigningNotice}
+              </p>
+            )}
+            <div className="workflow-completion-actions">
+              <button
+                type="button"
+                className="button primary"
+                disabled={
+                  customerSigningBusy ||
+                  !customerAgreed ||
+                  customerName.trim().length < 2 ||
+                  !customerSignatureStrokes.length
+                }
+                onClick={() => void signCustomerAgreement()}
+              >
+                {customerSigningBusy ? "Saving signature…" : "Sign MSA"}
+              </button>
+            </div>
+          </section>
+        )}
+        {(error || (!customerSigningOpen && customerSigningError)) && (
+          <p className="alert">{error || customerSigningError}</p>
+        )}
       </section>
     );
   }
