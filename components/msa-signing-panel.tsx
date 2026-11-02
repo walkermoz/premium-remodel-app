@@ -262,7 +262,14 @@ export default function MsaSigningPanel({
               of Cancellation before signing.
             </p>
           </div>
-          <MsaDocument agreement={preview} preview />
+          <div
+            className="workflow-msa-document-scroll"
+            role="region"
+            aria-label="Scrollable master services agreement"
+            tabIndex={0}
+          >
+            <MsaDocument agreement={preview} preview />
+          </div>
         </div>
       )}
       <div className="workflow-signing-fields">
