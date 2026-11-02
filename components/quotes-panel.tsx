@@ -12,6 +12,7 @@ import {
   Plus,
   FileUp,
   RotateCcw,
+  Tablet,
   Trash2,
 } from "lucide-react";
 import {
@@ -1973,18 +1974,30 @@ export function QuoteDetail({
                 {quote.quoteSentAt ? "Resend quote" : "Email quote"}
               </button>
             )}
-            {!signedScope && config.features.agreements && (
+            {!signedMsa && config.features.agreements && (
               <button
                 type="button"
                 className="button secondary"
+                aria-label={
+                  signedScope
+                    ? "Sign service agreement on this device"
+                    : "Sign quote and service agreement on this device"
+                }
                 disabled={
                   !quote.clientEmail ||
-                  quote.msaAgreement?.status !== "prepared" ||
+                  !["prepared", "sent"].includes(
+                    quote.msaAgreement?.status || "",
+                  ) ||
                   onsiteBusy
                 }
                 onClick={() => void startOnsiteSigning()}
               >
-                {onsiteBusy ? "Opening…" : "Start on-site signing"}
+                <Tablet size={15} aria-hidden="true" />
+                {onsiteBusy
+                  ? "Opening…"
+                  : signedScope
+                    ? "Sign MSA on this device"
+                    : "Sign quote & MSA on this device"}
               </button>
             )}
           </div>

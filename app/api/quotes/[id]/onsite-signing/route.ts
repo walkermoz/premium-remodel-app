@@ -34,7 +34,13 @@ export async function POST(
     await limitAttempts(`onsite-signing:${user.id}:${id}`, 12);
     const quote = (await findRecord(user, id, "quote")) as Quote | null;
     if (!quote) throw new HttpError(404, "Quote not found.");
-    if (quote.status !== "Draft" && quote.status !== "Sent")
+    const quoteAlreadySigned =
+      quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
+    if (
+      quote.status !== "Draft" &&
+      quote.status !== "Sent" &&
+      !quoteAlreadySigned
+    )
       throw new HttpError(409, "This quote is not available for signing.");
     if (!quote.clientEmail)
       throw new HttpError(400, "Add the client's email to the quote first.");
@@ -44,6 +50,11 @@ export async function POST(
         409,
         "Sign and prepare an MSA matching this quote before starting on-site signing.",
       );
+    if (quote.msaAgreement?.status === "signed")
+      throw new HttpError(
+        409,
+        "The quote and service agreement are already signed.",
+      );
     const now = new Date().toISOString();
     const linkId = await ensureEmailedQuoteLink(
       user,
@@ -51,21 +62,37 @@ export async function POST(
       workspace.scope,
       now,
     );
-    if (quote.status !== "Sent" || !quote.quoteSentAt || !quote.quoteOnsiteAt)
+    if (
+      quote.status !== "Sent" ||
+      !quote.quoteSentAt ||
+      !quote.quoteOnsiteAt ||
+      (quoteAlreadySigned && quote.msaAgreement?.status === "prepared")
+    )
       await updateRecord(
         user,
         quote,
         {
           ...quote,
-          status: "Sent",
+          status: quoteAlreadySigned ? "Accepted" : "Sent",
           quoteSentAt: quote.quoteSentAt || now,
           quoteOnsiteAt: now,
+          msaAgreement:
+            quoteAlreadySigned && quote.msaAgreement?.status === "prepared"
+              ? {
+                  ...quote.msaAgreement,
+                  status: "sent" as const,
+                  sentAt: now,
+                }
+              : quote.msaAgreement,
         },
         quote.updatedAt,
       );
     const token = createClientEmailToken(linkId, quote.clientEmail);
+    const onsitePath = quoteAlreadySigned ? "?view=msa&onsite=1" : "?onsite=1";
     return Response.json(
-      { url: `${appOrigin(request)}/client/${token}/quote?onsite=1` },
+      {
+        url: `${appOrigin(request)}/client/${token}/quote${onsitePath}`,
+      },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

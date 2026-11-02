@@ -169,6 +169,8 @@ test("on-device signing keeps Premium's quote and MSA in protected handoff mode"
     "utf8",
   );
   expect(onsiteRoute).toContain("?onsite=1");
+  expect(onsiteRoute).toContain("quoteAlreadySigned");
+  expect(onsiteRoute).toContain("?view=msa&onsite=1");
   expect(quotePage).toContain("Protected customer handoff");
   expect(quotePage).toContain("highlightOwnerSignature");
   expect(acceptance).toContain("&onsite=1");
