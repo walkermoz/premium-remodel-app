@@ -162,7 +162,18 @@ test("an unsigned quote can be pre-signed by staff only when its MSA matches the
     preparedMsaMatchesQuote(
       {
         ...unsigned,
-        msaAgreement: { ...prepared, status: "sent", sentAt: at },
+        msaAgreement: {
+          ...prepared,
+          status: "sent",
+          sentAt: at,
+          // JSON database round-trips do not preserve object key order.
+          scope: prepared.scope.map((item) => ({
+            title: item.title,
+            amount: item.amount,
+            details: item.details,
+            section: item.section,
+          })),
+        },
       },
       [item],
     ),
