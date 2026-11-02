@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Tablet,
   Trash2,
+  UserCheck,
 } from "lucide-react";
 import {
   quoteStatuses,
@@ -998,6 +999,45 @@ export function QuoteDetail({
       );
     }
   }
+  async function sendCustomerPortal() {
+    if (!signedScope) {
+      await openEmail();
+      return;
+    }
+    if (
+      !quote.clientEmail ||
+      quote.msaAgreement?.status !== "prepared" ||
+      sendBusy
+    )
+      return;
+    setSendBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/msa/${encodeURIComponent(quote.id)}/send`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ownerEmail: quote.clientEmail,
+            retry: true,
+          }),
+        },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "Could not send the portal link.");
+      await onSent();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not send the portal link.",
+      );
+    } finally {
+      setSendBusy(false);
+    }
+  }
   async function startOnsiteSigning() {
     if (onsiteBusy) return;
     setOnsiteBusy(true);
@@ -1026,7 +1066,7 @@ export function QuoteDetail({
     if (
       (quote.quoteSentAt || quote.status === "Sent") &&
       !window.confirm(
-        "This quote has already been sent. Are you sure you want to email it again?",
+        "This customer portal link has already been sent. Send it again?",
       )
     )
       return;
@@ -1048,7 +1088,8 @@ export function QuoteDetail({
         },
       );
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not send quote.");
+      if (!response.ok)
+        throw new Error(data.error || "Could not send the customer portal.");
       setSendOpen(false);
       try {
         await onSent();
@@ -1060,7 +1101,9 @@ export function QuoteDetail({
       if (data.warning) setError(data.warning);
     } catch (caught) {
       setSendError(
-        caught instanceof Error ? caught.message : "Could not send quote.",
+        caught instanceof Error
+          ? caught.message
+          : "Could not send the customer portal.",
       );
     } finally {
       setSendBusy(false);
@@ -1135,18 +1178,6 @@ export function QuoteDetail({
           </div>
         </div>
         <div className="project-actions quote-header-actions">
-          {!demo &&
-            quote.clientEmail &&
-            !signedScope &&
-            showCompletionStage && (
-              <button
-                className="button primary"
-                disabled={busy || sendBusy}
-                onClick={() => void openEmail()}
-              >
-                <Mail size={15} /> Email quote
-              </button>
-            )}
           <div className="quote-header-status">
             <select
               aria-label="Quote status"
@@ -1208,15 +1239,15 @@ export function QuoteDetail({
           <form
             className="modal"
             onSubmit={(event) => void sendEmail(event)}
-            aria-label="Email quote"
+            aria-label="Send customer portal"
           >
             <header>
               <div>
-                <h2>Email quote</h2>
+                <h2>Send customer portal</h2>
                 <p>
-                  We’ll attach the quote PDF and include a private link to view
-                  it in the client portal. The email will be sent from this
-                  organization’s connected Gmail account.
+                  We’ll attach the quote PDF and include one private link for
+                  the quote, service agreement, and deposit. The email will be
+                  sent from this organization’s connected Gmail account.
                 </p>
               </div>
             </header>
@@ -1229,7 +1260,7 @@ export function QuoteDetail({
                 Subject
                 <input
                   name="subject"
-                  defaultValue={`Quote for ${quote.name}`}
+                  defaultValue={`Quote and agreement for ${quote.name}`}
                   required
                   maxLength={180}
                 />
@@ -1238,7 +1269,7 @@ export function QuoteDetail({
                 Message
                 <textarea
                   name="message"
-                  defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. You can also use the button below to open it in your client portal, review the details, and sign online when you’re ready.\n\nIf you have any questions or would like to talk through the quote, just reply to this email or give me a call.\n\nLooking forward to taking care of this project for you!\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
+                  defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. Use the button below to open your private portal, review and sign the quote, then review and sign the service agreement. Your deposit options will appear after both documents are complete.\n\nIf you have any questions or would like to talk through anything, just reply to this email or give me a call.\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
                   required
                   rows={7}
                   maxLength={5000}
@@ -1271,7 +1302,7 @@ export function QuoteDetail({
                 className="button primary"
                 disabled={sendBusy}
               >
-                {sendBusy ? "Sending…" : "Email quote"}
+                {sendBusy ? "Sending…" : "Send portal link"}
               </button>
             </footer>
           </form>
@@ -1593,17 +1624,19 @@ export function QuoteDetail({
                         <span>
                           {quote.quoteSentAt
                             ? "The private customer portal is active."
-                            : "Email creates the private portal link and attaches the quote PDF."}
+                            : "One private portal link contains the quote, service agreement, and deposit."}
                         </span>
                       </div>
                       <button
                         type="button"
                         className="button primary"
                         disabled={!quote.clientEmail || sendBusy || signedScope}
-                        onClick={() => void openEmail()}
+                        onClick={() => void sendCustomerPortal()}
                       >
                         <Mail size={15} />
-                        {quote.quoteSentAt ? "Resend quote" : "Email quote"}
+                        {quote.quoteSentAt
+                          ? "Resend portal link"
+                          : "Send portal link"}
                       </button>
                       <a
                         className="button secondary"
@@ -1927,10 +1960,78 @@ export function QuoteDetail({
             <span className="project-handoff-eyebrow">Step 3</span>
             <h2>Send & complete</h2>
             <p>
-              Complete each document in order. Delivery, viewing, and signing
-              controls stay with the document they affect.
+              Give the customer one guided signing session for the quote,
+              service agreement, and deposit.
             </p>
           </header>
+          <section
+            className={`workflow-customer-handoff ${quote.msaAgreement ? "is-ready" : "is-waiting"} ${signedMsa ? "is-complete" : ""}`}
+            aria-label="Customer handoff"
+          >
+            <span className="workflow-customer-handoff-icon">
+              {signedMsa ? (
+                <Check size={18} aria-hidden="true" />
+              ) : (
+                <UserCheck size={18} aria-hidden="true" />
+              )}
+            </span>
+            <div className="workflow-customer-handoff-copy">
+              <span className="project-handoff-eyebrow">Customer handoff</span>
+              <h3>
+                {signedMsa
+                  ? "Customer documents complete"
+                  : quote.msaAgreement?.status === "sent"
+                    ? "Customer portal active"
+                    : quote.msaAgreement?.status === "prepared"
+                      ? signedScope
+                        ? "Service agreement ready for the customer"
+                        : "Quote and service agreement ready"
+                      : "Complete the company signature"}
+              </h3>
+              <p>
+                {signedMsa
+                  ? "The quote and service agreement have been signed."
+                  : quote.msaAgreement?.status === "sent"
+                    ? `The private portal is active for ${quote.clientEmail}.`
+                    : quote.msaAgreement?.status === "prepared"
+                      ? signedScope
+                        ? "Open the remaining agreement here or send the customer their private portal link."
+                        : "Open the signing session on this device or send one portal link by email."
+                      : "Review and sign the MSA as the company member before handing documents to the customer."}
+              </p>
+            </div>
+            {!signedMsa &&
+              ["prepared", "sent"].includes(
+                quote.msaAgreement?.status || "",
+              ) && (
+                <div className="workflow-customer-handoff-actions">
+                  <button
+                    type="button"
+                    className="button primary"
+                    disabled={!quote.clientEmail || onsiteBusy}
+                    onClick={() => void startOnsiteSigning()}
+                  >
+                    <Tablet size={15} aria-hidden="true" />
+                    {onsiteBusy ? "Opening…" : "Open on this device"}
+                  </button>
+                  {quote.msaAgreement?.status === "prepared" && (
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={!quote.clientEmail || sendBusy}
+                      onClick={() => void sendCustomerPortal()}
+                    >
+                      <Mail size={15} aria-hidden="true" />
+                      {sendBusy
+                        ? "Sending…"
+                        : quote.quoteSentAt && !signedScope
+                          ? "Resend portal link"
+                          : "Send portal link"}
+                    </button>
+                  )}
+                </div>
+              )}
+          </section>
           <div
             className="workflow-document-stack"
             aria-label="Quote completion workflow"
@@ -1966,11 +2067,11 @@ export function QuoteDetail({
                       ? `${quote.quoteAcceptance?.signedName || quote.client} signed the quote.`
                       : quote.quoteSentAt
                         ? `The quote is available to ${quote.clientEmail} in the client portal.`
-                        : "Email the quote or open it for signing on this device."}
+                        : "The quote is ready for the customer handoff above."}
                   </p>
                 </div>
-                <div className="workflow-document-actions">
-                  {signedScope ? (
+                {signedScope && (
+                  <div className="workflow-document-actions">
                     <a
                       className="button secondary"
                       href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf?view=1`}
@@ -1979,35 +2080,8 @@ export function QuoteDetail({
                     >
                       View signed quote
                     </a>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="button secondary"
-                        disabled={!quote.clientEmail || sendBusy}
-                        onClick={() => void openEmail()}
-                      >
-                        <Mail size={15} aria-hidden="true" />
-                        {quote.quoteSentAt ? "Resend quote" : "Email quote"}
-                      </button>
-                      <button
-                        type="button"
-                        className="button primary"
-                        disabled={
-                          !quote.clientEmail ||
-                          !["prepared", "sent"].includes(
-                            quote.msaAgreement?.status || "",
-                          ) ||
-                          onsiteBusy
-                        }
-                        onClick={() => void startOnsiteSigning()}
-                      >
-                        <Tablet size={15} aria-hidden="true" />
-                        {onsiteBusy ? "Opening…" : "Sign quote on this device"}
-                      </button>
-                    </>
-                  )}
-                </div>
+                  </div>
+                )}
               </header>
               <dl>
                 <div>
@@ -2015,10 +2089,10 @@ export function QuoteDetail({
                   <dd>{quote.client}</dd>
                 </div>
                 <div>
-                  <dt>Email delivery</dt>
+                  <dt>Portal delivery</dt>
                   <dd>
                     {quote.quoteSentAt
-                      ? `Sent to ${quote.clientEmail}`
+                      ? `Portal sent to ${quote.clientEmail}`
                       : "Not sent"}
                   </dd>
                 </div>
@@ -2037,8 +2111,6 @@ export function QuoteDetail({
                 quote={quote}
                 signerName={user.name}
                 onSent={onSent}
-                signingOnDevice={onsiteBusy}
-                onSignOnDevice={() => void startOnsiteSigning()}
               />
             )}
             <section

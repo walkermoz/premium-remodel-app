@@ -46,8 +46,19 @@ export async function POST(
     if (error) throw error;
     if (!row) throw new HttpError(404, "Quote not found.");
     const quote = row.data as Quote;
-    if (quote.quoteAcceptedAt || quote.status !== "Draft" || quote.quoteSentAt)
-      throw new HttpError(409, "Prepare the MSA before sharing the quote.");
+    const preparingBeforeQuote =
+      quote.status === "Draft" &&
+      !quote.quoteSentAt &&
+      !quote.quoteAcceptedAt;
+    const preparingAfterAcceptance =
+      quote.status === "Accepted" &&
+      Boolean(quote.quoteAcceptance) &&
+      Boolean(quote.quoteAcceptedAt);
+    if (!preparingBeforeQuote && !preparingAfterAcceptance)
+      throw new HttpError(
+        409,
+        "Prepare the MSA before sharing the quote or after the customer accepts it.",
+      );
     if (quote.msaAgreement)
       throw new HttpError(
         409,
@@ -77,14 +88,20 @@ export async function POST(
       agreement = prepareMsa(
         {
           ...quote,
-          acceptedQuoteScope: acceptedScopeSnapshot(items, quote.category),
-          contractPrice: price,
+          acceptedQuoteScope:
+            quote.acceptedQuoteScope?.length && preparingAfterAcceptance
+              ? quote.acceptedQuoteScope
+              : acceptedScopeSnapshot(items, quote.category),
+          contractPrice:
+            quote.contractPrice && preparingAfterAcceptance
+              ? quote.contractPrice
+              : price,
         },
         items,
         input,
         user,
         now,
-        { allowUnsignedQuote: true },
+        { allowUnsignedQuote: preparingBeforeQuote },
       );
     } catch (cause) {
       throw new HttpError(

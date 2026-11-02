@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   FileSignature,
   Hourglass,
-  Tablet,
 } from "lucide-react";
 import type { Quote, SignatureStroke } from "@/lib/types";
 import { projectMoney } from "@/lib/project-finances";
@@ -18,14 +17,10 @@ export default function MsaSigningPanel({
   quote,
   signerName,
   onSent,
-  onSignOnDevice,
-  signingOnDevice = false,
 }: {
   quote: Quote;
   signerName: string;
   onSent: () => Promise<void>;
-  onSignOnDevice: () => void;
-  signingOnDevice?: boolean;
 }) {
   const [signerTitle, setSignerTitle] = useState("");
   const [signatureStrokes, setSignatureStrokes] = useState<SignatureStroke[]>(
@@ -62,34 +57,32 @@ export default function MsaSigningPanel({
         })
       : null;
 
-  async function sendAgreement(retry = false) {
-    if (!quote.clientEmail) return;
+  async function prepareAgreement() {
     setSending(true);
     setError("");
     try {
       const response = await fetch(
-        `/api/msa/${encodeURIComponent(quote.id)}/send`,
+        `/api/msa/${encodeURIComponent(quote.id)}/prepare`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             owner: quote.client.trim(),
-            ownerEmail: quote.clientEmail.trim(),
+            ownerEmail: quote.clientEmail?.trim() || "",
             signerTitle: signerTitle.trim(),
             signatureStrokes,
-            retry,
           }),
         },
       );
       const result = await response.json().catch(() => ({}));
       if (!response.ok)
-        throw new Error(result.error || "Could not send the agreement.");
+        throw new Error(result.error || "Could not prepare the agreement.");
       await onSent();
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Could not send the agreement.",
+          : "Could not prepare the agreement.",
       );
     } finally {
       setSending(false);
@@ -125,19 +118,21 @@ export default function MsaSigningPanel({
               {signed
                 ? "Agreement signed"
                 : prepared
-                  ? "Ready after quote signature"
+                  ? "Company signature complete"
                   : "Awaiting customer signature"}
             </h3>
             <p>
               {signed
                 ? `${agreement.customerSignature?.name || agreement.owner} signed the agreement.`
                 : prepared
-                  ? "The staff-signed MSA will open immediately after the customer signs the quote."
-                  : `The agreement is available to ${agreement.ownerEmail} in the client portal.`}
+                  ? accepted
+                    ? "The MSA is ready. Choose a customer handoff option above."
+                    : "The MSA is ready and will follow the quote in the customer portal."
+                  : `The customer portal is active for ${agreement.ownerEmail}.`}
             </p>
           </div>
-          <div className="workflow-document-actions">
-            {signed ? (
+          {signed && (
+            <div className="workflow-document-actions">
               <a
                 className="button secondary"
                 href={`/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`}
@@ -146,35 +141,8 @@ export default function MsaSigningPanel({
               >
                 View signed MSA
               </a>
-            ) : (
-              <>
-                {prepared && accepted && (
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={sending || signingOnDevice}
-                    onClick={() => void sendAgreement(true)}
-                  >
-                    {sending ? "Sending…" : "Send MSA by email"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="button primary"
-                  disabled={!accepted || sending || signingOnDevice}
-                  title={!accepted ? "Sign the quote first" : undefined}
-                  onClick={onSignOnDevice}
-                >
-                  <Tablet size={15} aria-hidden="true" />
-                  {signingOnDevice
-                    ? "Opening…"
-                    : accepted
-                      ? "Sign MSA on this device"
-                      : "Sign quote first"}
-                </button>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </header>
         <dl>
           <div>
@@ -241,10 +209,10 @@ export default function MsaSigningPanel({
         </div>
         <div>
           <span className="project-handoff-eyebrow">Service agreement</span>
-          <h3>Review and sign the MSA</h3>
+          <h3>Company signature</h3>
           <p>
-            Go through the full agreement with the customer, then add your staff
-            signature. They can sign in the same private portal as the quote.
+            Review the MSA and sign as the company representative. Choose how
+            the customer will sign in the next step.
           </p>
         </div>
       </header>
@@ -295,7 +263,7 @@ export default function MsaSigningPanel({
           />
         </label>
       </div>
-      <p className="workflow-signature-label">Staff signature</p>
+      <p className="workflow-signature-label">Company member signature</p>
       <MsaSignaturePad onChange={setSignatureStrokes} disabled={sending} />
       {error && <p className="alert">{error}</p>}
       <div className="workflow-completion-actions">
@@ -308,9 +276,9 @@ export default function MsaSigningPanel({
             !quote.clientEmail ||
             !signatureStrokes.length
           }
-          onClick={() => void sendAgreement()}
+          onClick={() => void prepareAgreement()}
         >
-          {sending ? "Sending…" : "Sign and email MSA"}
+          {sending ? "Signing…" : "Sign MSA"}
         </button>
       </div>
     </section>

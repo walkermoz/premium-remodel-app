@@ -759,6 +759,59 @@
 .workflow-document-stack .workflow-completion-panel {
   margin: 0;
 }
+.workflow-customer-handoff {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 20px 22px 0;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--blue-soft) 42%, var(--surface));
+}
+.workflow-customer-handoff.is-waiting {
+  border-color: var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.workflow-customer-handoff.is-complete {
+  border-color: color-mix(in srgb, var(--blue) 46%, var(--line));
+}
+.workflow-customer-handoff-icon {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--blue);
+  color: #fff;
+}
+.workflow-customer-handoff.is-waiting .workflow-customer-handoff-icon {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.workflow-customer-handoff-copy h3 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+.workflow-customer-handoff-copy p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.workflow-customer-handoff-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.workflow-customer-handoff-actions .button {
+  min-height: 36px;
+  white-space: nowrap;
+}
 .workflow-document-panel {
   transition:
     border-color 160ms ease,
@@ -1907,6 +1960,18 @@
   }
   .workflow-document-stack {
     padding: 14px;
+  }
+  .workflow-customer-handoff {
+    grid-template-columns: 38px minmax(0, 1fr);
+    margin: 14px 14px 0;
+    padding: 16px;
+  }
+  .workflow-customer-handoff-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+  .workflow-customer-handoff-actions .button {
+    flex: 1 1 100%;
   }
   .workflow-document-panel > header,
   .workflow-deposit-step > header {
