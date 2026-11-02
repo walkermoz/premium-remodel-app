@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       .uuid()
       .parse(new URL(request.url).searchParams.get("quoteId"));
     const [instance, canViewStaffContent] = await Promise.all([
-      getQuoteFlowInstance(user.organizationId, { quoteId }),
+      getQuoteFlowInstance(user.organizationId, { quoteId }, user),
       hasOrganizationCapability(user, "quote_flows.staff_content.view"),
     ]);
     return Response.json(

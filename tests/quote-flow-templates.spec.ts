@@ -38,7 +38,7 @@ test("Premium Remodel is represented by the unchanged four-stage flow", () => {
   ).toBe("premium_quote_promotion_v1");
 });
 
-test("Premium compatibility uses the signed-in MSA representative and existing completion records", () => {
+test("Premium compatibility uses the recorded MSA representative and existing completion records", () => {
   const quote = {
     id: "11111111-1111-4111-8111-111111111111",
     quoteAcceptance: {
@@ -91,6 +91,33 @@ test("Premium compatibility uses the signed-in MSA representative and existing c
   expect(
     values.find((value) => value.blockId === "deposit")?.value,
   ).toMatchObject({ status: "paid", amountCents: 500_000 });
+});
+
+test("Premium compatibility defaults the representative to the signed-in staff member", () => {
+  const quote = {
+    id: "11111111-1111-4111-8111-111111111111",
+    createdAt: "2026-11-01T18:00:00.000Z",
+    updatedAt: "2026-11-01T19:00:00.000Z",
+  } as Quote;
+  const values = premiumCompatibilityQuoteFlowValues(
+    premiumRemodelQuoteFlowDefinition,
+    quote,
+    [],
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "Walker Mosakowski",
+    },
+  );
+  expect(values).toHaveLength(1);
+  expect(values[0]).toMatchObject({
+    blockId: "staff_signature",
+    completedBy: "22222222-2222-4222-8222-222222222222",
+    value: {
+      method: "authenticated_staff_assignment",
+      assignedName: "Walker Mosakowski",
+      assignedUserId: "22222222-2222-4222-8222-222222222222",
+    },
+  });
 });
 
 test("flow definitions support ordered custom forms around signing and payment", () => {

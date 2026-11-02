@@ -186,7 +186,7 @@ export default function MsaDraftPanel({
     ["Project", draft.project || "Needs a description"],
     ["Quote", draft.quoteNumber ? `#${draft.quoteNumber}` : "Not recorded"],
     ["Premises", draft.address || "Needs an address"],
-    ["Company signer", draft.companySigner],
+    ["Company signer", signer.name],
     ["Deposit collection", draft.depositCollection],
     ["Exhibit G mailing address", draft.cancellationAddress],
     ["Effective date", draft.effectiveDate],

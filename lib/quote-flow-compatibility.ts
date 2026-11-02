@@ -26,6 +26,7 @@ export function premiumCompatibilityQuoteFlowValues(
   definition: QuoteFlowDefinition,
   quote: Quote,
   activities: CompatibilityActivity[] = [],
+  signedInStaff?: { id: string; name: string },
 ) {
   const values: CompatibilityValue[] = [];
   const agreement = quote.msaAgreement;
@@ -42,26 +43,45 @@ export function premiumCompatibilityQuoteFlowValues(
       if (
         legacyMsa &&
         block.type === "signature" &&
-        block.bindingKey === "agreement.staff_signature" &&
-        agreement?.staffSignature?.name &&
-        agreement.staffSignature.signedAt
+        block.bindingKey === "agreement.staff_signature"
       ) {
-        values.push({
-          id: `compat:${quote.id}:${block.id}`,
-          stageId: stage.id,
-          blockId: block.id,
-          value: {
-            method: "legacy_premium_msa",
-            signedName: agreement.staffSignature.name,
-            signerTitle: agreement.staffSignature.title || "",
-            signedAt: agreement.staffSignature.signedAt,
-            signerUserId: agreement.staffUserId,
-          },
-          completedBy: agreement.staffUserId,
-          completedByType: "staff",
-          completedAt: agreement.staffSignature.signedAt,
-          updatedAt: agreement.staffSignature.signedAt,
-        });
+        if (
+          agreement?.staffSignature?.name &&
+          agreement.staffSignature.signedAt
+        )
+          values.push({
+            id: `compat:${quote.id}:${block.id}`,
+            stageId: stage.id,
+            blockId: block.id,
+            value: {
+              method: "legacy_premium_msa",
+              signedName: agreement.staffSignature.name,
+              signerTitle: agreement.staffSignature.title || "",
+              signedAt: agreement.staffSignature.signedAt,
+              signerUserId: agreement.staffUserId,
+            },
+            completedBy: agreement.staffUserId,
+            completedByType: "staff",
+            completedAt: agreement.staffSignature.signedAt,
+            updatedAt: agreement.staffSignature.signedAt,
+          });
+        else if (signedInStaff?.id && signedInStaff.name.trim()) {
+          const assignedAt = quote.updatedAt || quote.createdAt;
+          values.push({
+            id: `compat:${quote.id}:${block.id}:assigned`,
+            stageId: stage.id,
+            blockId: block.id,
+            value: {
+              method: "authenticated_staff_assignment",
+              assignedName: signedInStaff.name,
+              assignedUserId: signedInStaff.id,
+            },
+            completedBy: signedInStaff.id,
+            completedByType: "staff",
+            completedAt: assignedAt,
+            updatedAt: assignedAt,
+          });
+        }
       }
       if (
         legacyPortal &&

@@ -327,6 +327,7 @@ async function completedPremiumCompatibilityBlocks(
   organizationId: string,
   quoteId: string,
   definition: QuoteFlowDefinition,
+  signedInStaff?: Pick<WorkspaceUser, "id" | "name">,
 ) {
   const usesPremiumCompatibility = definition.stages.some((stage) =>
     stage.blocks.some((block) =>
@@ -364,10 +365,14 @@ async function completedPremiumCompatibilityBlocks(
       ...(row.data as Activity),
       updatedAt: String(row.data?.updatedAt || row.updated_at),
     })),
+    signedInStaff,
   );
 }
 
-async function instanceValuesWithAgreementStatus(row: FlowInstanceRow) {
+async function instanceValuesWithAgreementStatus(
+  row: FlowInstanceRow,
+  signedInStaff?: Pick<WorkspaceUser, "id" | "name">,
+) {
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
   const [stored, agreement, premiumCompatibility] = await Promise.all([
     instanceValues(row.organization_id, row.id),
@@ -376,6 +381,7 @@ async function instanceValuesWithAgreementStatus(row: FlowInstanceRow) {
       row.organization_id,
       row.quote_id,
       definition,
+      signedInStaff,
     ),
   ]);
   const storedKeys = new Set(
@@ -418,6 +424,7 @@ function quoteFlowBlockIsComplete(block: QuoteFlowBlock, value: unknown) {
 export async function getQuoteFlowInstance(
   organizationId: string,
   input: { instanceId?: string; quoteId?: string },
+  signedInStaff?: Pick<WorkspaceUser, "id" | "name">,
 ) {
   let query = supabaseAdmin()
     .from("remodel_quote_flow_instances")
@@ -431,7 +438,7 @@ export async function getQuoteFlowInstance(
   if (!result.data) return null;
   const row = result.data as unknown as FlowInstanceRow;
   const [values, events] = await Promise.all([
-    instanceValuesWithAgreementStatus(row),
+    instanceValuesWithAgreementStatus(row, signedInStaff),
     instanceEvents(organizationId, row.id),
   ]);
   return instanceDto(row, values, events);
@@ -441,9 +448,13 @@ export async function createQuoteFlowInstance(
   user: WorkspaceUser,
   input: { quoteId: string; templateId?: string },
 ) {
-  const existing = await getQuoteFlowInstance(user.organizationId, {
-    quoteId: input.quoteId,
-  });
+  const existing = await getQuoteFlowInstance(
+    user.organizationId,
+    {
+      quoteId: input.quoteId,
+    },
+    user,
+  );
   if (existing) return existing;
   const quote = await supabaseAdmin()
     .from("remodel_records")
@@ -486,9 +497,13 @@ export async function createQuoteFlowInstance(
     .single();
   if (inserted.error) {
     if (inserted.error.code === "23505") {
-      const concurrent = await getQuoteFlowInstance(user.organizationId, {
-        quoteId: input.quoteId,
-      });
+      const concurrent = await getQuoteFlowInstance(
+        user.organizationId,
+        {
+          quoteId: input.quoteId,
+        },
+        user,
+      );
       if (concurrent) return concurrent;
     }
     throw inserted.error;
@@ -530,6 +545,7 @@ async function assertQuoteFlowSigningOrder(
   targetStageId: string,
   targetBlock: QuoteFlowBlock,
   resolve: (condition: QuoteFlowCondition) => unknown,
+  signedInStaff?: Pick<WorkspaceUser, "id" | "name">,
 ) {
   if (!["signature", "initials"].includes(targetBlock.type)) return;
   const signingBlocks = definition.stages.flatMap((stage) =>
@@ -556,7 +572,7 @@ async function assertQuoteFlowSigningOrder(
   const targetOrder = Number.isFinite(Number(targetBlock.config.order))
     ? Number(targetBlock.config.order)
     : target.fallbackOrder;
-  const values = await instanceValuesWithAgreementStatus(row);
+  const values = await instanceValuesWithAgreementStatus(row, signedInStaff);
   const completed = new Set(
     values.map((value) => `${value.stageId}:${value.blockId}`),
   );
@@ -581,6 +597,7 @@ async function flowRuntimeResolver(
   row: FlowInstanceRow,
   definition: QuoteFlowDefinition,
   staffRole?: string,
+  signedInStaff?: Pick<WorkspaceUser, "id" | "name">,
 ) {
   const admin = supabaseAdmin();
   const [quoteResult, relatedResult, values] = await Promise.all([
@@ -597,7 +614,7 @@ async function flowRuntimeResolver(
       .eq("project_id", row.quote_id)
       .in("kind", ["scope", "activity"])
       .limit(2_001),
-    instanceValuesWithAgreementStatus(row),
+    instanceValuesWithAgreementStatus(row, signedInStaff),
   ]);
   if (quoteResult.error) throw quoteResult.error;
   if (relatedResult.error) throw relatedResult.error;
@@ -866,7 +883,7 @@ export async function saveQuoteFlowValue(
   if (row.status !== "active")
     throw new HttpError(409, "This quote flow is no longer active.");
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
-  const resolve = await flowRuntimeResolver(row, definition, user.group);
+  const resolve = await flowRuntimeResolver(row, definition, user.group, user);
   const { stage, block } = stageAndBlock(
     definition,
     input.stageId,
@@ -900,6 +917,7 @@ export async function saveQuoteFlowValue(
       stage.id,
       block,
       resolve,
+      user,
     );
     await completeImmutableQuoteFlowBlock({
       organizationId: user.organizationId,
@@ -913,7 +931,7 @@ export async function saveQuoteFlowValue(
       actorName: user.name,
       evidence: value as Record<string, unknown>,
     });
-    return getQuoteFlowInstance(user.organizationId, { instanceId });
+    return getQuoteFlowInstance(user.organizationId, { instanceId }, user);
   }
   const now = new Date().toISOString();
   const result = await supabaseAdmin().from("remodel_quote_flow_values").upsert(
@@ -936,7 +954,7 @@ export async function saveQuoteFlowValue(
     .update({ updated_at: now })
     .eq("organization_id", user.organizationId)
     .eq("id", instanceId);
-  return getQuoteFlowInstance(user.organizationId, { instanceId });
+  return getQuoteFlowInstance(user.organizationId, { instanceId }, user);
 }
 
 export async function markQuoteFlowSignedInPerson(
@@ -953,7 +971,7 @@ export async function markQuoteFlowSignedInPerson(
   if (row.status !== "active")
     throw new HttpError(409, "This quote flow is no longer active.");
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
-  const resolve = await flowRuntimeResolver(row, definition, user.group);
+  const resolve = await flowRuntimeResolver(row, definition, user.group, user);
   const stage = definition.stages.find(
     (candidate) =>
       candidate.id === input.stageId &&
@@ -973,7 +991,14 @@ export async function markQuoteFlowSignedInPerson(
     : ["remote", "onsite", "in_person"];
   if (!methods.includes("in_person"))
     throw new HttpError(409, "In-person signing is disabled for this field.");
-  await assertQuoteFlowSigningOrder(row, definition, stage.id, block, resolve);
+  await assertQuoteFlowSigningOrder(
+    row,
+    definition,
+    stage.id,
+    block,
+    resolve,
+    user,
+  );
   if (
     await quoteFlowValueExists(
       user.organizationId,
@@ -1004,7 +1029,7 @@ export async function markQuoteFlowSignedInPerson(
     actorName: user.name,
     evidence: value,
   });
-  return getQuoteFlowInstance(user.organizationId, { instanceId });
+  return getQuoteFlowInstance(user.organizationId, { instanceId }, user);
 }
 
 export async function signQuoteFlowOnBehalf(
@@ -1021,7 +1046,7 @@ export async function signQuoteFlowOnBehalf(
   if (row.status !== "active")
     throw new HttpError(409, "This quote flow is no longer active.");
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
-  const resolve = await flowRuntimeResolver(row, definition, user.group);
+  const resolve = await flowRuntimeResolver(row, definition, user.group, user);
   const stage = definition.stages.find(
     (candidate) =>
       candidate.id === input.stageId &&
@@ -1041,7 +1066,14 @@ export async function signQuoteFlowOnBehalf(
     : ["remote", "onsite", "in_person"];
   if (!methods.includes("on_behalf"))
     throw new HttpError(409, "Signing on behalf is disabled for this field.");
-  await assertQuoteFlowSigningOrder(row, definition, stage.id, block, resolve);
+  await assertQuoteFlowSigningOrder(
+    row,
+    definition,
+    stage.id,
+    block,
+    resolve,
+    user,
+  );
   if (
     await quoteFlowValueExists(
       user.organizationId,
@@ -1079,7 +1111,7 @@ export async function signQuoteFlowOnBehalf(
     actorName: user.name,
     evidence: value,
   });
-  return getQuoteFlowInstance(user.organizationId, { instanceId });
+  return getQuoteFlowInstance(user.organizationId, { instanceId }, user);
 }
 
 export async function moveQuoteFlowInstance(
@@ -1091,7 +1123,7 @@ export async function moveQuoteFlowInstance(
   if (row.status !== "active")
     throw new HttpError(409, "This quote flow is no longer active.");
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
-  const resolve = await flowRuntimeResolver(row, definition, user.group);
+  const resolve = await flowRuntimeResolver(row, definition, user.group, user);
   const stage = definition.stages.find(
     (candidate) =>
       candidate.id === input.stageId &&
@@ -1110,7 +1142,7 @@ export async function moveQuoteFlowInstance(
   const targetIndex = enabledStages.findIndex(
     (candidate) => candidate.id === stage.id,
   );
-  const stored = await instanceValuesWithAgreementStatus(row);
+  const stored = await instanceValuesWithAgreementStatus(row, user);
   const storedByBlock = new Map(
     stored.map((value) => [`${value.stageId}:${value.blockId}`, value.value]),
   );
@@ -1208,6 +1240,7 @@ export async function moveQuoteFlowInstance(
     result.data as unknown as FlowInstanceRow,
     await instanceValuesWithAgreementStatus(
       result.data as unknown as FlowInstanceRow,
+      user,
     ),
     await instanceEvents(user.organizationId, instanceId),
   );
@@ -1252,7 +1285,7 @@ export async function recordManualQuoteFlowPayment(
   if (row.status !== "active")
     throw new HttpError(409, "This quote flow is no longer active.");
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
-  const resolve = await flowRuntimeResolver(row, definition, user.group);
+  const resolve = await flowRuntimeResolver(row, definition, user.group, user);
   const stage = definition.stages.find(
     (candidate) =>
       candidate.id === input.stageId &&
@@ -1316,7 +1349,7 @@ export async function recordManualQuoteFlowPayment(
         user.id,
         "staff",
       );
-    return getQuoteFlowInstance(user.organizationId, { instanceId });
+    return getQuoteFlowInstance(user.organizationId, { instanceId }, user);
   }
   if (balance.dueCents <= 0)
     throw new HttpError(409, "This payment step is already complete.");
@@ -1385,7 +1418,7 @@ export async function recordManualQuoteFlowPayment(
       user.id,
       "staff",
     );
-  return getQuoteFlowInstance(user.organizationId, { instanceId });
+  return getQuoteFlowInstance(user.organizationId, { instanceId }, user);
 }
 
 export async function createCustomerQuoteFlowCheckout(
@@ -1485,7 +1518,7 @@ export async function convertQuoteFlowToProject(
   if (row.status !== "active")
     throw new HttpError(409, "This quote flow is no longer active.");
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
-  const resolve = await flowRuntimeResolver(row, definition, user.group);
+  const resolve = await flowRuntimeResolver(row, definition, user.group, user);
   const stage = definition.stages.find(
     (candidate) =>
       candidate.id === input.stageId &&
@@ -1512,7 +1545,7 @@ export async function convertQuoteFlowToProject(
   const targetIndex = stages.findIndex(
     (candidate) => candidate.id === stage.id,
   );
-  const values = await instanceValuesWithAgreementStatus(row);
+  const values = await instanceValuesWithAgreementStatus(row, user);
   const storedByBlock = new Map(
     values.map((value) => [`${value.stageId}:${value.blockId}`, value.value]),
   );
@@ -1610,7 +1643,11 @@ export async function convertQuoteFlowToProject(
   }
   return {
     project,
-    instance: await getQuoteFlowInstance(user.organizationId, { instanceId }),
+    instance: await getQuoteFlowInstance(
+      user.organizationId,
+      { instanceId },
+      user,
+    ),
   };
 }
 

@@ -68,9 +68,13 @@ export async function GET(_request: Request, context: Context) {
     await requireWorkspaceTabs(user, "Quotes");
     const { id } = await context.params;
     const [instance, canViewStaffContent] = await Promise.all([
-      getQuoteFlowInstance(user.organizationId, {
-        instanceId: z.uuid().parse(id),
-      }),
+      getQuoteFlowInstance(
+        user.organizationId,
+        {
+          instanceId: z.uuid().parse(id),
+        },
+        user,
+      ),
       hasOrganizationCapability(user, "quote_flows.staff_content.view"),
     ]);
     return Response.json(
