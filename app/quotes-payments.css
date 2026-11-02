@@ -749,11 +749,96 @@
 .workflow-completion-panel.is-waiting {
   background: var(--theme-surface-soft, var(--bg));
 }
+.workflow-document-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px 22px;
+  background: color-mix(in srgb, var(--blue) 2%, var(--surface));
+}
+.workflow-document-stack .workflow-completion-panel {
+  margin: 0;
+}
+.workflow-document-panel {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.workflow-document-panel.is-complete {
+  border-color: color-mix(in srgb, var(--blue) 42%, var(--line));
+}
+.workflow-document-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.workflow-document-step {
+  display: inline-flex;
+  width: 27px;
+  height: 27px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+.workflow-document-step.is-complete {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+.workflow-document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.workflow-document-actions .button {
+  min-height: 36px;
+  white-space: nowrap;
+}
 .workflow-completion-panel > header {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
+}
+.workflow-document-panel > header {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.workflow-deposit-step > header {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.workflow-deposit-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.workflow-deposit-form > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.workflow-deposit-form label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+.workflow-deposit-form .alert {
+  grid-column: 1 / -1;
 }
 .workflow-completion-panel > header h3 {
   margin: 0;
@@ -1801,6 +1886,27 @@
   }
   .workflow-completion-panel > header {
     grid-template-columns: 36px minmax(0, 1fr);
+  }
+  .workflow-document-stack {
+    padding: 14px;
+  }
+  .workflow-document-panel > header,
+  .workflow-deposit-step > header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  .workflow-document-actions {
+    justify-content: stretch;
+  }
+  .workflow-document-actions .button {
+    flex: 1 1 100%;
+  }
+  .workflow-deposit-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workflow-deposit-form > p,
+  .workflow-deposit-form .alert {
+    grid-column: 1;
   }
   .workflow-completion-panel > header > .button {
     grid-column: 2;

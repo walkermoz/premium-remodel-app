@@ -1927,235 +1927,202 @@ export function QuoteDetail({
             <span className="project-handoff-eyebrow">Step 3</span>
             <h2>Send & complete</h2>
             <p>
-              Deliver the quote through email and the client portal, then track
-              the quote signature, service agreement, and deposit here.
+              Complete each document in order. Delivery, viewing, and signing
+              controls stay with the document they affect.
             </p>
           </header>
           <div
-            className="handoff-communication"
-            aria-label="Customer delivery and communication"
+            className="workflow-document-stack"
+            aria-label="Quote completion workflow"
           >
-            <div>
-              <span className="handoff-communication-icon">
-                <Mail size={16} aria-hidden="true" />
-              </span>
-              <div>
-                <small>Email delivery</small>
-                <strong>
-                  {quote.quoteSentAt
-                    ? quote.quoteOnsiteAt
-                      ? "Opened for on-site signing"
-                      : `Sent to ${quote.clientEmail}`
-                    : "Ready to send with the quote PDF attached"}
-                </strong>
-              </div>
-            </div>
-            <div>
-              <span className="handoff-communication-icon">
-                <FileText size={16} aria-hidden="true" />
-              </span>
-              <div>
-                <small>Client portal</small>
-                <strong>
-                  {quote.quoteSentAt
-                    ? "Private quote link active"
-                    : "Created when the quote is emailed"}
-                </strong>
-              </div>
-            </div>
-            {!signedScope && (
-              <button
-                type="button"
-                className="button primary"
-                disabled={!quote.clientEmail || sendBusy}
-                onClick={() => void openEmail()}
-              >
-                <Mail size={15} />
-                {quote.quoteSentAt ? "Resend quote" : "Email quote"}
-              </button>
-            )}
-            {!signedMsa && config.features.agreements && (
-              <button
-                type="button"
-                className="button secondary"
-                aria-label={
-                  signedScope
-                    ? "Sign service agreement on this device"
-                    : "Sign quote and service agreement on this device"
-                }
-                disabled={
-                  !quote.clientEmail ||
-                  !["prepared", "sent"].includes(
-                    quote.msaAgreement?.status || "",
-                  ) ||
-                  onsiteBusy
-                }
-                onClick={() => void startOnsiteSigning()}
-              >
-                <Tablet size={15} aria-hidden="true" />
-                {onsiteBusy
-                  ? "Opening…"
-                  : signedScope
-                    ? "Sign MSA on this device"
-                    : "Sign quote & MSA on this device"}
-              </button>
-            )}
-          </div>
-          <div className="workflow-completion-status-grid">
-            <section className="workflow-status-row">
-              <span className={signedScope ? "is-complete" : ""}>
-                {signedScope ? <Check size={14} /> : "1"}
-              </span>
-              <div>
-                <strong>Quote accepted and signed</strong>
-                <small>
-                  {signedScope
-                    ? `Signed by ${quote.quoteAcceptance?.signedName || quote.client}`
-                    : quote.quoteSentAt
-                      ? "Waiting for the customer in the portal"
-                      : "Email the quote to begin"}
-                </small>
-              </div>
-            </section>
-            <section className="workflow-status-row">
-              <span className={signedMsa ? "is-complete" : ""}>
-                {signedMsa ? <Check size={14} /> : "2"}
-              </span>
-              <div>
-                <strong>Service agreement signed</strong>
-                <small>
-                  {signedMsa
-                    ? `Signed by ${quote.msaAgreement?.customerSignature?.name || quote.client}`
-                    : quote.msaAgreement?.status === "sent"
-                      ? "Waiting for the customer in the portal"
-                      : quote.msaAgreement?.status === "prepared"
-                        ? "Staff signed; ready after quote signature"
-                        : signedScope
-                          ? "Staff signature and customer signature required"
-                          : "Prepare the MSA before sharing the quote"}
-                </small>
-              </div>
-            </section>
-            <section className="workflow-status-row">
-              <span className={readyForProjects ? "is-complete" : ""}>
-                {readyForProjects ? <Check size={14} /> : "3"}
-              </span>
-              <div>
-                <strong>Deposit received</strong>
-                <small>
-                  {readyForProjects
-                    ? "Required deposit recorded"
-                    : signedMsa
-                      ? `${regional.money(dueCents / 100)} remaining`
-                      : "Available after agreement signature"}
-                </small>
-              </div>
-            </section>
-          </div>
-          {signedScope && (
             <section
-              className="workflow-completion-panel"
-              aria-label="Signed documents"
+              className={`workflow-completion-panel workflow-document-panel ${signedScope ? "is-complete" : ""}`}
+              aria-label="Quote document"
             >
               <header>
-                <span className="workflow-completion-icon">
-                  <FileText size={18} aria-hidden="true" />
-                </span>
+                <div className="workflow-document-marker">
+                  <span
+                    className={`workflow-document-step ${signedScope ? "is-complete" : ""}`}
+                  >
+                    {signedScope ? <Check size={14} aria-hidden="true" /> : "1"}
+                  </span>
+                  <span className="workflow-completion-icon">
+                    <FileText size={18} aria-hidden="true" />
+                  </span>
+                </div>
                 <div>
-                  <span className="project-handoff-eyebrow">Documents</span>
-                  <h3>Signed documents</h3>
+                  <span className="project-handoff-eyebrow">
+                    Quote document
+                  </span>
+                  <h3>
+                    {signedScope
+                      ? "Quote accepted and signed"
+                      : quote.quoteSentAt
+                        ? "Awaiting customer signature"
+                        : "Ready to send"}
+                  </h3>
                   <p>
-                    {signedMsa
-                      ? "Open the signed quote and service agreement from this quote."
-                      : "The signed quote is ready. The service agreement will appear here after the customer signs it."}
+                    {signedScope
+                      ? `${quote.quoteAcceptance?.signedName || quote.client} signed the quote.`
+                      : quote.quoteSentAt
+                        ? `The quote is available to ${quote.clientEmail} in the client portal.`
+                        : "Email the quote or open it for signing on this device."}
                   </p>
                 </div>
-                <a
-                  className="button secondary"
-                  href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf?view=1`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View signed quote
-                </a>
-                {signedMsa && (
-                  <a
-                    className="button secondary"
-                    href={`/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View signed MSA
-                  </a>
-                )}
+                <div className="workflow-document-actions">
+                  {signedScope ? (
+                    <a
+                      className="button secondary"
+                      href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf?view=1`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View signed quote
+                    </a>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={!quote.clientEmail || sendBusy}
+                        onClick={() => void openEmail()}
+                      >
+                        <Mail size={15} aria-hidden="true" />
+                        {quote.quoteSentAt ? "Resend quote" : "Email quote"}
+                      </button>
+                      <button
+                        type="button"
+                        className="button primary"
+                        disabled={
+                          !quote.clientEmail ||
+                          !["prepared", "sent"].includes(
+                            quote.msaAgreement?.status || "",
+                          ) ||
+                          onsiteBusy
+                        }
+                        onClick={() => void startOnsiteSigning()}
+                      >
+                        <Tablet size={15} aria-hidden="true" />
+                        {onsiteBusy ? "Opening…" : "Sign quote on this device"}
+                      </button>
+                    </>
+                  )}
+                </div>
               </header>
+              <dl>
+                <div>
+                  <dt>Customer</dt>
+                  <dd>{quote.client}</dd>
+                </div>
+                <div>
+                  <dt>Email delivery</dt>
+                  <dd>
+                    {quote.quoteSentAt
+                      ? `Sent to ${quote.clientEmail}`
+                      : "Not sent"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Client portal</dt>
+                  <dd>
+                    {quote.quoteSentAt
+                      ? "Private link active"
+                      : "Created when emailed"}
+                  </dd>
+                </div>
+              </dl>
             </section>
-          )}
-          {config.features.agreements && (
-            <MsaSigningPanel
-              quote={quote}
-              signerName={user.name}
-              onSent={onSent}
-            />
-          )}
+            {config.features.agreements && (
+              <MsaSigningPanel
+                quote={quote}
+                signerName={user.name}
+                onSent={onSent}
+                signingOnDevice={onsiteBusy}
+                onSignOnDevice={() => void startOnsiteSigning()}
+              />
+            )}
+            <section
+              className={`workflow-completion-panel workflow-document-panel workflow-deposit-step ${readyForProjects ? "is-complete" : "is-waiting"}`}
+              aria-label="Deposit"
+            >
+              <header>
+                <div className="workflow-document-marker">
+                  <span
+                    className={`workflow-document-step ${readyForProjects ? "is-complete" : ""}`}
+                  >
+                    {readyForProjects ? (
+                      <Check size={14} aria-hidden="true" />
+                    ) : (
+                      "3"
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <span className="project-handoff-eyebrow">Deposit</span>
+                  <h3>
+                    {readyForProjects
+                      ? "Deposit received"
+                      : signedMsa
+                        ? "Deposit ready to collect"
+                        : "Available after the MSA is signed"}
+                  </h3>
+                  <p>
+                    {readyForProjects
+                      ? "The required deposit has been recorded."
+                      : signedMsa
+                        ? `${regional.money(dueCents / 100)} remains due before scheduling.`
+                        : "Complete the quote and MSA before collecting the deposit."}
+                  </p>
+                </div>
+              </header>
+              {signedMsa && dueCents > 0 && user.role === "admin" && !demo && (
+                <form
+                  className="workflow-deposit-form"
+                  onSubmit={(event) => void recordCheck(event)}
+                >
+                  <p>
+                    Record a check after it is received. The customer can also
+                    pay online from the signed agreement.
+                  </p>
+                  <label>
+                    Check amount ($)
+                    <input
+                      name="amount"
+                      type="number"
+                      min="0.01"
+                      max={(dueCents / 100).toFixed(2)}
+                      step="0.01"
+                      placeholder={(dueCents / 100).toFixed(2)}
+                      required
+                      disabled={checkBusy}
+                    />
+                  </label>
+                  <label>
+                    Check number (optional)
+                    <input
+                      name="checkReference"
+                      maxLength={100}
+                      disabled={checkBusy}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="button primary"
+                    disabled={checkBusy}
+                  >
+                    {checkBusy ? "Recording…" : "Record received check"}
+                  </button>
+                  {checkError && (
+                    <p role="alert" className="alert">
+                      {checkError}
+                    </p>
+                  )}
+                </form>
+              )}
+            </section>
+          </div>
         </section>
       )}
-      {config.features.agreements &&
-        signedMsa &&
-        dueCents > 0 &&
-        user.role === "admin" &&
-        !demo &&
-        showCompletionStage && (
-          <section className="content-section" aria-label="Check deposit">
-            <div className="section-heading">
-              <h2>Check deposit</h2>
-            </div>
-            <form
-              className="form-fields"
-              onSubmit={(event) => void recordCheck(event)}
-            >
-              <p>
-                Record a check only after you have received it. The customer can
-                also pay online from the signed agreement.
-              </p>
-              <div className="form-grid">
-                <label>
-                  Check amount ($)
-                  <input
-                    name="amount"
-                    type="number"
-                    min="0.01"
-                    max={(dueCents / 100).toFixed(2)}
-                    step="0.01"
-                    placeholder={(dueCents / 100).toFixed(2)}
-                    required
-                    disabled={checkBusy}
-                  />
-                </label>
-                <label>
-                  Check number (optional)
-                  <input
-                    name="checkReference"
-                    maxLength={100}
-                    disabled={checkBusy}
-                  />
-                </label>
-              </div>
-              {checkError && (
-                <p role="alert" className="alert">
-                  {checkError}
-                </p>
-              )}
-              <button
-                type="submit"
-                className="button primary"
-                disabled={checkBusy}
-              >
-                {checkBusy ? "Recording…" : "Record received check"}
-              </button>
-            </form>
-          </section>
-        )}
       {!handoffDemo && showProjectStage && (
         <section className="workflow-live-step" aria-label="Create project">
           <header>

@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, FileSignature, Hourglass } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  FileSignature,
+  Hourglass,
+  Tablet,
+} from "lucide-react";
 import type { Quote, SignatureStroke } from "@/lib/types";
 import { projectMoney } from "@/lib/project-finances";
 import { makeMsaPreview } from "@/lib/msa-preview";
@@ -12,10 +18,14 @@ export default function MsaSigningPanel({
   quote,
   signerName,
   onSent,
+  onSignOnDevice,
+  signingOnDevice = false,
 }: {
   quote: Quote;
   signerName: string;
   onSent: () => Promise<void>;
+  onSignOnDevice: () => void;
+  signingOnDevice?: boolean;
 }) {
   const [signerTitle, setSignerTitle] = useState("");
   const [signatureStrokes, setSignatureStrokes] = useState<SignatureStroke[]>(
@@ -91,19 +101,26 @@ export default function MsaSigningPanel({
     const prepared = agreement.status === "prepared";
     return (
       <section
-        className="workflow-completion-panel"
+        className={`workflow-completion-panel workflow-document-panel ${signed ? "is-complete" : ""}`}
         aria-label="Agreement signature status"
       >
         <header>
-          <span className="workflow-completion-icon">
-            {signed ? (
-              <CheckCircle2 size={18} aria-hidden="true" />
-            ) : (
-              <Hourglass size={18} aria-hidden="true" />
-            )}
-          </span>
+          <div className="workflow-document-marker">
+            <span
+              className={`workflow-document-step ${signed ? "is-complete" : ""}`}
+            >
+              {signed ? <Check size={14} aria-hidden="true" /> : "2"}
+            </span>
+            <span className="workflow-completion-icon">
+              {signed ? (
+                <CheckCircle2 size={18} aria-hidden="true" />
+              ) : (
+                <Hourglass size={18} aria-hidden="true" />
+              )}
+            </span>
+          </div>
           <div>
-            <span className="project-handoff-eyebrow">Service agreement</span>
+            <span className="project-handoff-eyebrow">MSA document</span>
             <h3>
               {signed
                 ? "Agreement signed"
@@ -119,23 +136,45 @@ export default function MsaSigningPanel({
                   : `The agreement is available to ${agreement.ownerEmail} in the client portal.`}
             </p>
           </div>
-          {signed ? (
-            <a
-              className="button secondary"
-              href={`/api/msa/${encodeURIComponent(quote.id)}/pdf`}
-            >
-              Download signed MSA
-            </a>
-          ) : prepared && accepted ? (
-            <button
-              type="button"
-              className="button primary"
-              disabled={sending}
-              onClick={() => void sendAgreement(true)}
-            >
-              {sending ? "Sending…" : "Retry email"}
-            </button>
-          ) : null}
+          <div className="workflow-document-actions">
+            {signed ? (
+              <a
+                className="button secondary"
+                href={`/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View signed MSA
+              </a>
+            ) : (
+              <>
+                {prepared && accepted && (
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={sending || signingOnDevice}
+                    onClick={() => void sendAgreement(true)}
+                  >
+                    {sending ? "Sending…" : "Send MSA by email"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={!accepted || sending || signingOnDevice}
+                  title={!accepted ? "Sign the quote first" : undefined}
+                  onClick={onSignOnDevice}
+                >
+                  <Tablet size={15} aria-hidden="true" />
+                  {signingOnDevice
+                    ? "Opening…"
+                    : accepted
+                      ? "Sign MSA on this device"
+                      : "Sign quote first"}
+                </button>
+              </>
+            )}
+          </div>
         </header>
         <dl>
           <div>
@@ -165,13 +204,16 @@ export default function MsaSigningPanel({
   if (!accepted) {
     return (
       <section
-        className="workflow-completion-panel is-waiting"
+        className="workflow-completion-panel workflow-document-panel is-waiting"
         aria-label="Agreement signature status"
       >
         <header>
-          <span className="workflow-completion-icon">
-            <Hourglass size={18} aria-hidden="true" />
-          </span>
+          <div className="workflow-document-marker">
+            <span className="workflow-document-step">2</span>
+            <span className="workflow-completion-icon">
+              <Hourglass size={18} aria-hidden="true" />
+            </span>
+          </div>
           <div>
             <span className="project-handoff-eyebrow">Service agreement</span>
             <h3>Prepare the agreement</h3>
@@ -187,13 +229,16 @@ export default function MsaSigningPanel({
 
   return (
     <section
-      className="workflow-completion-panel"
+      className="workflow-completion-panel workflow-document-panel"
       aria-label="Send service agreement"
     >
       <header>
-        <span className="workflow-completion-icon">
-          <FileSignature size={18} aria-hidden="true" />
-        </span>
+        <div className="workflow-document-marker">
+          <span className="workflow-document-step">2</span>
+          <span className="workflow-completion-icon">
+            <FileSignature size={18} aria-hidden="true" />
+          </span>
+        </div>
         <div>
           <span className="project-handoff-eyebrow">Service agreement</span>
           <h3>Review and sign the MSA</h3>

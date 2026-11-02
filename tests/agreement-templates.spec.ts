@@ -168,10 +168,15 @@ test("on-device signing keeps Premium's quote and MSA in protected handoff mode"
     "app/client/[token]/quote/customer-acceptance.tsx",
     "utf8",
   );
+  const quotePanel = readFileSync("components/quotes-panel.tsx", "utf8");
+  const msaPanel = readFileSync("components/msa-signing-panel.tsx", "utf8");
   expect(onsiteRoute).toContain("?onsite=1");
   expect(onsiteRoute).toContain("quoteAlreadySigned");
   expect(onsiteRoute).toContain("?view=msa&onsite=1");
   expect(quotePage).toContain("Protected customer handoff");
   expect(quotePage).toContain("highlightOwnerSignature");
   expect(acceptance).toContain("&onsite=1");
+  expect(quotePanel).toContain("workflow-document-stack");
+  expect(quotePanel).toContain("Sign quote on this device");
+  expect(msaPanel).toContain("Sign MSA on this device");
 });
