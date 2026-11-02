@@ -159,6 +159,15 @@ test("an unsigned quote can be pre-signed by staff only when its MSA matches the
     preparedMsaMatchesQuote({ ...unsigned, msaAgreement: prepared }, [item]),
   ).toBe(true);
   expect(
+    preparedMsaMatchesQuote(
+      {
+        ...unsigned,
+        msaAgreement: { ...prepared, status: "sent", sentAt: at },
+      },
+      [item],
+    ),
+  ).toBe(true);
+  expect(
     preparedMsaMatchesQuote({ ...unsigned, msaAgreement: prepared }, [
       { ...item, estimate: 5100 },
     ]),

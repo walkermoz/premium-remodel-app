@@ -4,7 +4,8 @@ import type { Quote, ScopeItem } from "./types";
 /** A staff-signed MSA must describe the exact quote the customer will sign. */
 export function preparedMsaMatchesQuote(quote: Quote, items: ScopeItem[]) {
   const agreement = quote.msaAgreement;
-  if (!agreement || agreement.status !== "prepared") return false;
+  if (!agreement || !["prepared", "sent"].includes(agreement.status))
+    return false;
   const quoteItems = items.filter((item) => item.projectId === quote.id);
   const total = quoteItems.reduce((sum, item) => sum + item.estimate, 0);
   return (
