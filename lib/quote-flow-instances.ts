@@ -12,8 +12,10 @@ import {
   type QuoteFlowDefinition,
 } from "./quote-flow-schema";
 import { signatureStrokesSchema } from "./quote-signature";
+import { premiumCompatibilityQuoteFlowValues } from "./quote-flow-compatibility";
 import { publishedQuoteFlowVersion } from "./quote-flow-templates";
 import { supabaseAdmin } from "./supabase/server";
+import type { Activity, Quote } from "./types";
 import { enqueueWorkflowEvent } from "./workflows/events";
 
 type FlowInstanceRow = {
@@ -321,11 +323,60 @@ async function completedAgreementBlocks(
   );
 }
 
+async function completedPremiumCompatibilityBlocks(
+  organizationId: string,
+  quoteId: string,
+  definition: QuoteFlowDefinition,
+) {
+  const usesPremiumCompatibility = definition.stages.some((stage) =>
+    stage.blocks.some((block) =>
+      ["legacy_premium_msa_v1", "legacy_quote_portal_v1"].includes(
+        String(block.config.renderer || ""),
+      ),
+    ),
+  );
+  if (!usesPremiumCompatibility) return [];
+  const [quote, activities] = await Promise.all([
+    supabaseAdmin()
+      .from("remodel_records")
+      .select("data")
+      .eq("organization_id", organizationId)
+      .eq("id", quoteId)
+      .eq("kind", "quote")
+      .maybeSingle(),
+    supabaseAdmin()
+      .from("remodel_records")
+      .select("data,updated_at")
+      .eq("organization_id", organizationId)
+      .eq("project_id", quoteId)
+      .eq("kind", "activity")
+      .limit(1001),
+  ]);
+  if (quote.error) throw quote.error;
+  if (activities.error) throw activities.error;
+  if (!quote.data) return [];
+  if ((activities.data || []).length > 1_000)
+    throw new HttpError(409, "This quote has too many payment records.");
+  return premiumCompatibilityQuoteFlowValues(
+    definition,
+    quote.data.data as Quote,
+    (activities.data || []).map((row) => ({
+      ...(row.data as Activity),
+      updatedAt: String(row.data?.updatedAt || row.updated_at),
+    })),
+  );
+}
+
 async function instanceValuesWithAgreementStatus(row: FlowInstanceRow) {
   const definition = quoteFlowDefinitionSchema.parse(row.definition_snapshot);
-  const [stored, agreement] = await Promise.all([
+  const [stored, agreement, premiumCompatibility] = await Promise.all([
     instanceValues(row.organization_id, row.id),
     completedAgreementBlocks(row.organization_id, row.quote_id, definition),
+    completedPremiumCompatibilityBlocks(
+      row.organization_id,
+      row.quote_id,
+      definition,
+    ),
   ]);
   const storedKeys = new Set(
     stored.map((value) => `${value.stageId}:${value.blockId}`),
@@ -334,6 +385,15 @@ async function instanceValuesWithAgreementStatus(row: FlowInstanceRow) {
     ...stored,
     ...agreement.filter(
       (value) => !storedKeys.has(`${value.stageId}:${value.blockId}`),
+    ),
+    ...premiumCompatibility.filter(
+      (value) =>
+        !storedKeys.has(`${value.stageId}:${value.blockId}`) &&
+        !agreement.some(
+          (agreementValue) =>
+            agreementValue.stageId === value.stageId &&
+            agreementValue.blockId === value.blockId,
+        ),
     ),
   ];
 }

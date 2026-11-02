@@ -8,6 +8,8 @@ import {
   quoteFlowDefinitionSchema,
   quoteFlowStageTypes,
 } from "@/lib/quote-flow-schema";
+import { premiumCompatibilityQuoteFlowValues } from "@/lib/quote-flow-compatibility";
+import type { Quote } from "@/lib/types";
 
 test("Premium Remodel is represented by the unchanged four-stage flow", () => {
   expect(
@@ -34,6 +36,61 @@ test("Premium Remodel is represented by the unchanged four-stage flow", () => {
       .flatMap((stage) => stage.blocks)
       .find((block) => block.id === "project_conversion")?.config.renderer,
   ).toBe("premium_quote_promotion_v1");
+});
+
+test("Premium compatibility uses the signed-in MSA representative and existing completion records", () => {
+  const quote = {
+    id: "11111111-1111-4111-8111-111111111111",
+    quoteAcceptance: {
+      signedName: "Taylor Customer",
+      signedAt: "2026-11-01T20:00:00.000Z",
+    },
+    msaAgreement: {
+      status: "signed",
+      price: 10_000,
+      paymentSchedule: [
+        { id: "deposit", milestone: "Deposit", percent: 50 },
+        { id: "final", milestone: "Final", percent: 50 },
+      ],
+      staffUserId: "22222222-2222-4222-8222-222222222222",
+      staffSignature: {
+        name: "Walker Mosakowski",
+        title: "Owner",
+        signedAt: "2026-11-01T19:00:00.000Z",
+      },
+      customerSignature: {
+        name: "Taylor Customer",
+        signedAt: "2026-11-01T20:01:00.000Z",
+      },
+    },
+  } as Quote;
+  const values = premiumCompatibilityQuoteFlowValues(
+    premiumRemodelQuoteFlowDefinition,
+    quote,
+    [
+      {
+        activityType: "Payment received",
+        amount: 5_000,
+        occurredAt: "2026-11-01T20:05:00.000Z",
+        updatedAt: "2026-11-01T20:05:00.000Z",
+      },
+    ],
+  );
+  expect(values.map((value) => value.blockId)).toEqual([
+    "staff_signature",
+    "quote_signature",
+    "msa_signature",
+    "deposit",
+  ]);
+  expect(
+    values.find((value) => value.blockId === "staff_signature")?.value,
+  ).toMatchObject({
+    signedName: "Walker Mosakowski",
+    signerUserId: "22222222-2222-4222-8222-222222222222",
+  });
+  expect(
+    values.find((value) => value.blockId === "deposit")?.value,
+  ).toMatchObject({ status: "paid", amountCents: 500_000 });
 });
 
 test("flow definitions support ordered custom forms around signing and payment", () => {
