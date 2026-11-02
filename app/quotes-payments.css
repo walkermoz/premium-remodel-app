@@ -1057,17 +1057,88 @@
   font-size: 11px;
 }
 .workflow-inline-msa-consent {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: flex-start;
-  gap: 9px;
+  gap: 10px;
   margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--theme-surface-soft, var(--bg));
   color: var(--ink);
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.5;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
 }
 .workflow-inline-msa-consent input {
-  flex: none;
-  margin-top: 2px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.workflow-inline-msa-consent-box {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  place-items: center;
+  border: 1px solid #7893a6;
+  border-radius: 5px;
+  background: var(--theme-surface, #fff);
+  color: #fff;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.workflow-inline-msa-consent-box svg {
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+.workflow-inline-msa-consent:hover {
+  border-color: #7893a6;
+}
+.workflow-inline-msa-consent:has(input:checked) {
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--line));
+  background: color-mix(
+    in srgb,
+    var(--blue) 7%,
+    var(--theme-surface-soft, var(--bg))
+  );
+}
+.workflow-inline-msa-consent input:checked + .workflow-inline-msa-consent-box {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+.workflow-inline-msa-consent
+  input:checked
+  + .workflow-inline-msa-consent-box
+  svg {
+  opacity: 1;
+  transform: scale(1);
+}
+.workflow-inline-msa-consent
+  input:focus-visible
+  + .workflow-inline-msa-consent-box {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 24%, transparent);
+}
+.workflow-inline-msa-consent:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .workflow-project-review {
   display: grid;

@@ -338,6 +338,12 @@ export default function MsaSigningPanel({
                 disabled={customerSigningBusy}
                 onChange={(event) => setCustomerAgreed(event.target.checked)}
               />
+              <span
+                className="workflow-inline-msa-consent-box"
+                aria-hidden="true"
+              >
+                <Check size={12} strokeWidth={3} />
+              </span>
               <span>
                 I reviewed and approve this Master Services Agreement,
                 including its exhibits, and intend my electronic signature to
