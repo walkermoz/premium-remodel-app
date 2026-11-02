@@ -969,18 +969,38 @@ export default function QuoteFlowTemplatesSettings({
                     ))}
                   </select>
                 </label>
+                {!selectedBlock &&
+                  selectedStage.type === "signature_collection" && (
+                    <div className={styles.signingObjectGuide}>
+                      <strong>Reusable document signing step</strong>
+                      <span>
+                        The document, mapped quote data, signer role, signing
+                        methods, and audit evidence travel together. Add more
+                        documents or signer blocks when this workflow needs
+                        them.
+                      </span>
+                    </div>
+                  )}
                 {selectedBlock && (
-                  <label>
-                    Data binding
-                    <input
-                      value={selectedBlock.bindingKey || ""}
-                      readOnly={draft.locked}
-                      placeholder="custom.field_name"
-                      onChange={(event) =>
-                        updateBlock({ bindingKey: event.target.value || null })
-                      }
-                    />
-                  </label>
+                  <>
+                    <label>
+                      Data binding
+                      <input
+                        value={selectedBlock.bindingKey || ""}
+                        readOnly={draft.locked}
+                        placeholder="custom.field_name"
+                        onChange={(event) =>
+                          updateBlock({
+                            bindingKey: event.target.value || null,
+                          })
+                        }
+                      />
+                    </label>
+                    <p className={styles.bindingHelp}>
+                      Available data: organization.*, contact.*, quote.*,
+                      project.*, staff.current.*, payment.*, and custom.*
+                    </p>
+                  </>
                 )}
                 <div className={styles.toggles}>
                   <label>

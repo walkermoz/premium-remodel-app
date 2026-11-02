@@ -3,6 +3,7 @@
 import { Check, Copy, FileSignature, Send, Tablet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { AgreementSignerRole } from "@/lib/agreement-template-schema";
+import { buildSigningDataSnapshot } from "@/lib/document-signing";
 import type { Quote, User } from "@/lib/types";
 
 type PublishedTemplate = {
@@ -103,20 +104,12 @@ export default function AgreementPacketPanel({
           signers: signers.filter(
             (signer) => signer.name.trim() && signer.email.trim(),
           ),
-          dataSnapshot: {
-            organization: { name: businessName },
-            contact: {
-              id: quote.contactId || null,
-              name: quote.client,
-              email: quote.clientEmail || "",
-              phone: quote.clientPhone || "",
-              address: quote.address,
-            },
+          dataSnapshot: buildSigningDataSnapshot({
+            businessName,
             quote,
-            project: quote,
+            user,
             custom: flowResponses,
-            payment: { schedule: quote.msaPaymentSchedule || [] },
-          },
+          }),
         }),
       });
       const body = await response.json();

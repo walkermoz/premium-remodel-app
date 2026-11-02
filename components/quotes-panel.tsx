@@ -14,7 +14,6 @@ import {
   RotateCcw,
   Tablet,
   Trash2,
-  UserCheck,
 } from "lucide-react";
 import {
   quoteStatuses,
@@ -53,6 +52,8 @@ import {
 } from "@/lib/quote-price-display";
 import { useRegionalFormat } from "./regional-format-context";
 import AgreementPacketPanel from "./agreement-packet-panel";
+import DocumentSigningPanel from "./document-signing-panel";
+import SigningPacketSummary from "./signing-packet-summary";
 import QuoteFlowRenderer from "./quote-flow-renderer";
 import QuoteFlowInPersonControl from "./quote-flow-in-person-control";
 import QuoteFlowFileControl from "./quote-flow-file-control";
@@ -63,6 +64,7 @@ import {
   type QuoteFlowDefinition,
   type QuoteFlowStage,
 } from "@/lib/quote-flow-schema";
+import { premiumQuoteSigningPacket } from "@/lib/document-signing";
 
 type QuoteFlowInstanceDto = {
   id: string;
@@ -463,6 +465,9 @@ export function QuoteDetail({
   const signedScope =
     quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
   const signedMsa = quote.msaAgreement?.status === "signed";
+  const signingPacket = premiumQuoteSigningPacket(quote);
+  const quoteSigningDocument = signingPacket.documents[0];
+  const agreementSigningDocument = signingPacket.documents[1];
   const depositCents = signedMsa
     ? Math.round(msaPaymentRows(quote.msaAgreement!)[0]?.amount * 100)
     : 0;
@@ -1964,48 +1969,13 @@ export function QuoteDetail({
               service agreement, and deposit.
             </p>
           </header>
-          <section
-            className={`workflow-customer-handoff ${quote.msaAgreement ? "is-ready" : "is-waiting"} ${signedMsa ? "is-complete" : ""}`}
-            aria-label="Customer handoff"
-          >
-            <span className="workflow-customer-handoff-icon">
-              {signedMsa ? (
-                <Check size={18} aria-hidden="true" />
-              ) : (
-                <UserCheck size={18} aria-hidden="true" />
-              )}
-            </span>
-            <div className="workflow-customer-handoff-copy">
-              <span className="project-handoff-eyebrow">Customer handoff</span>
-              <h3>
-                {signedMsa
-                  ? "Customer documents complete"
-                  : quote.msaAgreement?.status === "sent"
-                    ? "Customer portal active"
-                    : quote.msaAgreement?.status === "prepared"
-                      ? signedScope
-                        ? "Service agreement ready for the customer"
-                        : "Quote and service agreement ready"
-                      : "Complete the company signature"}
-              </h3>
-              <p>
-                {signedMsa
-                  ? "The quote and service agreement have been signed."
-                  : quote.msaAgreement?.status === "sent"
-                    ? `The private portal is active for ${quote.clientEmail}.`
-                    : quote.msaAgreement?.status === "prepared"
-                      ? signedScope
-                        ? "Open the remaining agreement here or send the customer their private portal link."
-                        : "Open the signing session on this device or send one portal link by email."
-                      : "Review and sign the MSA as the company member before handing documents to the customer."}
-              </p>
-            </div>
-            {!signedMsa &&
-              ["prepared", "sent"].includes(
-                quote.msaAgreement?.status || "",
-              ) &&
-              (!signedScope || quote.msaAgreement?.status === "prepared") && (
-                <div className="workflow-customer-handoff-actions">
+          <SigningPacketSummary
+            packet={signingPacket}
+            actions={
+              !signedMsa &&
+              ["prepared", "sent"].includes(quote.msaAgreement?.status || "") &&
+              (!signedScope || quote.msaAgreement?.status === "prepared") ? (
+                <>
                   {!signedScope && (
                     <button
                       type="button"
@@ -2032,87 +2002,35 @@ export function QuoteDetail({
                           : "Send portal link"}
                     </button>
                   )}
-                </div>
-              )}
-          </section>
+                </>
+              ) : null
+            }
+          />
           <div
             className="workflow-document-stack"
             aria-label="Quote completion workflow"
           >
-            <section
-              className={`workflow-completion-panel workflow-document-panel ${signedScope ? "is-complete" : ""}`}
-              aria-label="Quote document"
-            >
-              <header>
-                <div className="workflow-document-marker">
-                  <span
-                    className={`workflow-document-step ${signedScope ? "is-complete" : ""}`}
+            <DocumentSigningPanel
+              document={quoteSigningDocument}
+              step={1}
+              actions={
+                signedScope ? (
+                  <a
+                    className="button secondary"
+                    href={quoteSigningDocument.viewHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
-                    {signedScope ? <Check size={14} aria-hidden="true" /> : "1"}
-                  </span>
-                  <span className="workflow-completion-icon">
-                    <FileText size={18} aria-hidden="true" />
-                  </span>
-                </div>
-                <div>
-                  <span className="project-handoff-eyebrow">
-                    Quote document
-                  </span>
-                  <h3>
-                    {signedScope
-                      ? "Quote accepted and signed"
-                      : quote.quoteSentAt
-                        ? "Awaiting customer signature"
-                        : "Ready to send"}
-                  </h3>
-                  <p>
-                    {signedScope
-                      ? `${quote.quoteAcceptance?.signedName || quote.client} signed the quote.`
-                      : quote.quoteSentAt
-                        ? `The quote is available to ${quote.clientEmail} in the client portal.`
-                        : "The quote is ready for the customer handoff above."}
-                  </p>
-                </div>
-                {signedScope && (
-                  <div className="workflow-document-actions">
-                    <a
-                      className="button secondary"
-                      href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf?view=1`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View signed quote
-                    </a>
-                  </div>
-                )}
-              </header>
-              <dl>
-                <div>
-                  <dt>Customer</dt>
-                  <dd>{quote.client}</dd>
-                </div>
-                <div>
-                  <dt>Portal delivery</dt>
-                  <dd>
-                    {quote.quoteSentAt
-                      ? `Portal sent to ${quote.clientEmail}`
-                      : "Not sent"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Client portal</dt>
-                  <dd>
-                    {quote.quoteSentAt
-                      ? "Private link active"
-                      : "Created when emailed"}
-                  </dd>
-                </div>
-              </dl>
-            </section>
+                    View signed quote
+                  </a>
+                ) : null
+              }
+            />
             {config.features.agreements && (
               <MsaSigningPanel
                 quote={quote}
                 signerName={user.name}
+                document={agreementSigningDocument}
                 onSent={onSent}
               />
             )}

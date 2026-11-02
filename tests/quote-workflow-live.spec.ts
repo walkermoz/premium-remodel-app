@@ -81,14 +81,16 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
     page.getByRole("heading", { name: "Send & complete" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Customer handoff" }),
-  ).toContainText("Complete the company signature");
+    page.getByRole("region", { name: "Customer signing packet" }),
+  ).toContainText("Ready for customer");
   await expect(
     page.getByRole("button", { name: "Send portal link" }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("region", { name: "Agreement signature status" }),
-  ).toContainText("Sign and prepare the MSA in Agreement details");
+    page.getByRole("region", {
+      name: "Master Services Agreement signing status",
+    }),
+  ).toContainText("Company signature required");
   await expect(
     workflow.getByRole("button", { name: /Create project/ }),
   ).toBeDisabled();

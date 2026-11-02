@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import {
   defaultQuoteFlowDefinition,
+  createQuoteFlowStage,
   premiumRemodelQuoteFlowDefinition,
   quoteFlowBlockTypes,
   quoteFlowConditionMatches,
@@ -182,6 +183,27 @@ test("flow definitions support ordered custom forms around signing and payment",
     "post_signature_form",
     "create_project",
   ]);
+});
+
+test("new document signing stages start as a coherent reusable object", () => {
+  const stage = createQuoteFlowStage("signature_collection");
+  expect(stage.title).toBe("Document signing");
+  expect(stage.blocks.map((block) => block.type)).toEqual([
+    "generated_document",
+    "signature",
+  ]);
+  expect(stage.blocks[0]).toMatchObject({
+    required: true,
+    bindingKey: "documents.primary",
+  });
+  expect(stage.blocks[1]).toMatchObject({
+    required: true,
+    bindingKey: "signing.customer_signature",
+    config: {
+      signerRoleId: "customer",
+      methods: ["remote", "onsite", "in_person"],
+    },
+  });
 });
 
 test("the controlled condition engine supports numeric and collection rules", () => {

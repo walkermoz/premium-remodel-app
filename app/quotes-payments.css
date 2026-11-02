@@ -812,6 +812,50 @@
   min-height: 36px;
   white-space: nowrap;
 }
+.workflow-signing-packet {
+  margin: 20px 22px 0;
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--blue-soft) 30%, var(--surface));
+  overflow: hidden;
+}
+.workflow-signing-packet.is-complete {
+  border-color: color-mix(in srgb, var(--blue) 46%, var(--line));
+}
+.workflow-signing-packet-heading {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+}
+.workflow-signing-packet-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.workflow-signing-packet-facts > div {
+  min-width: 0;
+  padding: 12px 20px 14px;
+  border-right: 1px solid var(--line);
+}
+.workflow-signing-packet-facts > div:last-child {
+  border-right: 0;
+}
+.workflow-signing-packet-facts dt {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.workflow-signing-packet-facts dd {
+  margin: 5px 0 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 650;
+}
 .workflow-document-panel {
   transition:
     border-color 160ms ease,
@@ -852,6 +896,79 @@
 .workflow-document-actions .button {
   min-height: 36px;
   white-space: nowrap;
+}
+.workflow-document-title-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.workflow-document-status {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--theme-surface-soft, var(--bg));
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+.workflow-document-status.is-completed,
+.workflow-document-status.is-partially-signed {
+  border-color: color-mix(in srgb, var(--blue) 42%, var(--line));
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+.workflow-delivery-details {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.workflow-delivery-details summary {
+  width: fit-content;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 650;
+}
+.workflow-delivery-details > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.workflow-delivery-details > div > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--theme-surface-soft, var(--bg));
+  color: var(--ink);
+  font-size: 9px;
+}
+.workflow-delivery-details small {
+  color: var(--muted);
+  font-size: 8px;
+}
+.workflow-document-contract-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+}
+.workflow-document-contract-value strong {
+  color: var(--ink);
+  font-size: 11px;
 }
 .workflow-completion-panel > header {
   display: grid;
@@ -2111,6 +2228,26 @@
   }
   .workflow-customer-handoff-actions .button {
     flex: 1 1 100%;
+  }
+  .workflow-signing-packet {
+    margin: 14px 14px 0;
+  }
+  .workflow-signing-packet-heading {
+    grid-template-columns: 38px minmax(0, 1fr);
+    padding: 16px;
+  }
+  .workflow-signing-packet-heading .workflow-customer-handoff-actions {
+    grid-column: 1 / -1;
+  }
+  .workflow-signing-packet-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workflow-signing-packet-facts > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .workflow-signing-packet-facts > div:last-child {
+    border-bottom: 0;
   }
   .workflow-document-panel > header,
   .workflow-deposit-step > header {

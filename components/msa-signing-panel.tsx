@@ -1,26 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Check,
-  CheckCircle2,
-  FileSignature,
-  Hourglass,
-  Tablet,
-} from "lucide-react";
+import { Check, Tablet } from "lucide-react";
+import type { SigningDocumentView } from "@/lib/document-signing";
 import type { Quote, SignatureStroke } from "@/lib/types";
 import { projectMoney } from "@/lib/project-finances";
 import { makeMsaPreview } from "@/lib/msa-preview";
+import DocumentSigningPanel from "./document-signing-panel";
 import MsaDocument from "./msa-document";
 import MsaSignaturePad from "./msa-signature-pad";
 
 export default function MsaSigningPanel({
   quote,
   signerName,
+  document,
   onSent,
 }: {
   quote: Quote;
   signerName: string;
+  document: SigningDocumentView;
   onSent: () => Promise<void>;
 }) {
   const [signerTitle, setSignerTitle] = useState("");
@@ -131,9 +129,7 @@ export default function MsaSigningPanel({
       await onSent();
     } catch (cause) {
       setCustomerSigningError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not start MSA signing.",
+        cause instanceof Error ? cause.message : "Could not start MSA signing.",
       );
     } finally {
       setCustomerSigningBusy(false);
@@ -185,48 +181,13 @@ export default function MsaSigningPanel({
 
   if (agreement) {
     const signed = agreement.status === "signed";
-    const prepared = agreement.status === "prepared";
     return (
-      <section
-        className={`workflow-completion-panel workflow-document-panel ${signed ? "is-complete" : ""}`}
-        aria-label="Agreement signature status"
-      >
-        <header>
-          <div className="workflow-document-marker">
-            <span
-              className={`workflow-document-step ${signed ? "is-complete" : ""}`}
-            >
-              {signed ? <Check size={14} aria-hidden="true" /> : "2"}
-            </span>
-            <span className="workflow-completion-icon">
-              {signed ? (
-                <CheckCircle2 size={18} aria-hidden="true" />
-              ) : (
-                <Hourglass size={18} aria-hidden="true" />
-              )}
-            </span>
-          </div>
-          <div>
-            <span className="project-handoff-eyebrow">MSA document</span>
-            <h3>
-              {signed
-                ? "Agreement signed"
-                : prepared
-                  ? "Company signature complete"
-                  : "Awaiting customer signature"}
-            </h3>
-            <p>
-              {signed
-                ? `${agreement.customerSignature?.name || agreement.owner} signed the agreement.`
-                : prepared
-                  ? accepted
-                    ? "The MSA is ready. Choose a customer handoff option above."
-                    : "The MSA is ready and will follow the quote in the customer portal."
-                  : `The customer portal is active for ${agreement.ownerEmail}.`}
-            </p>
-          </div>
-          {signed ? (
-            <div className="workflow-document-actions">
+      <DocumentSigningPanel
+        document={document}
+        step={2}
+        actions={
+          signed ? (
+            <>
               <a
                 className="button secondary"
                 href={`/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`}
@@ -235,9 +196,9 @@ export default function MsaSigningPanel({
               >
                 View signed MSA
               </a>
-            </div>
+            </>
           ) : accepted ? (
-            <div className="workflow-document-actions">
+            <>
               <button
                 type="button"
                 className="button primary"
@@ -251,29 +212,14 @@ export default function MsaSigningPanel({
                     ? "Close signing"
                     : "Sign MSA on this device"}
               </button>
-            </div>
-          ) : null}
-        </header>
-        <dl>
-          <div>
-            <dt>Customer</dt>
-            <dd>{agreement.owner}</dd>
-          </div>
-          <div>
-            <dt>Contract</dt>
-            <dd>{projectMoney(agreement.price)}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>
-              {signed
-                ? "Complete"
-                : prepared
-                  ? "Prepared"
-                  : "Available in client portal"}
-            </dd>
-          </div>
-        </dl>
+            </>
+          ) : null
+        }
+      >
+        <div className="workflow-document-contract-value">
+          <span>Contract value</span>
+          <strong>{projectMoney(agreement.price)}</strong>
+        </div>
         {customerSigningOpen && transactionDate && (
           <section
             className="workflow-inline-msa-signing"
@@ -345,9 +291,8 @@ export default function MsaSigningPanel({
                 <Check size={12} strokeWidth={3} />
               </span>
               <span>
-                I reviewed and approve this Master Services Agreement,
-                including its exhibits, and intend my electronic signature to
-                sign it.
+                I reviewed and approve this Master Services Agreement, including
+                its exhibits, and intend my electronic signature to sign it.
               </span>
             </label>
             {customerSigningError && (
@@ -380,57 +325,16 @@ export default function MsaSigningPanel({
         {(error || (!customerSigningOpen && customerSigningError)) && (
           <p className="alert">{error || customerSigningError}</p>
         )}
-      </section>
+      </DocumentSigningPanel>
     );
   }
 
   if (!accepted) {
-    return (
-      <section
-        className="workflow-completion-panel workflow-document-panel is-waiting"
-        aria-label="Agreement signature status"
-      >
-        <header>
-          <div className="workflow-document-marker">
-            <span className="workflow-document-step">2</span>
-            <span className="workflow-completion-icon">
-              <Hourglass size={18} aria-hidden="true" />
-            </span>
-          </div>
-          <div>
-            <span className="project-handoff-eyebrow">Service agreement</span>
-            <h3>Prepare the agreement</h3>
-            <p>
-              Sign and prepare the MSA in Agreement details. The customer can
-              then sign the quote and MSA in one visit.
-            </p>
-          </div>
-        </header>
-      </section>
-    );
+    return <DocumentSigningPanel document={document} step={2} />;
   }
 
   return (
-    <section
-      className="workflow-completion-panel workflow-document-panel"
-      aria-label="Send service agreement"
-    >
-      <header>
-        <div className="workflow-document-marker">
-          <span className="workflow-document-step">2</span>
-          <span className="workflow-completion-icon">
-            <FileSignature size={18} aria-hidden="true" />
-          </span>
-        </div>
-        <div>
-          <span className="project-handoff-eyebrow">Service agreement</span>
-          <h3>Company signature</h3>
-          <p>
-            Review the MSA and sign as the company representative. Choose how
-            the customer will sign in the next step.
-          </p>
-        </div>
-      </header>
+    <DocumentSigningPanel document={document} step={2}>
       {!detailsReady && (
         <p className="alert">
           Complete and save Agreement Details before sending the MSA.
@@ -496,6 +400,6 @@ export default function MsaSigningPanel({
           {sending ? "Signing…" : "Sign MSA"}
         </button>
       </div>
-    </section>
+    </DocumentSigningPanel>
   );
 }

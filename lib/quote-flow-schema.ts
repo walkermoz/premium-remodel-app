@@ -315,8 +315,9 @@ export const quoteFlowStageRegistry: Record<QuoteFlowStageType, RegistryItem> =
       defaultAudience: "customer",
     },
     signature_collection: {
-      label: "Signatures",
-      description: "Collect one or more signatures in a configured order.",
+      label: "Document signing",
+      description:
+        "Choose documents, map their data, and collect signer roles in order.",
       defaultAudience: "customer",
     },
     initials_collection: {
@@ -508,13 +509,35 @@ export function createQuoteFlowBlock(type: QuoteFlowBlockType): QuoteFlowBlock {
 
 export function createQuoteFlowStage(type: QuoteFlowStageType): QuoteFlowStage {
   const item = quoteFlowStageRegistry[type];
+  const blocks =
+    type === "signature_collection"
+      ? [
+          {
+            ...createQuoteFlowBlock("generated_document"),
+            label: "Document to sign",
+            required: true,
+            bindingKey: "documents.primary",
+          },
+          {
+            ...createQuoteFlowBlock("signature"),
+            label: "Customer signature",
+            required: true,
+            bindingKey: "signing.customer_signature",
+            config: {
+              signerRoleId: "customer",
+              order: 1,
+              methods: ["remote", "onsite", "in_person"],
+            },
+          },
+        ]
+      : [];
   return quoteFlowStageSchema.parse({
     id: `${type}_${crypto.randomUUID().slice(0, 8)}`,
     type,
     title: item.label,
     description: item.description,
     audience: item.defaultAudience,
-    blocks: [],
+    blocks,
   });
 }
 
