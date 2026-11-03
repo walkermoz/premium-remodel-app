@@ -28,10 +28,7 @@ import type {
   User,
   Workspace,
 } from "@/lib/types";
-import {
-  projectFinances,
-  scopeDifference,
-} from "@/lib/project-finances";
+import { projectFinances, scopeDifference } from "@/lib/project-finances";
 import TaskList from "./task-list";
 import ScopeTable from "./scope-table";
 import FilesPanel from "./files-panel";
@@ -518,7 +515,8 @@ export default function ProjectDetail({
                 <div>
                   <CalendarDays size={18} />
                   <span>
-                    Start date<strong>{regional.date(project.startDate)}</strong>
+                    Start date
+                    <strong>{regional.date(project.startDate)}</strong>
                   </span>
                 </div>
                 <div>
@@ -585,6 +583,7 @@ export default function ProjectDetail({
               project={project}
               items={items}
               signer={user}
+              demo={demo}
               onSaveTerms={(terms) =>
                 onSave("project", { ...project, ...terms }, project)
               }

@@ -21,6 +21,9 @@ import {
 } from "@/lib/generation";
 import { useGenerationConfig } from "./use-generation-config";
 import { prepareGenerationFile } from "@/lib/generation-client";
+import { connectionIsReady } from "@/lib/organization-connections.types";
+import { useOrganizationConnection } from "./use-organization-connections";
+import ConnectionRequirement from "./connection-requirement";
 
 export default function GeneratePanel({
   demo,
@@ -29,6 +32,11 @@ export default function GeneratePanel({
   demo: boolean;
   active: boolean;
 }) {
+  const {
+    capability: generationCapability,
+    loading: generationConnectionLoading,
+  } = useOrganizationConnection("openrouter_generation", demo);
+  const generationConnectionReady = connectionIsReady(generationCapability);
   const {
     config,
     error: configError,
@@ -470,6 +478,8 @@ export default function GeneratePanel({
                 preparing ||
                 !photo ||
                 !modelAvailable ||
+                generationConnectionLoading ||
+                !generationConnectionReady ||
                 (!demo && !config?.configured)
               }
             >
@@ -485,6 +495,11 @@ export default function GeneratePanel({
                   : "Generate preview"}
             </button>
           </fieldset>
+          <ConnectionRequirement
+            capability={generationCapability}
+            loading={generationConnectionLoading}
+            compact
+          />
           <p className="generation-note">
             {demo
               ? "Sign in to generate images in your company workspace."

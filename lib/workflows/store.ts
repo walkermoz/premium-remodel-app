@@ -24,6 +24,9 @@ import {
   type WorkflowTemplateKey,
 } from "./templates";
 import { workflowCanPublish } from "./validate";
+import { workflowConnectionIssues } from "./connection-validation";
+import { getOrganizationConnectionRegistry } from "../organization-connections.server";
+import { listOrganizationSecrets } from "../organization-secrets";
 
 export type WorkflowSummary = {
   id: string;
@@ -205,8 +208,7 @@ async function createSeed(input: {
   const triggerNodes = published
     ? input.definition.graph.nodes.filter(
         (node) =>
-          node.kind === "trigger" &&
-          typeof node.config.eventType === "string",
+          node.kind === "trigger" && typeof node.config.eventType === "string",
       )
     : [];
   if (published && triggerNodes.length) {
@@ -271,11 +273,7 @@ async function migrateSeededPremiumWebhookToVault(
   const originalGraph = structuredClone(draft.data.graph);
   const graph = workflowDefinitionSchema.shape.graph.parse(originalGraph);
   const node = graph.nodes.find((item) => item.id === "team-notification");
-  if (
-    !node ||
-    node.config.destination !== "discord_lead_webhook"
-  )
-    return;
+  if (!node || node.config.destination !== "discord_lead_webhook") return;
   node.config = {
     ...node.config,
     destination: "custom",
@@ -288,7 +286,9 @@ async function migrateSeededPremiumWebhookToVault(
     },
   };
   delete node.config.templateKey;
-  const emailNode = graph.nodes.find((item) => item.id === "confirmation-email");
+  const emailNode = graph.nodes.find(
+    (item) => item.id === "confirmation-email",
+  );
   if (emailNode) {
     emailNode.config = {
       ...emailNode.config,
@@ -397,9 +397,7 @@ export async function ensureSeededWorkflows(organizationId: string) {
         : "disabled_custom_https",
       triggerMode: original ? "website_form" : "inbound_webhook",
       compatibilityMode: original ? "premium_legacy" : "generic",
-      ...(teamNotificationUrlSecretId
-        ? { teamNotificationUrlSecretId }
-        : {}),
+      ...(teamNotificationUrlSecretId ? { teamNotificationUrlSecretId } : {}),
     }),
     systemControlled: false,
     ...(original ? { legacyRevision: legacy.revision } : {}),
@@ -619,6 +617,24 @@ export async function publishWorkflow(
         .filter((issue) => issue.severity === "error")
         .map((issue) => issue.message)
         .join(" ") || "Workflow validation failed.",
+    );
+  const [connectionRegistry, secrets] = await Promise.all([
+    getOrganizationConnectionRegistry(user),
+    listOrganizationSecrets(user.organizationId),
+  ]);
+  const connectionIssues = workflowConnectionIssues(
+    current.draft,
+    connectionRegistry,
+    new Set(secrets.map((secret) => secret.id)),
+  );
+  const blockingIssues = connectionIssues.filter(
+    (issue) => issue.severity === "error",
+  );
+  if (blockingIssues.length)
+    throw new HttpError(
+      400,
+      blockingIssues.map((issue) => issue.message).join(" ") ||
+        "Workflow validation failed.",
     );
   const result = await supabaseAdmin().rpc("remodel_publish_workflow", {
     p_organization_id: user.organizationId,

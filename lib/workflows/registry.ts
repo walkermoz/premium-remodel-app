@@ -119,8 +119,13 @@ const resultTrackingSchema = z.object({
     .regex(/^[A-Za-z][A-Za-z0-9_]{0,79}$/),
 });
 
+const connectionFailureBehaviorSchema = z
+  .enum(["block", "skip"])
+  .default("block");
+
 const sendEmailSchema = z.object({
   enabled: z.boolean().default(true),
+  connectionFailureBehavior: connectionFailureBehaviorSchema,
   /** Historical versions only; new workflows use ordinary presentation and tracking config. */
   templateKey: z.string().trim().max(120).optional(),
   presentation: z.enum(["plain", "business"]).default("plain"),
@@ -137,6 +142,7 @@ const sendEmailSchema = z.object({
 
 const sendSmsSchema = z.object({
   enabled: z.boolean().default(true),
+  connectionFailureBehavior: connectionFailureBehaviorSchema,
   templateKey: z.string().trim().max(120).optional(),
   resultTracking: resultTrackingSchema.optional(),
   recipient: workflowOperandSchema,
@@ -152,6 +158,7 @@ const sendSmsSchema = z.object({
 
 const notificationSchema = z.object({
   enabled: z.boolean().default(true),
+  connectionFailureBehavior: connectionFailureBehaviorSchema,
   templateKey: z.string().trim().max(120).optional(),
   channel: z.enum(["connected_team", "user"]),
   recipient: workflowOperandSchema.optional(),
@@ -199,6 +206,7 @@ const waitSchema = z.discriminatedUnion("mode", [
 const webhookSchema = z
   .object({
     enabled: z.boolean().default(true),
+    connectionFailureBehavior: connectionFailureBehaviorSchema,
     templateKey: z.string().trim().max(120).optional(),
     resultTracking: resultTrackingSchema.optional(),
     destination: z.enum(["custom", "discord_lead_webhook"]).default("custom"),

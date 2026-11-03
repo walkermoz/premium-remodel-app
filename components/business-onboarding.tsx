@@ -2,11 +2,19 @@
 
 import { useEffect, useState } from "react";
 import type { BusinessConfig } from "@/lib/business-config";
+import type {
+  OrganizationConnectionCapability,
+  OrganizationConnectionId,
+} from "@/lib/organization-connections.types";
 
-type Section = "business" | "connections";
+type Section = "business" | "connections" | "workspace" | "account";
 type Status = {
   organizationId: string;
   canCreateBusiness: boolean;
+  connections: Record<
+    OrganizationConnectionId,
+    OrganizationConnectionCapability
+  >;
   mail: { configured: boolean; connected: boolean; email: string | null };
   phone: { connected: boolean };
   websiteLeads: {
@@ -25,6 +33,15 @@ type Status = {
     payments: { enabled: boolean; configured: boolean; optional: boolean };
   };
 };
+
+function connectionStepState(
+  connection: OrganizationConnectionCapability | undefined,
+): "connected" | "optional" | "blocked" | "todo" {
+  if (connection?.state === "ready") return "connected";
+  if (connection?.state === "disabled") return "optional";
+  if (connection?.state === "degraded") return "todo";
+  return "blocked";
+}
 
 function Step({
   number,
@@ -309,25 +326,25 @@ export default function BusinessOnboarding({
               !status?.modules?.payments.enabled
                 ? "optional"
                 : status?.payments.selectedProvider === "manual"
-                ? "ready"
-                : status?.payments.stripeConnected
-                  ? status.payments.stripeReady && status.payments.enabled
-                    ? "connected"
-                    : "todo"
-                  : "blocked"
+                  ? "ready"
+                  : status?.payments.stripeConnected
+                    ? status.payments.stripeReady && status.payments.enabled
+                      ? "connected"
+                      : "todo"
+                    : "blocked"
             }
             detail={
               !status?.modules?.payments.enabled
                 ? "Optional. Payments are disabled for this business and can be enabled in Business modules."
                 : status?.payments.selectedProvider === "manual"
-                ? "Manual payments are selected. Stripe can be enabled after the platform connects an account."
-                : status?.payments.stripeConnected
-                  ? !status.payments.stripeReady
-                    ? "Stripe is connected but needs additional account verification before collecting card payments."
-                    : status.payments.enabled
-                    ? "Stripe is connected for this business."
-                    : "Stripe is connected. Enable payment links in Business settings to use it."
-                  : "Stripe is selected but this business has no Stripe account configured yet."
+                  ? "Manual payments are selected. Stripe can be enabled after the platform connects an account."
+                  : status?.payments.stripeConnected
+                    ? !status.payments.stripeReady
+                      ? "Stripe is connected but needs additional account verification before collecting card payments."
+                      : status.payments.enabled
+                        ? "Stripe is connected for this business."
+                        : "Stripe is connected. Enable payment links in Business settings to use it."
+                    : "Stripe is selected but this business has no Stripe account configured yet."
             }
             action={
               status?.modules?.payments.enabled
@@ -387,6 +404,52 @@ export default function BusinessOnboarding({
                 : "Manage modules"
             }
             onAction={() => onNavigate("business")}
+          />
+          <Step
+            number="09"
+            title="Connect personal calendars"
+            state={connectionStepState(status?.connections.google_calendar)}
+            detail={
+              status?.connections.google_calendar.detail ||
+              "Optional. Each member can connect a private Google Calendar copy; the built-in schedule always remains available."
+            }
+            action="Calendar settings"
+            onAction={() => onNavigate("account")}
+          />
+          <Step
+            number="10"
+            title="Configure AI tools"
+            state={connectionStepState(
+              status?.connections.openrouter_generation,
+            )}
+            detail={
+              status?.connections.openrouter_generation.detail ||
+              "Optional. Configure an image provider before generating renovation previews."
+            }
+            action="Generation settings"
+            onAction={() => onNavigate("workspace")}
+          />
+          <Step
+            number="11"
+            title="Connect team notifications"
+            state={connectionStepState(status?.connections.team_notifications)}
+            detail={
+              status?.connections.team_notifications.detail ||
+              "Optional. Connect a team destination before publishing required notification steps."
+            }
+            action="Connection settings"
+            onAction={() => onNavigate("connections")}
+          />
+          <Step
+            number="12"
+            title="Add workflow secrets"
+            state={connectionStepState(status?.connections.workflow_secrets)}
+            detail={
+              status?.connections.workflow_secrets.detail ||
+              "Optional. Store protected webhook URLs and headers for workflow HTTPS requests."
+            }
+            action="Manage secrets"
+            onAction={() => onNavigate("connections")}
           />
         </ol>
       )}

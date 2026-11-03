@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LockKeyhole, MapPin } from "lucide-react";
 import type { User } from "@/lib/types";
 import { addressPriorityRegion } from "@/lib/address-search";
@@ -40,6 +40,8 @@ export default function SettingsPanel({
   ) => Promise<unknown>;
   onRemoveAlert: (alert: WorkspaceAlert) => void;
 }) {
+  type SettingsSection =
+    "setup" | "business" | "workspace" | "connections" | "account";
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
@@ -64,9 +66,9 @@ export default function SettingsPanel({
     "agreements.manage",
     "quote_flows.manage",
   ].some((capability) => hasCapability(capability as OrganizationCapability));
-  const [section, setSection] = useState<
-    "setup" | "business" | "workspace" | "connections" | "account"
-  >(canViewSetup ? "setup" : canViewBusiness ? "business" : "workspace");
+  const [section, setSection] = useState<SettingsSection>(
+    canViewSetup ? "setup" : canViewBusiness ? "business" : "workspace",
+  );
   const visibleSection =
     section === "setup" && !canViewSetup
       ? "workspace"
@@ -75,6 +77,28 @@ export default function SettingsPanel({
         : section === "connections" && !canManageConnections
           ? "workspace"
           : section;
+  function selectSection(next: SettingsSection) {
+    setSection(next);
+    window.history.replaceState(null, "", `#${next}`);
+  }
+  useEffect(() => {
+    const selectHash = () => {
+      const requested = window.location.hash.slice(1) as SettingsSection;
+      if (
+        !["setup", "business", "workspace", "connections", "account"].includes(
+          requested,
+        )
+      )
+        return;
+      if (requested === "setup" && !canViewSetup) return;
+      if (requested === "business" && !canViewBusiness) return;
+      if (requested === "connections" && !canManageConnections) return;
+      setSection(requested);
+    };
+    selectHash();
+    window.addEventListener("hashchange", selectHash);
+    return () => window.removeEventListener("hashchange", selectHash);
+  }, [canManageConnections, canViewBusiness, canViewSetup]);
   return (
     <>
       <div className="page-heading">
@@ -118,7 +142,7 @@ export default function SettingsPanel({
             type="button"
             className={visibleSection === id ? "active" : ""}
             aria-current={visibleSection === id ? "page" : undefined}
-            onClick={() => setSection(id)}
+            onClick={() => selectSection(id)}
           >
             <strong>{label}</strong>
             <span>{description}</span>
@@ -130,7 +154,7 @@ export default function SettingsPanel({
           config={config}
           admin={canViewSetup}
           demo={demo}
-          onNavigate={setSection}
+          onNavigate={selectSection}
         />
       )}
       {canViewBusiness && (

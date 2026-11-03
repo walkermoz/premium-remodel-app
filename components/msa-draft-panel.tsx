@@ -23,6 +23,9 @@ import MsaDocument from "./msa-document";
 import MsaSignaturePad from "./msa-signature-pad";
 import type { SignatureStroke } from "@/lib/types";
 import styles from "./msa-draft-panel.module.css";
+import { connectionIsReady } from "@/lib/organization-connections.types";
+import { useOrganizationConnection } from "./use-organization-connections";
+import ConnectionRequirement from "./connection-requirement";
 
 export default function MsaDraftPanel({
   project,
@@ -32,6 +35,7 @@ export default function MsaDraftPanel({
   showSigning = true,
   canSendAgreement = true,
   prepareBeforeQuoteSignature = false,
+  demo,
 }: {
   project: Project | Quote;
   items: ScopeItem[];
@@ -44,7 +48,11 @@ export default function MsaDraftPanel({
   showSigning?: boolean;
   canSendAgreement?: boolean;
   prepareBeforeQuoteSignature?: boolean;
+  demo: boolean;
 }) {
+  const { capability: mailCapability, loading: mailConnectionLoading } =
+    useOrganizationConnection("google_mail", demo);
+  const mailReady = connectionIsReady(mailCapability);
   const [historical, setHistorical] = useState<{
     price: number;
     scope: ReturnType<typeof msaPrefill>["scope"];
@@ -291,6 +299,13 @@ export default function MsaDraftPanel({
   }
 
   async function sendAgreement() {
+    if (!prepareBeforeQuoteSignature && !mailReady) {
+      setSendError(
+        mailCapability?.detail ||
+          "Connect the company mailbox before emailing an agreement.",
+      );
+      return;
+    }
     if (hasUnsavedTerms && project.msaAgreement?.status !== "prepared") {
       setSendError("Save the MSA terms before signing.");
       return;
@@ -425,11 +440,18 @@ export default function MsaDraftPanel({
               <button
                 type="button"
                 className="button primary small-button"
-                disabled={sending}
+                disabled={sending || mailConnectionLoading || !mailReady}
                 onClick={() => void sendAgreement()}
               >
                 {sending ? "Sending…" : "Retry sending MSA"}
               </button>
+            )}
+            {!prepareBeforeQuoteSignature && (
+              <ConnectionRequirement
+                capability={mailCapability}
+                loading={mailConnectionLoading}
+                compact
+              />
             )}
             {prepareBeforeQuoteSignature && project.status === "Draft" && (
               <button
@@ -821,7 +843,9 @@ export default function MsaDraftPanel({
                 hasUnsavedTerms ||
                 (needsHistorical && (!historical || !confirmedHistorical)) ||
                 !owner.trim() ||
-                !ownerEmail.trim()
+                !ownerEmail.trim() ||
+                (!prepareBeforeQuoteSignature &&
+                  (mailConnectionLoading || !mailReady))
               }
               onClick={() => void sendAgreement()}
             >
@@ -831,6 +855,13 @@ export default function MsaDraftPanel({
                   ? "Sign and prepare MSA"
                   : "Sign and email MSA"}
             </button>
+            {!prepareBeforeQuoteSignature && (
+              <ConnectionRequirement
+                capability={mailCapability}
+                loading={mailConnectionLoading}
+                compact
+              />
+            )}
             {sendError && (
               <p role="alert" className={styles.error}>
                 {sendError}

@@ -12,6 +12,9 @@ import {
 } from "@/lib/document-signing";
 import type { Quote, User } from "@/lib/types";
 import DocumentSigningPanel from "./document-signing-panel";
+import { connectionIsReady } from "@/lib/organization-connections.types";
+import { useOrganizationConnection } from "./use-organization-connections";
+import ConnectionRequirement from "./connection-requirement";
 
 type PublishedTemplate = {
   id: string;
@@ -151,6 +154,9 @@ export default function AgreementPacketPanel({
   heading?: string;
   flowResponses?: Record<string, unknown>;
 }) {
+  const { capability: mailCapability, loading: mailConnectionLoading } =
+    useOrganizationConnection("google_mail", demo);
+  const mailReady = connectionIsReady(mailCapability);
   const [templates, setTemplates] = useState<PublishedTemplate[]>([]);
   const [packets, setPackets] = useState<PacketSummary[]>([]);
   const [templateId, setTemplateId] = useState("");
@@ -170,6 +176,11 @@ export default function AgreementPacketPanel({
 
   async function createPacket(deliveryMode: "email" | "onsite") {
     if (demo) return setError("Agreement delivery requires a real workspace.");
+    if (deliveryMode === "email" && !mailReady)
+      return setError(
+        mailCapability?.detail ||
+          "Connect the company mailbox before emailing an agreement.",
+      );
     setBusy(true);
     setError("");
     setMessage("");
@@ -423,11 +434,16 @@ export default function AgreementPacketPanel({
       <button
         type="button"
         className="button primary"
-        disabled={busy || !selected}
+        disabled={busy || !selected || mailConnectionLoading || !mailReady}
         onClick={() => void createPacket("email")}
       >
         <Send size={16} /> {busy ? "Preparing…" : "Create & send agreement"}
       </button>
+      <ConnectionRequirement
+        capability={mailCapability}
+        loading={mailConnectionLoading}
+        compact
+      />
       <button
         type="button"
         className="button secondary"

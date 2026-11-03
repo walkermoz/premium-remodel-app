@@ -85,13 +85,6 @@ export function validateWorkflowDefinition(input: unknown): {
           message: `${node.name}: ${error.path || "configuration"} ${error.message}`,
           nodeId: node.id,
         });
-    if (registered.connection)
-      issues.push({
-        severity: "warning",
-        code: "connection_required",
-        message: `${node.name} requires a configured ${registered.connection} connection when it runs.`,
-        nodeId: node.id,
-      });
   }
 
   const incoming = new Map<string, WorkflowNode[]>();

@@ -1,11 +1,10 @@
 import { apiError, requireUser } from "@/lib/auth";
 import { googleMailAddressForOrganization } from "@/lib/google-mail";
-import { hasTwilioConnection } from "@/lib/twilio-connection-store";
-import { configuredDiscordLeadWebhook } from "@/lib/discord-leads";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
 import { listOrganizationSecrets } from "@/lib/organization-secrets";
-import { isOriginalOrganization } from "@/lib/original-organization";
 import { requireOrganizationCapability } from "@/lib/organization-permissions";
+import { getOrganizationConnectionRegistry } from "@/lib/organization-connections.server";
+import { connectionIsReady } from "@/lib/organization-connections.types";
 
 export const runtime = "nodejs";
 
@@ -14,19 +13,15 @@ export async function GET() {
     const user = await requireUser();
     await requireWorkspaceTabs(user, "Automation");
     await requireOrganizationCapability(user, "workflows.manage");
-    const [email, smsConnected, secrets] = await Promise.all([
+    const [email, secrets, registry] = await Promise.all([
       googleMailAddressForOrganization(user.organizationId),
-      hasTwilioConnection(user.organizationId),
       listOrganizationSecrets(user.organizationId),
+      getOrganizationConnectionRegistry(user),
     ]);
-    let discordConnected = false;
-    try {
-      discordConnected =
-        isOriginalOrganization(user.organizationId) &&
-        Boolean(configuredDiscordLeadWebhook());
-    } catch {
-      discordConnected = false;
-    }
+    const smsConnected = connectionIsReady(registry.capabilities.twilio_sms);
+    const discordConnected = connectionIsReady(
+      registry.capabilities.team_notifications,
+    );
     return Response.json(
       {
         email: email ? [{ id: user.organizationId, label: email }] : [],
@@ -50,6 +45,7 @@ export async function GET() {
           id: secret.id,
           label: secret.name,
         })),
+        registry,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

@@ -10,10 +10,11 @@ import {
 } from "lucide-react";
 import { Modal } from "./ui";
 import type { Project, Workspace } from "@/lib/types";
-import {
-  projectFinances,
-} from "@/lib/project-finances";
+import { projectFinances } from "@/lib/project-finances";
 import { useRegionalFormat } from "./regional-format-context";
+import { connectionIsReady } from "@/lib/organization-connections.types";
+import { useOrganizationConnection } from "./use-organization-connections";
+import ConnectionRequirement from "./connection-requirement";
 
 export default function ProjectPayments({
   project,
@@ -29,6 +30,9 @@ export default function ProjectPayments({
   canCreateCardLink: boolean;
 }) {
   const regional = useRegionalFormat();
+  const { capability: stripeCapability, loading: stripeConnectionLoading } =
+    useOrganizationConnection("stripe_payments", demo);
+  const stripeConnectionReady = connectionIsReady(stripeCapability);
   const percent = (value: number | null) =>
     value === null
       ? "—"
@@ -43,10 +47,10 @@ export default function ProjectPayments({
   const [creating, setCreating] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [stripeReady, setStripeReady] = useState(false);
+  const [checkoutReady, setCheckoutReady] = useState(false);
   const [stripeReason, setStripeReason] = useState("");
   useEffect(() => {
-    if (!canCreateCardLink) return;
+    if (!canCreateCardLink || !stripeConnectionReady) return;
     const controller = new AbortController();
     void fetch("/api/stripe/checkout", {
       cache: "no-store",
@@ -55,15 +59,16 @@ export default function ProjectPayments({
       .then((response) => (response.ok ? response.json() : { enabled: false }))
       .then((config) => {
         if (!controller.signal.aborted) {
-          setStripeReady(config.enabled === true);
+          setCheckoutReady(config.enabled === true);
           setStripeReason(config.reason || "");
         }
       })
       .catch(() => {
-        if (!controller.signal.aborted) setStripeReady(false);
+        if (!controller.signal.aborted) setCheckoutReady(false);
       });
     return () => controller.abort();
-  }, [canCreateCardLink]);
+  }, [canCreateCardLink, stripeConnectionReady]);
+  const stripeReady = stripeConnectionReady && checkoutReady;
   const finances = projectFinances(
     project,
     workspace.scope,
@@ -144,6 +149,13 @@ export default function ProjectPayments({
           </button>
         </div>
       </div>
+      {canCreateCardLink && remaining > 0 && (
+        <ConnectionRequirement
+          capability={stripeCapability}
+          loading={stripeConnectionLoading}
+          compact
+        />
+      )}
       {canCreateCardLink && stripeReason && (
         <p className="payment-balance-note" role="status">
           {stripeReason}
@@ -237,18 +249,14 @@ export default function ProjectPayments({
           <span>Collected</span>
           <div>
             <strong>{regional.money(collected)}</strong>
-            <span className="balance-percent">
-              {percent(collectedPercent)}
-            </span>
+            <span className="balance-percent">{percent(collectedPercent)}</span>
           </div>
         </div>
         <div>
           <span>Remaining to collect</span>
           <div>
             <strong>{regional.money(remaining)}</strong>
-            <span className="balance-percent">
-              {percent(remainingPercent)}
-            </span>
+            <span className="balance-percent">{percent(remainingPercent)}</span>
           </div>
         </div>
       </div>

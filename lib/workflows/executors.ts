@@ -77,6 +77,18 @@ function assertOrganizationSender(
     );
 }
 
+function skipsUnavailableConnection(node: WorkflowNode) {
+  return node.config.connectionFailureBehavior === "skip";
+}
+
+function unavailableConnectionResult(message: string): WorkflowExecutorResult {
+  return {
+    status: "skipped",
+    summary: message,
+    output: { status: "skipped", reason: "connection_unavailable" },
+  };
+}
+
 function deterministicUuid(value: string) {
   const bytes = createHash("sha256").update(value).digest().subarray(0, 16);
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
@@ -725,6 +737,10 @@ handlers.set("communication.sendEmail", async (input) => {
       await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
         ...sent,
       });
+      if (skipsUnavailableConnection(input.node))
+        return unavailableConnectionResult(
+          "Email skipped because the company mailbox is not connected.",
+        );
       throw new WorkflowConfigurationError(
         "Connect the company Google mailbox before this email action can run.",
       );
@@ -819,6 +835,10 @@ handlers.set("communication.sendEmail", async (input) => {
           attemptedAt: new Date().toISOString(),
           detail: error.message,
         });
+      if (skipsUnavailableConnection(input.node))
+        return unavailableConnectionResult(
+          "Email skipped because the company mailbox is not connected.",
+        );
       throw new WorkflowConfigurationError(error.message);
     }
     if (tracksDelivery)
@@ -925,6 +945,10 @@ handlers.set("communication.sendSms", async (input) => {
           attemptedAt: new Date().toISOString(),
           detail: error.message,
         });
+      if (skipsUnavailableConnection(input.node))
+        return unavailableConnectionResult(
+          "SMS skipped because company texting is not connected.",
+        );
       throw new WorkflowConfigurationError(error.message);
     }
     if (
@@ -1003,6 +1027,13 @@ handlers.set("communication.internalNotification", async (input) => {
     await recordWebsiteLeadDelivery(input, "discordNotification", {
       ...result,
     });
+  if (
+    result.status === "not_configured" &&
+    skipsUnavailableConnection(input.node)
+  )
+    return unavailableConnectionResult(
+      "Team notification skipped because no destination is connected.",
+    );
   if (result.status === "not_configured")
     throw new WorkflowConfigurationError(
       result.detail ||
@@ -1034,17 +1065,30 @@ handlers.set("integration.webhook", async (input) => {
   }
 
   const destination = String(input.node.config.destination || "custom");
-  const configuredUrl =
-    destination === "discord_lead_webhook"
-      ? isOriginalOrganization(input.organizationId)
-        ? configuredDiscordLeadWebhook()
-        : ""
-      : input.node.config.urlSecretId
-        ? await organizationSecretValue(
-            input.organizationId,
-            String(input.node.config.urlSecretId),
-          )
-        : String(input.node.config.url || "");
+  let configuredUrl: string | null = "";
+  try {
+    configuredUrl =
+      destination === "discord_lead_webhook"
+        ? isOriginalOrganization(input.organizationId)
+          ? configuredDiscordLeadWebhook()
+          : ""
+        : input.node.config.urlSecretId
+          ? await organizationSecretValue(
+              input.organizationId,
+              String(input.node.config.urlSecretId),
+            )
+          : String(input.node.config.url || "");
+  } catch (error) {
+    if (skipsUnavailableConnection(input.node))
+      return unavailableConnectionResult(
+        "HTTPS request skipped because its connection is unavailable.",
+      );
+    throw new WorkflowConfigurationError(
+      error instanceof Error
+        ? error.message
+        : "The HTTPS destination is not configured correctly.",
+    );
+  }
   if (!configuredUrl) {
     if (websiteLeadRequest)
       await recordWebsiteLeadDelivery(input, "discordNotification", {
@@ -1052,6 +1096,10 @@ handlers.set("integration.webhook", async (input) => {
         attemptedAt,
         detail: "The lead-notification HTTPS destination is not connected",
       });
+    if (skipsUnavailableConnection(input.node))
+      return unavailableConnectionResult(
+        "HTTPS request skipped because its connection is unavailable.",
+      );
     throw new WorkflowConfigurationError(
       "Configure the selected HTTPS destination before this action can run.",
     );

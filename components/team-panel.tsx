@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import type { User } from "@/lib/types";
 import { Avatar, Modal } from "./ui";
+import { connectionIsReady } from "@/lib/organization-connections.types";
+import { useOrganizationConnection } from "./use-organization-connections";
+import ConnectionRequirement from "./connection-requirement";
 
 const groupLabels = {
   owner: "Administrator",
@@ -37,6 +40,9 @@ export default function TeamPanel({
   businessName?: string;
   canManageTeam?: boolean;
 }) {
+  const { capability: textingCapability, loading: textingConnectionLoading } =
+    useOrganizationConnection("twilio_sms", demo);
+  const textingReady = twilioEnabled && connectionIsReady(textingCapability);
   const [members, setMembers] = useState<User[]>([user]);
   const [showInvite, setShowInvite] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -187,20 +193,24 @@ export default function TeamPanel({
         </div>
         {canManageTeam && (
           <div className="page-heading-actions">
-            {twilioEnabled && (
-              <button
-                className="button secondary"
-                onClick={() => {
-                  setShowAppInstructions(true);
-                  setAppPhone("");
-                  setAppLinkError("");
-                  setAppLinkSentTo("");
-                }}
-              >
-                <MessageSquare size={17} />
-                Send app link
-              </button>
-            )}
+            <button
+              className="button secondary"
+              disabled={!textingReady || textingConnectionLoading}
+              title={
+                textingReady
+                  ? "Send the ServiceBuddy app link by text"
+                  : "Connect company texting in Settings first"
+              }
+              onClick={() => {
+                setShowAppInstructions(true);
+                setAppPhone("");
+                setAppLinkError("");
+                setAppLinkSentTo("");
+              }}
+            >
+              <MessageSquare size={17} />
+              Send app link
+            </button>
             <button
               className="button primary"
               onClick={() => {
@@ -217,6 +227,13 @@ export default function TeamPanel({
           </div>
         )}
       </div>
+      {canManageTeam && !textingReady && (
+        <ConnectionRequirement
+          capability={textingCapability}
+          loading={textingConnectionLoading}
+          compact
+        />
+      )}
       <div className="section-intro">
         <Users size={19} />
         <h2>Workspace members</h2>

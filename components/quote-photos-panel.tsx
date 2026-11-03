@@ -12,6 +12,9 @@ import type { Attachment, Quote, QuotePhoto } from "@/lib/types";
 import { generationProjectTypes, stylesForProject } from "@/lib/generation";
 import { prepareGenerationFile } from "@/lib/generation-client";
 import { useGenerationConfig } from "./use-generation-config";
+import { connectionIsReady } from "@/lib/organization-connections.types";
+import { useOrganizationConnection } from "./use-organization-connections";
+import ConnectionRequirement from "./connection-requirement";
 
 const roles: { value: "before" | "example"; label: string }[] = [
   { value: "before", label: "Before photo" },
@@ -36,6 +39,11 @@ export default function QuotePhotosPanel({
   onDelete: (file: Attachment) => void;
   admin: boolean;
 }) {
+  const {
+    capability: generationCapability,
+    loading: generationConnectionLoading,
+  } = useOrganizationConnection("openrouter_generation", demo);
+  const generationConnectionReady = connectionIsReady(generationCapability);
   const images = files.filter((file) =>
     ["image/jpeg", "image/png", "image/webp"].includes(file.mime),
   );
@@ -119,6 +127,13 @@ export default function QuotePhotosPanel({
 
   async function generate() {
     if (!selectedSource || busy) return;
+    if (!generationConnectionReady) {
+      setError(
+        generationCapability?.detail ||
+          "Configure image generation in Settings before creating a concept.",
+      );
+      return;
+    }
     if (demo) {
       setError("Sign in to generate a finished concept for this quote.");
       return;
@@ -428,7 +443,13 @@ export default function QuotePhotosPanel({
             <button
               type="button"
               className="button primary"
-              disabled={!!busy || demo || !selectedModel}
+              disabled={
+                !!busy ||
+                demo ||
+                !selectedModel ||
+                generationConnectionLoading ||
+                !generationConnectionReady
+              }
               onClick={() => void generate()}
             >
               {busy === "generating" ? (
@@ -440,6 +461,11 @@ export default function QuotePhotosPanel({
                 ? "Generating…"
                 : "Generate finished concept"}
             </button>
+            <ConnectionRequirement
+              capability={generationCapability}
+              loading={generationConnectionLoading}
+              compact
+            />
           </div>
         ) : (
           <p className="quote-concept-empty">

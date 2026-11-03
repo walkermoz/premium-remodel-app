@@ -65,8 +65,18 @@ import {
 } from "@/lib/workflows/schema";
 import type { WorkflowDetail, WorkflowSummary } from "@/lib/workflows/store";
 import { validateWorkflowDefinition } from "@/lib/workflows/validate";
+import {
+  workflowConnectionCapability,
+  workflowConnectionIssues,
+  workflowNodeConnectionRequirement,
+} from "@/lib/workflows/connection-validation";
+import {
+  demoConnectionRegistry,
+  type OrganizationConnectionRegistry,
+} from "@/lib/organization-connections.types";
 import type { Lead } from "@/lib/types";
 import { useRegionalFormat } from "./regional-format-context";
+import ConnectionRequirement from "./connection-requirement";
 
 type StudioMode = "build" | "test" | "versions" | "runs";
 type InsertionPoint = { sourceId: string; edgeId: string };
@@ -1225,6 +1235,11 @@ export default function WorkflowAutomationPanel({
     webhook: SenderOption[];
     secrets: SenderOption[];
   }>({ email: [], sms: [], webhook: [], secrets: [] });
+  const [connectionRegistry, setConnectionRegistry] =
+    useState<OrganizationConnectionRegistry | null>(
+      demo ? demoConnectionRegistry() : null,
+    );
+  const [connectionsLoading, setConnectionsLoading] = useState(!demo);
   const detailRef = useRef<WorkflowDetail | null>(detail);
   const replaceDetail = useCallback((next: WorkflowDetail | null) => {
     detailRef.current = next;
@@ -1507,21 +1522,26 @@ export default function WorkflowAutomationPanel({
           throw new Error(
             data.error || "Could not load workflow sender connections.",
           );
-        if (active)
+        if (active) {
           setSenderOptions({
             email: data.email || [],
             sms: data.sms || [],
             webhook: data.webhook || [],
             secrets: data.secrets || [],
           });
+          setConnectionRegistry(data.registry || null);
+          setConnectionsLoading(false);
+        }
       })
       .catch((reason) => {
-        if (active)
+        if (active) {
           setError(
             reason instanceof Error
               ? reason.message
               : "Could not load workflow sender connections.",
           );
+          setConnectionsLoading(false);
+        }
       });
     return () => {
       active = false;
@@ -1536,15 +1556,11 @@ export default function WorkflowAutomationPanel({
     webhookState.workflowId === detail?.id && webhookState.configured;
   const webhookUrl =
     webhookState.workflowId === detail?.id ? webhookState.url : "";
-  const webhookExample = inboundWebhookExample(
-    detail?.key || "",
-    webhookUrl,
-    {
-      businessName,
-      website,
-      ...smsPolicy,
-    },
-  );
+  const webhookExample = inboundWebhookExample(detail?.key || "", webhookUrl, {
+    businessName,
+    website,
+    ...smsPolicy,
+  });
   useEffect(() => {
     let active = true;
     if (demo || !detailId || selectedNode?.type !== "trigger.inboundWebhook") {
@@ -1584,10 +1600,32 @@ export default function WorkflowAutomationPanel({
       active = false;
     };
   }, [demo, detailId, selectedNode?.type]);
-  const validation = useMemo(
-    () => (detail ? validateWorkflowDefinition(detail.draft).issues : []),
-    [detail],
-  );
+  const validation = useMemo(() => {
+    if (!detail) return [];
+    return [
+      ...validateWorkflowDefinition(detail.draft).issues,
+      ...workflowConnectionIssues(
+        detail.draft,
+        connectionRegistry,
+        new Set(senderOptions.secrets.map((secret) => secret.id)),
+      ),
+    ];
+  }, [connectionRegistry, detail, senderOptions.secrets]);
+  const selectedConnectionRequirement = selectedNode
+    ? workflowNodeConnectionRequirement(selectedNode)
+    : null;
+  const selectedConnectionCapability = selectedNode
+    ? workflowConnectionCapability(selectedNode, connectionRegistry)
+    : null;
+  const nodeConnectionUnavailable = (nodeId: string) => {
+    const node = detail?.draft.graph.nodes.find(
+      (candidate) => candidate.id === nodeId,
+    );
+    if (!node || !workflowNodeConnectionRequirement(node)) return false;
+    return (
+      workflowConnectionCapability(node, connectionRegistry)?.state !== "ready"
+    );
+  };
   const availableVariables = useMemo(() => {
     const base = [
       "event.type",
@@ -2560,6 +2598,7 @@ export default function WorkflowAutomationPanel({
                 className="button primary"
                 disabled={
                   publishing ||
+                  connectionsLoading ||
                   validation.some((issue) => issue.severity === "error")
                 }
                 onClick={() => void publish()}
@@ -3160,6 +3199,12 @@ export default function WorkflowAutomationPanel({
                             <button
                               type="button"
                               className="button secondary workflow-test-external"
+                              disabled={nodeConnectionUnavailable(step.nodeId)}
+                              title={
+                                nodeConnectionUnavailable(step.nodeId)
+                                  ? "Connect this step in Settings before running a live test"
+                                  : "Run only this external action"
+                              }
                               onClick={() => {
                                 setExternalTestNodeId(step.nodeId);
                                 setExternalTestConfirmed(false);
@@ -3300,9 +3345,7 @@ export default function WorkflowAutomationPanel({
                             Edited by {version.createdByName || "System"}
                           </small>
                         </div>
-                        <time>
-                          {dateTime(version.createdAt)}
-                        </time>
+                        <time>{dateTime(version.createdAt)}</time>
                         {editable && version.state !== "legacy" && (
                           <button
                             type="button"
@@ -3413,9 +3456,7 @@ export default function WorkflowAutomationPanel({
                           <strong>{lead.name}</strong>
                           <p>{lead.project}</p>
                         </div>
-                        <time>
-                          {date(lead.submittedAt)}
-                        </time>
+                        <time>{date(lead.submittedAt)}</time>
                       </article>
                     ))
                   ) : (objectHistoryRuns || runs).length ? (
@@ -3439,9 +3480,7 @@ export default function WorkflowAutomationPanel({
                             </strong>
                             <p>{String(run.summary.project || run.objectId)}</p>
                           </div>
-                          <time>
-                            {dateTime(run.startedAt)}
-                          </time>
+                          <time>{dateTime(run.startedAt)}</time>
                         </summary>
                         <div className="workflow-run-detail">
                           <dl>
@@ -3751,6 +3790,49 @@ export default function WorkflowAutomationPanel({
                     {workflowNodeDefinition(selectedNode.type)?.description}
                   </p>
                 </div>
+                {selectedConnectionRequirement && (
+                  <section className="workflow-connection-control">
+                    <div>
+                      <span>CONNECTION</span>
+                      <strong>{selectedConnectionRequirement.label}</strong>
+                      {selectedConnectionCapability?.state === "ready" && (
+                        <small>Connected and ready</small>
+                      )}
+                    </div>
+                    <ConnectionRequirement
+                      capability={selectedConnectionCapability}
+                      loading={connectionsLoading}
+                      compact
+                    />
+                    <label className="workflow-setting-toggle">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedNode.config.connectionFailureBehavior ===
+                          "skip"
+                        }
+                        disabled={!editable}
+                        onChange={(event) =>
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              connectionFailureBehavior: event.target.checked
+                                ? "skip"
+                                : "block",
+                            },
+                          })
+                        }
+                      />
+                      <span>
+                        Optional action
+                        <small>
+                          If the connection is unavailable, skip this step and
+                          continue the workflow.
+                        </small>
+                      </span>
+                    </label>
+                  </section>
+                )}
                 {selectedSchedule && (
                   <div className="workflow-schedule-editor">
                     <label className="workflow-field">
@@ -3894,8 +3976,9 @@ export default function WorkflowAutomationPanel({
                       <summary>Website integration example</summary>
                       <p className="workflow-condition-help">
                         Submit JSON from your server or form handler. Generate a
-                        different idempotency key for every real form submission;
-                        retrying with the same key will not create a duplicate run.
+                        different idempotency key for every real form
+                        submission; retrying with the same key will not create a
+                        duplicate run.
                       </p>
                       <div className="workflow-webhook-code-heading">
                         <strong>Example payload</strong>
@@ -6644,8 +6727,7 @@ function inboundWebhookExample(
             policyVersion: consent.version || "YOUR_SAVED_POLICY_VERSION",
             privacyUrl:
               consent.privacyUrl || "https://your-website.example/privacy",
-            termsUrl:
-              consent.termsUrl || "https://your-website.example/terms",
+            termsUrl: consent.termsUrl || "https://your-website.example/terms",
             capturedAt: new Date().toISOString(),
             origin: websiteOrigin,
             appointment: true,

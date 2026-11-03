@@ -69,6 +69,9 @@ import {
 import { premiumQuoteSigningPacket } from "@/lib/document-signing";
 import { quoteFlowDefinitionProgress } from "@/lib/quote-flow-progress";
 import { buildQuoteWorkflowState } from "@/lib/quote-workflow-state";
+import { connectionIsReady } from "@/lib/organization-connections.types";
+import { useOrganizationConnection } from "./use-organization-connections";
+import ConnectionRequirement from "./connection-requirement";
 
 type QuoteFlowInstanceDto = {
   id: string;
@@ -450,6 +453,9 @@ export function QuoteDetail({
   onProjectReady: (id: string) => void;
 }) {
   const regional = useRegionalFormat();
+  const { capability: mailCapability, loading: mailConnectionLoading } =
+    useOrganizationConnection("google_mail", demo);
+  const mailReady = connectionIsReady(mailCapability);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sendOpen, setSendOpen] = useState(false);
@@ -1105,6 +1111,13 @@ export function QuoteDetail({
   }
   async function openEmail() {
     setError("");
+    if (mailConnectionLoading || !mailReady) {
+      setError(
+        mailCapability?.detail ||
+          "Connect the company mailbox in Settings before sending customer email.",
+      );
+      return;
+    }
     if (
       config.features.agreements &&
       quote.msaAgreement?.status !== "prepared"
@@ -1136,6 +1149,13 @@ export function QuoteDetail({
     }
   }
   async function sendCustomerPortal() {
+    if (mailConnectionLoading || !mailReady) {
+      setError(
+        mailCapability?.detail ||
+          "Connect the company mailbox in Settings before sending the customer packet.",
+      );
+      return;
+    }
     if (!signedScope) {
       await openEmail();
       return;
@@ -1304,6 +1324,7 @@ export function QuoteDetail({
         project={quote}
         items={items}
         signer={user}
+        demo={demo}
         showSigning={false}
         canSendAgreement={false}
         prepareBeforeQuoteSignature
@@ -1324,6 +1345,7 @@ export function QuoteDetail({
         project={quote}
         items={items}
         signer={user}
+        demo={demo}
         showSigning
         canSendAgreement={false}
         prepareBeforeQuoteSignature
@@ -1487,7 +1509,7 @@ export function QuoteDetail({
               <button
                 type="submit"
                 className="button primary"
-                disabled={sendBusy}
+                disabled={sendBusy || mailConnectionLoading || !mailReady}
               >
                 {sendBusy ? "Sending…" : "Send customer packet"}
               </button>
@@ -1614,7 +1636,12 @@ export function QuoteDetail({
               <button
                 type="button"
                 className="button primary"
-                disabled={!quote.clientEmail || sendBusy}
+                disabled={
+                  !quote.clientEmail ||
+                  sendBusy ||
+                  mailConnectionLoading ||
+                  !mailReady
+                }
                 onClick={() => void sendCustomerPortal()}
               >
                 <Mail size={15} aria-hidden="true" />
@@ -1662,7 +1689,7 @@ export function QuoteDetail({
               <button
                 type="button"
                 className="button secondary"
-                disabled={sendBusy}
+                disabled={sendBusy || mailConnectionLoading || !mailReady}
                 onClick={() => void sendCustomerPortal()}
               >
                 <Mail size={15} aria-hidden="true" />
@@ -1672,6 +1699,15 @@ export function QuoteDetail({
           }
         />
       )}
+      {!handoffDemo &&
+        ["share_packet", "collect_signatures"].includes(
+          workflowState.nextAction.id,
+        ) && (
+          <ConnectionRequirement
+            capability={mailCapability}
+            loading={mailConnectionLoading}
+          />
+        )}
       {pendingOverride && (
         <section
           className="workflow-override-panel"
@@ -1914,7 +1950,13 @@ export function QuoteDetail({
                       <button
                         type="button"
                         className="button primary"
-                        disabled={!quote.clientEmail || sendBusy || signedScope}
+                        disabled={
+                          !quote.clientEmail ||
+                          sendBusy ||
+                          signedScope ||
+                          mailConnectionLoading ||
+                          !mailReady
+                        }
                         onClick={() => void sendCustomerPortal()}
                       >
                         <Mail size={15} />
@@ -1922,6 +1964,11 @@ export function QuoteDetail({
                           ? "Resend customer packet"
                           : "Send customer packet"}
                       </button>
+                      <ConnectionRequirement
+                        capability={mailCapability}
+                        loading={mailConnectionLoading}
+                        compact
+                      />
                       <a
                         className="button secondary"
                         href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}

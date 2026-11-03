@@ -7,6 +7,8 @@ import { stripeConnectStatus } from "@/lib/stripe-connect";
 import { canCreateBusiness } from "@/lib/business-creation-access";
 import { requireOrganizationCapability } from "@/lib/organization-permissions";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getOrganizationConnectionRegistry } from "@/lib/organization-connections.server";
+import { connectionIsReady } from "@/lib/organization-connections.types";
 
 export const runtime = "nodejs";
 
@@ -23,30 +25,31 @@ export async function GET() {
       stripeConnection,
       publishedWorkflows,
       agreementTemplates,
-    ] =
-      await Promise.all([
+      connectionRegistry,
+    ] = await Promise.all([
       getBusinessConfig(user),
       googleMailStatus(user),
       canCreateBusiness(user),
-        supabaseAdmin()
-          .from("remodel_workflow_inbound_webhooks")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", user.organizationId)
-          .eq("enabled", true),
-        organizationStripeEnabled(user.organizationId),
-        stripeConnectStatus(user.organizationId),
-        supabaseAdmin()
-          .from("remodel_workflows")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", user.organizationId)
-          .eq("status", "published")
-          .eq("system_controlled", false),
-        supabaseAdmin()
-          .from("remodel_agreement_templates")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", user.organizationId)
-          .eq("status", "published"),
-      ]);
+      supabaseAdmin()
+        .from("remodel_workflow_inbound_webhooks")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", user.organizationId)
+        .eq("enabled", true),
+      organizationStripeEnabled(user.organizationId),
+      stripeConnectStatus(user.organizationId),
+      supabaseAdmin()
+        .from("remodel_workflows")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", user.organizationId)
+        .eq("status", "published")
+        .eq("system_controlled", false),
+      supabaseAdmin()
+        .from("remodel_agreement_templates")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", user.organizationId)
+        .eq("status", "published"),
+      getOrganizationConnectionRegistry(user),
+    ]);
     if (inboundHooks.error) throw inboundHooks.error;
     if (publishedWorkflows.error) throw publishedWorkflows.error;
     if (agreementTemplates.error) throw agreementTemplates.error;
@@ -54,16 +57,23 @@ export async function GET() {
       {
         organizationId: user.organizationId,
         canCreateBusiness: businessCreationAllowed,
+        connections: connectionRegistry.capabilities,
         mail: {
           configured: mail.configured,
-          connected: mail.connected,
+          connected: connectionIsReady(
+            connectionRegistry.capabilities.google_mail,
+          ),
           email: mail.email,
         },
-        phone: { connected: config.features.twilio },
+        phone: {
+          connected: connectionIsReady(
+            connectionRegistry.capabilities.twilio_sms,
+          ),
+        },
         websiteLeads: {
-          connected:
-            isOriginalOrganization(user.organizationId) ||
-            (inboundHooks.count || 0) > 0,
+          connected: connectionIsReady(
+            connectionRegistry.capabilities.website_leads,
+          ),
           mode: isOriginalOrganization(user.organizationId)
             ? "legacy_static"
             : (inboundHooks.count || 0) > 0
