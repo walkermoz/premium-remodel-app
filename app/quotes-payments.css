@@ -660,6 +660,63 @@
   border-radius: 10px;
   background: var(--surface);
 }
+.quote-next-action {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  margin: 16px 0 24px;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--blue) 42%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--blue-soft) 48%, var(--surface));
+}
+.quote-next-action.is-complete {
+  border-color: var(--line);
+  background: var(--theme-surface-soft, var(--bg));
+}
+.quote-next-action-icon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--blue);
+  color: #fff;
+}
+.quote-next-action.is-complete .quote-next-action-icon {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.quote-next-action > div > span {
+  color: var(--blue);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.quote-next-action h2 {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+.quote-next-action p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.quote-next-action-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.quote-next-action-actions .button {
+  min-height: 38px;
+  white-space: nowrap;
+}
 .workflow-live-step > header {
   padding: 24px 26px 20px;
   border-bottom: 1px solid var(--line);
@@ -812,6 +869,16 @@
   min-height: 36px;
   white-space: nowrap;
 }
+.workflow-packet-link-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.workflow-packet-link-action > span {
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 650;
+}
 .workflow-signing-packet {
   margin: 20px 22px 0;
   border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
@@ -855,6 +922,43 @@
   color: var(--ink);
   font-size: 10px;
   font-weight: 650;
+}
+.workflow-signing-packet-documents {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+.workflow-signing-packet-documents li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-signing-packet-documents li:last-child {
+  border-bottom: 0;
+}
+.workflow-signing-packet-documents p {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+}
+.workflow-signing-packet-documents strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+.workflow-signing-packet-documents small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .workflow-document-panel {
   transition:
@@ -902,6 +1006,65 @@
   align-items: center;
   gap: 9px;
   flex-wrap: wrap;
+}
+.workflow-document-version {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+}
+.workflow-document-menu {
+  position: relative;
+}
+.workflow-document-menu > summary {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+.workflow-document-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.workflow-document-menu[open] > summary {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.workflow-document-menu > div {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  min-width: 170px;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 18%);
+}
+.workflow-document-menu a,
+.workflow-document-menu button {
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 9px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.workflow-document-menu a:hover,
+.workflow-document-menu button:hover {
+  background: var(--theme-surface-soft, var(--bg));
+  color: var(--blue);
 }
 .workflow-document-status {
   display: inline-flex;
@@ -954,6 +1117,119 @@
 .workflow-delivery-details small {
   color: var(--muted);
   font-size: 8px;
+}
+.workflow-signer-progress {
+  display: flex;
+  flex-direction: column;
+  margin-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.workflow-signer-progress > div {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-signer-progress > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.workflow-signer-progress p {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+.workflow-signer-progress strong {
+  color: var(--ink);
+  font-size: 9px;
+}
+.workflow-signer-progress small,
+.workflow-signer-progress > div > span:last-child {
+  color: var(--muted);
+  font-size: 8px;
+}
+.workflow-signer-state {
+  display: inline-flex;
+  width: 23px;
+  height: 23px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 750;
+}
+.workflow-signer-state.is-signed {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+.workflow-data-bindings {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.workflow-data-bindings summary {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 650;
+}
+.workflow-data-bindings summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #a14d3d;
+}
+.workflow-data-bindings > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+  margin: 10px 0 12px;
+}
+.workflow-data-bindings > div > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-data-bindings p {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+.workflow-data-bindings strong {
+  color: var(--ink);
+  font-size: 9px;
+}
+.workflow-data-bindings small {
+  color: var(--muted);
+  font-size: 8px;
+}
+.workflow-data-bindings > div > div > span {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 650;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workflow-data-bindings > div > div.is-missing > span {
+  color: #a14d3d;
 }
 .workflow-document-contract-value {
   display: flex;
@@ -2158,6 +2434,17 @@
   }
 }
 @media (max-width: 600px) {
+  .quote-next-action {
+    grid-template-columns: 40px minmax(0, 1fr);
+    padding: 16px;
+  }
+  .quote-next-action-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+  .quote-next-action-actions .button {
+    flex: 1 1 100%;
+  }
   .quote-workflow-stepper > header,
   .workflow-preparation-step > header,
   .workflow-preparation-step > footer {
@@ -2248,6 +2535,16 @@
   }
   .workflow-signing-packet-facts > div:last-child {
     border-bottom: 0;
+  }
+  .workflow-signing-packet-documents li {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+  .workflow-signing-packet-documents .workflow-document-status {
+    grid-column: 2;
+    width: fit-content;
+  }
+  .workflow-data-bindings > div {
+    grid-template-columns: minmax(0, 1fr);
   }
   .workflow-document-panel > header,
   .workflow-deposit-step > header {

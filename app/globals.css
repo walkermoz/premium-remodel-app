@@ -14648,17 +14648,8 @@ small {
   margin: 0 0 4px;
 }
 
-.agreement-packet-history > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.agreement-packet-history span {
-  color: var(--muted);
-  text-transform: capitalize;
+.agreement-packet-history .agreement-packet-history-document {
+  margin: 0;
 }
 
 @media (max-width: 700px) {

@@ -7,7 +7,7 @@ function blockedIpv4(hostname: string) {
     parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
   )
     return false;
-  const [a, b] = parts;
+  const [a, b, c] = parts;
   return (
     a === 0 ||
     a === 10 ||
@@ -15,7 +15,11 @@ function blockedIpv4(hostname: string) {
     (a === 100 && b >= 64 && b <= 127) ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0) ||
     (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113) ||
     a >= 224
   );
 }
@@ -25,12 +29,16 @@ function blockedIpv6(hostname: string) {
   return (
     normalized === "::" ||
     normalized === "::1" ||
+    normalized.startsWith("::ffff:") ||
+    normalized.startsWith("64:ff9b:") ||
+    normalized.startsWith("100:") ||
+    normalized.startsWith("2001:db8:") ||
+    /^2001:0{0,3}[1-1][0-9a-f]:/.test(normalized) ||
     normalized.startsWith("fc") ||
     normalized.startsWith("fd") ||
     /^fe[89ab]/.test(normalized) ||
-    normalized.startsWith("::ffff:127.") ||
-    normalized.startsWith("::ffff:10.") ||
-    normalized.startsWith("::ffff:192.168.")
+    normalized.startsWith("fec") ||
+    normalized.startsWith("ff")
   );
 }
 
@@ -56,7 +64,7 @@ export function isPublicWorkflowWebhookUrl(value: string) {
 }
 
 export function isSensitiveWorkflowHeader(name: string) {
-  return /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|api-key)$/i.test(
+  return /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|api-key|host|content-length|transfer-encoding|connection|te|trailer|upgrade|expect)$/i.test(
     name.trim(),
   );
 }

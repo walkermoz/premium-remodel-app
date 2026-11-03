@@ -30,8 +30,32 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(100);
     if (result.error) throw result.error;
+    const packetIds = (result.data || []).map((packet) => packet.id);
+    const signers = packetIds.length
+      ? await supabaseAdmin()
+          .from("remodel_agreement_signers")
+          .select(
+            "packet_id,role_id,role_label,party_type,signing_order,name,email,status,signed_at,viewed_at",
+          )
+          .eq("organization_id", user.organizationId)
+          .in("packet_id", packetIds)
+          .order("signing_order")
+          .limit(5000)
+      : { data: [], error: null };
+    if (signers.error) throw signers.error;
+    const signersByPacket = new Map<string, typeof signers.data>();
+    for (const signer of signers.data || []) {
+      const current = signersByPacket.get(signer.packet_id) || [];
+      current.push(signer);
+      signersByPacket.set(signer.packet_id, current);
+    }
     return Response.json(
-      { packets: result.data },
+      {
+        packets: (result.data || []).map((packet) => ({
+          ...packet,
+          signers: signersByPacket.get(packet.id) || [],
+        })),
+      },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

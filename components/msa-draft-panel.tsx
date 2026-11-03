@@ -179,28 +179,35 @@ export default function MsaDraftPanel({
   const price = draft.contractPrice
     ? projectMoney(draft.contractPrice)
     : "Needs a price";
-  const fields = [
-    ["Owner candidate", draft.owner || "Needs a name"],
-    ["Phone", draft.phone || "Not recorded"],
-    ["Email", draft.email || "Not recorded"],
-    ["Project", draft.project || "Needs a description"],
-    ["Quote", draft.quoteNumber ? `#${draft.quoteNumber}` : "Not recorded"],
-    ["Premises", draft.address || "Needs an address"],
-    ["Company signer", signer.name],
-    ["Deposit collection", draft.depositCollection],
-    ["Exhibit G mailing address", draft.cancellationAddress],
-    ["Effective date", draft.effectiveDate],
+  const fields: Array<[string, string, string]> = [
+    ["Customer legal name", draft.owner || "Needs a name", "Contact"],
+    ["Phone", draft.phone || "Not recorded", "Contact"],
+    ["Email", draft.email || "Not recorded", "Contact"],
+    ["Project", draft.project || "Needs a description", "Quote"],
+    [
+      "Quote",
+      draft.quoteNumber ? `#${draft.quoteNumber}` : "Not recorded",
+      "Quote",
+    ],
+    ["Project address", draft.address || "Needs an address", "Quote"],
+    ["Company representative", signer.name, "Signed-in staff"],
+    ["Deposit collection", draft.depositCollection, "Agreement template"],
+    ["Exhibit G mailing address", draft.cancellationAddress, "Organization"],
+    ["Effective date", draft.effectiveDate, "Signing event"],
     [
       "Contract price",
       `${price}${draft.priceSource === "current scope" || draft.priceSource === "accepted scope" ? " · verify against accepted quote" : ""}`,
+      "Quote",
     ],
     [
       "Estimated start",
       draft.startDate ? dateLabel(draft.startDate) : "Not set",
+      "Quote",
     ],
     [
       "Estimated completion",
       draft.completionDate ? dateLabel(draft.completionDate) : "Not set",
+      "Quote",
     ],
   ];
   const contractFields: Array<[keyof MsaContractTerms, string]> = [
@@ -475,9 +482,11 @@ export default function MsaDraftPanel({
         details and payment terms before sending it for signature.
       </p>
       <dl className={styles.fields}>
-        {fields.map(([label, value]) => (
+        {fields.map(([label, value, source]) => (
           <div key={label}>
-            <dt>{label}</dt>
+            <dt>
+              {label} <span>{source}</span>
+            </dt>
             <dd>{value}</dd>
           </div>
         ))}
@@ -676,6 +685,26 @@ export default function MsaDraftPanel({
           </p>
         )}
       </div>
+      {!showSigning && previewAgreement && (
+        <div className={styles.terms}>
+          <div className={styles.preview}>
+            <div className={styles.previewHeading}>
+              <h3>Agreement preview</h3>
+              <p>
+                Review the scope, payments, terms, and cancellation notice.
+                Company signing happens in the next workflow stage.
+              </p>
+            </div>
+            <div
+              className="workflow-msa-document-scroll"
+              tabIndex={0}
+              aria-label="Scrollable agreement preview"
+            >
+              <MsaDocument agreement={previewAgreement} preview />
+            </div>
+          </div>
+        </div>
+      )}
       {showSigning && (
         <div className={styles.terms}>
           <h3>
@@ -735,7 +764,13 @@ export default function MsaDraftPanel({
                     notice with the customer before anyone signs.
                   </p>
                 </div>
-                <MsaDocument agreement={previewAgreement} preview />
+                <div
+                  className="workflow-msa-document-scroll"
+                  tabIndex={0}
+                  aria-label="Scrollable agreement preview"
+                >
+                  <MsaDocument agreement={previewAgreement} preview />
+                </div>
               </div>
             )}
             <div className={styles.contractTerms}>

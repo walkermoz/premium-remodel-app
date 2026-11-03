@@ -1,22 +1,34 @@
 import type { ReactNode } from "react";
-import { Check, FileSignature, FileText, Hourglass } from "lucide-react";
+import {
+  Check,
+  CircleAlert,
+  FileSignature,
+  FileText,
+  Hourglass,
+  MoreHorizontal,
+} from "lucide-react";
 import {
   summarizeDelivery,
   summarizeSignerProgress,
   type SigningDocumentView,
 } from "@/lib/document-signing";
+import WorkflowStatusBadge from "./workflow-status-badge";
 
 export default function DocumentSigningPanel({
   document,
   step,
   actions,
   children,
+  onEditData,
+  secondaryActions,
   className = "",
 }: {
   document: SigningDocumentView;
   step: number;
   actions?: ReactNode;
   children?: ReactNode;
+  onEditData?: () => void;
+  secondaryActions?: ReactNode;
   className?: string;
 }) {
   const complete = document.status === "completed";
@@ -44,15 +56,29 @@ export default function DocumentSigningPanel({
           <span className="project-handoff-eyebrow">{document.eyebrow}</span>
           <div className="workflow-document-title-row">
             <h3>{document.title}</h3>
-            <span
-              className={`workflow-document-status is-${document.status.replaceAll("_", "-")}`}
-            >
-              {document.statusLabel}
+            <span className="workflow-document-version">
+              {document.versionLabel}
             </span>
+            <WorkflowStatusBadge
+              status={document.status}
+              label={document.statusLabel}
+            />
           </div>
           <p>{document.statusDetail}</p>
         </div>
-        {actions && <div className="workflow-document-actions">{actions}</div>}
+        {(actions || secondaryActions) && (
+          <div className="workflow-document-actions">
+            {actions}
+            {secondaryActions && (
+              <details className="workflow-document-menu">
+                <summary aria-label={`More actions for ${document.title}`}>
+                  <MoreHorizontal size={17} aria-hidden="true" />
+                </summary>
+                <div>{secondaryActions}</div>
+              </details>
+            )}
+          </div>
+        )}
       </header>
       <dl>
         <div>
@@ -68,6 +94,23 @@ export default function DocumentSigningPanel({
           <dd>{summarizeDelivery(document.delivery)}</dd>
         </div>
       </dl>
+      <div className="workflow-signer-progress" aria-label="Required signers">
+        {document.signers.map((signer) => (
+          <div key={signer.roleId}>
+            <span
+              className={`workflow-signer-state is-${signer.status}`}
+              aria-hidden="true"
+            >
+              {signer.status === "signed" ? <Check size={11} /> : signer.order}
+            </span>
+            <p>
+              <strong>{signer.label}</strong>
+              <small>{signer.name || "Not assigned"}</small>
+            </p>
+            <span>{signer.status === "signed" ? "Signed" : "Required"}</span>
+          </div>
+        ))}
+      </div>
       {document.delivery.length > 0 && (
         <details className="workflow-delivery-details">
           <summary>Delivery & access details</summary>
@@ -79,6 +122,42 @@ export default function DocumentSigningPanel({
               </span>
             ))}
           </div>
+        </details>
+      )}
+      {document.dataBindings && document.dataBindings.length > 0 && (
+        <details className="workflow-data-bindings">
+          <summary>
+            Document data
+            {document.dataBindings.some((binding) => binding.missing) && (
+              <span>
+                <CircleAlert size={12} aria-hidden="true" /> Missing information
+              </span>
+            )}
+          </summary>
+          <div>
+            {document.dataBindings.map((binding) => (
+              <div
+                key={`${document.id}:${binding.key}`}
+                className={binding.missing ? "is-missing" : ""}
+              >
+                <p>
+                  <strong>{binding.label}</strong>
+                  <small>{binding.source}</small>
+                </p>
+                <span>{binding.value || "Missing"}</span>
+              </div>
+            ))}
+          </div>
+          {onEditData &&
+            document.dataBindings.some((binding) => binding.missing) && (
+              <button
+                type="button"
+                className="button secondary"
+                onClick={onEditData}
+              >
+                Edit source information
+              </button>
+            )}
         </details>
       )}
       {children}

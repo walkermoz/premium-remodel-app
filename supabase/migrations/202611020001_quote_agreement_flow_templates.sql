@@ -409,20 +409,38 @@ select
         'blocks', jsonb_build_array(
           jsonb_build_object('id','premium_msa','type','generated_document','label','Master services agreement','description','','enabled',true,'required',true,'audience','both','bindingKey','agreement.premium_msa','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('templateKey','premium_remodel_master_services_agreement','renderer','legacy_premium_msa_v1')),
           jsonb_build_object('id','payment_schedule','type','payment_schedule','label','Payment checkpoints','description','','enabled',true,'required',true,'audience','both','bindingKey','agreement.payment_schedule','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object()),
-          jsonb_build_object('id','agreement_terms','type','terms_disclosures','label','Agreement terms','description','','enabled',true,'required',true,'audience','customer','bindingKey','agreement.terms','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object()),
-          jsonb_build_object('id','staff_signature','type','signature','label','Premium Remodel representative','description','','enabled',true,'required',true,'audience','staff','bindingKey','agreement.staff_signature','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('signerRoleId','staff','order',1))
+          jsonb_build_object('id','agreement_terms','type','terms_disclosures','label','Agreement terms','description','','enabled',true,'required',true,'audience','customer','bindingKey','agreement.terms','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object())
+        )
+      ),
+      jsonb_build_object(
+        'id', 'company_approval', 'type', 'signature_collection',
+        'title', 'Company approval',
+        'description', 'Review and sign as the company representative',
+        'enabled', true, 'required', true, 'audience', 'staff',
+        'conditions', jsonb_build_object('mode', 'all', 'rules', jsonb_build_array()),
+        'blocks', jsonb_build_array(
+          jsonb_build_object('id','staff_signature','type','signature','label','Company representative signature','description','','enabled',true,'required',true,'audience','staff','bindingKey','agreement.staff_signature','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('signerRoleId','staff','order',1,'methods',jsonb_build_array('onsite'),'renderer','legacy_premium_msa_staff_v1'))
         )
       ),
       jsonb_build_object(
         'id', 'send_and_complete', 'type', 'delivery',
-        'title', 'Send & complete',
-        'description', 'Email, portal, signatures, and deposit',
+        'title', 'Customer completion',
+        'description', 'Share the packet and collect customer signatures',
         'enabled', true, 'required', true, 'audience', 'both',
         'conditions', jsonb_build_object('mode', 'all', 'rules', jsonb_build_array()),
         'blocks', jsonb_build_array(
           jsonb_build_object('id','delivery','type','delivery_controls','label','Email, portal, or on-device signing','description','','enabled',true,'required',true,'audience','staff','bindingKey','delivery','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('renderer','legacy_quote_portal_v1')),
           jsonb_build_object('id','quote_signature','type','signature','label','Quote acceptance','description','','enabled',true,'required',true,'audience','customer','bindingKey','quote.customer_signature','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('signerRoleId','customer','order',1)),
-          jsonb_build_object('id','msa_signature','type','signature','label','Service agreement signature','description','','enabled',true,'required',true,'audience','customer','bindingKey','agreement.customer_signature','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('signerRoleId','customer','order',2)),
+          jsonb_build_object('id','msa_signature','type','signature','label','Service agreement signature','description','','enabled',true,'required',true,'audience','customer','bindingKey','agreement.customer_signature','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('signerRoleId','customer','order',2))
+        )
+      ),
+      jsonb_build_object(
+        'id', 'deposit', 'type', 'deposit_payment',
+        'title', 'Deposit',
+        'description', 'Collect online or record an offline payment',
+        'enabled', true, 'required', true, 'audience', 'both',
+        'conditions', jsonb_build_object('mode', 'all', 'rules', jsonb_build_array()),
+        'blocks', jsonb_build_array(
           jsonb_build_object('id','deposit','type','deposit_collection','label','Deposit received','description','','enabled',true,'required',true,'audience','both','bindingKey','payment.deposit','conditions',jsonb_build_object('mode','all','rules',jsonb_build_array()),'config',jsonb_build_object('providers',jsonb_build_array('stripe','manual_check')))
         )
       ),

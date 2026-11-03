@@ -12,7 +12,7 @@ import {
 import { premiumCompatibilityQuoteFlowValues } from "@/lib/quote-flow-compatibility";
 import type { Quote } from "@/lib/types";
 
-test("Premium Remodel is represented by the unchanged four-stage flow", () => {
+test("Premium Remodel keeps its six-stage rules with one responsibility per stage", () => {
   expect(
     premiumRemodelQuoteFlowDefinition.stages.map((stage) => [
       stage.id,
@@ -21,9 +21,21 @@ test("Premium Remodel is represented by the unchanged four-stage flow", () => {
   ).toEqual([
     ["quote_and_pricing", "Quote & pricing"],
     ["agreement_details", "Agreement details"],
-    ["send_and_complete", "Send & complete"],
+    ["company_approval", "Company approval"],
+    ["send_and_complete", "Customer completion"],
+    ["deposit", "Deposit"],
     ["create_project", "Create project"],
   ]);
+  expect(
+    premiumRemodelQuoteFlowDefinition.stages
+      .find((stage) => stage.id === "company_approval")
+      ?.blocks.map((block) => block.id),
+  ).toEqual(["staff_signature"]);
+  expect(
+    premiumRemodelQuoteFlowDefinition.stages
+      .find((stage) => stage.id === "deposit")
+      ?.blocks.map((block) => block.id),
+  ).toEqual(["deposit"]);
   expect(
     premiumRemodelQuoteFlowDefinition.stages
       .flatMap((stage) => stage.blocks)
@@ -247,6 +259,20 @@ test("database storage is tenant-scoped, versioned, and snapshots runtime instan
     "where lower(trim(organization.name)) = 'premium remodel'",
   );
   expect(migration).toContain("premium_remodel_quote_to_project");
+
+  const documentRevisions = readFileSync(
+    "supabase/migrations/202611030002_quote_document_revisions.sql",
+    "utf8",
+  );
+  const quoteLinks = readFileSync("lib/client-quote-link.ts", "utf8");
+  expect(documentRevisions).toContain("remodel_quote_document_revisions");
+  expect(documentRevisions).toContain(
+    "unique (organization_id, quote_id, revision)",
+  );
+  expect(documentRevisions).toContain("document_revision_id");
+  expect(quoteLinks).toContain("comparableSnapshot");
+  expect(quoteLinks).toContain("createQuoteRevision");
+  expect(quoteLinks).toContain("nextLinkId");
 });
 
 test("template and runtime APIs enforce organization permission boundaries", () => {
@@ -293,6 +319,19 @@ test("the Settings builder and all three render modes use the shared renderer", 
   expect(staff).toContain("quote-flow-instances");
   expect(customer).toContain("Next required step");
   expect(customer).toContain("QuoteFlowRenderer");
+});
+
+test("legacy and uploaded agreements share the canonical document presentation", () => {
+  const premium = readFileSync("components/msa-signing-panel.tsx", "utf8");
+  const uploaded = readFileSync(
+    "components/agreement-packet-panel.tsx",
+    "utf8",
+  );
+  const packetApi = readFileSync("app/api/agreement-packets/route.ts", "utf8");
+  expect(premium).toContain("DocumentSigningPanel");
+  expect(uploaded).toContain("DocumentSigningPanel");
+  expect(uploaded).toContain("agreementPacketDocument");
+  expect(packetApi).toContain('from("remodel_agreement_signers")');
 });
 
 test("generic quote stages render ordered live blocks without the Premium compatibility screen", () => {

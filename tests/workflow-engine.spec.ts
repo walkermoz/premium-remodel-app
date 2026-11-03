@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import {
   evaluateWorkflowCondition,
@@ -243,6 +244,21 @@ test("HTTPS actions reference vault secrets without storing their values", () =>
       url: "https://example.com/hook",
       headers: { Authorization: "Bearer private" },
       secretHeaders: {},
+      bodyType: "json",
+      body: "{}",
+      missingValueBehavior: "blank",
+      timeoutSeconds: 15,
+      saveResponse: false,
+    }).success,
+  ).toBe(false);
+  expect(
+    definition!.configSchema.safeParse({
+      enabled: true,
+      destination: "custom",
+      method: "POST",
+      url: "https://example.com/hook",
+      headers: {},
+      secretHeaders: { "Transfer-Encoding": randomUUID() },
       bodyType: "json",
       body: "{}",
       missingValueBehavior: "blank",
@@ -575,6 +591,10 @@ test("outbound webhooks reject private networks and inline credentials", () => {
   );
   expect(isPublicWorkflowWebhookUrl("https://127.0.0.1/lead")).toBe(false);
   expect(isPublicWorkflowWebhookUrl("https://192.168.1.20/lead")).toBe(false);
+  expect(isPublicWorkflowWebhookUrl("https://192.0.2.20/lead")).toBe(false);
+  expect(isPublicWorkflowWebhookUrl("https://198.51.100.20/lead")).toBe(false);
+  expect(isPublicWorkflowWebhookUrl("https://203.0.113.20/lead")).toBe(false);
+  expect(isPublicWorkflowWebhookUrl("https://203.0.1.20/lead")).toBe(true);
   expect(isPublicWorkflowWebhookUrl("https://metadata.internal/lead")).toBe(
     false,
   );
@@ -582,7 +602,19 @@ test("outbound webhooks reject private networks and inline credentials", () => {
     isPublicWorkflowWebhookUrl("https://user:secret@example.com/lead"),
   ).toBe(false);
   expect(isSensitiveWorkflowHeader("Authorization")).toBe(true);
+  expect(isSensitiveWorkflowHeader("Host")).toBe(true);
+  expect(isSensitiveWorkflowHeader("Content-Length")).toBe(true);
+  expect(isSensitiveWorkflowHeader("Transfer-Encoding")).toBe(true);
   expect(isSensitiveWorkflowHeader("X-Trace-Id")).toBe(false);
+});
+
+test("outbound webhooks pin the validated public address for the TLS request", () => {
+  const source = readFileSync("lib/workflows/webhook-safety.server.ts", "utf8");
+  expect(source).toContain("new BlockList()");
+  expect(source).toContain("hostname: destination.address");
+  expect(source).toContain("servername: url.hostname");
+  expect(source).toContain("headers: { ...options.headers, Host: url.host }");
+  expect(source).toContain("Math.min(50_000");
 });
 
 test("Send SMS cannot be published without its non-bypassable system policy gate", () => {

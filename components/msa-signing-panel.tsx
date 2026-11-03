@@ -15,11 +15,13 @@ export default function MsaSigningPanel({
   signerName,
   document,
   onSent,
+  onEditData,
 }: {
   quote: Quote;
   signerName: string;
   document: SigningDocumentView;
   onSent: () => Promise<void>;
+  onEditData?: () => void;
 }) {
   const [signerTitle, setSignerTitle] = useState("");
   const [signatureStrokes, setSignatureStrokes] = useState<SignatureStroke[]>(
@@ -185,19 +187,9 @@ export default function MsaSigningPanel({
       <DocumentSigningPanel
         document={document}
         step={2}
+        onEditData={onEditData}
         actions={
-          signed ? (
-            <>
-              <a
-                className="button secondary"
-                href={`/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View signed MSA
-              </a>
-            </>
-          ) : accepted ? (
+          !signed && accepted ? (
             <>
               <button
                 type="button"
@@ -214,6 +206,22 @@ export default function MsaSigningPanel({
               </button>
             </>
           ) : null
+        }
+        secondaryActions={
+          <>
+            <a
+              href={`/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Preview document
+            </a>
+            {signed && (
+              <a href={`/api/msa/${encodeURIComponent(quote.id)}/pdf`} download>
+                Download signed PDF
+              </a>
+            )}
+          </>
         }
       >
         <div className="workflow-document-contract-value">
@@ -330,11 +338,17 @@ export default function MsaSigningPanel({
   }
 
   if (!accepted) {
-    return <DocumentSigningPanel document={document} step={2} />;
+    return (
+      <DocumentSigningPanel
+        document={document}
+        step={2}
+        onEditData={onEditData}
+      />
+    );
   }
 
   return (
-    <DocumentSigningPanel document={document} step={2}>
+    <DocumentSigningPanel document={document} step={2} onEditData={onEditData}>
       {!detailsReady && (
         <p className="alert">
           Complete and save Agreement Details before sending the MSA.

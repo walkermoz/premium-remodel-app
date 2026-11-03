@@ -59,8 +59,11 @@ test("organization export packages tenant uploads with integrity metadata", () =
   );
   expect(archive).toContain("listOrganizationFiles(organizationId)");
   expect(archive).toContain("path.startsWith(`${organizationId}/`)");
-  expect(archive).toContain('name: "data/organization.json"');
-  expect(archive).toContain('name: "data/files-manifest.json"');
+  expect(archive).toContain('"data/organization.json"');
+  expect(archive).toContain('"data/files-manifest.json"');
+  expect(archive).toContain("new ZipStream");
+  expect(archive).toContain("await addEntry");
+  expect(archive).not.toContain('from "archiver"');
   expect(archive).toContain('createHash("sha256")');
   expect(lifecycle).toContain("Organization-owned uploads are stored");
   expect(exportRoute).toContain('"Content-Type": "application/zip"');

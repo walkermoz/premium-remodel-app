@@ -3,17 +3,38 @@ import type { Quote, User } from "./types";
 export type DocumentSigningStatus =
   | "draft"
   | "ready"
+  | "sent"
+  | "viewed"
   | "awaiting_signatures"
   | "partially_signed"
   | "completed"
-  | "void";
+  | "declined"
+  | "void"
+  | "expired";
 
 export type DocumentSignerStatus =
   "pending" | "ready" | "notified" | "viewed" | "signed" | "declined";
 
 export type DocumentDeliveryChannel = "email" | "portal" | "on_device";
 export type DocumentDeliveryStatus =
-  "ready" | "sent" | "active" | "failed" | "revoked" | "expired";
+  | "not_sent"
+  | "ready"
+  | "sent"
+  | "delivered"
+  | "available"
+  | "opened"
+  | "active"
+  | "failed"
+  | "revoked"
+  | "expired";
+
+export type DocumentDataBindingView = {
+  key: string;
+  label: string;
+  source: "Contact" | "Quote" | "Organization" | "Staff" | "Payment" | "Manual";
+  value: string;
+  missing: boolean;
+};
 
 export interface DocumentSignerView {
   roleId: string;
@@ -41,11 +62,13 @@ export interface SigningDocumentView {
   kind: "quote" | "agreement" | "other";
   eyebrow: string;
   title: string;
+  versionLabel: string;
   status: DocumentSigningStatus;
   statusLabel: string;
   statusDetail: string;
   signers: DocumentSignerView[];
   delivery: DocumentDeliveryView[];
+  dataBindings?: DocumentDataBindingView[];
   viewHref?: string;
 }
 
@@ -80,10 +103,14 @@ export interface SigningDataSnapshot {
 const documentStatusLabels: Record<DocumentSigningStatus, string> = {
   draft: "Draft",
   ready: "Ready",
+  sent: "Sent",
+  viewed: "Viewed",
   awaiting_signatures: "Awaiting signatures",
   partially_signed: "Partially signed",
-  completed: "Signed",
-  void: "Void",
+  completed: "Complete",
+  declined: "Declined",
+  void: "Voided",
+  expired: "Expired",
 };
 
 export function documentSigningStatusLabel(status: DocumentSigningStatus) {
@@ -101,11 +128,41 @@ export function summarizeDelivery(delivery: DocumentDeliveryView[]) {
   const active = delivery.filter(
     (item) => !["revoked", "expired", "failed"].includes(item.status),
   );
-  if (!active.length) return "Not shared";
+  if (!active.length) return "Not sent";
   return active.map((item) => item.label).join(" · ");
 }
 
+export function resolveSigningDataBinding(
+  snapshot: SigningDataSnapshot,
+  key: string,
+) {
+  return key.split(".").reduce<unknown>((value, segment) => {
+    if (!value || typeof value !== "object") return undefined;
+    return (value as Record<string, unknown>)[segment];
+  }, snapshot);
+}
+
+function dataBinding(
+  key: string,
+  label: string,
+  source: DocumentDataBindingView["source"],
+  value: unknown,
+): DocumentDataBindingView {
+  const normalized =
+    typeof value === "number"
+      ? value.toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+        })
+      : String(value || "").trim();
+  return { key, label, source, value: normalized, missing: !normalized };
+}
+
 function packetStatus(documents: SigningDocumentView[]): DocumentSigningStatus {
+  if (documents.some((item) => item.status === "declined")) return "declined";
+  if (documents.some((item) => item.status === "expired")) return "expired";
+  if (documents.length && documents.every((item) => item.status === "void"))
+    return "void";
   if (
     documents.length &&
     documents.every((item) => item.status === "completed")
@@ -119,6 +176,8 @@ function packetStatus(documents: SigningDocumentView[]): DocumentSigningStatus {
     return "partially_signed";
   if (documents.some((item) => item.status === "awaiting_signatures"))
     return "awaiting_signatures";
+  if (documents.some((item) => item.status === "viewed")) return "viewed";
+  if (documents.some((item) => item.status === "sent")) return "sent";
   if (documents.some((item) => item.status === "ready")) return "ready";
   return "draft";
 }
@@ -135,6 +194,7 @@ function uniqueDelivery(documents: SigningDocumentView[]) {
 
 export function premiumQuoteSigningPacket(
   quote: Quote,
+  context?: { organizationName?: string; currentUser?: Pick<User, "name"> },
 ): DocumentSigningPacketView {
   const quoteSigned =
     quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
@@ -151,8 +211,8 @@ export function premiumQuoteSigningPacket(
       },
       {
         channel: "portal",
-        status: "active",
-        label: "Portal link active",
+        status: "available",
+        label: "Available in customer portal",
         detail: quote.clientEmail || undefined,
         occurredAt: quote.quoteSentAt,
       },
@@ -161,7 +221,7 @@ export function premiumQuoteSigningPacket(
   if (quote.quoteOnsiteAt)
     quoteDelivery.push({
       channel: "on_device",
-      status: "active",
+      status: "opened",
       label: "Opened on this device",
       occurredAt: quote.quoteOnsiteAt,
     });
@@ -171,6 +231,9 @@ export function premiumQuoteSigningPacket(
     kind: "quote",
     eyebrow: "Quote document",
     title: quote.quoteNumber ? `Quote #${quote.quoteNumber}` : "Quote",
+    versionLabel: quote.revisedDate
+      ? `Revised ${quote.revisedDate}`
+      : "Current revision",
     status: quoteSigned
       ? "completed"
       : quoteShared
@@ -205,6 +268,26 @@ export function premiumQuoteSigningPacket(
       },
     ],
     delivery: quoteDelivery,
+    dataBindings: [
+      dataBinding("contact.name", "Customer name", "Contact", quote.client),
+      dataBinding(
+        "contact.email",
+        "Customer email",
+        "Contact",
+        quote.clientEmail,
+      ),
+      dataBinding("quote.address", "Project address", "Quote", quote.address),
+      dataBinding(
+        "quote.contractPrice",
+        "Quote total",
+        "Quote",
+        quote.contractPrice ||
+          quote.acceptedQuoteScope?.reduce(
+            (total, item) => total + item.amount,
+            0,
+          ),
+      ),
+    ],
     viewHref: quoteSigned
       ? `/api/quotes/${encodeURIComponent(quote.id)}/pdf?view=1`
       : undefined,
@@ -228,8 +311,8 @@ export function premiumQuoteSigningPacket(
       },
       {
         channel: "portal",
-        status: "active",
-        label: "Portal link active",
+        status: "available",
+        label: "Available in customer portal",
         detail: agreement.ownerEmail,
         occurredAt: agreement.sentAt,
       },
@@ -237,14 +320,14 @@ export function premiumQuoteSigningPacket(
   else if (agreementSent)
     agreementDelivery.push({
       channel: "portal",
-      status: "active",
-      label: "Portal link active",
+      status: "available",
+      label: "Available in customer portal",
       detail: agreement?.ownerEmail,
     });
   if (quote.quoteOnsiteAt && agreementPrepared)
     agreementDelivery.push({
       channel: "on_device",
-      status: "active",
+      status: "available",
       label: "Available on this device",
       occurredAt: quote.quoteOnsiteAt,
     });
@@ -252,8 +335,11 @@ export function premiumQuoteSigningPacket(
   const agreementDocument: SigningDocumentView = {
     id: `${quote.id}:msa`,
     kind: "agreement",
-    eyebrow: "Service agreement",
+    eyebrow: "Agreement document",
     title: "Master Services Agreement",
+    versionLabel: agreement?.termsSha256
+      ? `Snapshot ${agreement.termsSha256.slice(0, 8)}`
+      : "Draft revision",
     status: agreementSigned
       ? "completed"
       : agreementPrepared
@@ -305,6 +391,56 @@ export function premiumQuoteSigningPacket(
       },
     ],
     delivery: agreementDelivery,
+    dataBindings: [
+      dataBinding(
+        "contact.name",
+        "Customer legal name",
+        "Contact",
+        agreement?.owner || quote.client,
+      ),
+      dataBinding(
+        "contact.email",
+        "Customer email",
+        "Contact",
+        agreement?.ownerEmail || quote.clientEmail,
+      ),
+      dataBinding(
+        "quote.contractPrice",
+        "Contract price",
+        "Quote",
+        agreement?.price || quote.contractPrice,
+      ),
+      dataBinding(
+        "staff.current.name",
+        "Company representative",
+        "Staff",
+        agreement?.staffSignature.name || context?.currentUser?.name,
+      ),
+      dataBinding(
+        "organization.name",
+        "Contracting organization",
+        "Organization",
+        context?.organizationName,
+      ),
+      dataBinding(
+        "quote.startDate",
+        "Estimated start",
+        "Quote",
+        agreement?.estimatedStart || quote.startDate,
+      ),
+      dataBinding(
+        "quote.endDate",
+        "Estimated completion",
+        "Quote",
+        agreement?.estimatedCompletion || quote.endDate,
+      ),
+      dataBinding(
+        "quote.msaPermitResponsibility",
+        "Permit responsibility",
+        "Manual",
+        agreement?.permitResponsibility || quote.msaPermitResponsibility,
+      ),
+    ],
     viewHref: agreementSigned
       ? `/api/msa/${encodeURIComponent(quote.id)}/pdf?view=1`
       : undefined,
@@ -325,9 +461,19 @@ export function premiumQuoteSigningPacket(
           ? "Signing in progress"
           : status === "awaiting_signatures"
             ? "Awaiting customer signatures"
-            : status === "ready"
-              ? "Ready for customer"
-              : "Prepare documents",
+            : status === "viewed"
+              ? "Viewed by customer"
+              : status === "sent"
+                ? "Sent to customer"
+                : status === "declined"
+                  ? "Signing declined"
+                  : status === "expired"
+                    ? "Signing expired"
+                    : status === "void"
+                      ? "Packet voided"
+                      : status === "ready"
+                        ? "Ready for customer"
+                        : "Prepare documents",
     statusDetail: `${completed} of ${documents.length} documents complete.`,
     documents,
     delivery: uniqueDelivery(documents),

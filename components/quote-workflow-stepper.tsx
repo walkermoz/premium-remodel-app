@@ -4,21 +4,29 @@ import { Check } from "lucide-react";
 import type { QuoteFlowStage } from "@/lib/quote-flow-schema";
 
 export type QuoteWorkflowStep =
-  "quote" | "agreement" | "completion" | "project";
+  "quote" | "agreement" | "company" | "customer" | "deposit" | "project";
 
 export default function QuoteWorkflowStepper({
   active,
+  quoteReady,
   agreementReady,
-  completionReady,
+  companyReady,
+  customerReady,
+  depositReady,
   projectReady,
   configuredStages,
+  completionByStageId,
   onSelect,
 }: {
   active: string;
+  quoteReady: boolean;
   agreementReady: boolean;
-  completionReady: boolean;
+  companyReady: boolean;
+  customerReady: boolean;
+  depositReady: boolean;
   projectReady: boolean;
   configuredStages?: QuoteFlowStage[];
+  completionByStageId?: Record<string, boolean>;
   onSelect: (step: string) => void;
 }) {
   const legacySteps: Array<{
@@ -32,19 +40,31 @@ export default function QuoteWorkflowStepper({
       id: "quote",
       title: "Quote & pricing",
       detail: "Customer, items, costs, and price",
-      complete: agreementReady,
+      complete: quoteReady,
     },
     {
       id: "agreement",
       title: "Agreement details",
       detail: "Dates, payments, parties, and terms",
-      complete: completionReady,
+      complete: agreementReady,
     },
     {
-      id: "completion",
-      title: "Send & complete",
-      detail: "Email, portal, signatures, and deposit",
-      complete: projectReady,
+      id: "company",
+      title: "Company approval",
+      detail: "Review and sign as the company representative",
+      complete: companyReady,
+    },
+    {
+      id: "customer",
+      title: "Customer completion",
+      detail: "Share the packet and collect signatures",
+      complete: customerReady,
+    },
+    {
+      id: "deposit",
+      title: "Deposit",
+      detail: "Collect or record the required payment",
+      complete: depositReady,
     },
     {
       id: "project",
@@ -55,28 +75,36 @@ export default function QuoteWorkflowStepper({
     },
   ];
   const completeForStage = (stage: QuoteFlowStage) => {
-    if (stage.type === "quote_builder") return agreementReady;
-    if (stage.type === "agreement_details") return completionReady;
+    if (stage.type === "quote_builder") return quoteReady;
+    if (stage.type === "agreement_details") return agreementReady;
+    if (stage.type === "signature_collection") return companyReady;
     if (
-      [
-        "delivery",
-        "signature_collection",
-        "initials_collection",
-        "deposit_payment",
-        "customer_confirmation",
-      ].includes(stage.type)
+      ["delivery", "initials_collection", "customer_confirmation"].includes(
+        stage.type,
+      )
     )
-      return projectReady;
+      return customerReady;
+    if (stage.type === "deposit_payment") return depositReady;
+    if (stage.type === "project_conversion") return projectReady;
     return false;
   };
   const steps = configuredStages?.length
-    ? configuredStages.map((stage) => ({
-        id: stage.id,
-        title: stage.title,
-        detail: stage.description,
-        complete: completeForStage(stage),
-        disabled: stage.type === "project_conversion" && !projectReady,
-      }))
+    ? configuredStages.map((stage) => {
+        const premiumCompletion =
+          stage.type === "delivery" &&
+          stage.blocks.some(
+            (block) => block.config.renderer === "legacy_quote_portal_v1",
+          );
+        return {
+          id: stage.id,
+          title: premiumCompletion ? "Customer completion" : stage.title,
+          detail: premiumCompletion
+            ? "Share the packet and collect signatures"
+            : stage.description,
+          complete: completionByStageId?.[stage.id] ?? completeForStage(stage),
+          disabled: stage.type === "project_conversion" && !projectReady,
+        };
+      })
     : legacySteps;
 
   return (
@@ -95,6 +123,7 @@ export default function QuoteWorkflowStepper({
               type="button"
               disabled={step.disabled}
               aria-current={active === step.id ? "step" : undefined}
+              aria-expanded={active === step.id}
               onClick={() => onSelect(step.id)}
             >
               <span aria-hidden="true">

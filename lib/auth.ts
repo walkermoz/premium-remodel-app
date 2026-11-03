@@ -99,7 +99,10 @@ export function requestOrigin(request: Request) {
 }
 export function checkOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin || origin !== requestOrigin(request))
+  const expected = process.env.APP_URL
+    ? new URL(process.env.APP_URL).origin
+    : requestOrigin(request);
+  if (!origin || origin !== expected)
     throw new HttpError(403, "This request must come from the app.");
 }
 export function checkOriginOrBearer(request: Request) {

@@ -496,6 +496,91 @@ export const quoteFlowBlockRegistry: Record<QuoteFlowBlockType, RegistryItem> =
     },
   };
 
+export type QuoteFlowBlockCompletionRule =
+  | "automatic"
+  | "value_required"
+  | "signature_required"
+  | "payment_required"
+  | "approval_required";
+
+export type QuoteFlowBlockPresentation = "hidden" | "read_only" | "editable";
+
+export type QuoteFlowBlockContract = {
+  completionRule: QuoteFlowBlockCompletionRule;
+  actions: string[];
+  validation: string[];
+  presentation: Record<
+    "staff" | "portal" | "device",
+    QuoteFlowBlockPresentation
+  >;
+};
+
+/**
+ * The shared runtime contract for a configurable block. Workspace, portal,
+ * and on-device renderers all resolve behavior here instead of inventing
+ * page-specific visibility, completion, or action rules.
+ */
+export function quoteFlowBlockContract(
+  block: QuoteFlowBlock,
+): QuoteFlowBlockContract {
+  const customerEditable = block.audience !== "staff";
+  const staffVisible = block.audience !== "customer";
+  const valueTypes = new Set<QuoteFlowBlockType>([
+    "custom_text",
+    "custom_number",
+    "custom_currency",
+    "custom_date",
+    "custom_checkbox",
+    "custom_select",
+    "custom_multiselect",
+    "custom_file",
+  ]);
+  let completionRule: QuoteFlowBlockCompletionRule = valueTypes.has(block.type)
+    ? "value_required"
+    : "automatic";
+  if (["signature", "initials"].includes(block.type))
+    completionRule = "signature_required";
+  if (block.type === "deposit_collection") completionRule = "payment_required";
+  if (block.type === "internal_approval") completionRule = "approval_required";
+
+  const actions: string[] = [];
+  if (["uploaded_pdf", "generated_document"].includes(block.type))
+    actions.push("preview", "download", "replace");
+  if (["signature", "initials"].includes(block.type)) {
+    const methods = Array.isArray(block.config.methods)
+      ? block.config.methods.map(String)
+      : ["remote", "onsite", "in_person"];
+    if (methods.includes("remote")) actions.push("send", "resend");
+    if (methods.includes("onsite")) actions.push("sign_on_device");
+    if (methods.includes("in_person")) actions.push("mark_signed_in_person");
+    actions.push("void");
+  }
+  if (block.type === "delivery_controls")
+    actions.push("send", "resend", "copy_portal_link");
+  if (block.type === "deposit_collection") actions.push("record_payment");
+  if (block.type === "project_conversion") actions.push("create_project");
+
+  const validation: string[] = [];
+  if (block.required) validation.push("required");
+  if (["custom_select", "custom_multiselect"].includes(block.type))
+    validation.push("configured_options");
+  if (["uploaded_pdf", "generated_document"].includes(block.type))
+    validation.push("published_document_template");
+  if (["signature", "initials"].includes(block.type))
+    validation.push("assigned_signer", "allowed_signing_method");
+
+  return {
+    completionRule,
+    actions,
+    validation,
+    presentation: {
+      staff: staffVisible ? "editable" : "read_only",
+      portal: customerEditable ? "editable" : "hidden",
+      device: customerEditable ? "editable" : "hidden",
+    },
+  };
+}
+
 export function createQuoteFlowBlock(type: QuoteFlowBlockType): QuoteFlowBlock {
   const item = quoteFlowBlockRegistry[type];
   return quoteFlowBlockSchema.parse({
@@ -628,22 +713,36 @@ export const premiumRemodelQuoteFlowDefinition: QuoteFlowDefinition =
             audience: "customer",
             bindingKey: "agreement.terms",
           },
+        ],
+      },
+      {
+        id: "company_approval",
+        type: "signature_collection",
+        title: "Company approval",
+        description: "Review and sign as the company representative",
+        audience: "staff",
+        blocks: [
           {
             id: "staff_signature",
             type: "signature",
-            label: "Premium Remodel representative",
+            label: "Company representative signature",
             required: true,
             audience: "staff",
             bindingKey: "agreement.staff_signature",
-            config: { signerRoleId: "staff", order: 1 },
+            config: {
+              signerRoleId: "staff",
+              order: 1,
+              methods: ["onsite"],
+              renderer: "legacy_premium_msa_staff_v1",
+            },
           },
         ],
       },
       {
         id: "send_and_complete",
         type: "delivery",
-        title: "Send & complete",
-        description: "Email, portal, signatures, and deposit",
+        title: "Customer completion",
+        description: "Share the packet and collect customer signatures",
         audience: "both",
         blocks: [
           {
@@ -673,6 +772,15 @@ export const premiumRemodelQuoteFlowDefinition: QuoteFlowDefinition =
             bindingKey: "agreement.customer_signature",
             config: { signerRoleId: "customer", order: 2 },
           },
+        ],
+      },
+      {
+        id: "deposit",
+        type: "deposit_payment",
+        title: "Deposit",
+        description: "Collect online or record an offline payment",
+        audience: "both",
+        blocks: [
           {
             id: "deposit",
             type: "deposit_collection",
@@ -746,8 +854,8 @@ export const defaultQuoteFlowDefinition: QuoteFlowDefinition =
       {
         id: "send_and_complete",
         type: "delivery",
-        title: "Send & complete",
-        description: "Email, portal, and customer approval",
+        title: "Customer completion",
+        description: "Send, sign, and confirm customer approval",
         audience: "both",
         blocks: [
           {

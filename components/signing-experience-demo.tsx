@@ -414,13 +414,13 @@ function AppPreview({
             {[
               ["1", "Quote & pricing", true],
               ["2", "Agreement details", true],
-              ["3", "Send & complete", false],
+              ["3", "Customer completion", false],
               ["4", "Create project", false],
             ].map(([number, label, done]) => (
               <button
                 key={String(label)}
                 className={
-                  label === "Send & complete" ? styles.currentStep : ""
+                  label === "Customer completion" ? styles.currentStep : ""
                 }
               >
                 <span>{done ? <Check size={12} /> : number}</span>
@@ -433,10 +433,10 @@ function AppPreview({
             <header className={styles.sectionHeading}>
               <div>
                 <span>STEP 3</span>
-                <h2>Send & complete</h2>
+                <h2>Customer completion</h2>
                 <p>
-                  Send the documents, collect signatures, and track what happens
-                  next.
+                  Share one customer packet, complete the required documents,
+                  and collect the deposit.
                 </p>
               </div>
               {!agreementSigned && (
@@ -464,7 +464,9 @@ function AppPreview({
                 <span>
                   <small>Customer portal</small>
                   <strong>
-                    {sent ? "Private link active" : "Created when sent"}
+                    {sent
+                      ? "Available in customer portal"
+                      : "Created when sent"}
                   </strong>
                 </span>
               </div>
@@ -477,7 +479,7 @@ function AppPreview({
               <StatusRow
                 number="1"
                 complete={quoteSigned}
-                title="Quote accepted and signed"
+                title="Quote document"
                 detail={
                   quoteSigned
                     ? "Signed by Taylor Reed · Today, 10:42 AM"
@@ -493,7 +495,7 @@ function AppPreview({
               <StatusRow
                 number="2"
                 complete={agreementSigned}
-                title="Service agreement signed"
+                title="Master Services Agreement"
                 detail={
                   agreementSigned
                     ? "Signed by Taylor Reed and Alex Morgan"

@@ -247,7 +247,7 @@ cloudTest(
       page.getByRole("heading", { name: "Before this becomes a project" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Send & complete" }),
+      page.getByRole("heading", { name: "Customer completion" }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Accept quote" }),
@@ -561,7 +561,9 @@ cloudTest(
     await expect(
       clientPage.getByText("No invoices are available in this quote link"),
     ).toBeVisible();
-    await expect(clientPage.getByRole("link", { name: "Wallet" })).toHaveCount(0);
+    await expect(clientPage.getByRole("link", { name: "Wallet" })).toHaveCount(
+      0,
+    );
     await clientPage.getByRole("link", { name: "Contact us" }).click();
     await expect(
       clientPage.getByRole("link", { name: "contact@premiumremodel.com" }),

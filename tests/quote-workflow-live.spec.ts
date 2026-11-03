@@ -48,7 +48,7 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   const workflow = page.getByRole("navigation", { name: "Quote workflow" });
   await expect(workflow).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Scope & pricing" }),
+    page.getByRole("heading", { name: "Items, costs & pricing" }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "MSA preparation" }),
@@ -60,6 +60,14 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Agreement preview" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Draw your signature" }),
+  ).toHaveCount(0);
+
+  await workflow.getByRole("button", { name: /Company approval/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Company approval" }),
   ).toBeVisible();
   const signaturePad = page.getByRole("img", { name: "Draw your signature" });
   await signaturePad.scrollIntoViewIfNeeded();
@@ -76,12 +84,12 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
     page.getByRole("heading", { name: "Sign and send" }),
   ).toHaveCount(0);
 
-  await workflow.getByRole("button", { name: /Send & complete/ }).click();
+  await workflow.getByRole("button", { name: /Customer completion/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Send & complete" }),
+    page.getByRole("heading", { name: "Customer completion" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Customer signing packet" }),
+    page.getByRole("region", { name: "Customer packet" }),
   ).toContainText("Ready for customer");
   await expect(
     page.getByRole("button", { name: "Send portal link" }),

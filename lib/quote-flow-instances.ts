@@ -11,6 +11,7 @@ import {
   type QuoteFlowCondition,
   type QuoteFlowDefinition,
 } from "./quote-flow-schema";
+import { quoteFlowValueIsComplete } from "./quote-flow-progress";
 import { signatureStrokesSchema } from "./quote-signature";
 import { premiumCompatibilityQuoteFlowValues } from "./quote-flow-compatibility";
 import { publishedQuoteFlowVersion } from "./quote-flow-templates";
@@ -402,23 +403,6 @@ async function instanceValuesWithAgreementStatus(
         ),
     ),
   ];
-}
-
-function quoteFlowBlockIsComplete(block: QuoteFlowBlock, value: unknown) {
-  if (value === undefined || value === null) return false;
-  if (block.type === "deposit_collection")
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      (value as Record<string, unknown>).status === "paid"
-    );
-  if (block.type === "internal_approval")
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      (value as Record<string, unknown>).approved === true
-    );
-  return true;
 }
 
 export async function getQuoteFlowInstance(
@@ -1172,7 +1156,7 @@ export async function moveQuoteFlowInstance(
                   quoteFlowConditionsMatch(block.conditions, resolve) &&
                   block.required &&
                   valueRequiredTypes.has(block.type) &&
-                  !quoteFlowBlockIsComplete(
+                  !quoteFlowValueIsComplete(
                     block,
                     storedByBlock.get(`${candidate.id}:${block.id}`),
                   ),
@@ -1573,7 +1557,7 @@ export async function convertQuoteFlowToProject(
             candidateBlock.required &&
             requiredTypes.has(candidateBlock.type) &&
             quoteFlowConditionsMatch(candidateBlock.conditions, resolve) &&
-            !quoteFlowBlockIsComplete(
+            !quoteFlowValueIsComplete(
               candidateBlock,
               storedByBlock.get(`${candidate.id}:${candidateBlock.id}`),
             ),

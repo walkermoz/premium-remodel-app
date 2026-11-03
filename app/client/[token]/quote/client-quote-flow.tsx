@@ -10,7 +10,9 @@ import {
   quoteFlowConditionsMatch,
   type QuoteFlowCondition,
   type QuoteFlowDefinition,
+  type QuoteFlowStage,
 } from "@/lib/quote-flow-schema";
+import { missingRequiredQuoteFlowBlocks } from "@/lib/quote-flow-progress";
 import styles from "./client-quote-flow.module.css";
 
 type PublicFlow = {
@@ -20,6 +22,20 @@ type PublicFlow = {
   definition: QuoteFlowDefinition;
   values: Array<{ stageId: string; blockId: string; value: unknown }>;
 };
+
+function stagePresentation(stage: QuoteFlowStage) {
+  const premiumCustomerCompletion =
+    stage.type === "delivery" &&
+    stage.blocks.some(
+      (block) => block.config.renderer === "legacy_quote_portal_v1",
+    );
+  return premiumCustomerCompletion
+    ? {
+        title: "Customer completion",
+        description: "Review and sign every required document in one packet.",
+      }
+    : { title: stage.title, description: stage.description };
+}
 
 export default function ClientQuoteFlow({
   token,
@@ -66,49 +82,21 @@ export default function ClientQuoteFlow({
   }
   const stages = flow.definition.stages.filter(
     (stage) =>
-      stage.enabled && quoteFlowConditionsMatch(stage.conditions, resolve),
+      stage.enabled &&
+      ["customer", "both"].includes(stage.audience) &&
+      quoteFlowConditionsMatch(stage.conditions, resolve),
   );
   const index = Math.max(
     0,
     stages.findIndex((stage) => stage.id === activeId),
   );
   const active = stages[index];
+  const activePresentation = active ? stagePresentation(active) : null;
   function missingRequiredForStage(stage: (typeof stages)[number] | undefined) {
-    return (stage?.blocks || []).filter((block) => {
-      if (!block.enabled || !block.required) return false;
-      if (!quoteFlowConditionsMatch(block.conditions, resolve)) return false;
-      if (
-        ![
-          "custom_text",
-          "custom_number",
-          "custom_currency",
-          "custom_date",
-          "custom_checkbox",
-          "custom_select",
-          "custom_multiselect",
-          "custom_file",
-          "signature",
-          "initials",
-          "deposit_collection",
-        ].includes(block.type)
-      )
-        return false;
-      const value = values[block.id];
-      if (["signature", "initials"].includes(block.type))
-        return !(value && typeof value === "object" && "signedAt" in value);
-      if (block.type === "deposit_collection")
-        return !(
-          value &&
-          typeof value === "object" &&
-          (value as Record<string, unknown>).status === "paid"
-        );
-      if (block.type === "custom_checkbox") return value !== true;
-      return (
-        value === undefined ||
-        value === null ||
-        value === "" ||
-        (Array.isArray(value) && value.length === 0)
-      );
+    return missingRequiredQuoteFlowBlocks(stage, {
+      values,
+      audience: "customer",
+      resolveCondition: resolve,
     });
   }
   const missingRequired = missingRequiredForStage(active);
@@ -229,8 +217,8 @@ export default function ClientQuoteFlow({
       <header>
         <div>
           <span>YOUR NEXT STEPS</span>
-          <h2>{active.title}</h2>
-          <p>{active.description}</p>
+          <h2>{activePresentation?.title}</h2>
+          <p>{activePresentation?.description}</p>
         </div>
         <strong>
           Step {index + 1} of {stages.length}
@@ -247,7 +235,7 @@ export default function ClientQuoteFlow({
             <span>
               {stageIndex < index ? <Check size={12} /> : stageIndex + 1}
             </span>
-            {stage.title}
+            {stagePresentation(stage).title}
           </button>
         ))}
       </nav>

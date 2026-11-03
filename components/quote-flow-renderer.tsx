@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Check, FileSignature, LockKeyhole, Upload } from "lucide-react";
 import {
   quoteFlowConditionsMatch,
+  quoteFlowBlockContract,
   type QuoteFlowAudience,
   type QuoteFlowBlock,
   type QuoteFlowCondition,
@@ -141,7 +142,7 @@ function defaultBlock(
     case "delivery_controls":
       return (
         <div className={styles.fieldPreview}>
-          Email · Client portal · Sign on this device
+          Email · Customer portal · Sign on this device
         </div>
       );
     case "project_conversion":
@@ -237,39 +238,52 @@ export default function QuoteFlowRenderer({
           </header>
           <div className={styles.blocks}>
             {active.blocks
-              .filter(
-                (block) =>
+              .filter((block) => {
+                const presentation =
+                  quoteFlowBlockContract(block).presentation[mode];
+                return (
                   block.enabled &&
+                  presentation !== "hidden" &&
                   (blockFilter?.(block) ?? true) &&
                   (audience === "both" ||
                     block.audience === "both" ||
                     block.audience === audience) &&
-                  quoteFlowConditionsMatch(block.conditions, resolveCondition),
-              )
-              .map((block) => (
-                <section
-                  key={block.id}
-                  data-flow-block-id={block.id}
-                  className={`${styles.block}${
-                    highlightedBlockId === block.id
-                      ? ` ${styles.highlightedBlock}`
-                      : ""
-                  }`}
-                >
-                  {!["heading", "explanatory_copy"].includes(block.type) && (
-                    <header>
-                      <strong>{block.label}</strong>
-                      {block.required && <span>Required</span>}
-                    </header>
-                  )}
-                  {block.description &&
-                    !["explanatory_copy"].includes(block.type) && (
-                      <p>{block.description}</p>
+                  quoteFlowConditionsMatch(block.conditions, resolveCondition)
+                );
+              })
+              .map((block) => {
+                const editable =
+                  quoteFlowBlockContract(block).presentation[mode] ===
+                  "editable";
+                return (
+                  <section
+                    key={block.id}
+                    data-flow-block-id={block.id}
+                    className={`${styles.block}${
+                      highlightedBlockId === block.id
+                        ? ` ${styles.highlightedBlock}`
+                        : ""
+                    }`}
+                  >
+                    {!["heading", "explanatory_copy"].includes(block.type) && (
+                      <header>
+                        <strong>{block.label}</strong>
+                        {block.required && <span>Required</span>}
+                      </header>
                     )}
-                  {renderBlock?.(block) ??
-                    defaultBlock(block, values[block.id], onValue)}
-                </section>
-              ))}
+                    {block.description &&
+                      !["explanatory_copy"].includes(block.type) && (
+                        <p>{block.description}</p>
+                      )}
+                    {renderBlock?.(block) ??
+                      defaultBlock(
+                        block,
+                        values[block.id],
+                        editable ? onValue : undefined,
+                      )}
+                  </section>
+                );
+              })}
           </div>
           {showFooter && (
             <footer>

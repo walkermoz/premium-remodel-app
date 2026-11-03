@@ -132,8 +132,11 @@ export async function POST(
     let agreement = project.msaAgreement;
     if (agreement?.status === "signed")
       throw new HttpError(409, "This MSA is already signed.");
-    if (agreement?.status === "sent")
-      throw new HttpError(409, "This MSA has already been sent.");
+    if (agreement?.status === "sent" && !input.retry)
+      throw new HttpError(
+        409,
+        "This agreement is already in the customer packet. Choose resend to send portal access again.",
+      );
     if (agreement?.status === "prepared") {
       if (!input.retry)
         throw new HttpError(
@@ -144,6 +147,12 @@ export async function POST(
         throw new HttpError(
           409,
           "Prepared agreement recipient differs. Refresh the project.",
+        );
+    } else if (agreement?.status === "sent") {
+      if (agreement.ownerEmail !== input.ownerEmail.toLowerCase())
+        throw new HttpError(
+          409,
+          "The packet recipient differs from the saved agreement. Refresh before resending.",
         );
     } else {
       if (
@@ -239,11 +248,17 @@ export async function POST(
         );
     }
     const url = `${appOrigin(request)}/client/${createClientEmailToken(link.id, agreement.ownerEmail)}/quote?view=msa`;
-    const message = `Hello ${agreement.owner},\n\nPlease review and sign the Master Services Agreement for ${agreement.projectName}. You can read the full agreement and sign securely here:\n\n${url}\n\nAfter you sign, the deposit can be paid online or by check. Work begins after the deposit is received.\n\nPremium Remodel`;
+    const resendingAccess = agreement.status === "sent" && input.retry;
+    const subject = resendingAccess
+      ? "Your Premium Remodel customer packet"
+      : "Premium Remodel Master Services Agreement";
+    const message = resendingAccess
+      ? `Hello ${agreement.owner},\n\nHere is your secure customer packet for ${agreement.projectName}. Continue reviewing and signing the required documents here:\n\n${url}\n\nAfter every required document is signed, deposit options will be available.\n\nPremium Remodel`
+      : `Hello ${agreement.owner},\n\nPlease review and sign the Master Services Agreement for ${agreement.projectName}. You can read the full agreement and sign securely here:\n\n${url}\n\nAfter you sign, the deposit can be paid online or by check. Work begins after the deposit is received.\n\nPremium Remodel`;
     const messageId = await sendMsaEmail({
       organizationId: user.organizationId,
       to: agreement.ownerEmail,
-      subject: "Premium Remodel Master Services Agreement",
+      subject,
       message,
     });
     try {
@@ -259,7 +274,7 @@ export async function POST(
           contactId,
           channel: "email",
           recipient: agreement.ownerEmail,
-          subject: "Premium Remodel Master Services Agreement",
+          subject,
           body: message.replace(url, "[Secure client portal link]"),
           relatedKind: "agreement",
           relatedId: projectId,

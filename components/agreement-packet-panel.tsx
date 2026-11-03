@@ -3,8 +3,15 @@
 import { Check, Copy, FileSignature, Send, Tablet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { AgreementSignerRole } from "@/lib/agreement-template-schema";
-import { buildSigningDataSnapshot } from "@/lib/document-signing";
+import {
+  buildSigningDataSnapshot,
+  documentSigningStatusLabel,
+  type DocumentSignerStatus,
+  type DocumentSigningStatus,
+  type SigningDocumentView,
+} from "@/lib/document-signing";
 import type { Quote, User } from "@/lib/types";
+import DocumentSigningPanel from "./document-signing-panel";
 
 type PublishedTemplate = {
   id: string;
@@ -19,11 +26,86 @@ type SignerDraft = { roleId: string; name: string; email: string };
 type PacketSummary = {
   id: string;
   template_id: string;
+  template_version: number;
   status: "draft" | "sent" | "in_progress" | "completed" | "void";
   project_id: string | null;
-  template_snapshot: { name?: string };
+  template_snapshot: {
+    name?: string;
+    deliveryMode?: "email" | "onsite";
+    signerRoles?: AgreementSignerRole[];
+  };
   created_at: string;
+  sent_at: string | null;
+  completed_at: string | null;
+  signers: Array<{
+    role_id: string;
+    role_label: string;
+    party_type: "customer" | "staff" | "other";
+    signing_order: number;
+    name: string;
+    email: string;
+    status: DocumentSignerStatus;
+    signed_at: string | null;
+    viewed_at: string | null;
+  }>;
 };
+
+const packetDocumentStatus: Record<
+  PacketSummary["status"],
+  DocumentSigningStatus
+> = {
+  draft: "draft",
+  sent: "awaiting_signatures",
+  in_progress: "partially_signed",
+  completed: "completed",
+  void: "void",
+};
+
+function agreementPacketDocument(packet: PacketSummary): SigningDocumentView {
+  const status = packetDocumentStatus[packet.status];
+  const roles = new Map(
+    (packet.template_snapshot.signerRoles || []).map((role) => [role.id, role]),
+  );
+  const signed = packet.signers.filter((signer) => signer.status === "signed");
+  const deliveryMode = packet.template_snapshot.deliveryMode || "email";
+  return {
+    id: packet.id,
+    kind: "agreement",
+    eyebrow: "Agreement document",
+    title: packet.template_snapshot.name || "Agreement",
+    versionLabel: `Version ${packet.template_version}`,
+    status,
+    statusLabel: documentSigningStatusLabel(status),
+    statusDetail:
+      status === "completed"
+        ? `All ${signed.length} required signatures are complete.`
+        : `${signed.length} of ${packet.signers.length} signers complete.`,
+    signers: packet.signers.map((signer) => ({
+      roleId: signer.role_id,
+      label: signer.role_label,
+      partyType: signer.party_type,
+      order: signer.signing_order,
+      required: roles.get(signer.role_id)?.required ?? true,
+      name: signer.name,
+      email: signer.email,
+      status: signer.status,
+      signedAt: signer.signed_at || undefined,
+    })),
+    delivery: packet.sent_at
+      ? [
+          {
+            channel: deliveryMode === "onsite" ? "on_device" : "email",
+            status: deliveryMode === "onsite" ? "available" : "sent",
+            label:
+              deliveryMode === "onsite"
+                ? "Available on this device"
+                : "Email sent",
+            occurredAt: packet.sent_at,
+          },
+        ]
+      : [],
+  };
+}
 
 function signerDraftsForTemplate(
   template: PublishedTemplate | null,
@@ -383,12 +465,14 @@ export default function AgreementPacketPanel({
       ))}
       {packets.length > 0 && (
         <div className="agreement-packet-history">
-          <h4>Agreement history</h4>
-          {packets.map((packet) => (
-            <div key={packet.id}>
-              <strong>{packet.template_snapshot.name || "Agreement"}</strong>
-              <span>{packet.status.replaceAll("_", " ")}</span>
-            </div>
+          <h4>Document history</h4>
+          {packets.map((packet, index) => (
+            <DocumentSigningPanel
+              key={packet.id}
+              document={agreementPacketDocument(packet)}
+              step={index + 1}
+              className="agreement-packet-history-document"
+            />
           ))}
         </div>
       )}

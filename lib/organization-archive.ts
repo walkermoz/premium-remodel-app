@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ZipArchive } from "archiver";
+import ZipStream from "zip-stream";
 import { createHash } from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
 import { HttpError } from "./auth";
@@ -24,7 +24,10 @@ function safeArchivePath(value: string) {
     normalized.split("/").some((part) => part === ".." || !part) ||
     /[\u0000-\u001f\u007f]/.test(normalized)
   )
-    throw new HttpError(409, "An organization file has an invalid storage path.");
+    throw new HttpError(
+      409,
+      "An organization file has an invalid storage path.",
+    );
   return normalized;
 }
 
@@ -81,8 +84,16 @@ export async function createOrganizationExportArchive(
 ) {
   const paths = await listOrganizationFiles(organizationId);
   const output = new PassThrough();
-  const archive = new ZipArchive({ zlib: { level: 6 } });
+  const archive = new ZipStream({ zlib: { level: 6 } });
   archive.pipe(output);
+
+  const addEntry = (source: string | Buffer, name: string) =>
+    new Promise<void>((resolve, reject) => {
+      archive.entry(source, { name }, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
 
   const completion = (async () => {
     const fileManifest: Array<{
@@ -91,14 +102,20 @@ export async function createOrganizationExportArchive(
       sha256: string;
     }> = [];
     let totalBytes = 0;
-    archive.append(JSON.stringify(organizationExport, null, 2), {
-      name: "data/organization.json",
-    });
+    await addEntry(
+      JSON.stringify(organizationExport, null, 2),
+      "data/organization.json",
+    );
 
     for (const path of paths) {
       if (!path.startsWith(`${organizationId}/`))
-        throw new HttpError(409, "An export file escaped the organization boundary.");
-      const { data, error } = await supabaseAdmin().storage.from(bucket).download(path);
+        throw new HttpError(
+          409,
+          "An export file escaped the organization boundary.",
+        );
+      const { data, error } = await supabaseAdmin()
+        .storage.from(bucket)
+        .download(path);
       if (error || !data)
         throw new HttpError(409, `Could not export organization file ${path}.`);
       const bytes = Buffer.from(await data.arrayBuffer());
@@ -108,8 +125,10 @@ export async function createOrganizationExportArchive(
           413,
           "This organization has more than 2 GB of uploads. Contact ServiceBuddy support for a managed export.",
         );
-      const relativePath = safeArchivePath(path.slice(organizationId.length + 1));
-      archive.append(bytes, { name: `files/${relativePath}` });
+      const relativePath = safeArchivePath(
+        path.slice(organizationId.length + 1),
+      );
+      await addEntry(bytes, `files/${relativePath}`);
       fileManifest.push({
         path: relativePath,
         size: bytes.length,
@@ -117,7 +136,7 @@ export async function createOrganizationExportArchive(
       });
     }
 
-    archive.append(
+    await addEntry(
       JSON.stringify(
         {
           bucket,
@@ -129,12 +148,12 @@ export async function createOrganizationExportArchive(
         null,
         2,
       ),
-      { name: "data/files-manifest.json" },
+      "data/files-manifest.json",
     );
-    await archive.finalize();
+    archive.finalize();
   })();
 
-  void completion.catch(() => archive.abort());
+  void completion.catch((error) => archive.destroy(error));
   return {
     stream: Readable.toWeb(output) as ReadableStream<Uint8Array>,
     fileCount: paths.length,

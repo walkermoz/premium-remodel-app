@@ -30,7 +30,8 @@ type PreviewStage =
   "quote-signature" | "agreement-signature" | "deposit" | "ready" | "created";
 type ActionDialog = "signature" | "deposit" | null;
 type ActionMode = "tablet" | "in-person" | "check" | "other" | null;
-type WorkflowStep = "quote" | "agreement" | "completion" | "project";
+type WorkflowStep =
+  "quote" | "agreement" | "company" | "customer" | "deposit" | "project";
 
 export default function QuoteProjectHandoffDemo({
   quote,
@@ -44,7 +45,7 @@ export default function QuoteProjectHandoffDemo({
   agreementDetails?: React.ReactNode;
 }) {
   const [stage, setStage] = useState<PreviewStage>("quote-signature");
-  const [workflowStep, setWorkflowStep] = useState<WorkflowStep>("completion");
+  const [workflowStep, setWorkflowStep] = useState<WorkflowStep>("customer");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [actionDialog, setActionDialog] = useState<ActionDialog>(null);
   const [actionMode, setActionMode] = useState<ActionMode>(null);
@@ -72,7 +73,12 @@ export default function QuoteProjectHandoffDemo({
   };
 
   const completeSignature = () => {
-    setStage(stage === "quote-signature" ? "agreement-signature" : "deposit");
+    if (stage === "quote-signature") {
+      setStage("agreement-signature");
+    } else {
+      setStage("deposit");
+      setWorkflowStep("deposit");
+    }
     closeActionDialog();
   };
 
@@ -102,11 +108,20 @@ export default function QuoteProjectHandoffDemo({
         {workflow}
         <AgreementPreparationStep
           quote={quote}
-          onContinue={() => setWorkflowStep("completion")}
+          onContinue={() => setWorkflowStep("company")}
         />
         {agreementDetails && (
           <div className="workflow-agreement-content">{agreementDetails}</div>
         )}
+      </>
+    );
+  }
+
+  if (workflowStep === "company") {
+    return (
+      <>
+        {workflow}
+        <CompanyApprovalStep onContinue={() => setWorkflowStep("customer")} />
       </>
     );
   }
@@ -133,7 +148,7 @@ export default function QuoteProjectHandoffDemo({
             className="handoff-demo-reset"
             onClick={() => {
               setStage("quote-signature");
-              setWorkflowStep("completion");
+              setWorkflowStep("customer");
             }}
           >
             Reset demo
@@ -198,19 +213,25 @@ export default function QuoteProjectHandoffDemo({
         <header className="project-handoff-header">
           <div>
             <span className="project-handoff-eyebrow">
-              {workflowStep === "completion"
+              {workflowStep === "customer"
                 ? "Customer completion"
-                : "Quote → Project"}
+                : workflowStep === "deposit"
+                  ? "Deposit"
+                  : "Quote → Project"}
             </span>
             <h2 id="handoff-demo-title">
-              {workflowStep === "completion"
-                ? "Send & complete"
-                : "Project setup"}
+              {workflowStep === "customer"
+                ? "Customer completion"
+                : workflowStep === "deposit"
+                  ? "Record deposit"
+                  : "Project setup"}
             </h2>
             <p>
-              {workflowStep === "completion"
-                ? "Deliver the quote and agreement through email and the client portal, then track signatures and the deposit in one place."
-                : "Review the completed customer commitments and handoff before creating the project."}
+              {workflowStep === "customer"
+                ? "Share the quote and agreement in one customer packet, then track both customer signatures in one place."
+                : workflowStep === "deposit"
+                  ? "Record the payment separately after the customer packet is complete."
+                  : "Review the completed customer commitments and handoff before creating the project."}
             </p>
           </div>
           <div
@@ -223,7 +244,7 @@ export default function QuoteProjectHandoffDemo({
             </span>
           </div>
         </header>
-        {workflowStep === "completion" && (
+        {workflowStep === "customer" && (
           <section
             className="handoff-communication"
             aria-label="Customer delivery and communication"
@@ -245,8 +266,8 @@ export default function QuoteProjectHandoffDemo({
                 <Globe2 size={16} aria-hidden="true" />
               </span>
               <div>
-                <small>Client portal</small>
-                <strong>Quote and agreement available</strong>
+                <small>Customer portal</small>
+                <strong>Customer packet available</strong>
               </div>
               <button type="button" className="text-button">
                 Open portal
@@ -277,7 +298,7 @@ export default function QuoteProjectHandoffDemo({
               />
               <HandoffStep
                 icon={<FileSignature size={18} />}
-                title="Quote accepted and signed"
+                title="Quote document"
                 detail={
                   quoteSigned
                     ? "Signed by Taylor Reed · Oct 26"
@@ -287,7 +308,7 @@ export default function QuoteProjectHandoffDemo({
               />
               <HandoffStep
                 icon={<PenLine size={18} />}
-                title="Service agreement signed"
+                title="Master Services Agreement"
                 detail={
                   agreementSigned
                     ? "Signed by Taylor Reed and Alex Morgan · Oct 27"
@@ -349,23 +370,23 @@ export default function QuoteProjectHandoffDemo({
           <SectionHeading
             number="3"
             title={
-              stage === "ready"
+              workflowStep === "project"
                 ? "Create the project"
-                : stage === "deposit"
+                : workflowStep === "deposit"
                   ? "Record the deposit"
                   : stage === "agreement-signature"
                     ? "Complete the service agreement"
                     : "Collect the customer signature"
             }
             detail={
-              stage === "ready"
+              workflowStep === "project"
                 ? "Review the project name and schedule before the quote leaves Quotes."
-                : stage === "deposit"
+                : workflowStep === "deposit"
                   ? "Record an online or in-person payment before work begins."
                   : "Use a remote link, the service tablet, or record an in-person signature."
             }
           />
-          {stage === "ready" ? (
+          {workflowStep === "project" ? (
             <button
               type="button"
               className="button primary"
@@ -373,7 +394,7 @@ export default function QuoteProjectHandoffDemo({
             >
               Review project setup <ArrowRight size={15} />
             </button>
-          ) : stage === "deposit" ? (
+          ) : workflowStep === "deposit" ? (
             <button
               type="button"
               className="button primary"
@@ -532,7 +553,8 @@ function QuoteWorkflowStepper({
   stage: PreviewStage;
   onSelect: (step: WorkflowStep) => void;
 }) {
-  const completionFinished = stage === "ready" || stage === "created";
+  const customerFinished = ["deposit", "ready", "created"].includes(stage);
+  const depositFinished = stage === "ready" || stage === "created";
   const steps: Array<{
     id: WorkflowStep;
     title: string;
@@ -553,17 +575,30 @@ function QuoteWorkflowStepper({
       complete: true,
     },
     {
-      id: "completion",
-      title: "Send & complete",
-      detail: "Email, portal, signatures, and deposit",
-      complete: completionFinished,
+      id: "company",
+      title: "Company approval",
+      detail: "Review and sign the agreement",
+      complete: true,
+    },
+    {
+      id: "customer",
+      title: "Customer completion",
+      detail: "Share the packet and collect signatures",
+      complete: customerFinished,
+    },
+    {
+      id: "deposit",
+      title: "Deposit",
+      detail: "Record the required payment",
+      complete: depositFinished,
+      disabled: !customerFinished,
     },
     {
       id: "project",
       title: "Create project",
       detail: "Carry the accepted items into Planning",
       complete: stage === "created",
-      disabled: !completionFinished,
+      disabled: !depositFinished,
     },
   ];
 
@@ -583,6 +618,7 @@ function QuoteWorkflowStepper({
               type="button"
               disabled={step.disabled}
               aria-current={active === step.id ? "step" : undefined}
+              aria-expanded={active === step.id}
               onClick={() => onSelect(step.id)}
             >
               <span aria-hidden="true">
@@ -597,6 +633,45 @@ function QuoteWorkflowStepper({
         ))}
       </ol>
     </nav>
+  );
+}
+
+function CompanyApprovalStep({ onContinue }: { onContinue: () => void }) {
+  return (
+    <section className="workflow-preparation-step">
+      <header>
+        <div>
+          <span className="project-handoff-eyebrow">Step 3 · Complete</span>
+          <h2>Company approval</h2>
+          <p>
+            The company representative reviewed the prepared packet and signed
+            the service agreement before customer delivery.
+          </p>
+        </div>
+        <span className="workflow-step-complete">
+          <CheckCircle2 size={15} /> Signed
+        </span>
+      </header>
+      <div className="workflow-agreement-review">
+        <dl>
+          <div>
+            <dt>Company signer</dt>
+            <dd>Alex Morgan · Company representative</dd>
+          </div>
+          <div>
+            <dt>Packet state</dt>
+            <dd>Ready for customer delivery</dd>
+          </div>
+        </dl>
+      </div>
+      <footer>
+        <p>Customer delivery starts only after company approval is complete.</p>
+        <button type="button" className="button primary" onClick={onContinue}>
+          Continue to customer completion
+          <ArrowRight size={15} />
+        </button>
+      </footer>
+    </section>
   );
 }
 
@@ -661,7 +736,7 @@ function AgreementPreparationStep({
       <footer>
         <p>The agreement is packaged with the quote for one customer review.</p>
         <button type="button" className="button primary" onClick={onContinue}>
-          Continue to send & complete
+          Continue to company approval
           <ArrowRight size={15} />
         </button>
       </footer>

@@ -30,18 +30,19 @@ export function premiumCompatibilityQuoteFlowValues(
 ) {
   const values: CompatibilityValue[] = [];
   const agreement = quote.msaAgreement;
+  const usesPremiumCompatibility = definition.stages.some((stage) =>
+    stage.blocks.some((block) =>
+      [
+        "legacy_premium_msa_v1",
+        "legacy_premium_msa_staff_v1",
+        "legacy_quote_portal_v1",
+      ].includes(String(block.config.renderer || "")),
+    ),
+  );
+  if (!usesPremiumCompatibility) return values;
   for (const stage of definition.stages) {
-    const legacyMsa = stage.blocks.some(
-      (block) => block.config.renderer === "legacy_premium_msa_v1",
-    );
-    const legacyPortal = stage.blocks.some(
-      (block) => block.config.renderer === "legacy_quote_portal_v1",
-    );
-    if (!legacyMsa && !legacyPortal) continue;
-
     for (const block of stage.blocks) {
       if (
-        legacyMsa &&
         block.type === "signature" &&
         block.bindingKey === "agreement.staff_signature"
       ) {
@@ -84,7 +85,6 @@ export function premiumCompatibilityQuoteFlowValues(
         }
       }
       if (
-        legacyPortal &&
         block.type === "signature" &&
         block.bindingKey === "quote.customer_signature" &&
         quote.quoteAcceptance?.signedName &&
@@ -106,7 +106,6 @@ export function premiumCompatibilityQuoteFlowValues(
         });
       }
       if (
-        legacyPortal &&
         block.type === "signature" &&
         block.bindingKey === "agreement.customer_signature" &&
         agreement?.customerSignature?.name &&
@@ -128,7 +127,6 @@ export function premiumCompatibilityQuoteFlowValues(
         });
       }
       if (
-        legacyPortal &&
         block.type === "deposit_collection" &&
         block.bindingKey === "payment.deposit" &&
         agreement?.status === "signed"

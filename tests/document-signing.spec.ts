@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   buildSigningDataSnapshot,
   premiumQuoteSigningPacket,
+  resolveSigningDataBinding,
   summarizeDelivery,
 } from "@/lib/document-signing";
 import type { MsaAgreement, Quote, User } from "@/lib/types";
@@ -113,7 +114,9 @@ test("keeps completed signing separate from an active portal link", () => {
   expect(
     packet.documents.every((document) => document.status === "completed"),
   ).toBeTruthy();
-  expect(summarizeDelivery(packet.delivery)).toContain("Portal link active");
+  expect(summarizeDelivery(packet.delivery)).toContain(
+    "Available in customer portal",
+  );
 });
 
 test("does not claim a portal is active when documents were only signed locally", () => {
@@ -144,7 +147,7 @@ test("does not claim a portal is active when documents were only signed locally"
   expect(packet.status).toBe("completed");
   expect(summarizeDelivery(packet.delivery)).toContain("Opened on this device");
   expect(summarizeDelivery(packet.delivery)).not.toContain(
-    "Portal link active",
+    "Available in customer portal",
   );
 });
 
@@ -168,4 +171,10 @@ test("builds a versioned, organization-neutral signing data catalog", () => {
   expect(snapshot.contact.email).toBe(quote.clientEmail);
   expect(snapshot.staff.current.name).toBe(user.name);
   expect(snapshot.custom.cabinetFinish).toBe("White oak");
+  expect(resolveSigningDataBinding(snapshot, "contact.email")).toBe(
+    quote.clientEmail,
+  );
+  expect(resolveSigningDataBinding(snapshot, "staff.current.name")).toBe(
+    user.name,
+  );
 });

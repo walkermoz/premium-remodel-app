@@ -9,21 +9,24 @@ test("quote to project demo shows the full handoff flow", async ({ page }) => {
     page.getByRole("heading", { name: "Willowbrook kitchen remodel" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Send & complete" }),
+    page.getByRole("heading", { name: "Customer completion" }),
   ).toBeVisible();
   await expect(page.getByText("Sent to taylor@example.com")).toBeVisible();
-  await expect(page.getByText("Quote and agreement available")).toBeVisible();
+  await expect(page.getByText("Customer packet available")).toBeVisible();
   await expect(page.getByText("1 of 4 complete")).toBeVisible();
 
   const workflow = page.getByRole("navigation", { name: "Quote workflow" });
   await expect(
     workflow.getByRole("button", { name: /Create project/ }),
   ).toBeDisabled();
+  await expect(
+    workflow.getByRole("button", { name: /Deposit/ }),
+  ).toBeDisabled();
   const quoteStep = workflow.getByRole("button", { name: /Quote & pricing/ });
   await quoteStep.click();
   await expect(quoteStep).toHaveAttribute("aria-current", "step");
   await expect(
-    page.getByRole("heading", { name: "Scope & pricing" }),
+    page.getByRole("heading", { name: "Items, costs & pricing" }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Master services agreement" }),
@@ -36,10 +39,16 @@ test("quote to project demo shows the full handoff flow", async ({ page }) => {
     page.getByRole("region", { name: "Master services agreement" }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Continue to send & complete" })
+    .getByRole("button", { name: "Continue to company approval" })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Send & complete" }),
+    page.getByRole("heading", { name: "Company approval" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Continue to customer completion" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Customer completion" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Signature options" }).click();
@@ -71,6 +80,9 @@ test("quote to project demo shows the full handoff flow", async ({ page }) => {
     .click();
 
   await expect(page.getByText("3 of 4 complete")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Record deposit" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Deposit options" }).click();
   const deposit = page.getByRole("form", { name: "Record customer deposit" });
   await expect(

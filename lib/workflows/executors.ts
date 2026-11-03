@@ -34,7 +34,7 @@ import type {
   WorkflowNode,
   WorkflowSettings,
 } from "./schema";
-import { assertPublicWorkflowWebhookUrl } from "./webhook-safety.server";
+import { requestPublicWorkflowWebhook } from "./webhook-safety.server";
 import {
   sendWorkflowEmail,
   WorkflowEmailUncertainError,
@@ -147,7 +147,8 @@ function outputRecordId(context: WorkflowContext, alias: string) {
 
 async function recordWebsiteLeadDelivery(
   input: WorkflowExecutorInput,
-  legacyField: "emailAcknowledgement" | "smsAcknowledgement" | "discordNotification",
+  legacyField:
+    "emailAcknowledgement" | "smsAcknowledgement" | "discordNotification",
   value: Record<string, unknown>,
 ) {
   const tracking = input.node.config.resultTracking as
@@ -1004,7 +1005,8 @@ handlers.set("communication.internalNotification", async (input) => {
     });
   if (result.status === "not_configured")
     throw new WorkflowConfigurationError(
-      result.detail || "Connect the team notification destination before this action can run.",
+      result.detail ||
+        "Connect the team notification destination before this action can run.",
     );
   return {
     status: result.status === "sent" ? "completed" : "skipped",
@@ -1055,7 +1057,6 @@ handlers.set("integration.webhook", async (input) => {
     );
   }
 
-  const url = await assertPublicWorkflowWebhookUrl(configuredUrl);
   const missing =
     input.node.config.missingValueBehavior === "fallback" ||
     input.node.config.missingValueBehavior === "skip" ||
@@ -1104,7 +1105,7 @@ handlers.set("integration.webhook", async (input) => {
         ] as const,
     ),
   );
-  const response = await fetch(url, {
+  const response = await requestPublicWorkflowWebhook(configuredUrl, {
     method: String(input.node.config.method || "POST"),
     headers: {
       "Content-Type":
@@ -1114,21 +1115,19 @@ handlers.set("integration.webhook", async (input) => {
       "Idempotency-Key": input.idempotencyKey,
     },
     body: input.node.config.method === "GET" ? undefined : rendered.value,
-    redirect: "manual",
-    signal: AbortSignal.timeout(
+    timeoutMs:
       Math.min(
         30,
         Math.max(1, Number(input.node.config.timeoutSeconds) || 15),
       ) * 1_000,
-    ),
+    captureResponse: Boolean(input.node.config.saveResponse),
+    maxResponseBytes: 50_000,
   });
   if (response.status >= 300 && response.status < 400)
     throw new Error("Webhook redirects are not allowed.");
   if (!response.ok)
     throw new Error(`Webhook returned HTTP ${response.status}.`);
-  const responseText = input.node.config.saveResponse
-    ? (await response.text()).slice(0, 50_000)
-    : "";
+  const responseText = input.node.config.saveResponse ? response.text : "";
   if (websiteLeadRequest)
     await recordWebsiteLeadDelivery(input, "discordNotification", {
       status: "sent",

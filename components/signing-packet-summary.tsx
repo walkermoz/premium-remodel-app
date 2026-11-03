@@ -4,6 +4,7 @@ import {
   summarizeDelivery,
   type DocumentSigningPacketView,
 } from "@/lib/document-signing";
+import WorkflowStatusBadge from "./workflow-status-badge";
 
 export default function SigningPacketSummary({
   packet,
@@ -33,7 +34,7 @@ export default function SigningPacketSummary({
   return (
     <section
       className={`workflow-signing-packet ${completed ? "is-complete" : ""}`}
-      aria-label="Customer signing packet"
+      aria-label="Customer packet"
     >
       <div className="workflow-signing-packet-heading">
         <span className="workflow-customer-handoff-icon">
@@ -44,11 +45,11 @@ export default function SigningPacketSummary({
           )}
         </span>
         <div className="workflow-customer-handoff-copy">
-          <span className="project-handoff-eyebrow">Signing packet</span>
+          <span className="project-handoff-eyebrow">Customer packet</span>
           <h3>{packet.statusLabel}</h3>
           <p>
-            {packet.statusDetail} Quote and agreement signatures use the same
-            signing session.
+            {packet.statusDetail} Every required document uses the same signing
+            session.
           </p>
         </div>
         {actions && (
@@ -73,6 +74,31 @@ export default function SigningPacketSummary({
           <dd>{summarizeDelivery(packet.delivery)}</dd>
         </div>
       </dl>
+      <ul className="workflow-signing-packet-documents">
+        {packet.documents.map((document) => (
+          <li key={document.id}>
+            <span
+              className={`workflow-document-step ${document.status === "completed" ? "is-complete" : ""}`}
+            >
+              {document.status === "completed" ? (
+                <Check size={12} aria-hidden="true" />
+              ) : (
+                document.signers.filter(
+                  (signer) => signer.required && signer.status === "signed",
+                ).length
+              )}
+            </span>
+            <p>
+              <strong>{document.title}</strong>
+              <small>{document.statusDetail}</small>
+            </p>
+            <WorkflowStatusBadge
+              status={document.status}
+              label={document.statusLabel}
+            />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

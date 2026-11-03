@@ -13,6 +13,7 @@ import {
   createClientPortalToken,
 } from "@/lib/client-portal";
 import { isValidClientQuoteSnapshot } from "@/lib/client-quote";
+import { createQuoteRevision } from "@/lib/client-quote-link";
 import { findRecord } from "@/lib/repository";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Project, Quote } from "@/lib/types";
@@ -67,6 +68,7 @@ function portalResponse(
     last_viewed_at: string | null;
     view_count: number;
     revoked_at: string | null;
+    document_revision?: number | null;
   },
 ) {
   const active = !link.revoked_at;
@@ -83,6 +85,7 @@ function portalResponse(
     createdAt: link.created_at,
     lastViewedAt: link.last_viewed_at,
     viewCount: Number(link.view_count || 0),
+    revision: link.document_revision || null,
   };
 }
 
@@ -101,7 +104,9 @@ export async function GET(request: Request) {
       );
     const { data, error } = await supabaseAdmin()
       .from("remodel_client_links")
-      .select("id,created_at,last_viewed_at,view_count,revoked_at")
+      .select(
+        "id,created_at,last_viewed_at,view_count,revoked_at,document_revision",
+      )
       .eq("organization_id", user.organizationId)
       .eq("project_id", projectId)
       .eq("kind", kind)
@@ -116,6 +121,7 @@ export async function GET(request: Request) {
             createdAt: null,
             lastViewedAt: null,
             viewCount: 0,
+            revision: null,
           },
       { headers: { "Cache-Control": "private, no-store" } },
     );
@@ -155,7 +161,9 @@ export async function POST(request: Request) {
     const admin = supabaseAdmin();
     const { data: current, error: currentError } = await admin
       .from("remodel_client_links")
-      .select("id,created_at,last_viewed_at,view_count,revoked_at")
+      .select(
+        "id,created_at,last_viewed_at,view_count,revoked_at,document_revision",
+      )
       .eq("organization_id", user.organizationId)
       .eq("project_id", projectId)
       .eq("kind", kind)
@@ -197,6 +205,13 @@ export async function POST(request: Request) {
 
     const id = randomUUID();
     const now = new Date().toISOString();
+    const revision = quoteSnapshot
+      ? await createQuoteRevision(
+          user,
+          projectId,
+          quoteSnapshot as unknown as Record<string, unknown>,
+        )
+      : null;
     const { data, error } = await admin
       .from("remodel_client_links")
       .upsert(
@@ -211,12 +226,24 @@ export async function POST(request: Request) {
           revoked_at: null,
           last_viewed_at: null,
           view_count: 0,
+          document_revision_id: revision?.id || null,
+          document_revision: revision?.revision || null,
         },
         { onConflict: "organization_id,project_id,kind" },
       )
-      .select("id,created_at,last_viewed_at,view_count,revoked_at")
+      .select(
+        "id,created_at,last_viewed_at,view_count,revoked_at,document_revision",
+      )
       .single();
-    if (error) throw error;
+    if (error) {
+      if (revision)
+        await admin
+          .from("remodel_quote_document_revisions")
+          .delete()
+          .eq("organization_id", user.organizationId)
+          .eq("id", revision.id);
+      throw error;
+    }
     await recordAuditEvent(user, {
       action: current ? "updated" : "created",
       entityKind: "client_link",
