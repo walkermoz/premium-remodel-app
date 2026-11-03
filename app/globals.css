@@ -954,27 +954,6 @@
   content: "";
   background: color-mix(in srgb, #8b9dab 43%, transparent);
 }
-@container (max-width: 700px) {
-  .workflow-tree {
-    width: 100%;
-  }
-  .workflow-tree-branches {
-    width: 100%;
-    flex-direction: column;
-    align-items: center;
-    gap: 24px;
-  }
-  .workflow-tree-branches::before,
-  .workflow-tree-branches::after,
-  .workflow-branch-line,
-  .workflow-tree-branch::before {
-    display: none;
-  }
-  .workflow-tree-branch {
-    min-width: 0;
-    width: 100%;
-  }
-}
 .workflow-branch-label {
   max-width: 190px;
   overflow: hidden;

@@ -8,6 +8,7 @@ const origin = {
 test("automation workspace visualizes the website lead workflow", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/demo?view=Automation");
   await expect(
     page.getByRole("heading", { name: "Automation." }),
@@ -26,6 +27,15 @@ test("automation workspace visualizes the website lead workflow", async ({
   ).toBeVisible();
   await expect(page.getByLabel("Lead source")).toHaveValue("Website form");
   await expect(page.getByLabel("Workflow name")).toBeDisabled();
+
+  const primaryBranches = page.locator(".workflow-tree-branches").first();
+  await expect(primaryBranches).toBeVisible();
+  const branchLayout = await primaryBranches.evaluate((element) => ({
+    direction: getComputedStyle(element).flexDirection,
+    connector: getComputedStyle(element, "::after").display,
+  }));
+  expect(branchLayout.direction).toBe("row");
+  expect(branchLayout.connector).not.toBe("none");
 
   const workflowCanvas = page.getByLabel(
     "Workflow canvas. Drag to pan. Hold Control and scroll to zoom.",
