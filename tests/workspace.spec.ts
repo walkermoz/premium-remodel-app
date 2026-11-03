@@ -481,6 +481,7 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
     for (const name of [
       /^Upcoming/,
       /^Scope & costs/,
+      /^Contracts/,
       /^Photos & files/,
       /^Activity/,
     ]) {

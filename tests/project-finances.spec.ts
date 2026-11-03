@@ -680,7 +680,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await expect(page.locator(".scope-inspector-row")).toHaveCount(0);
 });
 
-test("quote projects can be renamed or ungrouped without losing rows", async ({
+test("default project divider stays hidden without losing quote rows", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
@@ -698,34 +698,8 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
     .fill("Demo work");
   await row.getByLabel("Price per job for Demo work").fill("250");
   await row.getByRole("button", { name: "Save Demo work" }).click();
-  await expect(page.locator(".scope-section-row")).toContainText("Project #1");
-
-  await page.getByRole("button", { name: "Rename project Project #1" }).click();
-  await page.getByLabel("Project name for Project #1").fill("Kitchen phase");
-  await page.getByLabel("Project name for Project #1").press("Enter");
-  await expect(page.locator(".scope-section-row")).toContainText(
-    "Kitchen phase",
-  );
-  await page.reload();
-  await expect(page.locator(".scope-section-row")).toContainText(
-    "Kitchen phase",
-  );
-  await page
-    .getByRole("button", { name: "Rename project Kitchen phase" })
-    .click();
-  await page.getByLabel("Project name for Kitchen phase").fill("Kitchen prep");
-  await page.getByRole("heading", { name: "Scope & pricing" }).click();
-  await expect(page.locator(".scope-section-row")).toContainText(
-    "Kitchen prep",
-  );
-  await page
-    .getByRole("button", { name: "Rename project Kitchen prep" })
-    .click();
-  await page.getByLabel("Project name for Kitchen prep").fill("Not saved");
-  await page.getByLabel("Project name for Kitchen prep").press("Escape");
-  await expect(page.locator(".scope-section-row")).toContainText(
-    "Kitchen prep",
-  );
+  await expect(page.locator(".scope-section-row")).toHaveCount(0);
+  await expect(page.getByText("Project #1", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const secondRow = page.locator(".scope-new-row");
@@ -734,12 +708,6 @@ test("quote projects can be renamed or ungrouped without losing rows", async ({
     .fill("Finish work");
   await secondRow.getByLabel("Price per job for Finish work").fill("50");
   await secondRow.getByRole("button", { name: "Save Finish work" }).click();
-  await expect(page.locator(".scope-section-row")).toHaveCount(1);
-  await expect(page.locator(".scope-section-row")).toContainText("2 items");
-
-  await page
-    .getByRole("button", { name: "Remove project Kitchen prep" })
-    .click();
   await expect(page.locator(".scope-section-row")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Edit Demo work" }),

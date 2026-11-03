@@ -13,6 +13,7 @@ import {
   MessageSquare,
   ImageIcon,
   LayoutDashboard,
+  FileSignature,
   TriangleAlert,
   StickyNote,
   Share2,
@@ -49,6 +50,7 @@ export const projectTabs = [
   "Overview",
   "Upcoming",
   "Scope & costs",
+  "Contracts",
   "Notes",
   "Photos & files",
   "Activity",
@@ -437,6 +439,11 @@ export default function ProjectDetail({
             count: tasks.filter((t) => t.status !== "Done").length,
           },
           { name: "Scope & costs", icon: ListChecks, count: items.length },
+          {
+            name: "Contracts",
+            icon: FileSignature,
+            count: project.quoteAcceptedAt ? 1 : 0,
+          },
           { name: "Notes", icon: StickyNote, count: comments.length },
           { name: "Photos & files", icon: ImageIcon, count: files.length },
           {
@@ -483,17 +490,6 @@ export default function ProjectDetail({
         </div>
         {tab === "Overview" && (
           <>
-            {project.quoteAcceptedAt && (
-              <MsaDraftPanel
-                key={`${project.id}:${JSON.stringify(project.msaPaymentSchedule)}:${project.msaPermitResponsibility || ""}:${JSON.stringify(project.msaContractTerms)}`}
-                project={project}
-                items={items}
-                signer={user}
-                onSaveTerms={(terms) =>
-                  onSave("project", { ...project, ...terms }, project)
-                }
-              />
-            )}
             <ProjectPayments
               project={project}
               workspace={workspace}
@@ -582,6 +578,30 @@ export default function ProjectDetail({
             </section>
           </>
         )}
+        {tab === "Contracts" &&
+          (project.quoteAcceptedAt ? (
+            <MsaDraftPanel
+              key={`${project.id}:${JSON.stringify(project.msaPaymentSchedule)}:${project.msaPermitResponsibility || ""}:${JSON.stringify(project.msaContractTerms)}`}
+              project={project}
+              items={items}
+              signer={user}
+              onSaveTerms={(terms) =>
+                onSave("project", { ...project, ...terms }, project)
+              }
+            />
+          ) : (
+            <section className="content-section" aria-label="Contracts">
+              <div className="section-heading">
+                <div>
+                  <h2>Contracts</h2>
+                  <p>
+                    Agreements and signed contract documents will appear here
+                    after the quote is accepted.
+                  </p>
+                </div>
+              </div>
+            </section>
+          ))}
         {tab === "Upcoming" && (
           <UpcomingPanel
             workspace={workspace}

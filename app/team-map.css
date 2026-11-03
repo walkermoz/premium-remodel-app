@@ -85,6 +85,9 @@
   color: white;
   font-size: 12px;
   font-weight: 700;
+  font-family: inherit;
+  padding: 0;
+  cursor: pointer;
   box-shadow: 0 2px 8px #0004;
 }
 .teammate-pin.stale {
@@ -93,21 +96,21 @@
 .teammate-pin.selected {
   outline: 3px solid #2777c977;
 }
-.team-map-canvas .leaflet-popup-content {
+.team-map-canvas .maplibregl-popup-content {
   line-height: 1.6;
   color: #173d52;
 }
-.team-map-canvas .leaflet-popup-content p {
+.team-map-canvas .maplibregl-popup-content p {
   margin: 6px 0 0;
 }
-.team-map-canvas .leaflet-control-attribution {
+.team-map-canvas .maplibregl-ctrl-attrib {
   color: #334d60;
   background: #fffffff0;
 }
-.team-map-canvas .leaflet-control-attribution a {
+.team-map-canvas .maplibregl-ctrl-attrib a {
   color: #14548b;
 }
-.team-map-canvas .leaflet-bar a {
+.team-map-canvas .maplibregl-ctrl-group button {
   color: #173d52;
   background: white;
 }

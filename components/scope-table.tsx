@@ -42,6 +42,7 @@ import {
   validMultiplier,
 } from "@/lib/quote-bulk-pricing";
 import {
+  customerQuoteSectionName,
   DEFAULT_QUOTE_PROJECT_NAME,
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "@/lib/scope-projects";
@@ -354,7 +355,9 @@ export default function ScopeTable({
   const nextPosition =
     Math.max(-1, ...items.map((item) => item.position ?? -1)) + 1;
   const projectSections = [...sectionStats.entries()].filter(
-    ([key]) => key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}`,
+    ([key, section]) =>
+      key !== `id:${UNGROUPED_SCOPE_PROJECT_ID}` &&
+      Boolean(customerQuoteSectionName(section.name)),
   );
   const projectAccentClasses = new Map(
     projectSections.map(([key], index) => [
@@ -802,7 +805,8 @@ export default function ScopeTable({
                 <Fragment key={item.id}>
                   {startsSection &&
                     section &&
-                    item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID && (
+                    item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID &&
+                    customerQuoteSectionName(section.name) && (
                       <ScopeSectionRow
                         name={section.name}
                         count={section.count}

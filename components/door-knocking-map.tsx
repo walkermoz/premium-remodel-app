@@ -11,17 +11,10 @@ import {
   type MapMouseEvent,
 } from "maplibre-gl";
 import type { DoorVisit } from "@/lib/types";
+import { currentMapStyleUrl } from "@/lib/map-style";
 import { useRegionalFormat } from "./regional-format-context";
 
-const LIGHT_STYLE = "https://tiles.openfreemap.org/styles/bright";
-const DARK_STYLE = "https://tiles.openfreemap.org/styles/fiord";
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
-
-function mapStyle() {
-  return document.documentElement.dataset.theme === "dark"
-    ? DARK_STYLE
-    : LIGHT_STYLE;
-}
 
 function markerClass(outcome: DoorVisit["outcome"]) {
   if (outcome === "Lead captured" || outcome === "Interested") return "lead";
@@ -89,7 +82,7 @@ export default function DoorKnockingMap({
 
   useEffect(() => {
     if (!container.current || map.current) return;
-    styleUrl.current = mapStyle();
+    styleUrl.current = currentMapStyleUrl();
     const vectorMap = new VectorMap({
       container: container.current,
       style: styleUrl.current,
@@ -122,7 +115,7 @@ export default function DoorKnockingMap({
     const resize = new ResizeObserver(() => vectorMap.resize());
     resize.observe(container.current);
     const theme = new MutationObserver(() => {
-      const nextStyle = mapStyle();
+      const nextStyle = currentMapStyleUrl();
       if (nextStyle !== styleUrl.current) {
         styleUrl.current = nextStyle;
         vectorMap.setStyle(nextStyle);

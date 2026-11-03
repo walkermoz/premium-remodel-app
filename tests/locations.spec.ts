@@ -74,14 +74,25 @@ test("team page sends the phone app link through Twilio", async ({ page }) => {
 test("sample map supports selection, persistent sharing controls, stop and mobile layouts", async ({
   page,
 }) => {
+  const openStreetMapTileRequests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).hostname === "tile.openstreetmap.org")
+      openStreetMapTileRequests.push(request.url());
+  });
   await page.goto("/demo?view=Team+map");
   await expect(page.getByRole("heading", { name: "Team map." })).toBeVisible();
-  await expect(page.locator(".leaflet-container")).toBeVisible();
+  await expect(page.locator(".team-map-canvas.maplibregl-map")).toBeVisible();
+  await expect(page.locator(".teammate-pin")).toHaveCount(2);
+  await expect(page.locator(".teammate-pin").first()).toBeVisible();
+  expect(openStreetMapTileRequests).toEqual([]);
+  const teammateList = page.getByRole("complementary", {
+    name: "Teammate location updates",
+  });
   await expect(
-    page.getByRole("button", { name: /Casey Wilson/ }),
+    teammateList.getByRole("button", { name: /Casey Wilson/ }),
   ).toContainText("Last known");
-  await page.getByRole("button", { name: /Jordan Lee/ }).click();
-  await expect(page.locator(".leaflet-popup")).toContainText("Jordan Lee");
+  await teammateList.getByRole("button", { name: /Jordan Lee/ }).click();
+  await expect(page.locator(".maplibregl-popup")).toContainText("Jordan Lee");
   await page
     .getByRole("button", { name: "Share my location", exact: true })
     .click();
