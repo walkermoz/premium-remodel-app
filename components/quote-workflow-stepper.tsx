@@ -44,14 +44,8 @@ export default function QuoteWorkflowStepper({
     },
     {
       id: "agreement",
-      title: "Agreement details",
-      detail: "Dates, payments, parties, and terms",
-      complete: agreementReady,
-    },
-    {
-      id: "company",
-      title: "Company signatures",
-      detail: "Review and add required company signatures",
+      title: "Documents",
+      detail: "Agreement details and company signatures",
       complete: companyReady,
     },
     {

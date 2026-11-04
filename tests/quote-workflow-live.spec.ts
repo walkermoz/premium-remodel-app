@@ -54,21 +54,20 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
     page.getByRole("region", { name: "MSA preparation" }),
   ).toHaveCount(0);
 
-  await workflow.getByRole("button", { name: /Agreement details/ }).click();
+  await workflow.getByRole("button", { name: /Documents/ }).click();
   await expect(
-    page.getByRole("region", { name: "MSA preparation" }),
+    page.getByRole("heading", { name: "Documents", exact: true }),
   ).toBeVisible();
+  await expect(
+    workflow.getByRole("button", { name: /Company signatures/ }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Agreement preview" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("img", { name: "Draw your signature" }),
-  ).toHaveCount(0);
-
-  await workflow.getByRole("button", { name: /Company signatures/ }).click();
-  await expect(
-    page.getByRole("heading", { name: "Company signatures" }),
-  ).toBeVisible();
+  await expect(page.getByText("This is preparation for the MSA")).toHaveCount(
+    0,
+  );
+  await expect(page.getByText("Scope for Exhibit B")).toHaveCount(0);
   const signaturePad = page.getByRole("img", { name: "Draw your signature" });
   await signaturePad.scrollIntoViewIfNeeded();
   const signatureBounds = await signaturePad.boundingBox();
@@ -78,12 +77,29 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   await page.mouse.move(signatureBounds!.x + 150, signatureBounds!.y + 65);
   await page.mouse.up();
   await expect(signaturePad.locator("polyline")).toHaveCount(1);
-  await page.getByRole("button", { name: "Clear signature" }).click();
+  const clearSignature = page.getByRole("button", { name: "Clear signature" });
+  const prepareMsa = page.getByRole("button", {
+    name: "Sign and prepare MSA",
+  });
+  const clearBounds = await clearSignature.boundingBox();
+  const prepareBounds = await prepareMsa.boundingBox();
+  expect(clearBounds && prepareBounds).toBeTruthy();
+  expect(
+    prepareBounds!.y - (clearBounds!.y + clearBounds!.height),
+  ).toBeGreaterThanOrEqual(12);
+  await clearSignature.click();
   await expect(signaturePad.locator("polyline")).toHaveCount(0);
   await page.getByRole("button", { name: "Type name" }).click();
-  await expect(
-    page.getByRole("img", { name: "Typed signature preview" }),
-  ).toBeVisible();
+  const typedPreview = page.getByRole("img", {
+    name: "Typed signature preview",
+  });
+  await expect(typedPreview).toBeVisible();
+  const typedBounds = await typedPreview.boundingBox();
+  const typedPrepareBounds = await prepareMsa.boundingBox();
+  expect(typedBounds && typedPrepareBounds).toBeTruthy();
+  expect(
+    typedPrepareBounds!.y - (typedBounds!.y + typedBounds!.height),
+  ).toBeGreaterThanOrEqual(12);
   await expect(
     page.getByRole("heading", { name: "Sign and send" }),
   ).toHaveCount(0);

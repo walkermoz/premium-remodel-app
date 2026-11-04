@@ -5276,8 +5276,13 @@ small {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-bottom: 0;
+  border-radius: 8px 8px 0 0;
   background: var(--surface);
   font-size: 11px;
+}
+.scope-bulk-bar + .table-scroll {
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
 }
 .scope-select-all,
 .scope-row-selection {
@@ -5666,6 +5671,9 @@ small {
   display: grid;
   grid-template-columns: minmax(72px, 0.8fr) minmax(108px, 1.2fr);
   gap: 8px;
+}
+.scope-inspector-basis-row.is-flat {
+  grid-template-columns: minmax(0, 1fr);
 }
 .scope-inspector-basis-row label {
   min-width: 0;

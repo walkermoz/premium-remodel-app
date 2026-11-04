@@ -31,21 +31,16 @@ test("quote to project demo shows the full handoff flow", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "Master services agreement" }),
   ).toHaveCount(0);
-  await workflow.getByRole("button", { name: /Agreement details/ }).click();
-  await expect(
-    page.getByRole("heading", { name: "Agreement details" }),
-  ).toBeVisible();
+  await workflow.getByRole("button", { name: /Documents/ }).click();
+  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Master services agreement" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Continue to company approval" })
-    .click();
   await expect(
-    page.getByRole("heading", { name: "Company signatures" }),
-  ).toBeVisible();
+    workflow.getByRole("button", { name: /Company signatures/ }),
+  ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Continue to customer completion" })
+    .getByRole("button", { name: "Continue to customer signatures" })
     .click();
   await expect(
     page.getByRole("heading", { name: "Customer signatures" }),

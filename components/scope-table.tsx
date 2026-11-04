@@ -2256,39 +2256,9 @@ function QuoteCostGroup({
   return (
     <div className="scope-inspector-price-group">
       <span className="scope-inspector-group-title">{heading}</span>
-      <div className="scope-inspector-basis-row">
-        <label>
-          <span>{unit === "job" ? "Fixed qty" : quantityLabel(unit)}</span>
-          {unit === "job" ? (
-            <span
-              className="scope-cell-input scope-fixed-quantity"
-              aria-label={`${label} fixed quantity for ${itemName}`}
-            >
-              1
-            </span>
-          ) : (
-            <input
-              className="scope-cell-input scope-number-input"
-              aria-label={`${quantityLabel(unit)} for ${label.toLowerCase()} of ${itemName}`}
-              type="number"
-              min="0"
-              max="1000000000"
-              step="0.01"
-              value={quantity}
-              disabled={disabled}
-              onChange={(event) =>
-                onChange({
-                  unit,
-                  quantity: event.target.value,
-                  rate,
-                  total: String(
-                    lineTotal(Number(event.target.value), Number(rate)),
-                  ),
-                })
-              }
-            />
-          )}
-        </label>
+      <div
+        className={`scope-inspector-basis-row${unit === "job" ? " is-flat" : ""}`}
+      >
         <label>
           <span>Cost by</span>
           <select
@@ -2319,6 +2289,31 @@ function QuoteCostGroup({
             ))}
           </select>
         </label>
+        {unit !== "job" && (
+          <label>
+            <span>{quantityLabel(unit)}</span>
+            <input
+              className="scope-cell-input scope-number-input"
+              aria-label={`${quantityLabel(unit)} for ${label.toLowerCase()} of ${itemName}`}
+              type="number"
+              min="0"
+              max="1000000000"
+              step="0.01"
+              value={quantity}
+              disabled={disabled}
+              onChange={(event) =>
+                onChange({
+                  unit,
+                  quantity: event.target.value,
+                  rate,
+                  total: String(
+                    lineTotal(Number(event.target.value), Number(rate)),
+                  ),
+                })
+              }
+            />
+          </label>
+        )}
       </div>
       <label className="scope-inspector-rate">
         <span>{costRateLabel(unit)}</span>
@@ -2435,44 +2430,6 @@ function CostCell({
         <div
           className={`scope-quantity-cell${unit === "job" ? " is-flat" : ""}`}
         >
-          {unit === "job" && compact && (
-            <span className="scope-field-stack scope-fixed-quantity">
-              <span className="scope-field-label">Fixed qty</span>
-              <span
-                className="scope-cell-input"
-                aria-label={`${label} fixed quantity for ${itemName}`}
-              >
-                1
-              </span>
-            </span>
-          )}
-          {unit !== "job" && (
-            <label className="scope-field-stack">
-              {compact && (
-                <span className="scope-field-label">{quantityLabel(unit)}</span>
-              )}
-              <input
-                className="scope-cell-input scope-number-input"
-                aria-label={`${quantityLabel(unit)} for ${label.toLowerCase()} of ${itemName}`}
-                type="number"
-                min="0"
-                max="1000000000"
-                step="0.01"
-                value={quantity}
-                disabled={disabled}
-                onChange={(event) =>
-                  onChange({
-                    unit,
-                    quantity: event.target.value,
-                    rate,
-                    total: String(
-                      lineTotal(Number(event.target.value), Number(rate)),
-                    ),
-                  })
-                }
-              />
-            </label>
-          )}
           <label className="scope-field-stack">
             {compact && <span className="scope-field-label">Cost by</span>}
             <select
@@ -2503,6 +2460,33 @@ function CostCell({
               ))}
             </select>
           </label>
+          {unit !== "job" && (
+            <label className="scope-field-stack">
+              {compact && (
+                <span className="scope-field-label">{quantityLabel(unit)}</span>
+              )}
+              <input
+                className="scope-cell-input scope-number-input"
+                aria-label={`${quantityLabel(unit)} for ${label.toLowerCase()} of ${itemName}`}
+                type="number"
+                min="0"
+                max="1000000000"
+                step="0.01"
+                value={quantity}
+                disabled={disabled}
+                onChange={(event) =>
+                  onChange({
+                    unit,
+                    quantity: event.target.value,
+                    rate,
+                    total: String(
+                      lineTotal(Number(event.target.value), Number(rate)),
+                    ),
+                  })
+                }
+              />
+            </label>
+          )}
         </div>
         <div className="scope-cost-rate">
           {compact && (

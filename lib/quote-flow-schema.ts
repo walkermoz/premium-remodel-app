@@ -681,8 +681,8 @@ export const premiumRemodelQuoteFlowDefinition: QuoteFlowDefinition =
       {
         id: "agreement_details",
         type: "agreement_details",
-        title: "Agreement details",
-        description: "Dates, payments, parties, and terms",
+        title: "Documents",
+        description: "Agreement details and company signatures",
         audience: "staff",
         blocks: [
           {
@@ -713,15 +713,6 @@ export const premiumRemodelQuoteFlowDefinition: QuoteFlowDefinition =
             audience: "customer",
             bindingKey: "agreement.terms",
           },
-        ],
-      },
-      {
-        id: "company_approval",
-        type: "signature_collection",
-        title: "Company signatures",
-        description: "Review and sign as the company representative",
-        audience: "staff",
-        blocks: [
           {
             id: "staff_signature",
             type: "signature",

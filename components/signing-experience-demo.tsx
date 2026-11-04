@@ -422,7 +422,7 @@ function AppPreview({
           <nav className={styles.workflowSteps} aria-label="Quote workflow">
             {[
               ["1", "Quote & pricing", true],
-              ["2", "Agreement details", true],
+              ["2", "Documents", true],
               ["3", "Customer signatures", false],
               ["4", "Create project", false],
             ].map(([number, label, done]) => (

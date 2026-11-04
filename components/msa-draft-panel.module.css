@@ -34,16 +34,6 @@
   font-size: 13px;
 }
 
-.warning {
-  margin: 20px 0;
-  padding: 11px 13px;
-  border-left: 3px solid #a56b20;
-  color: var(--ink, #273541);
-  background: rgba(165, 107, 32, 0.08);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
 .fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -302,6 +292,11 @@
 .actions span {
   color: #39815c;
   font-size: 12px;
+}
+
+.signAction {
+  margin-top: 18px;
+  padding-inline: 16px;
 }
 
 @media (max-width: 640px) {

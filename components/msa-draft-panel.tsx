@@ -504,10 +504,6 @@ export default function MsaDraftPanel({
           </div>
         </div>
       </div>
-      <p className={styles.warning}>
-        This is preparation for the MSA, not a completed agreement. Confirm the
-        details and payment terms before sending it for signature.
-      </p>
       <dl className={styles.fields}>
         {fields.map(([label, value, source]) => (
           <div key={label}>
@@ -844,7 +840,7 @@ export default function MsaDraftPanel({
             />
             <button
               type="button"
-              className="button primary small-button"
+              className={`button primary small-button ${styles.signAction}`}
               disabled={
                 sending ||
                 !validSchedule ||
@@ -881,28 +877,6 @@ export default function MsaDraftPanel({
           </>
         </div>
       )}
-      <details className={styles.details}>
-        <summary>
-          Scope for Exhibit B{" "}
-          <span>
-            {draft.scope.length} items · {draft.scopeSource}
-          </span>
-        </summary>
-        {draft.description && <p>{draft.description}</p>}
-        {draft.scope.length ? (
-          <ol>
-            {draft.scope.map((item, index) => (
-              <li key={`${item.section}-${item.title}-${index}`}>
-                <strong>{item.title}</strong>
-                <span>{item.section}</span>
-                {item.details && <p>{item.details}</p>}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p>No items are recorded for this project.</p>
-        )}
-      </details>
     </section>
   );
 }

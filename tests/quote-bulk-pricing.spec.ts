@@ -70,6 +70,26 @@ test("select all applies cost-based pricing and saves quote prices", async ({
     await expect(row).toHaveCount(0);
   }
 
+  const bulkBar = page.locator(".scope-bulk-bar");
+  const tableSurface = page.locator(".scope-bulk-bar + .table-scroll");
+  await expect(bulkBar).toBeVisible();
+  await expect(tableSurface).toBeVisible();
+  expect(
+    await bulkBar.evaluate(
+      (element) => getComputedStyle(element).borderTopLeftRadius,
+    ),
+  ).not.toBe("0px");
+  expect(
+    await tableSurface.evaluate(
+      (element) => getComputedStyle(element).borderTopLeftRadius,
+    ),
+  ).toBe("0px");
+  expect(
+    await tableSurface.evaluate(
+      (element) => getComputedStyle(element).borderTopWidth,
+    ),
+  ).toBe("0px");
+
   const selectAll = page.getByRole("checkbox", {
     name: "Select all quote items",
   });

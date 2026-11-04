@@ -381,9 +381,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
     has: page.locator('input[value="Garage framing"]'),
   });
   await savedRow.getByLabel("Price per job for Garage framing").fill("5100.15");
-  await page
-    .getByRole("heading", { name: "Items, costs & pricing" })
-    .click();
+  await page.getByRole("heading", { name: "Items, costs & pricing" }).click();
   await expect(page.locator(".scope-table tfoot")).toContainText("$5,100.15");
   const overview = page.locator(".quote-overview");
   await expect(overview.locator(".quote-overview-metric").nth(0)).toContainText(
@@ -516,9 +514,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await page.getByRole("button", { name: "Edit Labor" }).click();
   await expect(page.getByLabel("Price per hour for Labor")).toHaveValue("80");
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
-  await page
-    .getByRole("heading", { name: "Items, costs & pricing" })
-    .click();
+  await page.getByRole("heading", { name: "Items, costs & pricing" }).click();
 
   await page.getByRole("button", { name: "Add Custom", exact: true }).click();
   const jobs = page.locator(".scope-new-row");
@@ -582,6 +578,11 @@ test("quote cost bases save independent quantities and collapse to profit summar
     await expect(
       row.getByLabel(`Subcontractor cost: ${costLabel} for Tile installation`),
     ).toBeVisible();
+    if (basis === "job") {
+      await expect(
+        subCostGroup.getByText("Fixed qty", { exact: true }),
+      ).toHaveCount(0);
+    }
   }
   await row
     .getByLabel("Material cost basis for Tile installation")
@@ -610,6 +611,14 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await row
     .getByLabel("Subcontractor cost basis for Tile installation")
     .selectOption("sq ft");
+  const subBasis = await row
+    .getByLabel("Subcontractor cost basis for Tile installation")
+    .boundingBox();
+  const subQuantityAfterBasis = await row
+    .getByLabel("Total sq ft for subcontractor cost of Tile installation")
+    .boundingBox();
+  expect(subBasis && subQuantityAfterBasis).toBeTruthy();
+  expect(subBasis!.x).toBeLessThan(subQuantityAfterBasis!.x);
   await row
     .getByLabel("Material cost: Cost per item for Tile installation")
     .fill("50");
@@ -666,9 +675,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   await page
     .getByLabel("Total items for material cost of Tile installation")
     .fill("3");
-  await page
-    .getByRole("heading", { name: "Items, costs & pricing" })
-    .click();
+  await page.getByRole("heading", { name: "Items, costs & pricing" }).click();
   await expect(summary).toHaveAttribute("aria-expanded", "true");
   await summary.click();
   await expect(summary).toHaveAttribute("aria-expanded", "false");

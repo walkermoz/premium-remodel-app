@@ -12,7 +12,7 @@ import {
 import { premiumCompatibilityQuoteFlowValues } from "@/lib/quote-flow-compatibility";
 import type { Quote } from "@/lib/types";
 
-test("Premium Remodel keeps its six-stage rules with one responsibility per stage", () => {
+test("Premium Remodel combines agreement preparation and company signing in Documents", () => {
   expect(
     premiumRemodelQuoteFlowDefinition.stages.map((stage) => [
       stage.id,
@@ -20,17 +20,26 @@ test("Premium Remodel keeps its six-stage rules with one responsibility per stag
     ]),
   ).toEqual([
     ["quote_and_pricing", "Quote & pricing"],
-    ["agreement_details", "Agreement details"],
-    ["company_approval", "Company signatures"],
+    ["agreement_details", "Documents"],
     ["send_and_complete", "Customer signatures"],
     ["deposit", "Deposit"],
     ["create_project", "Create project"],
   ]);
   expect(
     premiumRemodelQuoteFlowDefinition.stages
-      .find((stage) => stage.id === "company_approval")
+      .find((stage) => stage.id === "agreement_details")
       ?.blocks.map((block) => block.id),
-  ).toEqual(["staff_signature"]);
+  ).toEqual([
+    "premium_msa",
+    "payment_schedule",
+    "agreement_terms",
+    "staff_signature",
+  ]);
+  expect(
+    premiumRemodelQuoteFlowDefinition.stages.some(
+      (stage) => stage.id === "company_approval",
+    ),
+  ).toBe(false);
   expect(
     premiumRemodelQuoteFlowDefinition.stages
       .find((stage) => stage.id === "deposit")

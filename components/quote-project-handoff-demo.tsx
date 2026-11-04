@@ -30,8 +30,7 @@ type PreviewStage =
   "quote-signature" | "agreement-signature" | "deposit" | "ready" | "created";
 type ActionDialog = "signature" | "deposit" | null;
 type ActionMode = "tablet" | "in-person" | "check" | "other" | null;
-type WorkflowStep =
-  "quote" | "agreement" | "company" | "customer" | "deposit" | "project";
+type WorkflowStep = "quote" | "agreement" | "customer" | "deposit" | "project";
 
 export default function QuoteProjectHandoffDemo({
   quote,
@@ -108,20 +107,11 @@ export default function QuoteProjectHandoffDemo({
         {workflow}
         <AgreementPreparationStep
           quote={quote}
-          onContinue={() => setWorkflowStep("company")}
+          onContinue={() => setWorkflowStep("customer")}
         />
         {agreementDetails && (
           <div className="workflow-agreement-content">{agreementDetails}</div>
         )}
-      </>
-    );
-  }
-
-  if (workflowStep === "company") {
-    return (
-      <>
-        {workflow}
-        <CompanyApprovalStep onContinue={() => setWorkflowStep("customer")} />
       </>
     );
   }
@@ -570,14 +560,8 @@ function QuoteWorkflowStepper({
     },
     {
       id: "agreement",
-      title: "Agreement details",
-      detail: "Dates, payments, parties, and terms",
-      complete: true,
-    },
-    {
-      id: "company",
-      title: "Company signatures",
-      detail: "Review and sign the agreement",
+      title: "Documents",
+      detail: "Agreement details and company signatures",
       complete: true,
     },
     {
@@ -636,45 +620,6 @@ function QuoteWorkflowStepper({
   );
 }
 
-function CompanyApprovalStep({ onContinue }: { onContinue: () => void }) {
-  return (
-    <section className="workflow-preparation-step">
-      <header>
-        <div>
-          <span className="project-handoff-eyebrow">Step 3 · Complete</span>
-          <h2>Company signatures</h2>
-          <p>
-            The company representative reviewed the prepared packet and signed
-            the service agreement before customer delivery.
-          </p>
-        </div>
-        <span className="workflow-step-complete">
-          <CheckCircle2 size={15} /> Signed
-        </span>
-      </header>
-      <div className="workflow-agreement-review">
-        <dl>
-          <div>
-            <dt>Company signer</dt>
-            <dd>Alex Morgan · Company representative</dd>
-          </div>
-          <div>
-            <dt>Packet state</dt>
-            <dd>Ready for customer delivery</dd>
-          </div>
-        </dl>
-      </div>
-      <footer>
-        <p>Customer delivery starts only after company approval is complete.</p>
-        <button type="button" className="button primary" onClick={onContinue}>
-          Continue to customer completion
-          <ArrowRight size={15} />
-        </button>
-      </footer>
-    </section>
-  );
-}
-
 function AgreementPreparationStep({
   quote,
   onContinue,
@@ -689,10 +634,10 @@ function AgreementPreparationStep({
       <header>
         <div>
           <span className="project-handoff-eyebrow">Step 2 · Complete</span>
-          <h2>Agreement details</h2>
+          <h2>Documents</h2>
           <p>
-            Use the approved quote to prepare the service agreement without
-            re-entering the customer or items.
+            Prepare the service agreement and add the company signature without
+            re-entering the customer or quote items.
           </p>
         </div>
         <span className="workflow-step-complete">
@@ -716,6 +661,10 @@ function AgreementPreparationStep({
             <dt>Signing parties</dt>
             <dd>{quote.client} and company representative</dd>
           </div>
+          <div>
+            <dt>Company signer</dt>
+            <dd>Alex Morgan · Signed</dd>
+          </div>
         </dl>
         <div className="workflow-agreement-terms">
           <span>Included in the agreement</span>
@@ -734,9 +683,12 @@ function AgreementPreparationStep({
       </div>
 
       <footer>
-        <p>The agreement is packaged with the quote for one customer review.</p>
+        <p>
+          The signed company agreement is packaged with the quote for one
+          customer review.
+        </p>
         <button type="button" className="button primary" onClick={onContinue}>
-          Continue to company approval
+          Continue to customer signatures
           <ArrowRight size={15} />
         </button>
       </footer>

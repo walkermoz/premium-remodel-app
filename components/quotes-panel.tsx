@@ -599,6 +599,27 @@ export function QuoteDetail({
       stage.enabled &&
       quoteFlowConditionsMatch(stage.conditions, resolveFlowCondition),
   );
+  const combinedDocumentsStage =
+    configuredStages.some(
+      (stage) =>
+        stage.type === "agreement_details" &&
+        stage.blocks.some(
+          (block) => block.bindingKey === "agreement.staff_signature",
+        ),
+    ) ||
+    (!configuredStages.length && config.features.agreements);
+  const configuredStepNumber = (
+    step: QuoteWorkflowStep,
+    legacyNumber: number,
+  ) => {
+    const index = configuredStages.findIndex(
+      (stage) => legacyStepForStage(stage) === step,
+    );
+    if (index >= 0) return index + 1;
+    return combinedDocumentsStage && legacyNumber > 2
+      ? legacyNumber - 1
+      : legacyNumber;
+  };
   const configuredBlocks = configuredStages.flatMap((stage) => stage.blocks);
   const requiresAgreement =
     config.features.agreements &&
@@ -655,6 +676,23 @@ export function QuoteDetail({
     paymentRequiredCents: depositCents,
     paymentPaidCents: paidCents,
   });
+  const workflowNextAction = combinedDocumentsStage
+    ? workflowState.nextAction.id === "complete_agreement_details"
+      ? {
+          ...workflowState.nextAction,
+          title: "Complete the documents",
+          detail:
+            "Confirm the agreement details, then add the company signature in the same step.",
+        }
+      : workflowState.nextAction.id === "company_approval"
+        ? {
+            ...workflowState.nextAction,
+            title: "Sign the documents",
+            detail:
+              "Review the agreement and add the company representative’s signature before customer delivery.",
+          }
+        : workflowState.nextAction
+    : workflowState.nextAction;
   const activeConfiguredStage = configuredStages.find(
     (stage) => stage.id === configuredStageId,
   );
@@ -818,6 +856,10 @@ export function QuoteDetail({
     const configured = configuredStages.find(
       (stage) =>
         stage.type === targetType ||
+        (targetType === "signature_collection" &&
+          stage.blocks.some(
+            (block) => block.bindingKey === "agreement.staff_signature",
+          )) ||
         (targetType === "deposit_payment" &&
           stage.blocks.some((block) => block.type === "deposit_collection")),
     );
@@ -1605,7 +1647,7 @@ export function QuoteDetail({
       )}
       {!handoffDemo && (
         <QuoteNextAction
-          action={workflowState.nextAction}
+          action={workflowNextAction}
           primary={
             ["complete_quote", "add_delivery_contact"].includes(
               workflowState.nextAction.id,
@@ -1668,8 +1710,12 @@ export function QuoteDetail({
                   : workflowState.nextAction.id === "collect_payment"
                     ? "Review deposit"
                     : workflowState.nextAction.id === "company_approval"
-                      ? "Review and sign agreement"
-                      : "Open agreement details"}
+                      ? combinedDocumentsStage
+                        ? "Open Documents"
+                        : "Review and sign agreement"
+                      : combinedDocumentsStage
+                        ? "Open Documents"
+                        : "Open agreement details"}
               </button>
             )
           }
@@ -2263,16 +2309,24 @@ export function QuoteDetail({
         </section>
       )}
       {!handoffDemo && showAgreementStage && (
-        <section className="workflow-live-step" aria-label="Agreement details">
+        <section
+          className="workflow-live-step"
+          aria-label={
+            combinedDocumentsStage ? "Documents" : "Agreement details"
+          }
+        >
           <header>
             <span className="project-handoff-eyebrow">Step 2</span>
-            <h2>Agreement details</h2>
+            <h2>
+              {combinedDocumentsStage ? "Documents" : "Agreement details"}
+            </h2>
             <p>
-              Confirm payment milestones, contract terms, dates, and parties
-              before anything is sent for signature.
+              {combinedDocumentsStage
+                ? "Confirm the agreement details and add the company signature before sharing the documents with the customer."
+                : "Confirm payment milestones, contract terms, dates, and parties before anything is sent for signature."}
             </p>
           </header>
-          {agreementPanel || (
+          {(combinedDocumentsStage ? companyApprovalPanel : agreementPanel) || (
             <div className="alert">Add at least one quote item first.</div>
           )}
           <footer>
@@ -2286,10 +2340,18 @@ export function QuoteDetail({
             <button
               type="button"
               className="button primary"
-              disabled={requiresAgreement && !agreementDetailsReady}
-              onClick={() => setWorkflowStep("company")}
+              disabled={
+                combinedDocumentsStage
+                  ? !companyApprovalReady
+                  : requiresAgreement && !agreementDetailsReady
+              }
+              onClick={() =>
+                setWorkflowStep(combinedDocumentsStage ? "customer" : "company")
+              }
             >
-              Continue to company signatures
+              {combinedDocumentsStage
+                ? "Continue to customer signatures"
+                : "Continue to company signatures"}
             </button>
           </footer>
         </section>
@@ -2332,7 +2394,9 @@ export function QuoteDetail({
           aria-label="Customer signatures"
         >
           <header>
-            <span className="project-handoff-eyebrow">Step 4</span>
+            <span className="project-handoff-eyebrow">
+              Step {configuredStepNumber("customer", 4)}
+            </span>
             <h2>Customer signatures</h2>
             <p>
               Share one customer packet and complete every required customer
@@ -2401,9 +2465,15 @@ export function QuoteDetail({
             <button
               type="button"
               className="button secondary"
-              onClick={() => setWorkflowStep("company")}
+              onClick={() =>
+                setWorkflowStep(
+                  combinedDocumentsStage ? "agreement" : "company",
+                )
+              }
             >
-              Back to company approval
+              {combinedDocumentsStage
+                ? "Back to Documents"
+                : "Back to company approval"}
             </button>
             <button
               type="button"
@@ -2419,7 +2489,9 @@ export function QuoteDetail({
       {!handoffDemo && showDepositStage && (
         <section className="workflow-live-step" aria-label="Deposit">
           <header>
-            <span className="project-handoff-eyebrow">Step 5</span>
+            <span className="project-handoff-eyebrow">
+              Step {configuredStepNumber("deposit", 5)}
+            </span>
             <h2>Deposit</h2>
             <p>
               Collect the configured deposit online or record an offline payment
@@ -2440,7 +2512,7 @@ export function QuoteDetail({
                     {readyForProjects ? (
                       <Check size={14} aria-hidden="true" />
                     ) : (
-                      "5"
+                      configuredStepNumber("deposit", 5)
                     )}
                   </span>
                 </div>
@@ -2530,7 +2602,9 @@ export function QuoteDetail({
       {!handoffDemo && showProjectStage && (
         <section className="workflow-live-step" aria-label="Create project">
           <header>
-            <span className="project-handoff-eyebrow">Step 6</span>
+            <span className="project-handoff-eyebrow">
+              Step {configuredStepNumber("project", 6)}
+            </span>
             <h2>Create project</h2>
             <p>
               The completed quote, required documents, payments, customer,
