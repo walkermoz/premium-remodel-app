@@ -492,7 +492,8 @@ export default function BusinessOnboarding({
                   required
                   disabled={smsSending}
                 />
-                This is my number
+                <span className="onboarding-checkbox" aria-hidden="true" />
+                <span>This is my number</span>
               </label>
               <button
                 className="button secondary"

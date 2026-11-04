@@ -7404,16 +7404,77 @@ small {
   margin-top: 7px;
 }
 .onboarding-own-number {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding-bottom: 9px;
   color: var(--muted);
   font-size: 11px;
+  line-height: 1.3;
   white-space: nowrap;
+  cursor: pointer;
 }
-.onboarding-own-number input {
+.onboarding-own-number input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
   margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+.onboarding-checkbox {
+  position: relative;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, var(--ink) 38%);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--blue) 6%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.onboarding-checkbox::after {
+  width: 4px;
+  height: 8px;
+  margin-top: -2px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  content: "";
+  opacity: 0;
+  transform: rotate(45deg) scale(0.75);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+.onboarding-own-number:hover .onboarding-checkbox {
+  border-color: color-mix(in srgb, var(--line) 42%, var(--blue) 58%);
+}
+.onboarding-own-number input:focus-visible + .onboarding-checkbox {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+.onboarding-own-number input:checked + .onboarding-checkbox {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+.onboarding-own-number input:checked + .onboarding-checkbox::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+:root[data-theme="dark"] .onboarding-checkbox::after {
+  border-color: #0c2335;
+}
+.onboarding-own-number:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 .onboarding-create label {
   flex: 1 1 230px;
@@ -7525,18 +7586,30 @@ small {
 .media-draft-editor textarea {
   width: 100%;
   min-height: 42px;
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, var(--ink) 38%);
+  border-radius: 8px;
   outline: 0;
-  background: var(--surface-raised);
-  color: var(--text);
-  padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--blue) 6%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent),
+    0 1px 2px #0000000a;
+  color: var(--ink);
+  padding: 11px 12px;
   font: inherit;
   font-weight: 500;
   line-height: 1.5;
   transition:
+    background-color 140ms ease,
     border-color 140ms ease,
     box-shadow 140ms ease;
+}
+
+.media-brief input:hover:not(:disabled),
+.media-brief textarea:hover:not(:disabled),
+.media-brief select:hover:not(:disabled),
+.media-draft-editor input:hover:not(:disabled),
+.media-draft-editor textarea:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--line) 46%, var(--blue) 54%);
 }
 
 .media-brief input:focus,
@@ -7544,8 +7617,28 @@ small {
 .media-brief select:focus,
 .media-draft-editor input:focus,
 .media-draft-editor textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
+  border-color: var(--blue);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.media-brief input::placeholder,
+.media-brief textarea::placeholder,
+.media-draft-editor input::placeholder,
+.media-draft-editor textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+.media-brief input:disabled,
+.media-brief textarea:disabled,
+.media-brief select:disabled,
+.media-draft-editor input:disabled,
+.media-draft-editor textarea:disabled {
+  background: color-mix(in srgb, var(--surface) 88%, var(--line) 12%);
+  opacity: 0.72;
 }
 
 .media-brief textarea,
