@@ -232,10 +232,17 @@ async function ClientSectionView({
             ? "Your signed agreement and deposit options are below."
             : "Review the full agreement before signing."}
         </p>
-        <MsaDocument
-          agreement={displayedAgreement}
-          highlightOwnerSignature={onsite && agreement.status === "sent"}
-        />
+        <div
+          className={styles.msaDocumentScroll}
+          role="region"
+          aria-label="Scrollable master services agreement"
+          tabIndex={0}
+        >
+          <MsaDocument
+            agreement={displayedAgreement}
+            highlightOwnerSignature={onsite && agreement.status === "sent"}
+          />
+        </div>
         {agreement.status === "sent" && (
           <MsaAcceptance token={token} agreement={displayedAgreement} />
         )}

@@ -380,6 +380,15 @@ cloudTest(
       .eq("kind", "quote");
     expect(seeded.error).toBeNull();
     await customerPage.goto(`${link.url}?view=msa`);
+    const agreementPreview = customerPage.getByRole("region", {
+      name: "Scrollable master services agreement",
+    });
+    await expect(agreementPreview).toBeVisible();
+    expect(
+      await agreementPreview.evaluate(
+        (element) => element.scrollHeight > element.clientHeight,
+      ),
+    ).toBe(true);
     await expect(
       customerPage.getByRole("link", { name: "View invoice" }),
     ).toBeVisible();

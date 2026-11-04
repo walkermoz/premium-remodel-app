@@ -180,6 +180,27 @@
   line-height: 1.5;
 }
 
+.msaDocumentScroll {
+  max-height: min(68svh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border: 1px solid #c9d6df;
+  border-radius: 8px;
+  background: #e5edf2;
+  box-shadow: inset 0 1px 3px rgb(16 43 61 / 8%);
+}
+
+.msaDocumentScroll:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.msaDocumentScroll > * {
+  border: 0;
+  box-shadow: none;
+}
+
 .contactCard,
 .walletCard {
   padding: 30px 32px;
@@ -1706,6 +1727,13 @@
 }
 
 @media print {
+  .msaDocumentScroll {
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    box-shadow: none;
+  }
+
   .page {
     padding: 0;
     background: #fff;
