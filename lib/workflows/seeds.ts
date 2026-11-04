@@ -74,6 +74,7 @@ export type WebsiteLeadSeedOptions = {
   triggerMode?: "website_form" | "inbound_webhook";
   compatibilityMode?: "generic" | "premium_legacy";
   teamNotificationUrlSecretId?: string;
+  smsRecipients?: Array<{ name: string; phone: string }>;
 };
 
 export function websiteLeadWorkflowSeed(
@@ -85,6 +86,7 @@ export function websiteLeadWorkflowSeed(
   const legacyTeamNotification =
     options.teamNotificationMode !== "disabled_custom_https";
   const inboundWebhook = options.triggerMode === "inbound_webhook";
+  const smsRecipients = options.smsRecipients || [];
   return workflowDefinitionSchema.parse({
     graph: {
       schemaVersion: 1,
@@ -221,6 +223,17 @@ export function websiteLeadWorkflowSeed(
               order: 2,
               kind: "always",
             },
+            ...(smsRecipients.length
+              ? [
+                  {
+                    id: "router-lead-alert-sms",
+                    to: "lead-alert-sms",
+                    label: "Send SMS",
+                    order: 3,
+                    kind: "always" as const,
+                  },
+                ]
+              : []),
           ],
         },
         {
@@ -349,6 +362,38 @@ export function websiteLeadWorkflowSeed(
           config: { reason: "Team path complete" },
           outgoing: [],
         },
+        ...(smsRecipients.length
+          ? [
+              {
+                id: "lead-alert-sms",
+                type: "action.sendDirectSms",
+                kind: "action" as const,
+                name: "Send new lead SMS",
+                config: {
+                  enabled: true,
+                  recipients: smsRecipients,
+                  body: "New {{event.payload.project}} lead\n{{event.payload.name}}\nPhone: {{event.payload.phone}}\nEmail: {{event.payload.email}}\nAddress: {{event.payload.address}} {{event.payload.zip}}\nOpen ServiceBuddy to follow up.",
+                  missingValueBehavior: "blank",
+                },
+                outgoing: [
+                  {
+                    id: "lead-alert-sms-end",
+                    to: "end-lead-alert-sms",
+                    label: "Sent",
+                    order: 0,
+                  },
+                ],
+              },
+              {
+                id: "end-lead-alert-sms",
+                type: "control.end",
+                kind: "terminal" as const,
+                name: "SMS path complete",
+                config: { reason: "SMS recipients notified" },
+                outgoing: [],
+              },
+            ]
+          : []),
       ],
     },
     settings: {
@@ -373,6 +418,12 @@ export function websiteLeadWorkflowSeed(
         "end-email": { x: 60, y: 860 },
         "end-sms": { x: 480, y: 1010 },
         "end-team": { x: 900, y: 860 },
+        ...(smsRecipients.length
+          ? {
+              "lead-alert-sms": { x: 1320, y: 680 },
+              "end-lead-alert-sms": { x: 1320, y: 860 },
+            }
+          : {}),
       },
     },
   });

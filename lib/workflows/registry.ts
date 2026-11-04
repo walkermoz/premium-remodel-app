@@ -156,6 +156,31 @@ const sendSmsSchema = z.object({
   connectionId: z.string().uuid().optional(),
 });
 
+const sendDirectSmsSchema = z.object({
+  enabled: z.boolean().default(true),
+  connectionFailureBehavior: connectionFailureBehaviorSchema,
+  recipients: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        phone: z
+          .string()
+          .trim()
+          .min(7)
+          .max(40)
+          .regex(/^\+?[0-9().\-\s]+$/, "Enter a valid recipient phone number."),
+      }),
+    )
+    .min(1)
+    .max(20),
+  body: z.string().min(1).max(1_600),
+  missingValueBehavior: z
+    .enum(["blank", "fallback", "skip", "error"])
+    .default("blank"),
+  fallbackValue: z.string().max(500).optional(),
+  connectionId: z.string().uuid().optional(),
+});
+
 const notificationSchema = z.object({
   enabled: z.boolean().default(true),
   connectionFailureBehavior: connectionFailureBehaviorSchema,
@@ -602,6 +627,20 @@ register({
   connection: "sms",
   sideEffect: true,
   executor: "communication.sendSms",
+});
+register({
+  type: "action.sendDirectSms",
+  kind: "action",
+  category: "Communication",
+  name: "Send SMS",
+  description: "Send an SMS to one or more configured recipients.",
+  icon: "MessagesSquare",
+  configSchema: sendDirectSmsSchema,
+  outputFields: ["status", "deliveries"],
+  retry: "none",
+  connection: "sms",
+  sideEffect: true,
+  executor: "communication.sendDirectSms",
 });
 register({
   type: "action.internalNotification",

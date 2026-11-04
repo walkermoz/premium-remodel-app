@@ -111,6 +111,7 @@ export async function getOrganizationConnectionRegistry(
   const websiteReady = originalWebsite || (inboundHooks.count || 0) > 0;
   const automationsEnabled = config.modules.automations;
   const imageGenerationEnabled = config.modules.imageGeneration;
+  const aiToolsEnabled = imageGenerationEnabled || config.modules.media;
 
   return {
     organizationId: user.organizationId,
@@ -162,13 +163,13 @@ export async function getOrganizationConnectionRegistry(
       openrouter_generation: capability(
         "openrouter_generation",
         "AI tools",
-        !imageGenerationEnabled
+        !aiToolsEnabled
           ? "disabled"
           : process.env.OPENROUTER_API_KEY
             ? "ready"
             : "missing",
-        !imageGenerationEnabled
-          ? "AI generation is disabled for this business."
+        !aiToolsEnabled
+          ? "AI tools are disabled for this business."
           : process.env.OPENROUTER_API_KEY
             ? "OpenRouter is connected for proposal imports and renovation previews."
             : "OpenRouter needs platform configuration before this business can import proposals or generate previews.",

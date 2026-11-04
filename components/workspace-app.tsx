@@ -39,6 +39,7 @@ import {
   Inbox,
   Footprints,
   Workflow,
+  Newspaper,
 } from "lucide-react";
 import { demoWorkspace } from "@/lib/demo";
 import { quoteProjectHandoffDemoWorkspace } from "@/lib/demo-quote-handoff";
@@ -93,6 +94,7 @@ import { contractClock, projectDates } from "@/lib/project-timing";
 import TeamPanel from "./team-panel";
 import SettingsPanel from "./settings-panel";
 import GeneratePanel from "./generate-panel";
+import MediaPanel from "./media-panel";
 import JobActivity from "./job-activity";
 import RecentActivity from "./recent-activity";
 import { ThemeToggle } from "./theme-controls";
@@ -128,6 +130,7 @@ type Page =
   | "Upcoming"
   | "Activity"
   | "Contractors"
+  | "Media"
   | "Generate"
   | "Team"
   | "Team map"
@@ -1290,6 +1293,7 @@ export default function WorkspaceApp({
           { name: "Door knocking", icon: Footprints },
           { name: "Upcoming", icon: CalendarDays, count: openTasks.length },
           { name: "Contractors", icon: HardHat },
+          { name: "Media", icon: Newspaper },
           { name: "Generate", icon: WandSparkles },
         ];
   const menus = baseMenus
@@ -1774,6 +1778,14 @@ export default function WorkspaceApp({
                       "workflows.manage",
                     )
                   }
+                />
+              )}
+              {page === "Media" && (
+                <MediaPanel
+                  demo={demo}
+                  businessName={config.profile.name}
+                  website={config.profile.website}
+                  serviceArea={config.regional.serviceArea}
                 />
               )}
               {page === "Contacts" && (

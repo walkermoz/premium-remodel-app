@@ -73,6 +73,26 @@ function previewAction(node: WorkflowNode, context: WorkflowContext) {
           : undefined,
     };
   }
+  if (node.type === "action.sendDirectSms") {
+    const body = interpolateWorkflowText(String(config.body || ""), context, {
+      missing:
+        config.missingValueBehavior === "fallback" ||
+        config.missingValueBehavior === "skip" ||
+        config.missingValueBehavior === "error"
+          ? config.missingValueBehavior
+          : "blank",
+      fallback:
+        typeof config.fallbackValue === "string"
+          ? config.fallbackValue
+          : undefined,
+    });
+    return {
+      recipients: config.recipients,
+      body: body.value,
+      skipped: config.enabled === false || body.skipped,
+      systemPolicy: "Organization number and DND enforced",
+    };
+  }
   if (node.type === "action.internalNotification")
     return {
       title: interpolateWorkflowText(String(config.title || ""), context).value,

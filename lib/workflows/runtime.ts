@@ -518,6 +518,7 @@ export async function runWorkflowRuntime(input: {
       [
         "action.sendEmail",
         "action.sendSms",
+        "action.sendDirectSms",
         "action.internalNotification",
       ].includes(node.type)
     ) {

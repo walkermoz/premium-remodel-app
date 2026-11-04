@@ -43,6 +43,7 @@ export function defaultBusinessConfig(
       payments: premium,
       doorKnocking: true,
       imageGeneration: true,
+      media: true,
       agreements: organizationId
         ? premiumAgreementEnabled(organizationId)
         : premium,
@@ -53,6 +54,7 @@ export function defaultBusinessConfig(
       payments: premium,
       doorKnocking: true,
       imageGeneration: true,
+      media: true,
       automations: premium,
       agreements: premium,
     },
@@ -133,6 +135,9 @@ export async function getBusinessConfigForOrganization(
     ? saved.data.navigation
     : defaults.navigation;
   const savedRoles = saved.data.role_navigation || {};
+  const mediaWasPreviouslyUnavailable =
+    typeof (saved.data.modules as Record<string, unknown> | null)?.media !==
+    "boolean";
   const roleNavigation = Object.fromEntries(
     workspaceGroups.map((group) => {
       const configured =
@@ -141,6 +146,18 @@ export async function getBusinessConfigForOrganization(
       const effective = configured.filter((page) =>
         legacyNavigation.includes(page),
       );
+      if (
+        mediaWasPreviouslyUnavailable &&
+        group !== "doorknocker" &&
+        !effective.includes("Media")
+      ) {
+        const generateIndex = effective.indexOf("Generate");
+        effective.splice(
+          generateIndex < 0 ? effective.length : generateIndex,
+          0,
+          "Media",
+        );
+      }
       if (!effective.includes("Settings")) effective.push("Settings");
       return [group, effective];
     }),
@@ -196,6 +213,7 @@ export async function saveBusinessConfig(
   config.features.payments = config.modules.payments;
   config.features.doorKnocking = config.modules.doorKnocking;
   config.features.imageGeneration = config.modules.imageGeneration;
+  config.features.media = config.modules.media;
   config.features.twilio = await hasTwilioConnection(user.organizationId);
   const { error } = await supabaseAdmin()
     .from("remodel_business_config")

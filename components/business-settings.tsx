@@ -40,6 +40,11 @@ const moduleOptions: Array<{
     description: "AI-assisted renovation concept generation.",
   },
   {
+    id: "media",
+    label: "Media",
+    description: "AI-assisted blog and marketing content creation.",
+  },
+  {
     id: "automations",
     label: "Automations",
     description: "Decision-tree workflows, webhooks, and actions.",
@@ -608,8 +613,8 @@ export default function BusinessSettings({
             </div>
             <p className="generation-note">
               Disabling a module hides its workspace entry points. Existing
-              records and configuration are retained and return if the module
-              is enabled again.
+              records and configuration are retained and return if the module is
+              enabled again.
             </p>
           </div>
         )}

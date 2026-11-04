@@ -17,7 +17,10 @@ export function workflowNodeConnectionRequirement(
   if (node.config.enabled === false) return null;
   if (node.type === "action.sendEmail")
     return { capabilityId: "google_mail", label: "company email" };
-  if (node.type === "action.sendSms")
+  if (
+    node.type === "action.sendSms" ||
+    node.type === "action.sendDirectSms"
+  )
     return { capabilityId: "twilio_sms", label: "company texting" };
   if (node.type === "action.internalNotification")
     return {

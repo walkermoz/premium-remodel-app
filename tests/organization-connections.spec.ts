@@ -84,6 +84,23 @@ test("required workflow connections block publishing and optional actions warn",
   ).toBe(false);
 });
 
+test("direct SMS actions require the organization Twilio connection", () => {
+  expect(
+    workflowNodeConnectionRequirement({
+      id: "lead-alert-sms",
+      type: "action.sendDirectSms",
+      kind: "action",
+      name: "Send SMS",
+      config: {
+        enabled: true,
+        recipients: [{ name: "Matt", phone: "+19194139782" }],
+        body: "New lead",
+      },
+      outgoing: [],
+    }),
+  ).toEqual({ capabilityId: "twilio_sms", label: "company texting" });
+});
+
 test("arbitrary public HTTPS actions need no prior connection, while protected requests need their exact secret", () => {
   const definition = websiteLeadWorkflowSeed();
   const webhook = definition.graph.nodes.find(

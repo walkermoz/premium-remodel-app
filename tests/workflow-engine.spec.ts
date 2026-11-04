@@ -132,6 +132,96 @@ test("seeded production workflows are valid registered graphs", () => {
   });
 });
 
+test("Premium website leads fan out to a configurable SMS action", () => {
+  const recipients = [
+    { name: "Matt", phone: "+19194139782" },
+    { name: "Walker", phone: "+19194344860" },
+  ];
+  const workflow = websiteLeadWorkflowSeed({
+    smsRecipients: recipients,
+  });
+  const validation = workflowCanPublish(workflow);
+  expect(validation.valid, JSON.stringify(validation.issues, null, 2)).toBe(
+    true,
+  );
+  expect(
+    workflow.graph.nodes.find((node) => node.id === "delivery-router")
+      ?.outgoing,
+  ).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        to: "lead-alert-sms",
+        label: "Send SMS",
+        kind: "always",
+      }),
+    ]),
+  );
+  expect(
+    workflow.graph.nodes.find((node) => node.id === "lead-alert-sms"),
+  ).toEqual(
+    expect.objectContaining({
+      type: "action.sendDirectSms",
+      config: expect.objectContaining({
+        recipients: [
+          { name: "Matt", phone: "+19194139782" },
+          { name: "Walker", phone: "+19194344860" },
+        ],
+      }),
+    }),
+  );
+  expect(
+    simulateWorkflow(
+      workflow,
+      event("website.form.submitted", {
+        name: "Taylor Reed",
+        email: "taylor@example.com",
+        phone: "+19195550123",
+        project: "Kitchen Remodel",
+      }),
+    ).steps,
+  ).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        nodeId: "lead-alert-sms",
+        status: "planned",
+        preview: expect.objectContaining({
+          recipients,
+        }),
+      }),
+    ]),
+  );
+});
+
+test("direct SMS uses the organization number without a customer consent gate", () => {
+  const definition = workflowNodeDefinition("action.sendDirectSms");
+  expect(definition).toMatchObject({
+    name: "Send SMS",
+    connection: "sms",
+    retry: "none",
+    executor: "communication.sendDirectSms",
+  });
+  expect(
+    definition?.validate({
+      enabled: true,
+      recipients: [{ name: "Operations", phone: "+19195550123" }],
+      body: "New lead: {{event.payload.name}}",
+    }).valid,
+  ).toBe(true);
+  const executor = readFileSync("lib/workflows/executors.ts", "utf8");
+  expect(executor).toContain('handlers.set("communication.sendDirectSms"');
+  expect(executor).toContain("sendOrganizationSms(input.organizationId");
+  expect(executor).not.toContain(
+    'handlers.set("communication.sendDirectSms", async (input) => {\n  return sendCustomerSms',
+  );
+  const migration = readFileSync(
+    "supabase/migrations/202611030004_premium_lead_sms_notifications.sql",
+    "utf8",
+  );
+  expect(migration).toContain("+19194139782");
+  expect(migration).toContain("+19194344860");
+  expect(migration).toContain("action.sendDirectSms");
+});
+
 test("new-organization website starter is generic, disabled, and publishable", () => {
   const starter = websiteLeadWorkflowSeed({
     sendTeamNotification: false,

@@ -489,7 +489,11 @@ function nodeIcon(node: WorkflowNode) {
   if (node.type === "logic.wait") return Clock3;
   if (node.type.startsWith("system.")) return ShieldCheck;
   if (node.type === "control.end") return CircleStop;
-  if (node.type === "action.sendSms") return MessageSquareText;
+  if (
+    node.type === "action.sendSms" ||
+    node.type === "action.sendDirectSms"
+  )
+    return MessageSquareText;
   if (node.type === "action.webhook") return Webhook;
   return Workflow;
 }
@@ -513,6 +517,14 @@ function nodeSummary(node: WorkflowNode) {
     return node.config.enabled === false
       ? "Disabled"
       : "Consent-checked Contact text";
+  if (node.type === "action.sendDirectSms") {
+    const recipients = Array.isArray(node.config.recipients)
+      ? node.config.recipients
+      : [];
+    return node.config.enabled === false
+      ? "Disabled"
+      : `${recipients.length} recipient${recipients.length === 1 ? "" : "s"}`;
+  }
   if (node.type === "action.webhook")
     return `${String(node.config.method || "POST")} · ${node.config.destination === "discord_lead_webhook" ? "Connected Discord webhook" : String(node.config.url || "Configure HTTPS URL")}`;
   if (node.type === "action.createLead") return "Create and link a Lead";
@@ -1009,6 +1021,13 @@ function starterConfig(type: string): Record<string, unknown> {
       body: "",
       category: "appointment",
       missingValueBehavior: "skip",
+    };
+  if (type === "action.sendDirectSms")
+    return {
+      enabled: true,
+      recipients: [{ name: "Recipient", phone: "" }],
+      body: "New {{event.payload.project}} lead: {{event.payload.name}}. Open ServiceBuddy to follow up.",
+      missingValueBehavior: "blank",
     };
   if (type === "action.internalNotification")
     return { enabled: true, channel: "connected_team", title: "", body: "" };
@@ -4956,6 +4975,139 @@ export default function WorkflowAutomationPanel({
                       Preview this action in Test mode before publishing. SMS
                       always passes through the system consent and Do Not
                       Disturb policy gate.
+                    </p>
+                  </div>
+                )}
+                {selectedNode.type === "action.sendDirectSms" && (
+                  <div className="workflow-schedule-editor">
+                    <label className="workflow-checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={selectedNode.config.enabled !== false}
+                        disabled={!editable}
+                        onChange={(event) =>
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              enabled: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                      <span>Action enabled</span>
+                    </label>
+                    <div className="workflow-inspector-section-title">
+                      <span>Recipients</span>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={!editable}
+                        onClick={() => {
+                          const recipients = Array.isArray(
+                            selectedNode.config.recipients,
+                          )
+                            ? selectedNode.config.recipients
+                            : [];
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              recipients: [
+                                ...recipients,
+                                { name: "", phone: "" },
+                              ],
+                            },
+                          });
+                        }}
+                      >
+                        <Plus size={13} />
+                        Add recipient
+                      </button>
+                    </div>
+                    {(
+                      (selectedNode.config.recipients as Array<{
+                        name: string;
+                        phone: string;
+                      }>) || []
+                    ).map((recipient, index, recipients) => (
+                      <div
+                        className="workflow-request-header"
+                        key={`${selectedNode.id}-recipient-${index}`}
+                      >
+                        <input
+                          aria-label={`Recipient ${index + 1} name`}
+                          value={recipient.name}
+                          disabled={!editable}
+                          placeholder="Name"
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                recipients: recipients.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, name: event.target.value }
+                                    : item,
+                                ),
+                              },
+                            })
+                          }
+                        />
+                        <input
+                          aria-label={`Recipient ${index + 1} phone`}
+                          value={recipient.phone}
+                          disabled={!editable}
+                          inputMode="tel"
+                          placeholder="+1 919 555 0123"
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                recipients: recipients.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, phone: event.target.value }
+                                    : item,
+                                ),
+                              },
+                            })
+                          }
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Remove ${recipient.name || `recipient ${index + 1}`}`}
+                          disabled={!editable || recipients.length === 1}
+                          onClick={() =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                recipients: recipients.filter(
+                                  (_, itemIndex) => itemIndex !== index,
+                                ),
+                              },
+                            })
+                          }
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="workflow-field">
+                      <span>Message</span>
+                      <textarea
+                        value={String(selectedNode.config.body || "")}
+                        disabled={!editable}
+                        placeholder="Use {{event.payload.name}} to insert workflow values."
+                        onChange={(event) =>
+                          updateNode({
+                            config: {
+                              ...selectedNode.config,
+                              body: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                    <p className="workflow-condition-help">
+                      Uses the company Twilio number. STOP and Do Not Disturb
+                      are always respected for every recipient.
                     </p>
                   </div>
                 )}

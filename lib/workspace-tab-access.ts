@@ -43,6 +43,7 @@ export function canOpenWorkspaceTab(
   if (tab === "Door knocking") return config.modules.doorKnocking;
   if (tab === "Price book") return config.modules.priceBook;
   if (tab === "Generate") return config.modules.imageGeneration;
+  if (tab === "Media") return config.modules.media;
   if (tab === "Automation") return config.modules.automations;
   return true;
 }

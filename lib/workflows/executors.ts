@@ -15,6 +15,7 @@ import { websiteLeadSmsBody } from "../lead-sms-copy";
 import {
   applySmsComplianceEvent,
   sendCustomerSms,
+  sendOrganizationSms,
   SmsConsentRequiredError,
   SmsDoNotDisturbError,
 } from "../sms-compliance";
@@ -989,6 +990,80 @@ handlers.set("communication.sendSms", async (input) => {
     summary: `SMS sent to ${recipient}.`,
     output: { status: "sent", messageSid: sent.sid },
     providerId: sent.sid,
+  };
+});
+
+handlers.set("communication.sendDirectSms", async (input) => {
+  assertOrganizationSender(input, "sms");
+  if (input.node.config.enabled === false)
+    return {
+      status: "skipped",
+      summary: "SMS action is disabled.",
+    };
+
+  const missing = String(input.node.config.missingValueBehavior || "blank") as
+    | "blank"
+    | "fallback"
+    | "skip"
+    | "error";
+  const rendered = interpolateWorkflowText(
+    String(input.node.config.body || ""),
+    input.context,
+    {
+      missing,
+      fallback: String(input.node.config.fallbackValue || ""),
+    },
+  );
+  if (rendered.skipped)
+    return {
+      status: "skipped",
+      summary: "SMS messages were skipped because a workflow value is missing.",
+    };
+
+  const recipients = input.node.config.recipients as Array<{
+    name: string;
+    phone: string;
+  }>;
+  const attempts = await Promise.allSettled(
+    recipients.map(async (recipient) => {
+      const sent = await sendOrganizationSms(input.organizationId, {
+        to: recipient.phone,
+        body: rendered.value,
+      });
+      return { name: recipient.name, messageSid: sent.sid };
+    }),
+  );
+  const deliveries = attempts.flatMap((attempt) =>
+    attempt.status === "fulfilled" ? [attempt.value] : [],
+  );
+  const failedNames = attempts.flatMap((attempt, index) =>
+    attempt.status === "rejected" ? [recipients[index].name] : [],
+  );
+
+  if (failedNames.length) {
+    const firstFailure = attempts.find(
+      (attempt): attempt is PromiseRejectedResult =>
+        attempt.status === "rejected",
+    );
+    if (
+      deliveries.length === 0 &&
+      firstFailure?.reason instanceof TwilioConnectionError
+    ) {
+      if (skipsUnavailableConnection(input.node))
+        return unavailableConnectionResult(
+          "SMS messages skipped because company texting is not connected.",
+        );
+      throw new WorkflowConfigurationError(firstFailure.reason.message);
+    }
+    throw new Error(
+      `${deliveries.length} SMS message${deliveries.length === 1 ? " was" : "s were"} sent, but delivery failed for ${failedNames.join(", ")}. The action will not retry automatically.`,
+    );
+  }
+
+  return {
+    summary: `SMS sent to ${deliveries.map((delivery) => delivery.name).join(", ")}.`,
+    output: { status: "sent", deliveries },
+    providerId: deliveries[0]?.messageSid,
   };
 });
 
