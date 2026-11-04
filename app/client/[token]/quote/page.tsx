@@ -50,6 +50,7 @@ import {
 } from "@/lib/scope-projects";
 import { appearsOnCustomerQuote } from "@/lib/customer-quote-scope";
 import { resolveQuotePriceDisplay } from "@/lib/quote-price-display";
+import { clientContractInvoice } from "@/lib/client-invoice";
 import ClientNewRequestForm from "./client-new-request-form";
 import CustomerAcceptance from "./customer-acceptance";
 import MsaAcceptance from "./msa-acceptance";
@@ -85,6 +86,23 @@ function date(value: string | undefined, business: BusinessConfig) {
         year: "numeric",
         timeZone: business.regional.timezone,
       }).format(parsed);
+}
+
+async function receivedPaymentCents(organizationId: string, projectId: string) {
+  const { data: payments, error } = await supabaseAdmin()
+    .from("remodel_records")
+    .select("data")
+    .eq("organization_id", organizationId)
+    .eq("project_id", projectId)
+    .eq("kind", "activity")
+    .limit(1000);
+  if (error) throw error;
+  return payments.reduce((sum, row) => {
+    const payment = row.data as Activity;
+    return payment.activityType === "Payment received"
+      ? sum + Math.round((payment.amount || 0) * 100)
+      : sum;
+  }, 0);
 }
 
 type PortalView =
@@ -194,20 +212,7 @@ async function ClientSectionView({
       business.quotePreferences.paymentProvider === "stripe" &&
       (await organizationStripeEnabled(organizationId));
     if (agreement.status === "signed") {
-      const { data: payments, error } = await supabaseAdmin()
-        .from("remodel_records")
-        .select("data")
-        .eq("organization_id", organizationId)
-        .eq("project_id", quote.id)
-        .eq("kind", "activity")
-        .limit(1000);
-      if (error) throw error;
-      paidCents = payments.reduce((sum, row) => {
-        const payment = row.data as Activity;
-        return payment.activityType === "Payment received"
-          ? sum + Math.round((payment.amount || 0) * 100)
-          : sum;
-      }, 0);
+      paidCents = await receivedPaymentCents(organizationId, quote.id);
       if (cardAvailable) {
         try {
           cardAvailable =
@@ -240,12 +245,20 @@ async function ClientSectionView({
             style={{ maxWidth: 850, margin: "24px auto" }}
           >
             <h2>Signed agreement</h2>
-            <a
-              className={styles.outlineAction}
-              href={`/api/client-quote/${encodeURIComponent(token)}/msa/pdf`}
-            >
-              <Download size={18} /> Download signed PDF
-            </a>
+            <div className={styles.signedAgreementActions}>
+              <a
+                className={styles.outlineAction}
+                href={`/api/client-quote/${encodeURIComponent(token)}/msa/pdf`}
+              >
+                <Download size={18} /> Download signed PDF
+              </a>
+              <a
+                className={styles.outlineAction}
+                href={`${quoteUrl}?view=invoices`}
+              >
+                <ReceiptText size={18} /> View invoice
+              </a>
+            </div>
             <h2>Deposit</h2>
             <p>
               {dueCents > 0
@@ -371,22 +384,87 @@ async function ClientSectionView({
       </main>
     );
 
-  if (section === "invoices")
+  if (section === "invoices") {
+    const agreement = quoteView.msa;
+    if (!agreement || agreement.status !== "signed")
+      return (
+        <main className={styles.sectionPage}>
+          <h1>Your invoices</h1>
+          <div className={styles.emptyState}>
+            <span className={styles.emptyIcon}>
+              <ReceiptText size={30} aria-hidden="true" />
+            </span>
+            <h2>No invoices are available in this quote link</h2>
+            <p>Your contract invoice will appear here after it is signed.</p>
+            <a className={styles.outlineAction} href={contactHref}>
+              <Mail size={18} aria-hidden="true" /> Email us
+            </a>
+          </div>
+        </main>
+      );
+
+    const invoice = clientContractInvoice(
+      agreement,
+      await receivedPaymentCents(organizationId, quote.id),
+    )!;
+    const invoiceNumber = `INV-${quote.quoteNumber || quote.id.slice(0, 8).toUpperCase()}`;
     return (
       <main className={styles.sectionPage}>
         <h1>Your invoices</h1>
-        <div className={styles.emptyState}>
-          <span className={styles.emptyIcon}>
-            <ReceiptText size={30} aria-hidden="true" />
-          </span>
-          <h2>No invoices are available in this quote link</h2>
-          <p>Need a copy of an invoice? Contact us and we’ll help.</p>
-          <a className={styles.outlineAction} href={contactHref}>
-            <Mail size={18} aria-hidden="true" /> Email us
-          </a>
-        </div>
+        <p className={styles.sectionIntro}>
+          This invoice was created automatically from your signed agreement.
+        </p>
+        <section
+          className={styles.invoice}
+          aria-label={`Invoice ${invoiceNumber}`}
+        >
+          <header className={styles.invoiceHeader}>
+            <div>
+              <span>Contract invoice</span>
+              <h2>{invoiceNumber}</h2>
+              <p>
+                {quote.name} · Signed{" "}
+                {date(agreement.transactionDate, business)}
+              </p>
+            </div>
+            <span
+              className={`${styles.invoiceStatus} ${invoice.status === "paid" ? styles.invoicePaid : ""}`}
+            >
+              {invoice.status === "paid" ? "Paid" : "Open"}
+            </span>
+          </header>
+          <dl className={styles.invoiceAmounts}>
+            <div>
+              <dt>Contract total</dt>
+              <dd>{money(invoice.totalCents / 100, business)}</dd>
+            </div>
+            <div>
+              <dt>Payments received</dt>
+              <dd>{money(invoice.paidCents / 100, business)}</dd>
+            </div>
+            <div>
+              <dt>Remaining balance</dt>
+              <dd>{money(invoice.balanceCents / 100, business)}</dd>
+            </div>
+          </dl>
+          <div className={styles.invoiceDue}>
+            <span>Deposit currently due</span>
+            <strong>{money(invoice.depositDueCents / 100, business)}</strong>
+          </div>
+          <footer className={styles.invoiceActions}>
+            <a className={styles.outlineAction} href={`${quoteUrl}?view=msa`}>
+              <FileText size={18} aria-hidden="true" /> View signed agreement
+            </a>
+            {invoice.depositDueCents > 0 && (
+              <a className={styles.outlineAction} href={`${quoteUrl}?view=msa`}>
+                <CreditCard size={18} aria-hidden="true" /> Payment options
+              </a>
+            )}
+          </footer>
+        </section>
       </main>
     );
+  }
 
   if (section === "quotes")
     return (

@@ -60,20 +60,20 @@ test("per-quote pricing choice overrides the organization default", () => {
   expect(resolveQuotePriceDisplay({}, true)).toBe("itemized");
   expect(resolveQuotePriceDisplay({}, false)).toBe("total");
   expect(resolveQuotePriceDisplay({ priceDisplay: "project" }, true)).toBe(
-    "project",
+    "total",
   );
 });
 
-test("customer PDF offers item prices, project subtotals, or total only", async () => {
+test("customer PDF offers itemized prices or total only", async () => {
   const itemized = await pdfText("itemized");
-  const project = await pdfText("project");
+  const legacyProject = await pdfText("project");
   const total = await pdfText("total");
-  for (const text of [itemized, project, total]) {
+  for (const text of [itemized, legacyProject, total]) {
     expect(text).toContain("Waterproofing");
     expect(text).toContain("$850.00");
   }
   expect(itemized).toContain("LINE TOTAL");
-  expect(project).not.toContain("LINE TOTAL");
-  expect(project).toContain("SECTION TOTAL");
+  expect(legacyProject).not.toContain("LINE TOTAL");
+  expect(legacyProject).not.toContain("SECTION TOTAL");
   expect(total).not.toContain("SECTION TOTAL");
 });

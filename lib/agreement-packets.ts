@@ -10,7 +10,10 @@ import {
   type AgreementField,
 } from "./agreement-template-schema";
 import { getBusinessConfigForOrganization } from "./business-config";
-import { signatureStrokesSchema } from "./quote-signature";
+import {
+  signatureMethodSchema,
+  signatureStrokesSchema,
+} from "./quote-signature";
 import { supabaseAdmin } from "./supabase/server";
 
 const signerTokenDays = 30;
@@ -33,6 +36,7 @@ export const createAgreementPacketSchema = z.object({
 export const signAgreementPacketSchema = z.object({
   signedName: z.string().trim().min(1).max(200),
   accepted: z.literal(true),
+  signatureMethod: signatureMethodSchema.default("drawn"),
   signatureStrokes: signatureStrokesSchema,
   values: z.record(z.string(), z.unknown()).default({}),
 });
@@ -526,6 +530,7 @@ export async function agreementSigningDocument(token: string) {
       field.type === "signature" &&
       value &&
       typeof value === "object" &&
+      (value as Record<string, unknown>).signatureMethod !== "typed" &&
       Array.isArray((value as Record<string, unknown>).signatureStrokes)
     ) {
       const strokes = signatureStrokesSchema.parse(
@@ -661,6 +666,7 @@ export async function signAgreementPacket(
       field.type === "signature"
         ? {
             signedName: input.signedName,
+            signatureMethod: input.signatureMethod,
             signatureStrokes: input.signatureStrokes,
           }
         : fieldValue(field, input.values[field.id]);
@@ -684,6 +690,7 @@ export async function signAgreementPacket(
     })),
     p_signature_evidence: {
       signedName: input.signedName,
+      signatureMethod: input.signatureMethod,
       accepted: true,
       signedAt: now,
       ...evidence,

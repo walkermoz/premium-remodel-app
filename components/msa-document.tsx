@@ -179,6 +179,8 @@ export default function MsaDocument({
             <>
               <MsaSignatureImage
                 strokes={agreement.staffSignature.signatureStrokes}
+                method={agreement.staffSignature.signatureMethod}
+                signedName={agreement.staffSignature.name}
                 label="Contractor signature"
               />
               <p>{longDate(agreement.staffSignature.signedAt)}</p>
@@ -199,6 +201,8 @@ export default function MsaDocument({
               <p>{agreement.customerSignature.name}</p>
               <MsaSignatureImage
                 strokes={agreement.customerSignature.signatureStrokes}
+                method={agreement.customerSignature.signatureMethod}
+                signedName={agreement.customerSignature.name}
                 label="Owner signature"
               />
               <p>{longDate(agreement.transactionDate)}</p>

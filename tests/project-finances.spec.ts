@@ -360,14 +360,17 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await newRow
     .getByRole("textbox", { name: "New item", exact: true })
     .fill("Garage framing");
+  const subcontractorCost = newRow.getByLabel(
+    "Subcontractor cost: Total cost for Garage framing",
+    { exact: true },
+  );
+  await expect(subcontractorCost).toHaveValue("");
+  await subcontractorCost.press("2");
+  await expect(subcontractorCost).toHaveValue("2");
   await newRow
     .getByLabel("Price per job for Garage framing", { exact: true })
     .fill("5000.15");
-  await newRow
-    .getByLabel("Subcontractor cost: Total cost for Garage framing", {
-      exact: true,
-    })
-    .fill("2000");
+  await subcontractorCost.fill("2000");
   await newRow
     .getByLabel("Material cost: Total cost for Garage framing", { exact: true })
     .fill("750.15");

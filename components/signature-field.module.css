@@ -1,0 +1,136 @@
+.field {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field legend {
+  margin-bottom: 10px;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.description {
+  max-width: 540px;
+  margin: -5px 0 0;
+  color: #607582;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.nameField {
+  display: grid;
+  gap: 6px;
+  max-width: 540px;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nameField input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #7894a8;
+  border-radius: 7px;
+  background: #fff;
+  color: #102633;
+  font: inherit;
+  font-size: 14px;
+}
+
+.nameField input:focus-visible {
+  outline: 2px solid #72b7ed;
+  outline-offset: 2px;
+}
+
+.method {
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px;
+  border: 1px solid #7894a8;
+  border-radius: 8px;
+  background: #e8f0f5;
+}
+
+.method button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #365466;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.method button.active {
+  background: #fff;
+  color: #102633;
+  box-shadow: 0 1px 3px rgb(16 38 51 / 14%);
+}
+
+.typedPreview {
+  display: grid;
+  align-content: center;
+  width: min(100%, 540px);
+  min-height: 144px;
+  padding: 20px 24px 14px;
+  overflow: hidden;
+  border: 1px solid #7894a8;
+  border-radius: 8px;
+  background: #fff;
+  color: #142c3e;
+  font-family: "Segoe Script", "Bradley Hand", cursive;
+  font-size: clamp(24px, 4vw, 38px);
+  line-height: 1.15;
+}
+
+.typedPreview span {
+  align-self: end;
+  margin-top: 15px;
+  padding-top: 7px;
+  border-top: 1px solid #c5d2db;
+  color: #607582;
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field:disabled {
+  opacity: 0.7;
+}
+
+.field:disabled button {
+  cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  .nameField input,
+  .typedPreview {
+    border-color: #3d586b;
+    background: #f8fbfd;
+  }
+
+  .method {
+    border-color: #3d586b;
+    background: #122634;
+  }
+
+  .method button {
+    color: #a9c3d3;
+  }
+
+  .method button.active {
+    background: #29475a;
+    color: #fff;
+  }
+}

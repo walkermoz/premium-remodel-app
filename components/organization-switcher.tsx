@@ -40,7 +40,10 @@ export default function OrganizationSwitcher({
   if (demo || organizations.length < 2) return null;
   return (
     <div className="workspace-switch">
-      <span className="workspace-monogram" aria-hidden="true">
+      <span
+        className={`workspace-monogram${logoMarkUrl ? " has-logo" : ""}`}
+        aria-hidden="true"
+      >
         {logoMarkUrl ? <img src={logoMarkUrl} alt="" /> : currentName.charAt(0)}
       </span>
       <div className="organization-switcher">

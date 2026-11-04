@@ -214,14 +214,14 @@ export default function QuoteProjectHandoffDemo({
           <div>
             <span className="project-handoff-eyebrow">
               {workflowStep === "customer"
-                ? "Customer completion"
+                ? "Customer signatures"
                 : workflowStep === "deposit"
                   ? "Deposit"
                   : "Quote → Project"}
             </span>
             <h2 id="handoff-demo-title">
               {workflowStep === "customer"
-                ? "Customer completion"
+                ? "Customer signatures"
                 : workflowStep === "deposit"
                   ? "Record deposit"
                   : "Project setup"}
@@ -576,13 +576,13 @@ function QuoteWorkflowStepper({
     },
     {
       id: "company",
-      title: "Company approval",
+      title: "Company signatures",
       detail: "Review and sign the agreement",
       complete: true,
     },
     {
       id: "customer",
-      title: "Customer completion",
+      title: "Customer signatures",
       detail: "Share the packet and collect signatures",
       complete: customerFinished,
     },
@@ -642,7 +642,7 @@ function CompanyApprovalStep({ onContinue }: { onContinue: () => void }) {
       <header>
         <div>
           <span className="project-handoff-eyebrow">Step 3 · Complete</span>
-          <h2>Company approval</h2>
+          <h2>Company signatures</h2>
           <p>
             The company representative reviewed the prepared packet and signed
             the service agreement before customer delivery.

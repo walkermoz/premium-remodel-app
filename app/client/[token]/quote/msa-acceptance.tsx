@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import MsaSignaturePad from "@/components/msa-signature-pad";
-import type { MsaAgreement, SignatureStroke } from "@/lib/types";
+import SignatureField, {
+  signatureFieldComplete,
+  type SignatureFieldValue,
+} from "@/components/signature-field";
+import type { MsaAgreement } from "@/lib/types";
 import styles from "./quote.module.css";
 
 export default function MsaAcceptance({
@@ -14,8 +17,11 @@ export default function MsaAcceptance({
   agreement: MsaAgreement;
 }) {
   const router = useRouter();
-  const [name, setName] = useState(agreement.owner);
-  const [strokes, setStrokes] = useState<SignatureStroke[]>([]);
+  const [signature, setSignature] = useState<SignatureFieldValue>({
+    signedName: agreement.owner,
+    signatureMethod: "drawn",
+    signatureStrokes: [],
+  });
   const [agreed, setAgreed] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -33,8 +39,8 @@ export default function MsaAcceptance({
       className={styles.signForm}
       onSubmit={async (event) => {
         event.preventDefault();
-        if (!strokes.length) {
-          setError("Draw your signature to sign the agreement.");
+        if (!signatureFieldComplete(signature)) {
+          setError("Add your signature to sign the agreement.");
           return;
         }
         setPending(true);
@@ -46,8 +52,9 @@ export default function MsaAcceptance({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                signedName: name.trim(),
-                signatureStrokes: strokes,
+                signedName: signature.signedName.trim(),
+                signatureMethod: signature.signatureMethod,
+                signatureStrokes: signature.signatureStrokes,
                 termsSha256: agreement.termsSha256,
                 transactionDate: agreement.transactionDate,
                 agreed,
@@ -75,20 +82,15 @@ export default function MsaAcceptance({
         Review the cover agreement and Exhibits A–G above, including the Notice
         of Cancellation, before signing.
       </p>
-      <label>
-        Print name
-        <input
-          value={name}
-          minLength={2}
-          maxLength={150}
-          required
-          disabled={pending}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </label>
       <p>Date: {agreement.transactionDate}</p>
-      <label>Signature</label>
-      <MsaSignaturePad onChange={setStrokes} disabled={pending} />
+      <SignatureField
+        value={signature}
+        onChange={(value) => {
+          setSignature(value);
+          setError("");
+        }}
+        disabled={pending}
+      />
       <label className={styles.signConsent}>
         <input
           type="checkbox"
@@ -111,7 +113,7 @@ export default function MsaAcceptance({
       <button
         type="submit"
         className={styles.signButton}
-        disabled={pending || !agreed}
+        disabled={pending || !agreed || !signatureFieldComplete(signature)}
       >
         {pending ? "Saving signature…" : "Sign agreement"}
       </button>

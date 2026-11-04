@@ -1,16 +1,40 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { SignatureStroke } from "@/lib/types";
+import type { SignatureMethod, SignatureStroke } from "@/lib/types";
 import styles from "./msa-signature-pad.module.css";
 
 export function MsaSignatureImage({
   strokes,
+  method = "drawn",
+  signedName = "",
   label = "Signature",
 }: {
   strokes: SignatureStroke[];
+  method?: SignatureMethod;
+  signedName?: string;
   label?: string;
 }) {
+  if (method === "typed")
+    return (
+      <span
+        role="img"
+        aria-label={label}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          maxWidth: 440,
+          minHeight: 105,
+          color: "#142c3e",
+          fontFamily: '"Segoe Script", "Bradley Hand", cursive',
+          fontSize: "32px",
+          lineHeight: 1.1,
+        }}
+      >
+        {signedName}
+      </span>
+    );
   return (
     <svg
       viewBox="0 0 600 160"
@@ -63,7 +87,8 @@ export default function MsaSignaturePad({
   function finish(pointerId: number, element: SVGSVGElement) {
     if (activePointer.current !== pointerId) return;
     activePointer.current = null;
-    if (element.hasPointerCapture(pointerId)) element.releasePointerCapture(pointerId);
+    if (element.hasPointerCapture(pointerId))
+      element.releasePointerCapture(pointerId);
     change(currentStrokes.current.filter((stroke) => stroke.length > 1));
   }
 
@@ -104,7 +129,9 @@ export default function MsaSignaturePad({
           change([...existing.slice(0, -1), [...last, next]]);
         }}
         onPointerUp={(event) => finish(event.pointerId, event.currentTarget)}
-        onPointerCancel={(event) => finish(event.pointerId, event.currentTarget)}
+        onPointerCancel={(event) =>
+          finish(event.pointerId, event.currentTarget)
+        }
         onLostPointerCapture={(event) =>
           finish(event.pointerId, event.currentTarget)
         }

@@ -9,7 +9,7 @@ test("quote to project demo shows the full handoff flow", async ({ page }) => {
     page.getByRole("heading", { name: "Willowbrook kitchen remodel" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Customer completion" }),
+    page.getByRole("heading", { name: "Customer signatures" }),
   ).toBeVisible();
   await expect(page.getByText("Sent to taylor@example.com")).toBeVisible();
   await expect(page.getByText("Customer packet available")).toBeVisible();
@@ -42,13 +42,13 @@ test("quote to project demo shows the full handoff flow", async ({ page }) => {
     .getByRole("button", { name: "Continue to company approval" })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Company approval" }),
+    page.getByRole("heading", { name: "Company signatures" }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Continue to customer completion" })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Customer completion" }),
+    page.getByRole("heading", { name: "Customer signatures" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Signature options" }).click();

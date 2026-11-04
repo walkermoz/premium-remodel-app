@@ -194,19 +194,10 @@ cloudTest(
       customerPage.getByRole("textbox", { name: "Print name" }),
     ).toHaveValue("Walker Portal Test");
     await expect(customerPage.getByText("Date", { exact: true })).toBeVisible();
-    const pad = customerPage.getByRole("img", {
-      name: "Draw your signature here",
-    });
-    await pad.click();
-    await pad.scrollIntoViewIfNeeded();
-    const box = await pad.boundingBox();
-    expect(box).toBeTruthy();
-    await customerPage.mouse.move(box!.x + 20, box!.y + 40);
-    await customerPage.mouse.down();
-    await customerPage.mouse.move(box!.x + 100, box!.y + 20, { steps: 8 });
-    await customerPage.mouse.move(box!.x + 180, box!.y + 45, { steps: 8 });
-    await customerPage.mouse.up();
-    await expect(pad.locator("polyline")).toHaveCount(1);
+    await customerPage.getByRole("button", { name: "Type name" }).click();
+    await expect(
+      customerPage.getByLabel("Typed signature preview"),
+    ).toContainText("Walker Portal Test");
     await customerPage
       .getByRole("checkbox", { name: /I agree to this quote/ })
       .check();
@@ -235,6 +226,7 @@ cloudTest(
     expect(record.data?.data.quoteAcceptance.signedName).toBe(
       "Walker Portal Test",
     );
+    expect(record.data?.data.quoteAcceptance.signatureMethod).toBe("typed");
     expect(
       record.data?.data.quoteAcceptance.signatureStrokes.length,
     ).toBeGreaterThan(0);
@@ -247,7 +239,7 @@ cloudTest(
       page.getByRole("heading", { name: "Before this becomes a project" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Customer completion" }),
+      page.getByRole("heading", { name: "Customer signatures" }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Accept quote" }),
@@ -272,6 +264,7 @@ cloudTest(
       data: {
         signedName: "Walker Portal Test",
         quoteUpdatedAt: record.data?.data.quoteAcceptance.quoteUpdatedAt,
+        signatureMethod: "typed",
         signatureStrokes: record.data?.data.quoteAcceptance.signatureStrokes,
         acceptedTerms: true,
       },
@@ -386,6 +379,17 @@ cloudTest(
       .eq("id", quote.id)
       .eq("kind", "quote");
     expect(seeded.error).toBeNull();
+    await customerPage.goto(`${link.url}?view=msa`);
+    await expect(
+      customerPage.getByRole("link", { name: "View invoice" }),
+    ).toBeVisible();
+    await customerPage.getByRole("link", { name: "View invoice" }).click();
+    const invoice = customerPage.getByRole("region", {
+      name: `Invoice INV-${quote.quoteNumber}`,
+    });
+    await expect(invoice).toContainText("$1,850.00");
+    await expect(invoice).toContainText("Deposit currently due");
+    await expect(invoice).toContainText("$925.00");
     expect(
       (
         await api.post("/api/quotes/accept", {

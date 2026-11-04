@@ -507,22 +507,32 @@ export async function buildQuotePdf(
     drawTop(page, "Print name", 280, cursor, regular, 8);
     const signatureLeft = LEFT + 4;
     const signatureBottom = PAGE_HEIGHT - cursor - 55;
-    for (const stroke of acceptance.signatureStrokes) {
-      for (let index = 1; index < stroke.length; index++) {
-        page.drawLine({
-          start: {
-            x: signatureLeft + stroke[index - 1][0] * 195,
-            y: signatureBottom + (1 - stroke[index - 1][1]) * 40,
-          },
-          end: {
-            x: signatureLeft + stroke[index][0] * 195,
-            y: signatureBottom + (1 - stroke[index][1]) * 40,
-          },
-          thickness: 1.4,
-          color: colors.navy,
-        });
+    if (acceptance.signatureMethod === "typed")
+      drawTop(
+        page,
+        acceptance.signedName,
+        signatureLeft,
+        cursor + 23,
+        regular,
+        17,
+      );
+    else
+      for (const stroke of acceptance.signatureStrokes) {
+        for (let index = 1; index < stroke.length; index++) {
+          page.drawLine({
+            start: {
+              x: signatureLeft + stroke[index - 1][0] * 195,
+              y: signatureBottom + (1 - stroke[index - 1][1]) * 40,
+            },
+            end: {
+              x: signatureLeft + stroke[index][0] * 195,
+              y: signatureBottom + (1 - stroke[index][1]) * 40,
+            },
+            thickness: 1.4,
+            color: colors.navy,
+          });
+        }
       }
-    }
     drawTop(page, acceptance.signedName, 280, cursor + 22, regular, 9);
     drawTop(
       page,
@@ -620,10 +630,7 @@ export async function buildQuotePdf(
   return pdf.save({ useObjectStreams: false });
 }
 
-export function quotePdfFileName(
-  quote: Quote,
-  businessName: string,
-) {
+export function quotePdfFileName(quote: Quote, businessName: string) {
   const client = safeText(quote.client || quote.name)
     .replace(/[^a-zA-Z0-9]+/g, " ")
     .trim();

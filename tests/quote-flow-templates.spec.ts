@@ -21,8 +21,8 @@ test("Premium Remodel keeps its six-stage rules with one responsibility per stag
   ).toEqual([
     ["quote_and_pricing", "Quote & pricing"],
     ["agreement_details", "Agreement details"],
-    ["company_approval", "Company approval"],
-    ["send_and_complete", "Customer completion"],
+    ["company_approval", "Company signatures"],
+    ["send_and_complete", "Customer signatures"],
     ["deposit", "Deposit"],
     ["create_project", "Create project"],
   ]);

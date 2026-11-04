@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import MsaSignaturePad from "@/components/msa-signature-pad";
+import SignatureField, {
+  signatureFieldComplete,
+  type SignatureFieldValue,
+} from "@/components/signature-field";
 import type { AgreementField } from "@/lib/agreement-template-schema";
-import type { SignatureStroke } from "@/lib/types";
 import styles from "./page.module.css";
 
 export default function AgreementSigningForm({
@@ -19,10 +21,11 @@ export default function AgreementSigningForm({
   onsite?: boolean;
 }) {
   const router = useRouter();
-  const [signedName, setSignedName] = useState(signerName);
-  const [signatureStrokes, setSignatureStrokes] = useState<SignatureStroke[]>(
-    [],
-  );
+  const [signature, setSignature] = useState<SignatureFieldValue>({
+    signedName: signerName,
+    signatureMethod: "drawn",
+    signatureStrokes: [],
+  });
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -32,8 +35,8 @@ export default function AgreementSigningForm({
       className={styles.signingForm}
       onSubmit={async (event) => {
         event.preventDefault();
-        if (!signatureStrokes.length) {
-          setError("Draw your signature before signing this agreement.");
+        if (!signatureFieldComplete(signature)) {
+          setError("Add your signature before signing this agreement.");
           return;
         }
         setBusy(true);
@@ -55,9 +58,10 @@ export default function AgreementSigningForm({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                signedName,
+                signedName: signature.signedName,
                 accepted,
-                signatureStrokes,
+                signatureMethod: signature.signatureMethod,
+                signatureStrokes: signature.signatureStrokes,
                 values,
               }),
             },
@@ -131,19 +135,14 @@ export default function AgreementSigningForm({
             />
           </label>
         ))}
-      <label>
-        <span>Print name</span>
-        <input
-          value={signedName}
-          onChange={(event) => setSignedName(event.target.value)}
-          required
-          disabled={busy}
-        />
-      </label>
-      <div>
-        <span className={styles.fieldLabel}>Signature</span>
-        <MsaSignaturePad onChange={setSignatureStrokes} disabled={busy} />
-      </div>
+      <SignatureField
+        value={signature}
+        onChange={(value) => {
+          setSignature(value);
+          setError("");
+        }}
+        disabled={busy}
+      />
       <label className={styles.consent}>
         <input
           type="checkbox"
@@ -162,7 +161,10 @@ export default function AgreementSigningForm({
           {error}
         </p>
       )}
-      <button type="submit" disabled={busy || !accepted}>
+      <button
+        type="submit"
+        disabled={busy || !accepted || !signatureFieldComplete(signature)}
+      >
         {busy ? "Saving signature…" : "Sign agreement"}
       </button>
     </form>

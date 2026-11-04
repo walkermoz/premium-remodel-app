@@ -718,7 +718,7 @@ export const premiumRemodelQuoteFlowDefinition: QuoteFlowDefinition =
       {
         id: "company_approval",
         type: "signature_collection",
-        title: "Company approval",
+        title: "Company signatures",
         description: "Review and sign as the company representative",
         audience: "staff",
         blocks: [
@@ -741,7 +741,7 @@ export const premiumRemodelQuoteFlowDefinition: QuoteFlowDefinition =
       {
         id: "send_and_complete",
         type: "delivery",
-        title: "Customer completion",
+        title: "Customer signatures",
         description: "Share the packet and collect customer signatures",
         audience: "both",
         blocks: [
@@ -854,7 +854,7 @@ export const defaultQuoteFlowDefinition: QuoteFlowDefinition =
       {
         id: "send_and_complete",
         type: "delivery",
-        title: "Customer completion",
+        title: "Customer signatures",
         description: "Send, sign, and confirm customer approval",
         audience: "both",
         blocks: [

@@ -8,12 +8,7 @@ export const quotePriceDisplayOptions: Array<{
   {
     value: "itemized",
     label: "Itemized prices",
-    description: "Show each work item and its price, plus project subtotals.",
-  },
-  {
-    value: "project",
-    label: "Project subtotals",
-    description: "Show the work items and a price for each project.",
+    description: "Show each work item with its price.",
   },
   {
     value: "total",
@@ -26,5 +21,9 @@ export function resolveQuotePriceDisplay(
   quote: { priceDisplay?: QuotePriceDisplay },
   defaultItemized: boolean,
 ): QuotePriceDisplay {
+  // Older quotes may still contain the removed project-subtotal mode. Treat
+  // those as total-only so legacy data remains readable without resurfacing
+  // the retired customer-facing option.
+  if (quote.priceDisplay === "project") return "total";
   return quote.priceDisplay || (defaultItemized ? "itemized" : "total");
 }

@@ -30,9 +30,11 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import MsaSignaturePad, {
-  MsaSignatureImage,
-} from "@/components/msa-signature-pad";
+import { MsaSignatureImage } from "@/components/msa-signature-pad";
+import SignatureField, {
+  signatureFieldComplete,
+  type SignatureFieldValue,
+} from "@/components/signature-field";
 import MsaDocument from "@/components/msa-document";
 import { msaGeneralTerms } from "@/lib/msa-contract";
 import type { MsaAgreement, SignatureStroke } from "@/lib/types";
@@ -40,6 +42,12 @@ import styles from "@/app/demo/signing/signing-demo.module.css";
 
 type Surface = "app" | "portal";
 type SigningStep = "quote" | "agreement";
+
+const emptyDemoSignature = (): SignatureFieldValue => ({
+  signedName: "Taylor Reed",
+  signatureMethod: "drawn",
+  signatureStrokes: [],
+});
 
 const appNavigation = [
   [LayoutDashboard, "Overview"],
@@ -141,7 +149,8 @@ export default function SigningExperienceDemo() {
   const [step, setStep] = useState<SigningStep>("quote");
   const [quoteSigned, setQuoteSigned] = useState(false);
   const [agreementSigned, setAgreementSigned] = useState(false);
-  const [strokes, setStrokes] = useState<SignatureStroke[]>([]);
+  const [signature, setSignature] =
+    useState<SignatureFieldValue>(emptyDemoSignature);
   const [agreed, setAgreed] = useState(false);
   const [sent, setSent] = useState(true);
 
@@ -152,7 +161,7 @@ export default function SigningExperienceDemo() {
     setStep("quote");
     setQuoteSigned(false);
     setAgreementSigned(false);
-    setStrokes([]);
+    setSignature(emptyDemoSignature());
     setAgreed(false);
     setSent(true);
   }
@@ -164,23 +173,23 @@ export default function SigningExperienceDemo() {
     setStep(target);
     setSigningOpen(true);
     setMethodOpen(false);
-    setStrokes([]);
+    setSignature(emptyDemoSignature());
     setAgreed(false);
   }
 
   function completeSignature() {
-    if (!strokes.length || !agreed) return;
+    if (!signatureFieldComplete(signature) || !agreed) return;
     if (step === "quote") {
       setQuoteSigned(true);
       setStep("agreement");
-      setStrokes([]);
+      setSignature(emptyDemoSignature());
       setAgreed(false);
       return;
     }
     setAgreementSigned(true);
     setSigningOpen(false);
     setDeviceSigningOpen(false);
-    setStrokes([]);
+    setSignature(emptyDemoSignature());
     setAgreed(false);
   }
 
@@ -221,12 +230,12 @@ export default function SigningExperienceDemo() {
             agreementSigned={agreementSigned}
             deviceSigningOpen={deviceSigningOpen}
             step={step}
-            strokes={strokes}
+            signature={signature}
             agreed={agreed}
             onOpenMethods={() => setMethodOpen(true)}
             onOpenPortal={() => openPortal()}
             onCloseDeviceSigning={() => setDeviceSigningOpen(false)}
-            onStrokesChange={setStrokes}
+            onSignatureChange={setSignature}
             onAgreedChange={setAgreed}
             onComplete={completeSignature}
           />
@@ -236,11 +245,11 @@ export default function SigningExperienceDemo() {
             step={step}
             quoteSigned={quoteSigned}
             agreementSigned={agreementSigned}
-            strokes={strokes}
+            signature={signature}
             agreed={agreed}
             onOpenSigning={() => setSigningOpen(true)}
             onCloseSigning={() => setSigningOpen(false)}
-            onStrokesChange={setStrokes}
+            onSignatureChange={setSignature}
             onAgreedChange={setAgreed}
             onComplete={completeSignature}
           />
@@ -291,7 +300,7 @@ export default function SigningExperienceDemo() {
                   setDeviceSigningOpen(true);
                   setSigningOpen(false);
                   setMethodOpen(false);
-                  setStrokes([]);
+                  setSignature(emptyDemoSignature());
                   setAgreed(false);
                 }}
               >
@@ -322,12 +331,12 @@ function AppPreview({
   agreementSigned,
   deviceSigningOpen,
   step,
-  strokes,
+  signature,
   agreed,
   onOpenMethods,
   onOpenPortal,
   onCloseDeviceSigning,
-  onStrokesChange,
+  onSignatureChange,
   onAgreedChange,
   onComplete,
 }: {
@@ -336,12 +345,12 @@ function AppPreview({
   agreementSigned: boolean;
   deviceSigningOpen: boolean;
   step: SigningStep;
-  strokes: SignatureStroke[];
+  signature: SignatureFieldValue;
   agreed: boolean;
   onOpenMethods: () => void;
   onOpenPortal: () => void;
   onCloseDeviceSigning: () => void;
-  onStrokesChange: (value: SignatureStroke[]) => void;
+  onSignatureChange: (value: SignatureFieldValue) => void;
   onAgreedChange: (value: boolean) => void;
   onComplete: () => void;
 }) {
@@ -414,13 +423,13 @@ function AppPreview({
             {[
               ["1", "Quote & pricing", true],
               ["2", "Agreement details", true],
-              ["3", "Customer completion", false],
+              ["3", "Customer signatures", false],
               ["4", "Create project", false],
             ].map(([number, label, done]) => (
               <button
                 key={String(label)}
                 className={
-                  label === "Customer completion" ? styles.currentStep : ""
+                  label === "Customer signatures" ? styles.currentStep : ""
                 }
               >
                 <span>{done ? <Check size={12} /> : number}</span>
@@ -433,7 +442,7 @@ function AppPreview({
             <header className={styles.sectionHeading}>
               <div>
                 <span>STEP 3</span>
-                <h2>Customer completion</h2>
+                <h2>Customer signatures</h2>
                 <p>
                   Share one customer packet, complete the required documents,
                   and collect the deposit.
@@ -534,10 +543,10 @@ function AppPreview({
       {deviceSigningOpen && (
         <DeviceSigningOverlay
           step={step}
-          strokes={strokes}
+          signature={signature}
           agreed={agreed}
           onClose={onCloseDeviceSigning}
-          onStrokesChange={onStrokesChange}
+          onSignatureChange={onSignatureChange}
           onAgreedChange={onAgreedChange}
           onComplete={onComplete}
         />
@@ -548,18 +557,18 @@ function AppPreview({
 
 function DeviceSigningOverlay({
   step,
-  strokes,
+  signature,
   agreed,
   onClose,
-  onStrokesChange,
+  onSignatureChange,
   onAgreedChange,
   onComplete,
 }: {
   step: SigningStep;
-  strokes: SignatureStroke[];
+  signature: SignatureFieldValue;
   agreed: boolean;
   onClose: () => void;
-  onStrokesChange: (value: SignatureStroke[]) => void;
+  onSignatureChange: (value: SignatureFieldValue) => void;
   onAgreedChange: (value: boolean) => void;
   onComplete: () => void;
 }) {
@@ -652,14 +661,11 @@ function DeviceSigningOverlay({
             <span className={styles.doneSegment} />
             <span className={agreement ? styles.doneSegment : ""} />
           </div>
-          <label className={styles.signerField}>
-            Print name
-            <input value="Taylor Reed" readOnly />
-          </label>
-          <div className={styles.signatureField}>
-            <label>Signature</label>
-            <MsaSignaturePad key={step} onChange={onStrokesChange} />
-          </div>
+          <SignatureField
+            key={step}
+            value={signature}
+            onChange={onSignatureChange}
+          />
           <label className={styles.consentField}>
             <input
               type="checkbox"
@@ -673,7 +679,7 @@ function DeviceSigningOverlay({
           </label>
           <button
             className={styles.signNow}
-            disabled={!strokes.length || !agreed}
+            disabled={!signatureFieldComplete(signature) || !agreed}
             onClick={onComplete}
           >
             {agreement ? "Sign and finish" : "Sign and continue"}
@@ -728,11 +734,11 @@ function PortalPreview({
   step,
   quoteSigned,
   agreementSigned,
-  strokes,
+  signature,
   agreed,
   onOpenSigning,
   onCloseSigning,
-  onStrokesChange,
+  onSignatureChange,
   onAgreedChange,
   onComplete,
 }: {
@@ -740,11 +746,11 @@ function PortalPreview({
   step: SigningStep;
   quoteSigned: boolean;
   agreementSigned: boolean;
-  strokes: SignatureStroke[];
+  signature: SignatureFieldValue;
   agreed: boolean;
   onOpenSigning: () => void;
   onCloseSigning: () => void;
-  onStrokesChange: (value: SignatureStroke[]) => void;
+  onSignatureChange: (value: SignatureFieldValue) => void;
   onAgreedChange: (value: boolean) => void;
   onComplete: () => void;
 }) {
@@ -1000,14 +1006,7 @@ function PortalPreview({
           >
             <ExternalLink size={15} /> View signature location in document
           </button>
-          <label className={styles.signerField}>
-            Print name
-            <input value="Taylor Reed" readOnly />
-          </label>
-          <div className={styles.signatureField}>
-            <label>Signature</label>
-            <MsaSignaturePad onChange={onStrokesChange} />
-          </div>
+          <SignatureField value={signature} onChange={onSignatureChange} />
           <label className={styles.consentField}>
             <input
               type="checkbox"
@@ -1021,7 +1020,7 @@ function PortalPreview({
           </label>
           <button
             className={styles.signNow}
-            disabled={!strokes.length || !agreed}
+            disabled={!signatureFieldComplete(signature) || !agreed}
             onClick={onComplete}
           >
             {step === "quote" ? "Sign and continue" : "Sign agreement"}

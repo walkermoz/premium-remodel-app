@@ -99,6 +99,7 @@ export async function POST(
       customerSignature: {
         name: input.signedName,
         signedAt: now,
+        signatureMethod: input.signatureMethod,
         signatureStrokes: input.signatureStrokes,
         ip,
         userAgent: (request.headers.get("user-agent") || "").slice(0, 300),

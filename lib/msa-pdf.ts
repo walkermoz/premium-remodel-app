@@ -10,7 +10,7 @@ import {
   msaCompanyName,
   msaPaymentRows,
 } from "./msa-contract";
-import type { MsaAgreement, SignatureStroke } from "./types";
+import type { MsaAgreement, MsaSignature } from "./types";
 
 const W = 612,
   H = 792,
@@ -98,21 +98,30 @@ export async function buildMsaPdf(agreement: MsaAgreement) {
     requireSpace(55);
     write(value, { heading: true, gap: 20 });
   };
-  const signature = (strokes: SignatureStroke[], label: string) => {
+  const signature = (entry: MsaSignature, label: string) => {
     requireSpace(96);
     write(label, { gap: 8 });
     const top = y - 3;
-    for (const stroke of strokes)
-      for (let i = 1; i < stroke.length; i++) {
-        const [x1, y1] = stroke[i - 1],
-          [x2, y2] = stroke[i];
-        page.drawLine({
-          start: { x: L + x1 * 240, y: top - y1 * 56 },
-          end: { x: L + x2 * 240, y: top - y2 * 56 },
-          thickness: 1.5,
-          color: navy,
-        });
-      }
+    if (entry.signatureMethod === "typed")
+      page.drawText(clean(entry.name), {
+        x: L + 4,
+        y: top - 35,
+        font: regular,
+        size: 20,
+        color: navy,
+      });
+    else
+      for (const stroke of entry.signatureStrokes)
+        for (let i = 1; i < stroke.length; i++) {
+          const [x1, y1] = stroke[i - 1],
+            [x2, y2] = stroke[i];
+          page.drawLine({
+            start: { x: L + x1 * 240, y: top - y1 * 56 },
+            end: { x: L + x2 * 240, y: top - y2 * 56 },
+            thickness: 1.5,
+            color: navy,
+          });
+        }
     y -= 64;
   };
   write("PREMIUM REMODEL", { heading: true, gap: 0 });
@@ -138,12 +147,12 @@ export async function buildMsaPdf(agreement: MsaAgreement) {
     `Estimated start: ${agreement.estimatedStart || "To be scheduled"} | Estimated completion: ${agreement.estimatedCompletion || "To be scheduled"}`,
   );
   signature(
-    agreement.staffSignature.signatureStrokes,
+    agreement.staffSignature,
     `Contractor: ${agreement.staffSignature.name}${agreement.staffSignature.title ? `, ${agreement.staffSignature.title}` : ""} | ${date(agreement.staffSignature.signedAt)}`,
   );
   if (agreement.customerSignature)
     signature(
-      agreement.customerSignature.signatureStrokes,
+      agreement.customerSignature,
       `Owner: ${agreement.customerSignature.name} | ${date(agreement.transactionDate)}`,
     );
   else write("Owner signature: Pending electronic signature");

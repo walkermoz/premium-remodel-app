@@ -2289,16 +2289,16 @@ export function QuoteDetail({
               disabled={requiresAgreement && !agreementDetailsReady}
               onClick={() => setWorkflowStep("company")}
             >
-              Continue to company approval
+              Continue to company signatures
             </button>
           </footer>
         </section>
       )}
       {!handoffDemo && showCompanyStage && (
-        <section className="workflow-live-step" aria-label="Company approval">
+        <section className="workflow-live-step" aria-label="Company signatures">
           <header>
             <span className="project-handoff-eyebrow">Step 3</span>
-            <h2>Company approval</h2>
+            <h2>Company signatures</h2>
             <p>
               Review the agreement snapshot and sign as the company
               representative before sharing anything with the customer.
@@ -2321,7 +2321,7 @@ export function QuoteDetail({
               disabled={!companyApprovalReady}
               onClick={() => setWorkflowStep("customer")}
             >
-              Continue to customer completion
+              Continue to customer signatures
             </button>
           </footer>
         </section>
@@ -2329,11 +2329,11 @@ export function QuoteDetail({
       {!handoffDemo && showCustomerStage && (
         <section
           className="workflow-live-step"
-          aria-label="Customer completion"
+          aria-label="Customer signatures"
         >
           <header>
             <span className="project-handoff-eyebrow">Step 4</span>
-            <h2>Customer completion</h2>
+            <h2>Customer signatures</h2>
             <p>
               Share one customer packet and complete every required customer
               signature.

@@ -65,9 +65,9 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
     page.getByRole("img", { name: "Draw your signature" }),
   ).toHaveCount(0);
 
-  await workflow.getByRole("button", { name: /Company approval/ }).click();
+  await workflow.getByRole("button", { name: /Company signatures/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Company approval" }),
+    page.getByRole("heading", { name: "Company signatures" }),
   ).toBeVisible();
   const signaturePad = page.getByRole("img", { name: "Draw your signature" });
   await signaturePad.scrollIntoViewIfNeeded();
@@ -80,13 +80,17 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   await expect(signaturePad.locator("polyline")).toHaveCount(1);
   await page.getByRole("button", { name: "Clear signature" }).click();
   await expect(signaturePad.locator("polyline")).toHaveCount(0);
+  await page.getByRole("button", { name: "Type name" }).click();
+  await expect(
+    page.getByRole("img", { name: "Typed signature preview" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Sign and send" }),
   ).toHaveCount(0);
 
-  await workflow.getByRole("button", { name: /Customer completion/ }).click();
+  await workflow.getByRole("button", { name: /Customer signatures/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Customer completion" }),
+    page.getByRole("heading", { name: "Customer signatures" }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Customer packet" }),

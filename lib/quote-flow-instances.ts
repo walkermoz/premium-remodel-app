@@ -823,6 +823,8 @@ function normalizedFlowValue(
       throw new HttpError(400, `Complete the signature for ${block.label}.`);
     return {
       method: evidence?.method || "electronic",
+      signatureMethod:
+        signature.signatureMethod === "typed" ? "typed" : "drawn",
       signerRoleId: String(block.config.signerRoleId || "customer"),
       signedName,
       accepted: true,

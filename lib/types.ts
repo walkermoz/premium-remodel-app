@@ -29,9 +29,12 @@ export interface Base {
   createdAt: string;
 }
 export type SignatureStroke = Array<[number, number]>;
+export type SignatureMethod = "drawn" | "typed";
 export interface QuoteAcceptance {
   signedName: string;
   signedAt: string;
+  /** How the signer supplied the signature. Older records default to drawn. */
+  signatureMethod?: SignatureMethod;
   signatureStrokes: SignatureStroke[];
   linkId: string;
   quoteUpdatedAt: string;
@@ -70,6 +73,8 @@ export interface MsaSignature {
   name: string;
   title?: string;
   signedAt: string;
+  /** How the signer supplied the signature. Older records default to drawn. */
+  signatureMethod?: SignatureMethod;
   signatureStrokes: SignatureStroke[];
   ip?: string;
   userAgent?: string;

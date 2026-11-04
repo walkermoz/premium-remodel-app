@@ -19,6 +19,7 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
   const [secret, setSecret] = useState("");
   const [scopes, setScopes] = useState<ApiKeyScope[]>(["leads.read"]);
   const [expiration, setExpiration] = useState("365");
+  const [customExpiration, setCustomExpiration] = useState("");
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -60,18 +61,29 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
     setError("");
     setSecret("");
     try {
+      let expiresAt: string | null;
+      if (expiration === "never") {
+        expiresAt = null;
+      } else if (expiration === "custom") {
+        const customTime = Date.parse(customExpiration);
+        if (
+          !Number.isFinite(customTime) ||
+          customTime < Date.now() + 5 * 60_000
+        )
+          throw new Error("Choose a custom expiration time in the future.");
+        expiresAt = new Date(customTime).toISOString();
+      } else {
+        expiresAt = new Date(
+          Date.now() + Number(expiration) * 24 * 60 * 60_000,
+        ).toISOString();
+      }
       const response = await fetch("/api/admin/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
           scopes,
-          expiresAt:
-            expiration === "never"
-              ? null
-              : new Date(
-                  Date.now() + Number(expiration) * 24 * 60 * 60_000,
-                ).toISOString(),
+          expiresAt,
         }),
       });
       const data = await response.json();
@@ -82,6 +94,7 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
       setName("");
       setScopes(["leads.read"]);
       setExpiration("365");
+      setCustomExpiration("");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not create API key.",
@@ -157,29 +170,63 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
               </div>
             )}
             <form className="api-key-create-form" onSubmit={createKey}>
-              <div className="form-row two">
-              <label>
-                Key name
-                <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={100}
-                  required
-                  placeholder="Dispatch"
-                />
-              </label>
-              <label>
-                Expires
-                <select
-                  value={expiration}
-                  onChange={(event) => setExpiration(event.target.value)}
+              <div
+                className={`api-key-create-row${
+                  expiration === "custom" ? " has-custom-expiration" : ""
+                }`}
+              >
+                <label>
+                  Key name
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    maxLength={100}
+                    required
+                    placeholder="Dispatch"
+                  />
+                </label>
+                <label>
+                  Expires
+                  <select
+                    value={expiration}
+                    onChange={(event) => {
+                      setExpiration(event.target.value);
+                      if (event.target.value !== "custom")
+                        setCustomExpiration("");
+                    }}
+                  >
+                    <option value="90">90 days</option>
+                    <option value="365">1 year</option>
+                    <option value="730">2 years</option>
+                    <option value="custom">Custom date &amp; time</option>
+                    <option value="never">No expiration</option>
+                  </select>
+                </label>
+                {expiration === "custom" && (
+                  <label>
+                    Custom expiration
+                    <input
+                      type="datetime-local"
+                      value={customExpiration}
+                      onChange={(event) =>
+                        setCustomExpiration(event.target.value)
+                      }
+                      required
+                      step={60}
+                    />
+                  </label>
+                )}
+                <button
+                  className="button primary api-key-create-button"
+                  disabled={
+                    busy ||
+                    scopes.length === 0 ||
+                    (expiration === "custom" && !customExpiration)
+                  }
                 >
-                  <option value="90">90 days</option>
-                  <option value="365">1 year</option>
-                  <option value="730">2 years</option>
-                  <option value="never">No expiration</option>
-                </select>
-              </label>
+                  {busy && <LoaderCircle size={15} className="spin" />}
+                  Create key
+                </button>
               </div>
               <fieldset className="api-key-scope-picker">
                 <legend>Allowed actions</legend>
@@ -206,15 +253,6 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
                   ))}
                 </div>
               </fieldset>
-              <div className="settings-inline-actions">
-                <button
-                  className="button primary"
-                  disabled={busy || scopes.length === 0}
-                >
-                  {busy && <LoaderCircle size={15} className="spin" />}
-                  Create key
-                </button>
-              </div>
             </form>
             <ul className="api-key-list">
               {keys.map((key) => (
@@ -232,7 +270,9 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
                     </span>
                     <span>
                       {key.scopes
-                        .map((scope) => apiKeyScopeLabels[scope]?.label || scope)
+                        .map(
+                          (scope) => apiKeyScopeLabels[scope]?.label || scope,
+                        )
                         .join(" · ")}
                     </span>
                     <span>

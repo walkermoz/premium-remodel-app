@@ -5,7 +5,10 @@ import { apiError, checkOrigin, HttpError, limitAttempts } from "@/lib/auth";
 import { readClientQuoteSource } from "@/lib/client-quote";
 import { syncLeadStageFromClientAcceptance } from "@/lib/lead-records";
 import { parseClientPortalToken } from "@/lib/client-portal";
-import { signatureStrokesSchema } from "@/lib/quote-signature";
+import {
+  signatureMethodSchema,
+  signatureStrokesSchema,
+} from "@/lib/quote-signature";
 import { changeOrderTerms, paymentTerms } from "@/lib/quote-pdf";
 import { acceptedScopeSnapshot } from "@/lib/msa-draft";
 import { preparedMsaMatchesQuote } from "@/lib/msa-quote-match";
@@ -19,6 +22,7 @@ export const runtime = "nodejs";
 const signInput = z.object({
   signedName: z.string().trim().min(2).max(100),
   quoteUpdatedAt: z.iso.datetime(),
+  signatureMethod: signatureMethodSchema.default("drawn"),
   signatureStrokes: signatureStrokesSchema,
   acceptedTerms: z.literal(true),
 });
@@ -95,6 +99,7 @@ export async function POST(
     const acceptance: QuoteAcceptance = {
       signedName: input.signedName,
       signedAt: now,
+      signatureMethod: input.signatureMethod,
       signatureStrokes: input.signatureStrokes,
       linkId,
       quoteUpdatedAt: source.pdfQuote.updatedAt,
@@ -194,7 +199,9 @@ export async function POST(
     } catch (workflowError) {
       console.error(
         "Could not enqueue signed quote workflow events",
-        workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
+        workflowError instanceof Error
+          ? workflowError.name
+          : "WorkflowEventError",
       );
     }
     return Response.json(

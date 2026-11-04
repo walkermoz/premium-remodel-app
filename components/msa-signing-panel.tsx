@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { Check, Tablet } from "lucide-react";
 import type { SigningDocumentView } from "@/lib/document-signing";
-import type { Quote, SignatureStroke } from "@/lib/types";
+import type { Quote } from "@/lib/types";
 import { projectMoney } from "@/lib/project-finances";
 import { makeMsaPreview } from "@/lib/msa-preview";
 import DocumentSigningPanel from "./document-signing-panel";
 import MsaDocument from "./msa-document";
-import MsaSignaturePad from "./msa-signature-pad";
+import SignatureField, {
+  signatureFieldComplete,
+  type SignatureFieldValue,
+} from "./signature-field";
 
 export default function MsaSigningPanel({
   quote,
@@ -24,17 +27,21 @@ export default function MsaSigningPanel({
   onEditData?: () => void;
 }) {
   const [signerTitle, setSignerTitle] = useState("");
-  const [signatureStrokes, setSignatureStrokes] = useState<SignatureStroke[]>(
-    [],
-  );
+  const [staffSignature, setStaffSignature] = useState<SignatureFieldValue>({
+    signedName: signerName,
+    signatureMethod: "drawn",
+    signatureStrokes: [],
+  });
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [customerSigningOpen, setCustomerSigningOpen] = useState(false);
   const [customerSigningToken, setCustomerSigningToken] = useState("");
-  const [customerName, setCustomerName] = useState(quote.client);
-  const [customerSignatureStrokes, setCustomerSignatureStrokes] = useState<
-    SignatureStroke[]
-  >([]);
+  const [customerSignature, setCustomerSignature] =
+    useState<SignatureFieldValue>({
+      signedName: quote.client,
+      signatureMethod: "drawn",
+      signatureStrokes: [],
+    });
   const [customerAgreed, setCustomerAgreed] = useState(false);
   const [customerSigningBusy, setCustomerSigningBusy] = useState(false);
   const [customerSigningError, setCustomerSigningError] = useState("");
@@ -83,7 +90,8 @@ export default function MsaSigningPanel({
             owner: quote.client.trim(),
             ownerEmail: quote.clientEmail?.trim() || "",
             signerTitle: signerTitle.trim(),
-            signatureStrokes,
+            signatureMethod: staffSignature.signatureMethod,
+            signatureStrokes: staffSignature.signatureStrokes,
           }),
         },
       );
@@ -156,8 +164,9 @@ export default function MsaSigningPanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            signedName: customerName.trim(),
-            signatureStrokes: customerSignatureStrokes,
+            signedName: customerSignature.signedName.trim(),
+            signatureMethod: customerSignature.signatureMethod,
+            signatureStrokes: customerSignature.signatureStrokes,
             termsSha256: agreement.termsSha256,
             transactionDate,
             agreed: customerAgreed,
@@ -265,25 +274,19 @@ export default function MsaSigningPanel({
               />
             </div>
             <div className="workflow-inline-msa-fields">
-              <label>
-                Customer legal name
-                <input
-                  value={customerName}
-                  minLength={2}
-                  maxLength={150}
-                  disabled={customerSigningBusy}
-                  onChange={(event) => setCustomerName(event.target.value)}
-                />
-              </label>
               <div>
                 <span>Date</span>
                 <strong>{transactionDate}</strong>
               </div>
             </div>
-            <p className="workflow-signature-label">Customer signature</p>
-            <MsaSignaturePad
-              onChange={setCustomerSignatureStrokes}
+            <SignatureField
+              value={customerSignature}
+              onChange={(value) => {
+                setCustomerSignature(value);
+                setCustomerSigningError("");
+              }}
               disabled={customerSigningBusy}
+              nameLabel="Customer print name"
             />
             <label className="workflow-inline-msa-consent">
               <input
@@ -320,8 +323,7 @@ export default function MsaSigningPanel({
                 disabled={
                   customerSigningBusy ||
                   !customerAgreed ||
-                  customerName.trim().length < 2 ||
-                  !customerSignatureStrokes.length
+                  !signatureFieldComplete(customerSignature)
                 }
                 onClick={() => void signCustomerAgreement()}
               >
@@ -396,8 +398,16 @@ export default function MsaSigningPanel({
           />
         </label>
       </div>
-      <p className="workflow-signature-label">Company member signature</p>
-      <MsaSignaturePad onChange={setSignatureStrokes} disabled={sending} />
+      <SignatureField
+        value={staffSignature}
+        onChange={(value) => {
+          setStaffSignature(value);
+          setError("");
+        }}
+        disabled={sending}
+        nameLabel="Company representative print name"
+        nameReadOnly
+      />
       {error && <p className="alert">{error}</p>}
       <div className="workflow-completion-actions">
         <button
@@ -407,7 +417,7 @@ export default function MsaSigningPanel({
             sending ||
             !detailsReady ||
             !quote.clientEmail ||
-            !signatureStrokes.length
+            !signatureFieldComplete(staffSignature)
           }
           onClick={() => void prepareAgreement()}
         >

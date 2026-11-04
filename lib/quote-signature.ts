@@ -23,9 +23,12 @@ export const signatureStrokesSchema = z
     return points <= 3000 && length >= 0.04;
   }, "Draw your signature before accepting the quote.");
 
+export const signatureMethodSchema = z.enum(["drawn", "typed"]);
+
 export const quoteAcceptanceSchema = z.object({
   signedName: z.string().trim().min(2).max(100),
   signedAt: z.iso.datetime(),
+  signatureMethod: signatureMethodSchema.default("drawn"),
   signatureStrokes: signatureStrokesSchema,
   linkId: z.uuid(),
   quoteUpdatedAt: z.iso.datetime(),

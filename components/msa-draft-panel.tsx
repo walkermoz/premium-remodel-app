@@ -20,8 +20,10 @@ import { dateLabel } from "@/lib/utils";
 import { projectMoney } from "@/lib/project-finances";
 import { makeMsaPreview } from "@/lib/msa-preview";
 import MsaDocument from "./msa-document";
-import MsaSignaturePad from "./msa-signature-pad";
-import type { SignatureStroke } from "@/lib/types";
+import SignatureField, {
+  signatureFieldComplete,
+  type SignatureFieldValue,
+} from "./signature-field";
 import styles from "./msa-draft-panel.module.css";
 import { connectionIsReady } from "@/lib/organization-connections.types";
 import { useOrganizationConnection } from "./use-organization-connections";
@@ -133,9 +135,11 @@ export default function MsaDraftPanel({
   const [signerTitle, setSignerTitle] = useState(
     project.msaAgreement?.staffSignature.title || "",
   );
-  const [signatureStrokes, setSignatureStrokes] = useState<SignatureStroke[]>(
-    [],
-  );
+  const [staffSignature, setStaffSignature] = useState<SignatureFieldValue>({
+    signedName: signer.name,
+    signatureMethod: "drawn",
+    signatureStrokes: [],
+  });
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const percentTotal = steps.reduce((sum, step) => sum + step.percent, 0);
@@ -311,10 +315,10 @@ export default function MsaDraftPanel({
       return;
     }
     if (
-      !signatureStrokes.length &&
+      !signatureFieldComplete(staffSignature) &&
       project.msaAgreement?.status !== "prepared"
     ) {
-      setSendError("Draw your signature before sending.");
+      setSendError("Add your signature before sending.");
       return;
     }
     setSending(true);
@@ -329,7 +333,8 @@ export default function MsaDraftPanel({
             owner: owner.trim(),
             ownerEmail: ownerEmail.trim(),
             signerTitle: signerTitle.trim(),
-            signatureStrokes,
+            signatureMethod: staffSignature.signatureMethod,
+            signatureStrokes: staffSignature.signatureStrokes,
             retry: project.msaAgreement?.status === "prepared",
             confirmedHistoricalScope: confirmedHistorical,
           }),
@@ -827,10 +832,15 @@ export default function MsaDraftPanel({
                 />
               </label>
             </div>
-            <p>Staff signature</p>
-            <MsaSignaturePad
-              onChange={setSignatureStrokes}
+            <SignatureField
+              value={staffSignature}
+              onChange={(value) => {
+                setStaffSignature(value);
+                setSendError("");
+              }}
               disabled={sending}
+              nameLabel="Company representative print name"
+              nameReadOnly
             />
             <button
               type="button"
@@ -844,6 +854,7 @@ export default function MsaDraftPanel({
                 (needsHistorical && (!historical || !confirmedHistorical)) ||
                 !owner.trim() ||
                 !ownerEmail.trim() ||
+                !signatureFieldComplete(staffSignature) ||
                 (!prepareBeforeQuoteSignature &&
                   (mailConnectionLoading || !mailReady))
               }

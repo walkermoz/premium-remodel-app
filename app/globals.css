@@ -3885,6 +3885,12 @@ small {
   height: 100%;
   object-fit: contain;
 }
+.workspace-monogram.has-logo {
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+}
 .organization-switcher {
   min-width: 0;
   flex: 1;
@@ -13659,6 +13665,24 @@ small {
   display: grid;
   gap: 18px;
 }
+.api-key-create-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(130px, 0.72fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+.api-key-create-row.has-custom-expiration {
+  grid-template-columns:
+    minmax(130px, 0.85fr) minmax(120px, 0.65fr) minmax(180px, 1fr)
+    auto;
+}
+.api-key-create-row > label {
+  min-width: 0;
+}
+.api-key-create-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
 .api-key-scope-picker {
   margin: 0;
   padding: 0;
@@ -13728,6 +13752,15 @@ small {
   flex-wrap: wrap;
   gap: 0.65rem;
   align-items: end;
+}
+@media (max-width: 720px) {
+  .api-key-create-row,
+  .api-key-create-row.has-custom-expiration {
+    grid-template-columns: 1fr;
+  }
+  .api-key-create-button {
+    justify-self: start;
+  }
 }
 .quote-close-rate {
   display: grid;

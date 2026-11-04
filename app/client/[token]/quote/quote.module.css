@@ -612,6 +612,115 @@
   font-size: 18px;
 }
 
+.invoice {
+  overflow: hidden;
+  border: 1px solid #d2dce3;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.invoiceHeader {
+  padding: 24px 26px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid #dce4e9;
+}
+
+.invoiceHeader span:first-child {
+  color: #4d6879;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.invoiceHeader h2 {
+  margin: 5px 0 7px;
+  font-size: 23px;
+}
+
+.invoiceHeader p {
+  margin: 0;
+  color: #526b79;
+  font-size: 13px;
+}
+
+.invoiceStatus {
+  padding: 6px 10px;
+  border: 1px solid #ddaa72;
+  border-radius: 999px;
+  color: #8b4a12;
+  background: #fff7eb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.invoiceStatus.invoicePaid {
+  border-color: #9bc9ae;
+  color: #176b42;
+  background: #eef8f2;
+}
+
+.invoiceAmounts {
+  margin: 0;
+  padding: 8px 26px;
+}
+
+.invoiceAmounts > div {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #e3e9ed;
+}
+
+.invoiceAmounts > div:last-child {
+  border-bottom: 0;
+}
+
+.invoiceAmounts dt {
+  color: #526b79;
+  font-size: 13px;
+}
+
+.invoiceAmounts dd {
+  margin: 0;
+  color: #0d2d3d;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.invoiceDue {
+  padding: 18px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  color: #fff;
+  background: #2d78ad;
+}
+
+.invoiceDue span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.invoiceDue strong {
+  font-size: 22px;
+}
+
+.invoiceActions {
+  padding: 20px 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .walletCard > p,
 .walletNote {
   color: #526b79;
@@ -668,6 +777,13 @@
 
 .walletCard .walletError {
   color: #9c342d;
+}
+
+.signedAgreementActions {
+  margin: -8px 0 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .toolbar {
@@ -1488,6 +1604,26 @@
   .walletActions,
   .walletActions form,
   .walletActions button {
+    width: 100%;
+  }
+
+  .invoiceHeader,
+  .invoiceAmounts,
+  .invoiceDue,
+  .invoiceActions {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .invoiceHeader {
+    align-items: flex-start;
+  }
+
+  .invoiceActions .outlineAction {
+    width: 100%;
+  }
+
+  .signedAgreementActions .outlineAction {
     width: 100%;
   }
 

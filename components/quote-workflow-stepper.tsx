@@ -50,14 +50,14 @@ export default function QuoteWorkflowStepper({
     },
     {
       id: "company",
-      title: "Company approval",
-      detail: "Review and sign as the company representative",
+      title: "Company signatures",
+      detail: "Review and add required company signatures",
       complete: companyReady,
     },
     {
       id: "customer",
-      title: "Customer completion",
-      detail: "Share the packet and collect signatures",
+      title: "Customer signatures",
+      detail: "Share the packet and collect customer signatures",
       complete: customerReady,
     },
     {
@@ -97,10 +97,17 @@ export default function QuoteWorkflowStepper({
           );
         return {
           id: stage.id,
-          title: premiumCompletion ? "Customer completion" : stage.title,
+          title:
+            stage.type === "signature_collection"
+              ? "Company signatures"
+              : premiumCompletion
+                ? "Customer signatures"
+                : stage.title,
           detail: premiumCompletion
-            ? "Share the packet and collect signatures"
-            : stage.description,
+            ? "Share the packet and collect customer signatures"
+            : stage.type === "signature_collection"
+              ? "Review and add required company signatures"
+              : stage.description,
           complete: completionByStageId?.[stage.id] ?? completeForStage(stage),
           disabled: stage.type === "project_conversion" && !projectReady,
         };

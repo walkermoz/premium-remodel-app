@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import source from "./msa-general-terms.json" with { type: "json" };
 import { msaPaymentAmounts, msaPrefill } from "./msa-draft";
-import { signatureStrokesSchema } from "./quote-signature";
+import {
+  signatureMethodSchema,
+  signatureStrokesSchema,
+} from "./quote-signature";
 import type { MsaAgreement, Project, Quote, ScopeItem } from "./types";
 
 export const msaCompanyName =
@@ -14,10 +17,12 @@ export const staffMsaInput = z.object({
   owner: z.string().trim().min(2).max(150),
   ownerEmail: z.email().max(320),
   signerTitle: z.string().trim().max(100).default(""),
+  signatureMethod: signatureMethodSchema.default("drawn"),
   signatureStrokes: signatureStrokesSchema,
 });
 export const customerMsaInput = z.object({
   signedName: z.string().trim().min(2).max(150),
+  signatureMethod: signatureMethodSchema.default("drawn"),
   signatureStrokes: signatureStrokesSchema,
   termsSha256: z.string().regex(/^[a-f0-9]{64}$/),
   transactionDate: z.iso.date(),
@@ -85,7 +90,7 @@ export function cancellationDeadline(transactionDate: string) {
 export function prepareMsa(
   project: Project | Quote,
   items: ScopeItem[],
-  input: z.infer<typeof staffMsaInput>,
+  input: z.input<typeof staffMsaInput>,
   signer: { id: string; name: string },
   at: string,
   options: { allowUnsignedQuote?: boolean } = {},
@@ -176,6 +181,7 @@ export function prepareMsa(
       name: signer.name,
       title: input.signerTitle,
       signedAt: at,
+      signatureMethod: input.signatureMethod || "drawn",
       signatureStrokes: input.signatureStrokes,
     },
   };

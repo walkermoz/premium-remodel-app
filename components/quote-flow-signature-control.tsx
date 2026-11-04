@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { SignatureStroke } from "@/lib/types";
 import type { QuoteFlowBlock } from "@/lib/quote-flow-schema";
-import MsaSignaturePad from "./msa-signature-pad";
+import SignatureField, {
+  signatureFieldComplete,
+  type SignatureFieldValue,
+} from "./signature-field";
 import styles from "./quote-flow-signature-control.module.css";
 
 export default function QuoteFlowSignatureControl({
@@ -21,10 +23,13 @@ export default function QuoteFlowSignatureControl({
     value && typeof value === "object"
       ? (value as Record<string, unknown>)
       : null;
-  const [signedName, setSignedName] = useState("");
   const [initials, setInitials] = useState("");
   const [accepted, setAccepted] = useState(false);
-  const [strokes, setStrokes] = useState<SignatureStroke[]>([]);
+  const [signature, setSignature] = useState<SignatureFieldValue>({
+    signedName: "",
+    signatureMethod: "drawn",
+    signatureStrokes: [],
+  });
   const acknowledgment = String(
     block.config.acknowledgment ||
       (block.type === "initials"
@@ -78,15 +83,11 @@ export default function QuoteFlowSignatureControl({
 
   return (
     <div className={styles.control}>
-      <label>
-        Full legal name
-        <input
-          value={signedName}
-          disabled={busy}
-          onChange={(event) => setSignedName(event.target.value)}
-        />
-      </label>
-      <MsaSignaturePad onChange={setStrokes} disabled={busy} />
+      <SignatureField
+        value={signature}
+        onChange={setSignature}
+        disabled={busy}
+      />
       <label className={styles.accept}>
         <input
           type="checkbox"
@@ -98,14 +99,13 @@ export default function QuoteFlowSignatureControl({
       </label>
       <button
         type="button"
-        disabled={
-          busy || !accepted || signedName.trim().length < 2 || !strokes.length
-        }
+        disabled={busy || !accepted || !signatureFieldComplete(signature)}
         onClick={() =>
           onComplete({
-            signedName: signedName.trim(),
+            signedName: signature.signedName.trim(),
             accepted: true,
-            signatureStrokes: strokes,
+            signatureMethod: signature.signatureMethod,
+            signatureStrokes: signature.signatureStrokes,
           })
         }
       >

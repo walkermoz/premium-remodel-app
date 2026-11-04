@@ -31,7 +31,7 @@ function stagePresentation(stage: QuoteFlowStage) {
     );
   return premiumCustomerCompletion
     ? {
-        title: "Customer completion",
+        title: "Customer signatures",
         description: "Review and sign every required document in one packet.",
       }
     : { title: stage.title, description: stage.description };

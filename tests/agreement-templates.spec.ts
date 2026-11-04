@@ -151,7 +151,8 @@ test("generic agreement signing has an organization-branded public UI", () => {
   expect(page).toContain("/document");
   expect(page).toContain("Download signed agreement");
   expect(page).toContain("Staff workspace hidden");
-  expect(form).toContain("MsaSignaturePad");
+  expect(form).toContain("SignatureField");
+  expect(form).toContain("signatureMethod");
   expect(form).toContain("I have reviewed this agreement");
   expect(packetPanel).toContain("Create & send agreement");
   expect(packetPanel).toContain("Sign on this device");
