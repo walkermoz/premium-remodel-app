@@ -15253,3 +15253,389 @@ small {
     grid-template-columns: 1fr;
   }
 }
+
+/* Google review analytics */
+.google-business-settings-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.google-business-settings-actions .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.analytics-panel {
+  max-width: 1140px;
+  padding-bottom: 72px;
+}
+.analytics-heading {
+  align-items: end;
+}
+.analytics-heading .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.analytics-preview-note,
+.analytics-setup-note {
+  margin: 0 0 20px;
+  padding: 12px 15px;
+  border-left: 2px solid var(--blue);
+  background: var(--theme-surface-soft, #1d3141);
+  color: var(--theme-text, #dce6ed);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.analytics-kicker {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+.analytics-connect {
+  max-width: 710px;
+  margin-top: 22px;
+  padding: 34px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.analytics-connect-icon,
+.analytics-summary-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  margin: 22px 0 16px;
+  background: color-mix(in srgb, var(--blue) 15%, transparent);
+  color: var(--blue);
+}
+.analytics-connect h2 {
+  margin: 0 0 10px;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: clamp(22px, 3vw, 30px);
+  letter-spacing: -0.035em;
+}
+.analytics-connect > p:not(.analytics-setup-note),
+.analytics-summary-main > p,
+.analytics-muted {
+  max-width: 560px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.analytics-connect > .button {
+  display: inline-flex;
+  margin-top: 15px;
+}
+.analytics-connect .analytics-setup-note {
+  margin: 18px 0 0;
+}
+.analytics-location-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+.analytics-location-controls select {
+  width: min(100%, 390px);
+  min-height: 40px;
+}
+.analytics-summary {
+  display: grid;
+  grid-template-columns: minmax(205px, 0.35fr) minmax(0, 1fr);
+  margin: 28px 0 34px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.analytics-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 29px 32px;
+  border-right: 1px solid var(--line);
+}
+.analytics-score strong {
+  margin-top: 9px;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 58px;
+  font-weight: 700;
+  letter-spacing: -0.075em;
+  line-height: 1;
+}
+.analytics-stars,
+.analytics-review-rating {
+  color: #e4ac54;
+}
+.analytics-stars {
+  margin: 6px 0 9px;
+  font-size: 18px;
+  letter-spacing: 0.14em;
+}
+.analytics-score small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.analytics-summary-main {
+  padding: 23px 32px;
+}
+.analytics-summary-main .analytics-summary-icon {
+  width: 37px;
+  height: 37px;
+  margin: 0 0 15px;
+}
+.analytics-summary-main h2 {
+  margin: 6px 0;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.analytics-summary-main > p {
+  margin: 0;
+}
+.analytics-summary-stats {
+  display: flex;
+  gap: 24px;
+  margin-top: 22px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+.analytics-summary-stats strong {
+  margin-right: 5px;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 14px;
+}
+.analytics-feed-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+.analytics-feed-heading h2 {
+  margin: 5px 0 0;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 23px;
+  letter-spacing: -0.035em;
+}
+.analytics-filters {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+}
+.analytics-filters button {
+  min-height: 31px;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+}
+.analytics-filters button.active {
+  background: var(--theme-surface-soft, #26394a);
+  color: var(--theme-text-strong, var(--ink));
+}
+.analytics-reviews {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+.analytics-review {
+  min-width: 0;
+  padding: 23px 27px;
+  background: var(--surface);
+}
+.analytics-review-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.analytics-review-avatar {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  background: color-mix(in srgb, var(--blue) 19%, var(--surface));
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 750;
+}
+.analytics-review-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.analytics-review-identity strong {
+  overflow: hidden;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.analytics-review-identity span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.analytics-review-rating {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+.analytics-new {
+  padding: 3px 6px;
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+.analytics-review-copy {
+  margin: 14px 0 0 47px;
+  max-width: 760px;
+  color: var(--theme-text, #dce6ed);
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+.analytics-reply-existing {
+  margin: 19px 0 0 47px;
+  padding: 13px 15px;
+  border-left: 2px solid var(--blue);
+  background: var(--theme-surface-soft, #1b2e3c);
+}
+.analytics-reply-existing span {
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+.analytics-reply-existing p {
+  margin: 7px 0 0;
+  color: var(--theme-text, #dce6ed);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.analytics-review-actions {
+  display: flex;
+  gap: 18px;
+  margin: 17px 0 0 47px;
+}
+.analytics-review-actions button,
+.analytics-review-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.analytics-reply-editor {
+  display: grid;
+  gap: 9px;
+  margin: 19px 0 0 47px;
+}
+.analytics-reply-editor label {
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 11px;
+  font-weight: 700;
+}
+.analytics-reply-editor textarea {
+  width: 100%;
+  min-height: 86px;
+  resize: vertical;
+  font: inherit;
+  font-size: 12px;
+}
+.analytics-reply-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.analytics-reply-actions span {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 10px;
+}
+.analytics-empty {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 52px 20px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  text-align: center;
+}
+.analytics-empty strong {
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 14px;
+}
+.analytics-empty p,
+.analytics-fetched {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.analytics-more {
+  display: block;
+  margin: 18px auto;
+}
+.analytics-fetched {
+  margin-top: 16px;
+  text-align: right;
+}
+
+@media (max-width: 700px) {
+  .analytics-heading,
+  .analytics-feed-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .analytics-summary {
+    grid-template-columns: 1fr;
+  }
+  .analytics-score {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .analytics-score,
+  .analytics-summary-main,
+  .analytics-review {
+    padding: 20px;
+  }
+  .analytics-review-copy,
+  .analytics-reply-existing,
+  .analytics-review-actions,
+  .analytics-reply-editor {
+    margin-left: 0;
+  }
+  .analytics-review-head {
+    flex-wrap: wrap;
+  }
+  .analytics-review-rating {
+    flex-basis: 100%;
+    margin-left: 47px;
+  }
+  .analytics-reply-actions {
+    flex-wrap: wrap;
+  }
+  .analytics-reply-actions span {
+    flex-basis: 100%;
+  }
+}

@@ -11,6 +11,7 @@ import WorkspaceAlertSettings from "./workspace-alert-settings";
 import WorkspaceHistorySettings from "./workspace-history-settings";
 import GoogleCalendarSettings from "./google-calendar-settings";
 import GoogleMailSettings from "./google-mail-settings";
+import GoogleBusinessSettings from "./google-business-settings";
 import ApiKeysSettings from "./api-keys-settings";
 import type { WorkspaceAlert } from "@/lib/types";
 import type { BusinessConfig } from "@/lib/business-config";
@@ -231,6 +232,7 @@ export default function SettingsPanel({
             </p>
           </div>
           <GoogleMailSettings demo={demo} />
+          <GoogleBusinessSettings demo={demo} />
           <TwilioSettings demo={demo} businessName={config.profile.name} />
           {hasCapability("payments.manage") && config.modules.payments && (
             <StripePaymentSettings demo={demo} />

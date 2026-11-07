@@ -39,6 +39,7 @@ import {
   Inbox,
   Footprints,
   Workflow,
+  ChartNoAxesCombined,
   Newspaper,
 } from "lucide-react";
 import { demoWorkspace } from "@/lib/demo";
@@ -114,6 +115,7 @@ import OrganizationSwitcher from "./organization-switcher";
 import PricebookPanel from "./pricebook-panel";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import AutomationPanel from "./automation-panel";
+import AnalyticsPanel from "./analytics-panel";
 import { workspaceObjects } from "@/lib/workspace-objects";
 import { RegionalFormatProvider } from "./regional-format-context";
 
@@ -125,6 +127,7 @@ type Page =
   | "Price book"
   | "Leads"
   | "Automation"
+  | "Analytics"
   | "Contacts"
   | "Door knocking"
   | "Upcoming"
@@ -1289,6 +1292,7 @@ export default function WorkspaceApp({
             count: workspace.leads.length,
           },
           { name: "Automation", icon: Workflow },
+          { name: "Analytics", icon: ChartNoAxesCombined },
           { name: "Contacts", icon: Users },
           { name: "Door knocking", icon: Footprints },
           { name: "Upcoming", icon: CalendarDays, count: openTasks.length },
@@ -1776,6 +1780,17 @@ export default function WorkspaceApp({
                     user.group === "owner" ||
                     config.rolePermissions[user.group].includes(
                       "workflows.manage",
+                    )
+                  }
+                />
+              )}
+              {page === "Analytics" && (
+                <AnalyticsPanel
+                  demo={demo}
+                  canManage={
+                    user.group === "owner" ||
+                    config.rolePermissions[user.group].includes(
+                      "connections.manage",
                     )
                   }
                 />

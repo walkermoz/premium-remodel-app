@@ -4,6 +4,7 @@ import type { WorkspaceUser } from "./auth";
 import { HttpError } from "./auth";
 import { getBusinessConfigForOrganization } from "./business-config";
 import { revokeGoogleCalendarsForOrganization } from "./google-calendar";
+import { revokeGoogleBusinessForOrganization } from "./google-business";
 import { revokeGoogleMailForOrganization } from "./google-mail";
 import { deleteOrganizationStorage } from "./organization-archive";
 import { sanitizeOrganizationExportValue } from "./organization-export-sanitizer";
@@ -23,6 +24,7 @@ const exportTables = [
   "remodel_audit_events",
   "remodel_client_links",
   "remodel_google_calendar_connections",
+  "remodel_google_business_connections",
   "remodel_google_mail_connections",
   "remodel_quote_email_sends",
   "remodel_twilio_connections",
@@ -236,6 +238,7 @@ async function executeDeletionJob(job: DeletionJob) {
   try {
     await revokeGoogleMailForOrganization(job.organization_id);
     await revokeGoogleCalendarsForOrganization(job.organization_id);
+    await revokeGoogleBusinessForOrganization(job.organization_id);
     await disconnectStripeAccountForOrganization(job.organization_id);
     await deleteTwilioConnection(job.organization_id);
     const removedFiles = await deleteOrganizationStorage(job.organization_id);

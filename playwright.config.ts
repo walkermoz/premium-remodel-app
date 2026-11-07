@@ -47,6 +47,8 @@ export default defineConfig({
       GOOGLE_CALENDAR_CLIENT_SECRET: "",
       GOOGLE_GMAIL_CLIENT_ID: "",
       GOOGLE_GMAIL_CLIENT_SECRET: "",
+      GOOGLE_BUSINESS_CLIENT_ID: "",
+      GOOGLE_BUSINESS_CLIENT_SECRET: "",
       GOOGLE_TOKEN_ENCRYPTION_KEY: "",
       CLIENT_PORTAL_SECRET:
         "playwright-only-client-portal-secret-change-before-production",
