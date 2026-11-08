@@ -44,6 +44,7 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("claim"),
     canRunCodex: z.boolean().optional().default(true),
+    canRunImplementations: z.boolean().optional().default(true),
   }),
   z.object({
     action: z.literal("started"),
@@ -124,6 +125,7 @@ export async function POST(request: Request) {
       return Response.json({
         task: await claimProductCouncilTask({
           includeCodexTasks: body.canRunCodex,
+          includeImplementationTasks: body.canRunImplementations,
         }),
       });
 

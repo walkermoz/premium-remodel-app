@@ -634,7 +634,7 @@ export async function postImplementationApproval(
               },
               {
                 name: "Implementation AI",
-                value: `Codex Cloud · \`${truncate(evidence.modelId, 120)}\``,
+                value: `Codex chat · \`${truncate(evidence.modelId, 120)}\``,
                 inline: true,
               },
               {
