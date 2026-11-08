@@ -147,7 +147,8 @@ test("Ideas renders four separate recommendations with their own action rows", (
     recommendations,
   };
   const payload = recommendationBatchMessage(batch);
-  expect(payload.header.content).toMatch(/dedicated Codex implementation run/i);
+  expect(payload.header.content).toMatch(/existing Codex chat to build a PR/i);
+  expect(payload.header.content).toMatch(/next four ideas.*automatically/i);
   expect(payload.items).toHaveLength(4);
   expect(payload.items.every((item) => item.embeds.length === 1)).toBe(true);
   expect(

@@ -220,7 +220,7 @@ function recommendationActions(item: StoredProductRecommendation) {
 export function recommendationHeaderMessage() {
   return {
     content:
-      "**ServiceBuddy product council · 4 recommendations**\nEach recommendation and its decision buttons are grouped together below. Approving starts a dedicated Codex implementation run; merge still requires evidence approval in **#approval**.",
+      "**ServiceBuddy product council · 4 recommendations**\nEach recommendation and its decision buttons are grouped together below. Approving sends the locked specification to Walker’s existing Codex chat to build a PR; merge still requires the PR and preview approval in **#approval**. After all four decisions, the next four ideas are generated automatically.",
     allowed_mentions: { parse: [] as string[] },
   };
 }
@@ -601,7 +601,7 @@ export async function postImplementationApproval(
     {
       method: "POST",
       body: JSON.stringify({
-        content: "**Implementation ready for evidence approval**",
+        content: "**PR ready — review the preview, then approve or reject**",
         embeds: [
           {
             title: truncate(evidence.title, 240),
@@ -653,7 +653,7 @@ export async function postImplementationApproval(
               {
                 type: 2,
                 style: 3,
-                label: "Approve exact commit",
+                label: "Approve PR",
                 custom_id: implementationCustomId(evidence.id, "approve"),
                 disabled: !checksPassed,
               },
