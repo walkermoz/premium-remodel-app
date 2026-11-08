@@ -5,6 +5,7 @@ import { msaPaymentRows } from "./msa-contract";
 import { supabaseAdmin } from "./supabase/server";
 import type { Activity, Project, Quote } from "./types";
 import { enqueueWorkflowEvent } from "./workflows/events";
+import { captureJobCostBudgetSnapshot } from "./job-cost-budget";
 
 /** The quote remains a quote until the signed scope, signed MSA, and deposit exist. */
 export async function promotePaidQuote(
@@ -79,6 +80,9 @@ export async function promotePaidQuote(
     ...quote,
     status: "Planning",
     completedDate: "",
+    jobCostBudgetSnapshot:
+      quote.jobCostBudgetSnapshot ||
+      (await captureJobCostBudgetSnapshot(organizationId, quoteId, now)),
     updatedAt: now,
   };
   const { data: updated, error: updateError } = await admin
@@ -110,7 +114,9 @@ export async function promotePaidQuote(
     } catch (workflowError) {
       console.error(
         "Could not enqueue the project-created workflow event",
-        workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
+        workflowError instanceof Error
+          ? workflowError.name
+          : "WorkflowEventError",
       );
     }
     return project;

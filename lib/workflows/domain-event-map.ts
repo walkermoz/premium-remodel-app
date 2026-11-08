@@ -6,7 +6,7 @@ import type {
 } from "./schema";
 
 export type WorkflowRecordKind =
-  "contact" | "lead" | "quote" | "project" | "task";
+  "contact" | "lead" | "quote" | "project" | "task" | "actual_cost";
 
 export type WorkflowRecordEvent = {
   organizationId: string;
@@ -71,6 +71,7 @@ export function workflowRecordEvents(input: {
         quote: "quote.created",
         project: "project.created",
         task: "item.created",
+        actual_cost: "project.cost.recorded",
       }[kind] as WorkflowEventType,
     );
   } else {
@@ -90,6 +91,8 @@ export function workflowRecordEvents(input: {
       types.push("item.assigned");
     if (kind === "task" && before.status !== "Done" && after.status === "Done")
       types.push("item.completed");
+    if (kind === "actual_cost" && Object.keys(changes).length)
+      types.push("project.cost.updated");
   }
 
   return types.map<WorkflowRecordEvent>((type) => ({
@@ -111,6 +114,9 @@ export function workflowRecordEvents(input: {
       contactId: contactId || null,
       contractorId: after.contractorId || null,
       leadId: after.leadId || null,
+      amount: after.amount || null,
+      category: after.category || null,
+      scopeItemId: after.scopeItemId || null,
     },
   }));
 }
