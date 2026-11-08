@@ -209,6 +209,98 @@ export async function recordProductSignal(input: {
   if (error) throw error;
 }
 
+type DiscordOperatorCommandStatus =
+  "new" | "claimed" | "completed" | "failed" | "blocked";
+
+export async function getDiscordOperatorCommandEnabledAt() {
+  const db = supabaseAdmin();
+  const { data, error } = await db
+    .from("servicebuddy_discord_command_settings")
+    .select("enabled_at")
+    .eq("id", true)
+    .single();
+  if (error) throw error;
+  return data.enabled_at as string;
+}
+
+export async function recordDiscordOperatorCommands(
+  commands: {
+    discordMessageId: string;
+    discordChannelId: string;
+    discordUserId: string;
+    body: string;
+    discordCreatedAt: string;
+  }[],
+) {
+  if (!commands.length) return [];
+  const db = supabaseAdmin();
+  const ids = commands.map((command) => command.discordMessageId);
+  const { data: existing, error: existingError } = await db
+    .from("servicebuddy_discord_operator_commands")
+    .select("discord_message_id")
+    .in("discord_message_id", ids);
+  if (existingError) throw existingError;
+  const existingIds = new Set(
+    (existing || []).map((row) => row.discord_message_id as string),
+  );
+  const fresh = commands.filter(
+    (command) => !existingIds.has(command.discordMessageId),
+  );
+  if (!fresh.length) return [];
+  const { error } = await db
+    .from("servicebuddy_discord_operator_commands")
+    .insert(
+      fresh.map((command) => ({
+        discord_message_id: command.discordMessageId,
+        discord_channel_id: command.discordChannelId,
+        discord_user_id: command.discordUserId,
+        body: command.body,
+        discord_created_at: command.discordCreatedAt,
+      })),
+    );
+  if (error?.code === "23505") return [];
+  if (error) throw error;
+  return fresh;
+}
+
+export async function listDiscordOperatorCommandResultsToNotify() {
+  const db = supabaseAdmin();
+  const { data, error } = await db
+    .from("servicebuddy_discord_operator_commands")
+    .select("id,discord_message_id,discord_channel_id,status,result_summary")
+    .in("status", ["completed", "failed", "blocked"])
+    .is("notified_at", null)
+    .order("finished_at", { ascending: true })
+    .limit(20);
+  if (error) throw error;
+  return (data || []) as {
+    id: string;
+    discord_message_id: string;
+    discord_channel_id: string;
+    status: Extract<
+      DiscordOperatorCommandStatus,
+      "completed" | "failed" | "blocked"
+    >;
+    result_summary: string;
+  }[];
+}
+
+export async function markDiscordOperatorCommandNotified(
+  id: string,
+  responseMessageId: string,
+) {
+  const db = supabaseAdmin();
+  const { error } = await db
+    .from("servicebuddy_discord_operator_commands")
+    .update({
+      notified_at: new Date().toISOString(),
+      discord_response_message_id: responseMessageId,
+    })
+    .eq("id", id)
+    .is("notified_at", null);
+  if (error) throw error;
+}
+
 export async function recordProductQuestion(input: {
   recommendationId: string;
   interactionId: string;

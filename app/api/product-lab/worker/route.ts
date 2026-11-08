@@ -1,7 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import {
+  acknowledgeDiscordOperatorCommand,
   ensureApprovalChannelReady,
+  fetchDiscordOperatorCommands,
   postRecommendationBatch,
+  postDiscordOperatorCommandResult,
   productDiscordConfig,
   productDiscordEnvironmentStatus,
   verifyProductDiscordInstallation,
@@ -9,9 +12,13 @@ import {
 import { initialProductRecommendations } from "@/lib/product-lab/recommendations";
 import {
   createRecommendationBatch,
+  getDiscordOperatorCommandEnabledAt,
   getLatestRecommendationBatch,
+  listDiscordOperatorCommandResultsToNotify,
   markRecommendationBatchFailed,
   markRecommendationBatchPosted,
+  markDiscordOperatorCommandNotified,
+  recordDiscordOperatorCommands,
 } from "@/lib/product-lab/store";
 
 export const runtime = "nodejs";
@@ -45,6 +52,30 @@ async function runWorker(request: Request) {
 
   await ensureApprovalChannelReady();
 
+  const enabledAt = await getDiscordOperatorCommandEnabledAt();
+  const captured = await recordDiscordOperatorCommands(
+    await fetchDiscordOperatorCommands(enabledAt),
+  );
+  await Promise.allSettled(
+    captured.map((command) =>
+      acknowledgeDiscordOperatorCommand({
+        channelId: command.discordChannelId,
+        messageId: command.discordMessageId,
+      }),
+    ),
+  );
+
+  const results = await listDiscordOperatorCommandResultsToNotify();
+  for (const result of results) {
+    const responseMessageId = await postDiscordOperatorCommandResult({
+      channelId: result.discord_channel_id,
+      messageId: result.discord_message_id,
+      status: result.status,
+      summary: result.result_summary,
+    });
+    await markDiscordOperatorCommandNotified(result.id, responseMessageId);
+  }
+
   let batch = await getLatestRecommendationBatch();
   if (batch?.status === "posted") {
     const health = await verifyProductDiscordInstallation(batch);
@@ -53,6 +84,7 @@ async function runWorker(request: Request) {
       action: "health_checked",
       batchId: batch.id,
       health,
+      commandInbox: { captured: captured.length, notified: results.length },
     });
   }
   if (batch?.status === "resolved") {
@@ -62,6 +94,7 @@ async function runWorker(request: Request) {
       action: "awaiting_new_evidence",
       batchId: batch.id,
       health,
+      commandInbox: { captured: captured.length, notified: results.length },
     });
   }
   if (!batch)
@@ -85,6 +118,7 @@ async function runWorker(request: Request) {
       action: "posted",
       batchId: batch.id,
       health,
+      commandInbox: { captured: captured.length, notified: results.length },
     });
   } catch (error) {
     await markRecommendationBatchFailed(batch.id, error);

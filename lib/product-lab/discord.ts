@@ -21,7 +21,37 @@ export function productDiscordConfig() {
     ideasChannelId: required("DISCORD_PRODUCT_IDEAS_CHANNEL_ID"),
     approvalChannelId: required("DISCORD_PRODUCT_APPROVAL_CHANNEL_ID"),
     cicdChannelId: required("DISCORD_PRODUCT_CICD_CHANNEL_ID"),
+    operatorUserId: required("DISCORD_PRODUCT_OPERATOR_USER_ID"),
   };
+}
+
+export type DiscordOperatorMessage = {
+  id: string;
+  channel_id: string;
+  content?: string;
+  timestamp?: string;
+  author?: { id?: string; bot?: boolean };
+};
+
+export function isDiscordOperatorCommand(
+  message: DiscordOperatorMessage,
+  input: {
+    channelId: string;
+    operatorUserId: string;
+    enabledAt: string;
+  },
+) {
+  const content = message.content?.trim();
+  const timestamp = Date.parse(message.timestamp || "");
+  return Boolean(
+    message.id &&
+    message.channel_id === input.channelId &&
+    message.author?.id === input.operatorUserId &&
+    !message.author.bot &&
+    content &&
+    Number.isFinite(timestamp) &&
+    timestamp >= Date.parse(input.enabledAt),
+  );
 }
 
 export function verifyDiscordRequest(input: {
@@ -187,6 +217,71 @@ async function discordRequest(path: string, init: RequestInit = {}) {
     throw new Error(`Discord API ${response.status}: ${detail}`);
   }
   return response.status === 204 ? null : response.json();
+}
+
+export async function fetchDiscordOperatorCommands(enabledAt: string) {
+  const config = productDiscordConfig();
+  const messages = (await discordRequest(
+    `/channels/${config.ideasChannelId}/messages?limit=100`,
+  )) as DiscordOperatorMessage[];
+  return messages
+    .filter((message) =>
+      isDiscordOperatorCommand(message, {
+        channelId: config.ideasChannelId,
+        operatorUserId: config.operatorUserId,
+        enabledAt,
+      }),
+    )
+    .map((message) => ({
+      discordMessageId: message.id,
+      discordChannelId: message.channel_id,
+      discordUserId: message.author!.id!,
+      body: message.content!.trim(),
+      discordCreatedAt: message.timestamp!,
+    }))
+    .sort((left, right) =>
+      left.discordCreatedAt.localeCompare(right.discordCreatedAt),
+    );
+}
+
+export async function acknowledgeDiscordOperatorCommand(input: {
+  channelId: string;
+  messageId: string;
+}) {
+  await discordRequest(
+    `/channels/${input.channelId}/messages/${input.messageId}/reactions/%F0%9F%91%80/@me`,
+    { method: "PUT" },
+  );
+}
+
+export async function postDiscordOperatorCommandResult(input: {
+  channelId: string;
+  messageId: string;
+  status: "completed" | "failed" | "blocked";
+  summary: string;
+}) {
+  const label =
+    input.status === "completed"
+      ? "Completed"
+      : input.status === "blocked"
+        ? "Needs input in Codex"
+        : "Could not complete";
+  const result = (await discordRequest(
+    `/channels/${input.channelId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        content: `**${label}**\n${truncate(input.summary.trim(), 1700)}`,
+        message_reference: {
+          message_id: input.messageId,
+          channel_id: input.channelId,
+          fail_if_not_exists: false,
+        },
+        allowed_mentions: { parse: [] },
+      }),
+    },
+  )) as { id: string };
+  return result.id;
 }
 
 type DiscordInstallationSnapshot = {
@@ -412,6 +507,7 @@ export function productDiscordEnvironmentStatus() {
     "DISCORD_PRODUCT_IDEAS_CHANNEL_ID",
     "DISCORD_PRODUCT_APPROVAL_CHANNEL_ID",
     "DISCORD_PRODUCT_CICD_CHANNEL_ID",
+    "DISCORD_PRODUCT_OPERATOR_USER_ID",
   ];
   return Object.fromEntries(
     names.map((name) => [name, Boolean(process.env[name]?.trim())]),

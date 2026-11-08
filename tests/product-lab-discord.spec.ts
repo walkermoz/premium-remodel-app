@@ -1,6 +1,7 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import {
+  isDiscordOperatorCommand,
   isProductReviewer,
   parseQuestionModalCustomId,
   parseRecommendationCustomId,
@@ -9,6 +10,40 @@ import {
   validateProductDiscordInstallation,
   verifyDiscordRequest,
 } from "../lib/product-lab/discord";
+
+test("only the configured operator can create chat commands after activation", () => {
+  const base = {
+    id: "message-1",
+    channel_id: "ideas",
+    content: "Please fix the quote flow",
+    timestamp: "2026-11-08T02:00:00.000Z",
+    author: { id: "walker", bot: false },
+  };
+  const expected = {
+    channelId: "ideas",
+    operatorUserId: "walker",
+    enabledAt: "2026-11-08T01:59:00.000Z",
+  };
+  expect(isDiscordOperatorCommand(base, expected)).toBe(true);
+  expect(
+    isDiscordOperatorCommand(
+      { ...base, author: { id: "someone-else", bot: false } },
+      expected,
+    ),
+  ).toBe(false);
+  expect(
+    isDiscordOperatorCommand(
+      { ...base, timestamp: "2026-11-08T01:58:00.000Z" },
+      expected,
+    ),
+  ).toBe(false);
+  expect(
+    isDiscordOperatorCommand(
+      { ...base, author: { id: "walker", bot: true } },
+      expected,
+    ),
+  ).toBe(false);
+});
 import { initialProductRecommendations } from "../lib/product-lab/recommendations";
 import type { StoredRecommendationBatch } from "../lib/product-lab/types";
 
