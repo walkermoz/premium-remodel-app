@@ -259,6 +259,8 @@ async function mergeApprovedTask(task) {
 const claimed = await productApi({
   action: "claim",
   canRunCodex: Boolean(process.env.CURSOR_API_KEY?.trim()),
+  canRunImplementations:
+    process.env.PRODUCT_COUNCIL_IMPLEMENTATION_RUNNER !== "codex-chat",
 });
 if (!claimed.task) {
   console.log("No product-council task is ready.");

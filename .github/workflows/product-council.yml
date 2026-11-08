@@ -31,4 +31,7 @@ jobs:
           CURSOR_PRODUCT_MODEL: ${{ vars.CURSOR_PRODUCT_MODEL || 'auto' }}
           GITHUB_TOKEN: ${{ github.token }}
           PRODUCT_COUNCIL_API_URL: https://servicebuddy-ui.vercel.app/api/product-lab/runner
+          # Recommendation generation and approved merges may run here. The
+          # first approval is implemented in Walker's existing Codex chat.
+          PRODUCT_COUNCIL_IMPLEMENTATION_RUNNER: codex-chat
         run: node scripts/product-council-agent.mjs

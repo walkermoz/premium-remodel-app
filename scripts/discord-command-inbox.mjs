@@ -1,5 +1,8 @@
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { requestProductionSync } from "./discord-command-sync.mjs";
 
 config({ path: process.env.DOTENV_CONFIG_PATH || ".env.local", quiet: true });
 
@@ -11,6 +14,32 @@ const db = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 const action = process.argv[2];
+const execFileAsync = promisify(execFile);
+
+const wait = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function loadCandidate() {
+  const { data, error } = await db
+    .from("servicebuddy_discord_operator_commands")
+    .select("id,discord_message_id,body,discord_created_at")
+    .eq("status", "new")
+    .order("discord_created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function waitForCandidate(milliseconds) {
+  const deadline = Date.now() + milliseconds;
+  do {
+    const candidate = await loadCandidate();
+    if (candidate) return candidate;
+    if (Date.now() >= deadline) return null;
+    await wait(1500);
+  } while (true);
+}
 
 async function claim() {
   const staleBefore = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
@@ -21,15 +50,14 @@ async function claim() {
     .lt("claimed_at", staleBefore);
   if (recoveryError) throw recoveryError;
 
+  let candidate = await loadCandidate();
+  if (!candidate) {
+    const sync = await requestProductionSync(execFileAsync);
+    if (sync.active) candidate = await waitForCandidate(45_000);
+  }
+
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data: candidate, error: loadError } = await db
-      .from("servicebuddy_discord_operator_commands")
-      .select("id,discord_message_id,body,discord_created_at")
-      .eq("status", "new")
-      .order("discord_created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (loadError) throw loadError;
+    if (!candidate) candidate = await loadCandidate();
     if (!candidate) return { command: null };
     const { data, error } = await db
       .from("servicebuddy_discord_operator_commands")
@@ -40,6 +68,7 @@ async function claim() {
       .maybeSingle();
     if (error) throw error;
     if (data) return { command: data };
+    candidate = null;
   }
   throw new Error("Could not atomically claim the next Discord command.");
 }

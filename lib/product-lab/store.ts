@@ -442,6 +442,17 @@ export async function decideRecommendation(input: {
       .update({ status: "resolved", resolved_at: now })
       .eq("id", recommendation.batch_id);
     if (resolveError) throw resolveError;
+
+    const { error: refreshError } = await db
+      .from("servicebuddy_product_signals")
+      .insert({
+        source: "system",
+        source_reference: `recommendation-refresh:${recommendation.batch_id}`,
+        submitted_by: input.discordUserId,
+        body:
+          "The current four recommendations have all been decided. Analyze the repository and the recorded decisions, avoid repeating prior recommendations, and prepare the next four concrete feature build-outs for Discord review.",
+      });
+    if (refreshError && refreshError.code !== "23505") throw refreshError;
   }
   return { changed: true, batchId: recommendation.batch_id };
 }

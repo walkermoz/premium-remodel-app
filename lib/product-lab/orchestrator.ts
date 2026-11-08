@@ -68,6 +68,7 @@ async function recoverStaleClaims() {
 
 export async function claimProductCouncilTask(input?: {
   includeCodexTasks?: boolean;
+  includeImplementationTasks?: boolean;
 }) {
   const db = supabaseAdmin();
   await recoverStaleClaims();
@@ -102,35 +103,37 @@ export async function claimProductCouncilTask(input?: {
 
   if (input?.includeCodexTasks === false) return null;
 
-  const { data: implementationCandidate, error: implementationLoadError } =
-    await db
-      .from("servicebuddy_product_implementations")
-      .select(implementationSelect)
-      .eq("status", "queued")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-  if (implementationLoadError) throw implementationLoadError;
-  if (implementationCandidate) {
-    const { data, error } = await db
-      .from("servicebuddy_product_implementations")
-      .update({ status: "running", claimed_at: new Date().toISOString() })
-      .eq("id", implementationCandidate.id)
-      .eq("status", "queued")
-      .select(implementationSelect)
-      .maybeSingle();
-    if (error) throw error;
-    if (data) {
-      const details = recommendation(data as unknown as ImplementationRow);
-      return {
-        type: "implementation" as const,
-        id: data.id as string,
-        title: details.title,
-        summary: details.summary,
-        spec: details.spec,
-        repositoryUrl,
-        startingRef: "main",
-      };
+  if (input?.includeImplementationTasks !== false) {
+    const { data: implementationCandidate, error: implementationLoadError } =
+      await db
+        .from("servicebuddy_product_implementations")
+        .select(implementationSelect)
+        .eq("status", "queued")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+    if (implementationLoadError) throw implementationLoadError;
+    if (implementationCandidate) {
+      const { data, error } = await db
+        .from("servicebuddy_product_implementations")
+        .update({ status: "running", claimed_at: new Date().toISOString() })
+        .eq("id", implementationCandidate.id)
+        .eq("status", "queued")
+        .select(implementationSelect)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        const details = recommendation(data as unknown as ImplementationRow);
+        return {
+          type: "implementation" as const,
+          id: data.id as string,
+          title: details.title,
+          summary: details.summary,
+          spec: details.spec,
+          repositoryUrl,
+          startingRef: "main",
+        };
+      }
     }
   }
 
