@@ -1,10 +1,12 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import {
+  isProductReviewer,
   parseQuestionModalCustomId,
   parseRecommendationCustomId,
   recommendationBatchMessage,
   recommendationCustomId,
+  validateProductDiscordInstallation,
   verifyDiscordRequest,
 } from "../lib/product-lab/discord";
 import { initialProductRecommendations } from "../lib/product-lab/recommendations";
@@ -69,6 +71,18 @@ test("product component identifiers round-trip without ambiguous actions", () =>
   expect(parseQuestionModalCustomId(`product:question:${id}`)).toBe(id);
 });
 
+test("only configured reviewers or Discord server managers can decide recommendations", () => {
+  expect(isProductReviewer({ userId: "ordinary", permissions: "0" })).toBe(
+    false,
+  );
+  expect(isProductReviewer({ userId: "manager", permissions: "32" })).toBe(
+    true,
+  );
+  expect(isProductReviewer({ userId: "administrator", permissions: "8" })).toBe(
+    true,
+  );
+});
+
 test("the Ideas packet always renders exactly four recommendations and four action rows", () => {
   const recommendations = initialProductRecommendations().map(
     (draft, index) => ({
@@ -99,4 +113,52 @@ test("the Ideas packet always renders exactly four recommendations and four acti
       recommendations: recommendations.slice(0, 3),
     }),
   ).toThrow(/exactly four/i);
+});
+
+test("the five-minute health check covers endpoint, command, channels, and the active packet", () => {
+  const applicationId = "1551985992276250816";
+  const endpointUrl = "https://servicebuddy-ui.vercel.app/api/discord/product";
+  const channelIds = ["ideas", "approval", "cicd"];
+  const recommendationMessageId = "packet";
+  const healthy = {
+    bot: { id: applicationId },
+    application: { id: applicationId, interactions_endpoint_url: endpointUrl },
+    commands: [{ name: "idea" }, { name: "Create opportunity" }],
+    channels: channelIds.map((id) => ({ id })),
+    approvalMessages: [{ content: "ServiceBuddy approval gate is online" }],
+    recommendationMessage: {
+      id: recommendationMessageId,
+      embeds: [{}, {}, {}, {}],
+      components: Array.from({ length: 4 }, () => ({
+        components: [{}, {}, {}, {}],
+      })),
+    },
+  };
+  const expected = {
+    applicationId,
+    endpointUrl,
+    channelIds,
+    recommendationMessageId,
+  };
+  expect(validateProductDiscordInstallation(healthy, expected)).toEqual([]);
+  expect(
+    validateProductDiscordInstallation(
+      {
+        ...healthy,
+        commands: [],
+        channels: healthy.channels.slice(0, 2),
+        recommendationMessage: {
+          ...healthy.recommendationMessage,
+          components: healthy.recommendationMessage.components.slice(0, 3),
+        },
+      },
+      expected,
+    ),
+  ).toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(/idea/),
+      expect.stringMatching(/not accessible/),
+      expect.stringMatching(/action rows/),
+    ]),
+  );
 });

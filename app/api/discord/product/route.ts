@@ -27,6 +27,9 @@ type DiscordInteraction = {
     custom_id?: string;
     options?: { name: string; value: unknown }[];
     components?: { components?: { custom_id?: string; value?: string }[] }[];
+    resolved?: {
+      messages?: Record<string, { id: string; content?: string }>;
+    };
   };
 };
 
@@ -47,19 +50,32 @@ function discordUserId(interaction: DiscordInteraction) {
 }
 
 async function handleCommand(interaction: DiscordInteraction) {
-  if (interaction.data?.name !== "idea")
+  const commandName = interaction.data?.name;
+  const resolvedMessage = Object.values(
+    interaction.data?.resolved?.messages || {},
+  )[0];
+  const body =
+    commandName === "Create opportunity"
+      ? resolvedMessage?.content
+      : interaction.data?.options?.find(
+          (option) => option.name === "description",
+        )?.value;
+  if (commandName !== "idea" && commandName !== "Create opportunity")
     return message("That product command is not registered here.");
-  const body = interaction.data.options?.find(
-    (option) => option.name === "description",
-  )?.value;
   if (typeof body !== "string" || !body.trim())
-    return message("Describe the product idea before submitting it.");
+    return message(
+      commandName === "Create opportunity"
+        ? "That message has no text to capture as product evidence."
+        : "Describe the product idea before submitting it.",
+    );
   await recordProductSignal({
     body,
     discordUserId: discordUserId(interaction),
-    sourceReference: interaction.channel_id
-      ? `discord-channel:${interaction.channel_id}`
-      : undefined,
+    sourceReference: resolvedMessage?.id
+      ? `discord-message:${resolvedMessage.id}`
+      : interaction.channel_id
+        ? `discord-channel:${interaction.channel_id}`
+        : undefined,
   });
   return message(
     "Idea saved as product evidence. It will be deduplicated and considered for a future four-recommendation batch; it does not bypass review.",

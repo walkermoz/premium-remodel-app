@@ -26,6 +26,12 @@ const commands = [
       },
     ],
   },
+  {
+    type: 3,
+    name: "Create opportunity",
+    default_member_permissions: null,
+    dm_permission: false,
+  },
 ];
 
 const response = await fetch(endpoint, {

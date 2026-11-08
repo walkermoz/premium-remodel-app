@@ -1,9 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import {
+  ensureApprovalChannelReady,
   postRecommendationBatch,
   productDiscordConfig,
   productDiscordEnvironmentStatus,
-  verifyDiscordBotConnection,
+  verifyProductDiscordInstallation,
 } from "@/lib/product-lab/discord";
 import { initialProductRecommendations } from "@/lib/product-lab/recommendations";
 import {
@@ -42,22 +43,27 @@ async function runWorker(request: Request) {
       { status: 503 },
     );
 
-  const botId = await verifyDiscordBotConnection();
+  await ensureApprovalChannelReady();
+
   let batch = await getLatestRecommendationBatch();
-  if (batch?.status === "posted")
+  if (batch?.status === "posted") {
+    const health = await verifyProductDiscordInstallation(batch);
     return Response.json({
       ok: true,
-      botId,
       action: "health_checked",
       batchId: batch.id,
+      health,
     });
-  if (batch?.status === "resolved")
+  }
+  if (batch?.status === "resolved") {
+    const health = await verifyProductDiscordInstallation(batch);
     return Response.json({
       ok: true,
-      botId,
       action: "awaiting_new_evidence",
       batchId: batch.id,
+      health,
     });
+  }
   if (!batch)
     batch = await createRecommendationBatch(
       "product-council-initial-v1",
@@ -72,11 +78,13 @@ async function runWorker(request: Request) {
       channelId: ideasChannelId,
       messageId: posted.id,
     });
+    const postedBatch = await getLatestRecommendationBatch();
+    const health = await verifyProductDiscordInstallation(postedBatch);
     return Response.json({
       ok: true,
-      botId,
       action: "posted",
       batchId: batch.id,
+      health,
     });
   } catch (error) {
     await markRecommendationBatchFailed(batch.id, error);

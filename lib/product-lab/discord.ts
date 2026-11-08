@@ -4,6 +4,7 @@ import type { RecommendationAction, StoredRecommendationBatch } from "./types";
 const discordApi = "https://discord.com/api/v10";
 const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
 const maxSignatureAgeSeconds = 300;
+const approvalReadinessMarker = "ServiceBuddy approval gate is online";
 
 function required(name: string) {
   const value = process.env[name]?.trim();
@@ -186,6 +187,165 @@ async function discordRequest(path: string, init: RequestInit = {}) {
     throw new Error(`Discord API ${response.status}: ${detail}`);
   }
   return response.status === 204 ? null : response.json();
+}
+
+type DiscordInstallationSnapshot = {
+  bot: { id: string };
+  application: { id: string; interactions_endpoint_url?: string | null };
+  commands: { name: string }[];
+  channels: { id: string }[];
+  approvalMessages?: { content?: string }[];
+  recommendationMessage?: {
+    id: string;
+    embeds?: unknown[];
+    components?: { components?: unknown[] }[];
+  };
+};
+
+export function validateProductDiscordInstallation(
+  snapshot: DiscordInstallationSnapshot,
+  expected: {
+    applicationId: string;
+    endpointUrl: string;
+    channelIds: string[];
+    recommendationMessageId?: string;
+  },
+) {
+  const failures: string[] = [];
+  if (
+    snapshot.bot.id !== expected.applicationId ||
+    snapshot.application.id !== expected.applicationId
+  )
+    failures.push("Bot and application identities do not match configuration.");
+  if (snapshot.application.interactions_endpoint_url !== expected.endpointUrl)
+    failures.push(
+      "Discord's signed interaction endpoint is not configured correctly.",
+    );
+  const commandNames = new Set(
+    snapshot.commands.map((command) => command.name),
+  );
+  if (!commandNames.has("idea"))
+    failures.push("The /idea guild command is missing.");
+  if (!commandNames.has("Create opportunity"))
+    failures.push("The Create opportunity message action is missing.");
+  const accessibleChannels = new Set(
+    snapshot.channels.map((channel) => channel.id),
+  );
+  for (const channelId of expected.channelIds)
+    if (!accessibleChannels.has(channelId))
+      failures.push(
+        `Discord channel ${channelId} is not accessible to the bot.`,
+      );
+  if (
+    !snapshot.approvalMessages?.some((item) =>
+      item.content?.includes(approvalReadinessMarker),
+    )
+  )
+    failures.push("The Approval channel readiness marker is missing.");
+
+  if (expected.recommendationMessageId) {
+    const packet = snapshot.recommendationMessage;
+    if (!packet || packet.id !== expected.recommendationMessageId)
+      failures.push("The active Ideas recommendation packet is missing.");
+    else {
+      if (packet.embeds?.length !== 4)
+        failures.push(
+          "The active Ideas packet does not contain four recommendations.",
+        );
+      if (
+        packet.components?.length !== 4 ||
+        packet.components.some((row) => row.components?.length !== 4)
+      )
+        failures.push(
+          "The active Ideas packet does not contain four complete action rows.",
+        );
+    }
+  }
+  return failures;
+}
+
+export async function verifyProductDiscordInstallation(
+  batch?: StoredRecommendationBatch | null,
+) {
+  const config = productDiscordConfig();
+  const endpointUrl = `${(process.env.APP_URL || "https://servicebuddy-ui.vercel.app").replace(/\/$/, "")}/api/discord/product`;
+  const messagePromise =
+    batch?.discordChannelId && batch.discordMessageId
+      ? discordRequest(
+          `/channels/${batch.discordChannelId}/messages/${batch.discordMessageId}`,
+        )
+      : Promise.resolve(undefined);
+  const [
+    bot,
+    application,
+    commands,
+    ideas,
+    approval,
+    cicd,
+    approvalMessages,
+    recommendationMessage,
+  ] = await Promise.all([
+    discordRequest("/users/@me"),
+    discordRequest("/oauth2/applications/@me"),
+    discordRequest(
+      `/applications/${config.applicationId}/guilds/${config.guildId}/commands`,
+    ),
+    discordRequest(`/channels/${config.ideasChannelId}`),
+    discordRequest(`/channels/${config.approvalChannelId}`),
+    discordRequest(`/channels/${config.cicdChannelId}`),
+    discordRequest(`/channels/${config.approvalChannelId}/messages?limit=20`),
+    messagePromise,
+  ]);
+  const snapshot = {
+    bot,
+    application,
+    commands,
+    channels: [ideas, approval, cicd],
+    approvalMessages,
+    recommendationMessage,
+  } as DiscordInstallationSnapshot;
+  const failures = validateProductDiscordInstallation(snapshot, {
+    applicationId: config.applicationId,
+    endpointUrl,
+    channelIds: [
+      config.ideasChannelId,
+      config.approvalChannelId,
+      config.cicdChannelId,
+    ],
+    recommendationMessageId: batch?.discordMessageId || undefined,
+  });
+  if (failures.length) throw new Error(failures.join(" "));
+  return {
+    botId: snapshot.bot.id,
+    endpointUrl,
+    command: "/idea",
+    channels: snapshot.channels.map((channel) => channel.id),
+    activePacket: batch?.discordMessageId || null,
+  };
+}
+
+export async function ensureApprovalChannelReady() {
+  const config = productDiscordConfig();
+  const messages = (await discordRequest(
+    `/channels/${config.approvalChannelId}/messages?limit=20`,
+  )) as { id: string; content?: string }[];
+  const existing = messages.find((item) =>
+    item.content?.includes(approvalReadinessMarker),
+  );
+  if (existing) return existing.id;
+  const created = (await discordRequest(
+    `/channels/${config.approvalChannelId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        content:
+          `**${approvalReadinessMarker}**\n` +
+          "Tested pull-request packets will appear here after an Ideas approval creates an implementation. Merge approval is bound to the exact reviewed commit and is invalidated by later changes.",
+        allowed_mentions: { parse: [] },
+      }),
+    },
+  )) as { id: string };
+  return created.id;
 }
 
 export async function postRecommendationBatch(

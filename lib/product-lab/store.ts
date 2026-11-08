@@ -125,7 +125,18 @@ export async function createRecommendationBatch(
         .select("id")
         .single();
       if (specError) throw specError;
-      const { title, spec: _spec, ...summary } = draft;
+      const { title } = draft;
+      const summary = {
+        problem: draft.problem,
+        outcome: draft.outcome,
+        evidence: draft.evidence,
+        competitorGap: draft.competitorGap,
+        integration: draft.integration,
+        value: draft.value,
+        effort: draft.effort,
+        risk: draft.risk,
+        confidence: draft.confidence,
+      };
       const { error: recommendationError } = await db
         .from("servicebuddy_product_recommendations")
         .insert({
