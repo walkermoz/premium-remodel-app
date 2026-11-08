@@ -23,6 +23,7 @@ import AgreementTemplatesSettings from "./agreement-templates-settings";
 import QuoteFlowTemplatesSettings from "./quote-flow-templates-settings";
 import StripePaymentSettings from "./stripe-payment-settings";
 import OrganizationLifecycleSettings from "./organization-lifecycle-settings";
+import BookingFormSettings from "./booking-form-settings";
 export default function SettingsPanel({
   user,
   config,
@@ -166,6 +167,9 @@ export default function SettingsPanel({
             demo={demo}
             capabilities={config.rolePermissions[user.group]}
           />
+          {hasCapability("business.manage") && (
+            <BookingFormSettings demo={demo} />
+          )}
           {canManageAgreements && config.modules.agreements && (
             <AgreementTemplatesSettings demo={demo} />
           )}
