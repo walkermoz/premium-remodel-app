@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 import {
   isDiscordOperatorCommand,
   isProductReviewer,
+  implementationCustomId,
+  parseImplementationCustomId,
   parseQuestionModalCustomId,
   parseRecommendationCustomId,
   recommendationBatchMessage,
@@ -104,6 +106,12 @@ test("product component identifiers round-trip without ambiguous actions", () =>
     parseRecommendationCustomId(`product:recommendation:${id}:merge`),
   ).toBeNull();
   expect(parseQuestionModalCustomId(`product:question:${id}`)).toBe(id);
+  expect(
+    parseImplementationCustomId(implementationCustomId(id, "approve")),
+  ).toEqual({ implementationId: id, action: "approve" });
+  expect(
+    parseImplementationCustomId(`product:implementation:${id}:merge`),
+  ).toBeNull();
 });
 
 test("only configured reviewers or Discord server managers can decide recommendations", () => {
@@ -118,7 +126,7 @@ test("only configured reviewers or Discord server managers can decide recommenda
   );
 });
 
-test("the Ideas packet always renders exactly four recommendations and four action rows", () => {
+test("Ideas renders four separate recommendations with their own action rows", () => {
   const recommendations = initialProductRecommendations().map(
     (draft, index) => ({
       ...draft,
@@ -134,14 +142,21 @@ test("the Ideas packet always renders exactly four recommendations and four acti
     status: "draft",
     discordChannelId: null,
     discordMessageId: null,
+    discordMessageIds: [],
+    discordLayoutVersion: 2,
     recommendations,
   };
   const payload = recommendationBatchMessage(batch);
-  expect(payload.embeds).toHaveLength(4);
-  expect(payload.components).toHaveLength(4);
-  expect(payload.components.every((row) => row.components.length === 4)).toBe(
-    true,
-  );
+  expect(payload.header.content).toMatch(/dedicated Codex implementation run/i);
+  expect(payload.items).toHaveLength(4);
+  expect(payload.items.every((item) => item.embeds.length === 1)).toBe(true);
+  expect(
+    payload.items.every(
+      (item) =>
+        item.components.length === 1 &&
+        item.components[0].components.length === 4,
+    ),
+  ).toBe(true);
   expect(() =>
     recommendationBatchMessage({
       ...batch,
@@ -150,30 +165,28 @@ test("the Ideas packet always renders exactly four recommendations and four acti
   ).toThrow(/exactly four/i);
 });
 
-test("the five-minute health check covers endpoint, command, channels, and the active packet", () => {
+test("the five-minute health check covers endpoint, command, channels, and each recommendation", () => {
   const applicationId = "1551985992276250816";
   const endpointUrl = "https://servicebuddy-ui.vercel.app/api/discord/product";
   const channelIds = ["ideas", "approval", "cicd"];
-  const recommendationMessageId = "packet";
+  const recommendationMessageIds = ["one", "two", "three", "four"];
   const healthy = {
     bot: { id: applicationId },
     application: { id: applicationId, interactions_endpoint_url: endpointUrl },
     commands: [{ name: "idea" }, { name: "Create opportunity" }],
     channels: channelIds.map((id) => ({ id })),
     approvalMessages: [{ content: "ServiceBuddy approval gate is online" }],
-    recommendationMessage: {
-      id: recommendationMessageId,
-      embeds: [{}, {}, {}, {}],
-      components: Array.from({ length: 4 }, () => ({
-        components: [{}, {}, {}, {}],
-      })),
-    },
+    recommendationMessages: recommendationMessageIds.map((id) => ({
+      id,
+      embeds: [{}],
+      components: [{ components: [{}, {}, {}, {}] }],
+    })),
   };
   const expected = {
     applicationId,
     endpointUrl,
     channelIds,
-    recommendationMessageId,
+    recommendationMessageIds,
   };
   expect(validateProductDiscordInstallation(healthy, expected)).toEqual([]);
   expect(
@@ -182,10 +195,13 @@ test("the five-minute health check covers endpoint, command, channels, and the a
         ...healthy,
         commands: [],
         channels: healthy.channels.slice(0, 2),
-        recommendationMessage: {
-          ...healthy.recommendationMessage,
-          components: healthy.recommendationMessage.components.slice(0, 3),
-        },
+        recommendationMessages: healthy.recommendationMessages
+          .slice(0, 3)
+          .map((message, index) =>
+            index === 0
+              ? { ...message, components: [{ components: [{}, {}] }] }
+              : message,
+          ),
       },
       expected,
     ),
@@ -193,7 +209,8 @@ test("the five-minute health check covers endpoint, command, channels, and the a
     expect.arrayContaining([
       expect.stringMatching(/idea/),
       expect.stringMatching(/not accessible/),
-      expect.stringMatching(/action rows/),
+      expect.stringMatching(/recommendation messages/),
+      expect.stringMatching(/complete action row/),
     ]),
   );
 });

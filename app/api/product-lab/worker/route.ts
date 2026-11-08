@@ -7,11 +7,10 @@ import {
   postDiscordOperatorCommandResult,
   productDiscordConfig,
   productDiscordEnvironmentStatus,
+  supersedeLegacyRecommendationMessage,
   verifyProductDiscordInstallation,
 } from "@/lib/product-lab/discord";
-import { initialProductRecommendations } from "@/lib/product-lab/recommendations";
 import {
-  createRecommendationBatch,
   getDiscordOperatorCommandEnabledAt,
   getLatestRecommendationBatch,
   listDiscordOperatorCommandResultsToNotify,
@@ -19,6 +18,7 @@ import {
   markRecommendationBatchPosted,
   markDiscordOperatorCommandNotified,
   recordDiscordOperatorCommands,
+  recordProductSignal,
 } from "@/lib/product-lab/store";
 
 export const runtime = "nodejs";
@@ -56,6 +56,15 @@ async function runWorker(request: Request) {
   const captured = await recordDiscordOperatorCommands(
     await fetchDiscordOperatorCommands(enabledAt),
   );
+  await Promise.all(
+    captured.map((command) =>
+      recordProductSignal({
+        body: command.body,
+        discordUserId: command.discordUserId,
+        sourceReference: `discord-message:${command.discordMessageId}`,
+      }),
+    ),
+  );
   await Promise.allSettled(
     captured.map((command) =>
       acknowledgeDiscordOperatorCommand({
@@ -77,6 +86,26 @@ async function runWorker(request: Request) {
   }
 
   let batch = await getLatestRecommendationBatch();
+  if (
+    batch?.status === "posted" &&
+    batch.discordLayoutVersion < 2 &&
+    batch.discordChannelId &&
+    batch.discordMessageId
+  ) {
+    await supersedeLegacyRecommendationMessage(
+      batch.discordChannelId,
+      batch.discordMessageId,
+    );
+    const reposted = await postRecommendationBatch(batch);
+    const { ideasChannelId } = productDiscordConfig();
+    await markRecommendationBatchPosted({
+      batchId: batch.id,
+      channelId: ideasChannelId,
+      messageId: reposted.id,
+      messageIds: reposted.messageIds,
+    });
+    batch = await getLatestRecommendationBatch();
+  }
   if (batch?.status === "posted") {
     const health = await verifyProductDiscordInstallation(batch);
     return Response.json({
@@ -97,11 +126,15 @@ async function runWorker(request: Request) {
       commandInbox: { captured: captured.length, notified: results.length },
     });
   }
-  if (!batch)
-    batch = await createRecommendationBatch(
-      "product-council-initial-v1",
-      initialProductRecommendations(),
-    );
+  if (!batch) {
+    const health = await verifyProductDiscordInstallation(null);
+    return Response.json({
+      ok: true,
+      action: "awaiting_generated_recommendations",
+      health,
+      commandInbox: { captured: captured.length, notified: results.length },
+    });
+  }
 
   try {
     const posted = await postRecommendationBatch(batch);
@@ -110,6 +143,7 @@ async function runWorker(request: Request) {
       batchId: batch.id,
       channelId: ideasChannelId,
       messageId: posted.id,
+      messageIds: posted.messageIds,
     });
     const postedBatch = await getLatestRecommendationBatch();
     const health = await verifyProductDiscordInstallation(postedBatch);

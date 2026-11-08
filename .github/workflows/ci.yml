@@ -172,6 +172,50 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
+  product-council-preview-evidence:
+    name: Product council preview evidence
+    if: github.event_name == 'pull_request' && needs.vercel-preview.outputs.url != ''
+    needs: [quality, vercel-preview]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Run the reporter from the trusted base commit. The PR implementation
+          # must never be able to alter code that receives CRON_SECRET.
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: Post PR, checks, and preview to the approval gate
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PRODUCT_COUNCIL_REPORT_MODE: preview
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BRANCH_NAME: ${{ github.head_ref }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          PREVIEW_RESULT: ${{ needs.vercel-preview.result }}
+          PREVIEW_URL: ${{ needs.vercel-preview.outputs.url }}
+          WORKFLOW_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/report-product-council.mjs
+
+  product-council-production-evidence:
+    name: Product council production evidence
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: [quality, vercel-production]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report production outcome
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PRODUCT_COUNCIL_REPORT_MODE: production
+          HEAD_SHA: ${{ github.sha }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          PRODUCTION_RESULT: ${{ needs.vercel-production.result }}
+          PRODUCTION_URL: ${{ needs.vercel-production.outputs.url }}
+          WORKFLOW_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/report-product-council.mjs
+
   discord-build-update:
     name: Discord build update
     if: ${{ always() && !cancelled() }}

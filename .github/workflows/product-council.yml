@@ -1,0 +1,34 @@
+name: Product council delivery
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: product-council-delivery
+  cancel-in-progress: false
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Run the next approved product-council task
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_PRODUCT_MODEL: ${{ vars.CURSOR_PRODUCT_MODEL || 'auto' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PRODUCT_COUNCIL_API_URL: https://servicebuddy-ui.vercel.app/api/product-lab/runner
+        run: node scripts/product-council-agent.mjs

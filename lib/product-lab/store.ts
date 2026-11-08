@@ -12,6 +12,8 @@ type BatchRow = {
   status: StoredRecommendationBatch["status"];
   discord_channel_id: string | null;
   discord_message_id: string | null;
+  discord_message_ids: unknown;
+  discord_layout_version: number;
 };
 
 type RecommendationRow = {
@@ -64,6 +66,12 @@ async function batchWithRecommendations(row: BatchRow) {
     status: row.status,
     discordChannelId: row.discord_channel_id,
     discordMessageId: row.discord_message_id,
+    discordMessageIds: Array.isArray(row.discord_message_ids)
+      ? row.discord_message_ids.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [],
+    discordLayoutVersion: row.discord_layout_version || 1,
     recommendations: (data as unknown as RecommendationRow[]).map(
       mapRecommendation,
     ),
@@ -74,7 +82,9 @@ export async function getLatestRecommendationBatch() {
   const db = supabaseAdmin();
   const { data, error } = await db
     .from("servicebuddy_product_recommendation_batches")
-    .select("id,status,discord_channel_id,discord_message_id")
+    .select(
+      "id,status,discord_channel_id,discord_message_id,discord_message_ids,discord_layout_version",
+    )
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -86,7 +96,9 @@ export async function getRecommendationBatch(batchId: string) {
   const db = supabaseAdmin();
   const { data, error } = await db
     .from("servicebuddy_product_recommendation_batches")
-    .select("id,status,discord_channel_id,discord_message_id")
+    .select(
+      "id,status,discord_channel_id,discord_message_id,discord_message_ids,discord_layout_version",
+    )
     .eq("id", batchId)
     .maybeSingle();
   if (error) throw error;
@@ -105,7 +117,9 @@ export async function createRecommendationBatch(
   const { data: batch, error: batchError } = await db
     .from("servicebuddy_product_recommendation_batches")
     .insert({ cadence_key: cadenceKey, status: "draft" })
-    .select("id,status,discord_channel_id,discord_message_id")
+    .select(
+      "id,status,discord_channel_id,discord_message_id,discord_message_ids,discord_layout_version",
+    )
     .single();
   if (batchError) throw batchError;
 
@@ -168,6 +182,7 @@ export async function markRecommendationBatchPosted(input: {
   batchId: string;
   channelId: string;
   messageId: string;
+  messageIds: string[];
 }) {
   const db = supabaseAdmin();
   const { error } = await db
@@ -176,6 +191,8 @@ export async function markRecommendationBatchPosted(input: {
       status: "posted",
       discord_channel_id: input.channelId,
       discord_message_id: input.messageId,
+      discord_message_ids: input.messageIds,
+      discord_layout_version: 2,
       posted_at: new Date().toISOString(),
       failure_message: null,
     })
@@ -194,6 +211,37 @@ export async function markRecommendationBatchFailed(
     .eq("id", batchId);
 }
 
+export async function retireActiveRecommendationBatches() {
+  const db = supabaseAdmin();
+  const { data, error } = await db
+    .from("servicebuddy_product_recommendation_batches")
+    .select("id")
+    .in("status", ["draft", "posted"]);
+  if (error) throw error;
+  const ids = (data || []).map((row) => row.id as string);
+  if (!ids.length) return [];
+
+  const now = new Date().toISOString();
+  const { error: recommendationError } = await db
+    .from("servicebuddy_product_recommendations")
+    .update({ status: "parked", decided_at: now })
+    .in("batch_id", ids)
+    .eq("status", "pending");
+  if (recommendationError) throw recommendationError;
+
+  const { error: batchError } = await db
+    .from("servicebuddy_product_recommendation_batches")
+    .update({ status: "resolved", resolved_at: now })
+    .in("id", ids)
+    .in("status", ["draft", "posted"]);
+  if (batchError) throw batchError;
+
+  const retired = await Promise.all(ids.map(getRecommendationBatch));
+  return retired.filter(
+    (batch): batch is StoredRecommendationBatch => Boolean(batch),
+  );
+}
+
 export async function recordProductSignal(input: {
   body: string;
   discordUserId: string;
@@ -206,7 +254,7 @@ export async function recordProductSignal(input: {
     submitted_by: input.discordUserId,
     body: input.body.trim(),
   });
-  if (error) throw error;
+  if (error && error.code !== "23505") throw error;
 }
 
 type DiscordOperatorCommandStatus =
@@ -370,6 +418,16 @@ export async function decideRecommendation(input: {
       .eq("id", recommendation.spec_version_id)
       .eq("status", "draft");
     if (lockError) throw lockError;
+
+    const { error: implementationError } = await db
+      .from("servicebuddy_product_implementations")
+      .insert({
+        recommendation_id: recommendation.id,
+        spec_version_id: recommendation.spec_version_id,
+        status: "queued",
+      });
+    if (implementationError && implementationError.code !== "23505")
+      throw implementationError;
   }
 
   const { count, error: pendingError } = await db

@@ -4,8 +4,10 @@ import {
   recordProductQuestion,
   recordProductSignal,
 } from "@/lib/product-lab/store";
+import { decideImplementation } from "@/lib/product-lab/orchestrator";
 import {
   isProductReviewer,
+  parseImplementationCustomId,
   parseQuestionModalCustomId,
   parseRecommendationCustomId,
   productDiscordEnvironmentStatus,
@@ -73,9 +75,7 @@ async function handleCommand(interaction: DiscordInteraction) {
     discordUserId: discordUserId(interaction),
     sourceReference: resolvedMessage?.id
       ? `discord-message:${resolvedMessage.id}`
-      : interaction.channel_id
-        ? `discord-channel:${interaction.channel_id}`
-        : undefined,
+      : `discord-interaction:${interaction.id}`,
   });
   return message(
     "Idea saved as product evidence. It will be deduplicated and considered for a future four-recommendation batch; it does not bypass review.",
@@ -109,6 +109,37 @@ function questionModal(recommendationId: string) {
 }
 
 async function handleComponent(interaction: DiscordInteraction) {
+  const implementation = parseImplementationCustomId(
+    interaction.data?.custom_id || "",
+  );
+  if (implementation) {
+    const userId = discordUserId(interaction);
+    if (
+      !isProductReviewer({
+        userId,
+        permissions: interaction.member?.permissions,
+      })
+    )
+      return message(
+        "A configured product reviewer or Discord server manager must make this decision.",
+      );
+    const decision = await decideImplementation({
+      implementationId: implementation.implementationId,
+      interactionId: interaction.id,
+      discordUserId: userId,
+      action: implementation.action,
+    });
+    if (!decision.changed)
+      return message(
+        "This evidence packet is no longer awaiting a decision. A changed commit requires a new packet.",
+      );
+    return message(
+      implementation.action === "approve"
+        ? "Exact reviewed commit approved. The scheduled runner may now merge it; production status will appear in #cicd."
+        : "Implementation rejected. It will not be merged.",
+    );
+  }
+
   const parsed = parseRecommendationCustomId(interaction.data?.custom_id || "");
   if (!parsed) return message("This product action is no longer recognized.");
   if (parsed.action === "ask") return questionModal(parsed.recommendationId);

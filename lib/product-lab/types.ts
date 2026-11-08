@@ -27,5 +27,33 @@ export type StoredRecommendationBatch = {
   status: "draft" | "posted" | "resolved" | "failed";
   discordChannelId: string | null;
   discordMessageId: string | null;
+  discordMessageIds: string[];
+  discordLayoutVersion: number;
   recommendations: StoredProductRecommendation[];
+};
+
+export type ProductImplementationStatus =
+  | "queued"
+  | "running"
+  | "pr_open"
+  | "awaiting_approval"
+  | "merge_approved"
+  | "merging"
+  | "deployed"
+  | "blocked"
+  | "failed"
+  | "rejected";
+
+export type ProductImplementationEvidence = {
+  id: string;
+  recommendationId: string;
+  title: string;
+  status: ProductImplementationStatus;
+  prUrl: string;
+  prNumber: number;
+  branchName: string;
+  headSha: string;
+  previewUrl: string;
+  modelId: string;
+  checks: Record<string, unknown>;
 };

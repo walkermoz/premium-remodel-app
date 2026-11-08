@@ -1,5 +1,10 @@
 import { createPublicKey, timingSafeEqual, verify } from "node:crypto";
-import type { RecommendationAction, StoredRecommendationBatch } from "./types";
+import type {
+  ProductImplementationEvidence,
+  RecommendationAction,
+  StoredProductRecommendation,
+  StoredRecommendationBatch,
+} from "./types";
 
 const discordApi = "https://discord.com/api/v10";
 const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
@@ -121,6 +126,24 @@ export function parseQuestionModalCustomId(value: string) {
   );
 }
 
+export function implementationCustomId(
+  implementationId: string,
+  action: "approve" | "reject",
+) {
+  return `product:implementation:${implementationId}:${action}`;
+}
+
+export function parseImplementationCustomId(value: string) {
+  const match = value.match(
+    /^product:implementation:([0-9a-f-]{36}):(approve|reject)$/i,
+  );
+  if (!match) return null;
+  return {
+    implementationId: match[1].toLowerCase(),
+    action: match[2].toLowerCase() as "approve" | "reject",
+  };
+}
+
 function truncate(value: string, length: number) {
   return value.length <= length ? value : `${value.slice(0, length - 1)}…`;
 }
@@ -132,6 +155,84 @@ function statusLabel(status: string) {
   return "Awaiting decision";
 }
 
+function recommendationEmbed(item: StoredProductRecommendation) {
+  return {
+    title: `${item.rank}. ${truncate(item.title, 240)}`,
+    description: truncate(item.problem, 1000),
+    color:
+      item.status === "approved"
+        ? 0x57f287
+        : item.status === "rejected"
+          ? 0xed4245
+          : item.status === "parked"
+            ? 0xfee75c
+            : 0x8ab4f8,
+    fields: [
+      { name: "Outcome", value: truncate(item.outcome, 700) },
+      { name: "Evidence", value: truncate(item.evidence, 700) },
+      { name: "Competitive gap", value: truncate(item.competitorGap, 500) },
+      { name: "Integration", value: truncate(item.integration, 700) },
+      {
+        name: "Assessment",
+        value: `Value **${item.value}** · Effort **${item.effort}** · Risk **${item.risk}** · Confidence **${item.confidence}**`,
+      },
+      { name: "Status", value: `**${statusLabel(item.status)}**` },
+    ],
+    footer: { text: `Recommendation ${item.id}` },
+  };
+}
+
+function recommendationActions(item: StoredProductRecommendation) {
+  return {
+    type: 1,
+    components: [
+      {
+        type: 2,
+        style: 3,
+        label: item.status === "approved" ? "Approved" : "Approve to build",
+        custom_id: recommendationCustomId(item.id, "approve"),
+        disabled: item.status !== "pending",
+      },
+      {
+        type: 2,
+        style: 1,
+        label: "Ask a question",
+        custom_id: recommendationCustomId(item.id, "ask"),
+      },
+      {
+        type: 2,
+        style: 2,
+        label: item.status === "parked" ? "Parked" : "Park",
+        custom_id: recommendationCustomId(item.id, "park"),
+        disabled: item.status !== "pending",
+      },
+      {
+        type: 2,
+        style: 4,
+        label: item.status === "rejected" ? "Rejected" : "Reject",
+        custom_id: recommendationCustomId(item.id, "reject"),
+        disabled: item.status !== "pending",
+      },
+    ],
+  };
+}
+
+export function recommendationHeaderMessage() {
+  return {
+    content:
+      "**ServiceBuddy product council · 4 recommendations**\nEach recommendation and its decision buttons are grouped together below. Approving starts a dedicated Codex implementation run; merge still requires evidence approval in **#approval**.",
+    allowed_mentions: { parse: [] as string[] },
+  };
+}
+
+export function recommendationItemMessage(item: StoredProductRecommendation) {
+  return {
+    embeds: [recommendationEmbed(item)],
+    components: [recommendationActions(item)],
+    allowed_mentions: { parse: [] as string[] },
+  };
+}
+
 export function recommendationBatchMessage(batch: StoredRecommendationBatch) {
   if (batch.recommendations.length !== 4)
     throw new Error(
@@ -141,65 +242,8 @@ export function recommendationBatchMessage(batch: StoredRecommendationBatch) {
     (left, right) => left.rank - right.rank,
   );
   return {
-    content:
-      "**ServiceBuddy product council · 4 recommendations**\nApprove a specification here to authorize an implementation branch and pull request. Merge requires a separate approval in **#approval**.",
-    embeds: recommendations.map((item) => ({
-      title: `${item.rank}. ${truncate(item.title, 240)}`,
-      description: truncate(item.problem, 1000),
-      color:
-        item.status === "approved"
-          ? 0x57f287
-          : item.status === "rejected"
-            ? 0xed4245
-            : item.status === "parked"
-              ? 0xfee75c
-              : 0x8ab4f8,
-      fields: [
-        { name: "Outcome", value: truncate(item.outcome, 700) },
-        { name: "Evidence", value: truncate(item.evidence, 700) },
-        { name: "Competitive gap", value: truncate(item.competitorGap, 500) },
-        { name: "Integration", value: truncate(item.integration, 700) },
-        {
-          name: "Assessment",
-          value: `Value **${item.value}** · Effort **${item.effort}** · Risk **${item.risk}** · Confidence **${item.confidence}**`,
-        },
-        { name: "Status", value: `**${statusLabel(item.status)}**` },
-      ],
-      footer: { text: `Recommendation ${item.id}` },
-    })),
-    components: recommendations.map((item) => ({
-      type: 1,
-      components: [
-        {
-          type: 2,
-          style: 3,
-          label: item.status === "approved" ? "Approved" : "Approve to build",
-          custom_id: recommendationCustomId(item.id, "approve"),
-          disabled: item.status !== "pending",
-        },
-        {
-          type: 2,
-          style: 1,
-          label: "Ask a question",
-          custom_id: recommendationCustomId(item.id, "ask"),
-        },
-        {
-          type: 2,
-          style: 2,
-          label: item.status === "parked" ? "Parked" : "Park",
-          custom_id: recommendationCustomId(item.id, "park"),
-          disabled: item.status !== "pending",
-        },
-        {
-          type: 2,
-          style: 4,
-          label: item.status === "rejected" ? "Rejected" : "Reject",
-          custom_id: recommendationCustomId(item.id, "reject"),
-          disabled: item.status !== "pending",
-        },
-      ],
-    })),
-    allowed_mentions: { parse: [] as string[] },
+    header: recommendationHeaderMessage(),
+    items: recommendations.map(recommendationItemMessage),
   };
 }
 
@@ -295,6 +339,11 @@ type DiscordInstallationSnapshot = {
     embeds?: unknown[];
     components?: { components?: unknown[] }[];
   };
+  recommendationMessages?: {
+    id: string;
+    embeds?: unknown[];
+    components?: { components?: unknown[] }[];
+  }[];
 };
 
 export function validateProductDiscordInstallation(
@@ -304,6 +353,7 @@ export function validateProductDiscordInstallation(
     endpointUrl: string;
     channelIds: string[];
     recommendationMessageId?: string;
+    recommendationMessageIds?: string[];
   },
 ) {
   const failures: string[] = [];
@@ -338,7 +388,27 @@ export function validateProductDiscordInstallation(
   )
     failures.push("The Approval channel readiness marker is missing.");
 
-  if (expected.recommendationMessageId) {
+  if (expected.recommendationMessageIds?.length) {
+    const messages = snapshot.recommendationMessages || [];
+    const actualIds = new Set(messages.map((message) => message.id));
+    if (
+      expected.recommendationMessageIds.length !== 4 ||
+      expected.recommendationMessageIds.some((id) => !actualIds.has(id))
+    )
+      failures.push("One or more active Ideas recommendation messages are missing.");
+    if (
+      messages.length !== 4 ||
+      messages.some(
+        (message) =>
+          message.embeds?.length !== 1 ||
+          message.components?.length !== 1 ||
+          message.components[0]?.components?.length !== 4,
+      )
+    )
+      failures.push(
+        "Each Ideas recommendation must have one embed and one complete action row.",
+      );
+  } else if (expected.recommendationMessageId) {
     const packet = snapshot.recommendationMessage;
     if (!packet || packet.id !== expected.recommendationMessageId)
       failures.push("The active Ideas recommendation packet is missing.");
@@ -370,6 +440,16 @@ export async function verifyProductDiscordInstallation(
           `/channels/${batch.discordChannelId}/messages/${batch.discordMessageId}`,
         )
       : Promise.resolve(undefined);
+  const itemMessagesPromise =
+    batch?.discordChannelId && batch.discordMessageIds.length
+      ? Promise.all(
+          batch.discordMessageIds.map((messageId) =>
+            discordRequest(
+              `/channels/${batch.discordChannelId}/messages/${messageId}`,
+            ),
+          ),
+        )
+      : Promise.resolve(undefined);
   const [
     bot,
     application,
@@ -379,6 +459,7 @@ export async function verifyProductDiscordInstallation(
     cicd,
     approvalMessages,
     recommendationMessage,
+    recommendationMessages,
   ] = await Promise.all([
     discordRequest("/users/@me"),
     discordRequest("/oauth2/applications/@me"),
@@ -390,6 +471,7 @@ export async function verifyProductDiscordInstallation(
     discordRequest(`/channels/${config.cicdChannelId}`),
     discordRequest(`/channels/${config.approvalChannelId}/messages?limit=20`),
     messagePromise,
+    itemMessagesPromise,
   ]);
   const snapshot = {
     bot,
@@ -398,6 +480,7 @@ export async function verifyProductDiscordInstallation(
     channels: [ideas, approval, cicd],
     approvalMessages,
     recommendationMessage,
+    recommendationMessages,
   } as DiscordInstallationSnapshot;
   const failures = validateProductDiscordInstallation(snapshot, {
     applicationId: config.applicationId,
@@ -408,6 +491,9 @@ export async function verifyProductDiscordInstallation(
       config.cicdChannelId,
     ],
     recommendationMessageId: batch?.discordMessageId || undefined,
+    recommendationMessageIds: batch?.discordMessageIds.length
+      ? batch.discordMessageIds
+      : undefined,
   });
   if (failures.length) throw new Error(failures.join(" "));
   return {
@@ -416,6 +502,7 @@ export async function verifyProductDiscordInstallation(
     command: "/idea",
     channels: snapshot.channels.map((channel) => channel.id),
     activePacket: batch?.discordMessageId || null,
+    activeRecommendations: batch?.discordMessageIds || [],
   };
 }
 
@@ -447,23 +534,184 @@ export async function postRecommendationBatch(
   batch: StoredRecommendationBatch,
 ) {
   const { ideasChannelId } = productDiscordConfig();
-  return discordRequest(`/channels/${ideasChannelId}/messages`, {
+  const payload = recommendationBatchMessage(batch);
+  const header = (await discordRequest(`/channels/${ideasChannelId}/messages`, {
     method: "POST",
-    body: JSON.stringify(recommendationBatchMessage(batch)),
-  }) as Promise<{ id: string }>;
+    body: JSON.stringify(payload.header),
+  })) as { id: string };
+  const itemIds: string[] = [];
+  for (const item of payload.items) {
+    const posted = (await discordRequest(
+      `/channels/${ideasChannelId}/messages`,
+      { method: "POST", body: JSON.stringify(item) },
+    )) as { id: string };
+    itemIds.push(posted.id);
+  }
+  return { id: header.id, messageIds: itemIds };
 }
 
 export async function updateRecommendationBatch(
   batch: StoredRecommendationBatch,
 ) {
-  if (!batch.discordChannelId || !batch.discordMessageId) return;
-  await discordRequest(
-    `/channels/${batch.discordChannelId}/messages/${batch.discordMessageId}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(recommendationBatchMessage(batch)),
-    },
+  if (!batch.discordChannelId) return;
+  const recommendations = [...batch.recommendations].sort(
+    (left, right) => left.rank - right.rank,
   );
+  if (
+    batch.discordLayoutVersion === 2 &&
+    batch.discordMessageIds.length === recommendations.length
+  ) {
+    await Promise.all(
+      recommendations.map((item, index) =>
+        discordRequest(
+          `/channels/${batch.discordChannelId}/messages/${batch.discordMessageIds[index]}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(recommendationItemMessage(item)),
+          },
+        ),
+      ),
+    );
+  }
+}
+
+export async function supersedeLegacyRecommendationMessage(
+  channelId: string,
+  messageId: string,
+) {
+  await discordRequest(`/channels/${channelId}/messages/${messageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      content:
+        "This recommendation packet was replaced by the cleaner one-item-per-message layout below.",
+      embeds: [],
+      components: [],
+      allowed_mentions: { parse: [] },
+    }),
+  });
+}
+
+export async function postImplementationApproval(
+  evidence: ProductImplementationEvidence,
+) {
+  const { approvalChannelId } = productDiscordConfig();
+  const checksPassed = evidence.checks.quality === "success";
+  const created = (await discordRequest(
+    `/channels/${approvalChannelId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        content: "**Implementation ready for evidence approval**",
+        embeds: [
+          {
+            title: truncate(evidence.title, 240),
+            color: checksPassed ? 0x57f287 : 0xfee75c,
+            fields: [
+              {
+                name: "Pull request",
+                value: `[Open PR #${evidence.prNumber}](${evidence.prUrl})`,
+                inline: true,
+              },
+              {
+                name: "Preview",
+                value: `[Open preview](${evidence.previewUrl})`,
+                inline: true,
+              },
+              {
+                name: "Checks",
+                value: checksPassed ? "Passed" : "Not passing",
+                inline: true,
+              },
+              {
+                name: "Reviewed commit",
+                value: `\`${evidence.headSha.slice(0, 12)}\``,
+                inline: true,
+              },
+              {
+                name: "Branch",
+                value: `\`${truncate(evidence.branchName, 200)}\``,
+                inline: true,
+              },
+              {
+                name: "Implementation AI",
+                value: `Codex Cloud · \`${truncate(evidence.modelId, 120)}\``,
+                inline: true,
+              },
+              {
+                name: "Evidence gate",
+                value:
+                  "Approval is bound to this exact commit. A later commit requires fresh checks and a new approval.",
+              },
+            ],
+            footer: { text: `Implementation ${evidence.id}` },
+          },
+        ],
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 3,
+                label: "Approve exact commit",
+                custom_id: implementationCustomId(evidence.id, "approve"),
+                disabled: !checksPassed,
+              },
+              {
+                type: 2,
+                style: 4,
+                label: "Reject",
+                custom_id: implementationCustomId(evidence.id, "reject"),
+              },
+              {
+                type: 2,
+                style: 5,
+                label: "Open PR",
+                url: evidence.prUrl,
+              },
+              {
+                type: 2,
+                style: 5,
+                label: "Open preview",
+                url: evidence.previewUrl,
+              },
+            ],
+          },
+        ],
+        allowed_mentions: { parse: [] },
+      }),
+    },
+  )) as { id: string };
+  return { id: created.id, channelId: approvalChannelId };
+}
+
+export async function postProductDeliveryUpdate(input: {
+  channel: "approval" | "cicd";
+  title: string;
+  description: string;
+  url?: string;
+  success?: boolean;
+}) {
+  const config = productDiscordConfig();
+  const channelId =
+    input.channel === "approval"
+      ? config.approvalChannelId
+      : config.cicdChannelId;
+  return discordRequest(`/channels/${channelId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      embeds: [
+        {
+          title: truncate(input.title, 240),
+          description: truncate(input.description, 3000),
+          url: input.url,
+          color: input.success === false ? 0xed4245 : 0x57f287,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      allowed_mentions: { parse: [] },
+    }),
+  });
 }
 
 export async function verifyDiscordBotConnection() {
