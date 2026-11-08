@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "node scripts/migrate-supabase.mjs",
+    "discord:register-product-bot": "node scripts/register-discord-product-bot.mjs",
     "test:cloud": "node scripts/test-cloud.mjs"
   },
   "keywords": [],
