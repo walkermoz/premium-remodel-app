@@ -50,7 +50,10 @@ import {
 } from "@/lib/scope-projects";
 import { appearsOnCustomerQuote } from "@/lib/customer-quote-scope";
 import { resolveQuotePriceDisplay } from "@/lib/quote-price-display";
-import { clientContractInvoice } from "@/lib/client-invoice";
+import {
+  clientContractInvoice,
+  invoiceFollowUp,
+} from "@/lib/client-invoice";
 import ClientNewRequestForm from "./client-new-request-form";
 import CustomerAcceptance from "./customer-acceptance";
 import MsaAcceptance from "./msa-acceptance";
@@ -414,6 +417,10 @@ async function ClientSectionView({
       agreement,
       await receivedPaymentCents(organizationId, quote.id),
     )!;
+    const followUp = invoiceFollowUp(
+      invoice,
+      agreement.customerSignature?.signedAt,
+    );
     const invoiceNumber = `INV-${quote.quoteNumber || quote.id.slice(0, 8).toUpperCase()}`;
     return (
       <main className={styles.sectionPage}>
@@ -457,6 +464,15 @@ async function ClientSectionView({
           <div className={styles.invoiceDue}>
             <span>Deposit currently due</span>
             <strong>{money(invoice.depositDueCents / 100, business)}</strong>
+          </div>
+          <div
+            className={`${styles.invoiceFollowUp} ${followUp.state === "overdue" ? styles.invoiceFollowUpOverdue : ""}`}
+          >
+            <span>Payment status</span>
+            <div>
+              <strong>{followUp.label}</strong>
+              <p>{followUp.detail}</p>
+            </div>
           </div>
           <footer className={styles.invoiceActions}>
             <a className={styles.outlineAction} href={`${quoteUrl}?view=msa`}>

@@ -280,17 +280,13 @@ export async function POST(request: Request) {
       );
   }
   try {
-    await enqueueWorkflowEvent({
+    const eventBase = {
       organizationId: meta.organizationId,
-      type: "payment.deposit.received",
-      objectType: "payment",
-      objectId: id,
       ...(typeof project.data?.contactId === "string"
         ? { contactId: project.data.contactId }
         : {}),
-      actor: { type: "integration", id: event.id, name: "Stripe" },
+      actor: { type: "integration" as const, id: event.id, name: "Stripe" },
       occurredAt: now,
-      idempotencyKey: `deposit:stripe:${session.id}`,
       payload: {
         quoteId: project.kind === "quote" ? meta.projectId : null,
         projectId: project.kind === "project" ? meta.projectId : null,
@@ -298,10 +294,26 @@ export async function POST(request: Request) {
         paymentMethod: "Card",
         stripeSessionId: session.id,
       },
-    });
+    };
+    await Promise.all([
+      enqueueWorkflowEvent({
+        ...eventBase,
+        type: "payment.deposit.received",
+        objectType: "payment",
+        objectId: id,
+        idempotencyKey: `deposit:stripe:${session.id}`,
+      }),
+      enqueueWorkflowEvent({
+        ...eventBase,
+        type: "invoice.payment.received",
+        objectType: "invoice",
+        objectId: meta.projectId,
+        idempotencyKey: `invoice-payment:stripe:${session.id}`,
+      }),
+    ]);
   } catch (workflowError) {
     console.error(
-      "Could not enqueue the Stripe deposit workflow event",
+      "Could not enqueue the Stripe payment workflow events",
       workflowError instanceof Error
         ? workflowError.name
         : "WorkflowEventError",

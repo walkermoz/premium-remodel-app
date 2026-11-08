@@ -936,6 +936,7 @@ test("starter templates are ordinary publishable workflow definitions", () => {
   for (const [template, objectType] of [
     ["lead-follow-up", "lead"],
     ["project-item-handoff", "project"],
+    ["invoice-payment-reminders", "invoice"],
   ] as const) {
     const definition = workflowTemplateDefinition(template, objectType);
     const validation = workflowCanPublish(definition);
@@ -944,6 +945,82 @@ test("starter templates are ordinary publishable workflow definitions", () => {
     );
     expect(definition.graph.primaryObjectType).toBe(objectType);
   }
+});
+
+test("invoice reminders stop when payment arrives and continue after a timeout", async () => {
+  const definition = workflowTemplateDefinition(
+    "invoice-payment-reminders",
+    "invoice",
+  );
+  const objectId = randomUUID();
+  const created = {
+    ...event("invoice.created", {
+      invoiceNumber: "INV-1042",
+      customerName: "Taylor Reed",
+      email: "taylor@example.com",
+      phone: "+19195550123",
+      amountDue: "$4,250.00",
+      invoiceUrl: "https://example.com/invoice",
+    }),
+    objectType: "invoice" as const,
+    objectId,
+  };
+  const calls: string[] = [];
+  const execute: WorkflowRuntimeExecutor = async ({ node }) => {
+    calls.push(node.id);
+    return { output: { status: "ok" } };
+  };
+  const started = new Date("2026-11-01T12:00:00.000Z");
+  const first = await runWorkflowRuntime({
+    definition,
+    event: created,
+    execute,
+    now: started,
+  });
+  expect(first.status).toBe("waiting");
+  expect(first.wait?.awaitedEventType).toBe("invoice.payment.received");
+
+  const payment = {
+    ...event("invoice.payment.received", { quoteId: objectId, amount: 4_250 }),
+    objectType: "invoice" as const,
+    objectId,
+  };
+  const paidState = structuredClone(first.wait!.continuation);
+  paidState.context.event = { ...payment, payload: payment.payload };
+  paidState.context.trigger = { eventType: payment.type };
+  const paid = await runWorkflowRuntime({
+    definition,
+    event: payment,
+    execute,
+    state: paidState,
+    now: new Date("2026-11-02T12:00:00.000Z"),
+  });
+  expect(paid.status).toBe("completed");
+  expect(paid.steps.at(-1)?.name).toBe("Payment received");
+  expect(calls).not.toContain("first-email");
+
+  const timeoutCalls: string[] = [];
+  const timedOut = await runWorkflowRuntime({
+    definition,
+    event: created,
+    execute: async ({ node }) => {
+      timeoutCalls.push(node.id);
+      return { output: { status: "ok" } };
+    },
+    state: structuredClone(first.wait!.continuation),
+    now: new Date(first.wait!.timeoutAt!),
+  });
+  expect(timedOut.status).toBe("waiting");
+  expect(timeoutCalls).toEqual([]);
+  expect(timedOut.steps).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        nodeId: "first-email",
+        status: "waiting",
+      }),
+    ]),
+  );
+  expect(timedOut.wait?.mode).toBe("timestamp");
 });
 
 test("timestamp waits honor continue, exit, and skip-communications past behavior", async () => {

@@ -10,11 +10,13 @@ import {
   cancellationDeadline,
   customerMsaInput,
   easternDate,
+  msaPaymentRows,
 } from "@/lib/msa-contract";
 import { sendMsaEmail } from "@/lib/msa-email";
 import { buildMsaPdf } from "@/lib/msa-pdf";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { MsaAgreement, Project, Quote } from "@/lib/types";
+import { enqueueWorkflowEvent } from "@/lib/workflows/events";
 
 export const runtime = "nodejs";
 
@@ -120,6 +122,46 @@ export async function POST(
     if (updateError) throw updateError;
     if (!updated?.length)
       throw new HttpError(409, "The project changed. Refresh before signing.");
+    try {
+      const amountDue = msaPaymentRows(signed)[0]?.amount || 0;
+      const invoiceNumber = `INV-${project.quoteNumber || project.id.slice(0, 8).toUpperCase()}`;
+      await enqueueWorkflowEvent({
+        organizationId: source.organizationId,
+        type: "invoice.created",
+        objectType: "invoice",
+        objectId: project.id,
+        ...(source.pdfQuote.contactId
+          ? { contactId: source.pdfQuote.contactId }
+          : {}),
+        actor: { type: "contact", name: input.signedName },
+        occurredAt: now,
+        idempotencyKey: `invoice-created:${project.id}:${now}`,
+        payload: {
+          invoiceNumber,
+          quoteId: row.kind === "quote" ? project.id : null,
+          projectId: row.kind === "project" ? project.id : null,
+          customerName: signed.owner,
+          email: signed.ownerEmail,
+          phone: signed.ownerPhone,
+          amountDue: new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+          }).format(amountDue),
+          amountDueCents: Math.round(amountDue * 100),
+          invoiceUrl: new URL(
+            `/client/${encodeURIComponent(token)}/quote?view=invoices`,
+            request.url,
+          ).toString(),
+        },
+      });
+    } catch (workflowError) {
+      console.error(
+        "Could not enqueue the invoice-created workflow event",
+        workflowError instanceof Error
+          ? workflowError.name
+          : "WorkflowEventError",
+      );
+    }
     let emailWarning: string | undefined;
     try {
       const pdf = await buildMsaPdf(signed);
