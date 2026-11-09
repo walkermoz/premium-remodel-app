@@ -22,12 +22,9 @@ import { requireOrganizationCapability } from "@/lib/organization-permissions";
 
 export const runtime = "nodejs";
 
-function linkKind(value: unknown): "quote" {
-  if (value === "quote") return "quote";
-  throw new HttpError(
-    400,
-    "Legacy project links are no longer available. Use the quote portal.",
-  );
+function linkKind(value: unknown): "project" | "quote" {
+  if (value === "project" || value === "quote") return value;
+  throw new HttpError(400, "Choose a valid customer portal type.");
 }
 
 function projectIdFrom(request: Request) {
@@ -41,9 +38,11 @@ function projectIdFrom(request: Request) {
   return value;
 }
 
-async function requireAdministrator(
+async function requirePortalAccess(
   user: Awaited<ReturnType<typeof requireUser>>,
+  kind: "project" | "quote",
 ) {
+  await requireWorkspaceTabs(user, kind === "project" ? "Projects" : "Quotes");
   await requireOrganizationCapability(user, "quotes.manage");
 }
 
@@ -92,9 +91,8 @@ function portalResponse(
 export async function GET(request: Request) {
   try {
     const user = await requireUser();
-    await requireWorkspaceTabs(user, "Quotes");
-    await requireAdministrator(user);
     const kind = linkKind(new URL(request.url).searchParams.get("kind"));
+    await requirePortalAccess(user, kind);
     const projectId = projectIdFrom(request);
     const record = await findLinkTarget(user, projectId, kind);
     if (!record)
@@ -134,11 +132,10 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    await requireWorkspaceTabs(user, "Quotes");
-    await requireAdministrator(user);
     await limitAttempts(`client-links:${user.id}`, 30);
     const body = await request.json();
     const kind = linkKind(body.kind);
+    await requirePortalAccess(user, kind);
     const projectId = String(body.projectId || "");
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -268,10 +265,9 @@ export async function DELETE(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    await requireWorkspaceTabs(user, "Quotes");
-    await requireAdministrator(user);
     const body = await request.json();
     const kind = linkKind(body.kind);
+    await requirePortalAccess(user, kind);
     const projectId = String(body.projectId || "");
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(

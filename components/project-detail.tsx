@@ -313,12 +313,12 @@ export default function ProjectDetail({
           </div>
         </div>
         <div className="project-actions">
-          {user.role === "admin" && !demo && project.quoteAcceptedAt && (
+          {user.role === "admin" && !demo && (
             <button
               className="button secondary"
               onClick={() => setQuoteLinkOpen(true)}
             >
-              <Share2 size={15} /> Quote link
+              <Share2 size={15} /> Customer portal URL
             </button>
           )}
           <button className="button secondary" onClick={exportSheet}>
@@ -337,6 +337,7 @@ export default function ProjectDetail({
       {quoteLinkOpen && (
         <ClientLinkDialog
           project={project}
+          kind="project"
           onClose={() => setQuoteLinkOpen(false)}
           notify={notify}
         />

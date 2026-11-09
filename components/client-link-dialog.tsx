@@ -31,12 +31,14 @@ const emptyState: ClientLinkState = {
 
 export default function ClientLinkDialog({
   project,
+  kind = "quote",
   onClose,
   notify,
 }: {
   project: Pick<Project | Quote, "id" | "name" | "status"> & {
     quoteAcceptedAt?: string;
   };
+  kind?: "project" | "quote";
   onClose: () => void;
   notify?: (message: string, error?: boolean) => void;
 }) {
@@ -60,7 +62,7 @@ export default function ClientLinkDialog({
     void (async () => {
       try {
         const response = await fetch(
-          `/api/client-links?projectId=${encodeURIComponent(project.id)}&kind=quote`,
+          `/api/client-links?projectId=${encodeURIComponent(project.id)}&kind=${kind}`,
           { cache: "no-store", signal: controller.signal },
         );
         const result = await response.json();
@@ -78,7 +80,7 @@ export default function ClientLinkDialog({
       }
     })();
     return () => controller.abort();
-  }, [project.id]);
+  }, [kind, project.id]);
 
   async function createLink(rotate = false) {
     setSaving(true);
@@ -87,7 +89,7 @@ export default function ClientLinkDialog({
       const response = await fetch("/api/client-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, kind: "quote", rotate }),
+        body: JSON.stringify({ projectId: project.id, kind, rotate }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
@@ -113,7 +115,7 @@ export default function ClientLinkDialog({
       const response = await fetch("/api/client-links", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, kind: "quote" }),
+        body: JSON.stringify({ projectId: project.id, kind }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
@@ -145,8 +147,12 @@ export default function ClientLinkDialog({
 
   return (
     <Modal
-      title="Client quote link"
-      subtitle="A client-safe quote page with scope, total, and PDF."
+      title={kind === "project" ? "Customer portal URL" : "Client quote link"}
+      subtitle={
+        kind === "project"
+          ? "A private, customer-safe project schedule you can share by text or email."
+          : "A client-safe quote page with scope, total, and PDF."
+      }
       onClose={onClose}
     >
       <div className="client-link-dialog">
@@ -167,9 +173,9 @@ export default function ClientLinkDialog({
               <div>
                 <strong>Client access is active</strong>
                 <p>
-                  The page shows a saved version of the quote. Replace this link
-                  to publish later edits. Internal costs and workspace notes are
-                  excluded.
+                  {kind === "project"
+                    ? "The portal stays current with the project schedule. Contractor assignments, priorities, costs, and workspace notes are excluded."
+                    : "The page shows a saved version of the quote. Replace this link to publish later edits. Internal costs and workspace notes are excluded."}
                 </p>
               </div>
             </div>
@@ -219,11 +225,19 @@ export default function ClientLinkDialog({
             <span>
               <Link2 size={23} />
             </span>
-            <h3>Create a private quote page</h3>
+            <h3>
+              {kind === "project"
+                ? "Create a private project portal"
+                : "Create a private quote page"}
+            </h3>
             <p>
-              {project.status !== "Sent" && !project.quoteAcceptedAt
+              {kind === "quote" &&
+              project.status !== "Sent" &&
+              !project.quoteAcceptedAt
                 ? "Mark this quote as sent before creating a client link."
-                : "Anyone with the link can view the client-safe summary. You can replace or disable the link at any time."}
+                : kind === "project"
+                  ? "Anyone with the URL can view the customer-safe project schedule. You can replace or disable it at any time."
+                  : "Anyone with the link can view the client-safe summary. You can replace or disable the link at any time."}
             </p>
           </div>
         )}
@@ -268,12 +282,14 @@ export default function ClientLinkDialog({
             disabled={
               saving ||
               loading ||
-              (project.status !== "Sent" && !project.quoteAcceptedAt)
+              (kind === "quote" &&
+                project.status !== "Sent" &&
+                !project.quoteAcceptedAt)
             }
             onClick={() => void createLink()}
           >
             <Link2 size={15} />
-            {saving ? "Creating…" : "Generate link"}
+            {saving ? "Creating…" : "Generate URL"}
           </button>
         )}
       </footer>

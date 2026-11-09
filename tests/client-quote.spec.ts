@@ -464,6 +464,157 @@ cloudTest(
 );
 
 cloudTest(
+  "the client portal shows a customer-safe project schedule",
+  async ({ company, page, browser }) => {
+    const api = page.request;
+    expect(
+      (
+        await api.post("/api/auth", {
+          headers: origin,
+          data: { action: "login", email: company.email, password },
+        })
+      ).status(),
+    ).toBe(200);
+
+    const quoteResponse = await api.post("/api/workspace", {
+      headers: origin,
+      data: {
+        kind: "quote",
+        data: {
+          name: "Garage schedule portal test",
+          address: "100 Test Lane",
+          client: "Portal Schedule Client",
+          clientEmail: "schedule-client@example.com",
+          clientPhone: "",
+          startDate: "",
+          endDate: "",
+          completedDate: "",
+          status: "Sent",
+          description: "Customer schedule test",
+          category: "Garage & ADU",
+          cover: "",
+          quoteNumber: "998",
+          quoteNotes: "",
+        },
+      },
+    });
+    expect(quoteResponse.status()).toBe(201);
+    const quote = await quoteResponse.json();
+    const scopeResponse = await api.post("/api/workspace", {
+      headers: origin,
+      data: {
+        kind: "scope",
+        data: {
+          projectId: quote.id,
+          title: "Garage improvements",
+          details: "Complete the agreed garage work.",
+          quantity: 1,
+          unit: "job",
+          estimate: 5000,
+          subCost: 0,
+          materialCost: 0,
+          contractorId: "",
+          status: "To do",
+        },
+      },
+    });
+    expect(scopeResponse.status()).toBe(201);
+    const linkResponse = await api.post("/api/client-links", {
+      headers: origin,
+      data: { projectId: quote.id, kind: "quote" },
+    });
+    expect(linkResponse.status()).toBe(201);
+    const link = await linkResponse.json();
+
+    const quoteAcceptedAt = new Date().toISOString();
+    const promoted = await company.admin
+      .from("remodel_records")
+      .update({
+        kind: "project",
+        data: {
+          ...quote,
+          status: "Planning",
+          quoteAcceptedAt,
+          updatedAt: quoteAcceptedAt,
+        },
+        updated_at: quoteAcceptedAt,
+      })
+      .eq("organization_id", company.organizationId)
+      .eq("id", quote.id)
+      .eq("kind", "quote");
+    expect(promoted.error).toBeNull();
+
+    const taskResponse = await api.post("/api/workspace", {
+      headers: origin,
+      data: {
+        kind: "task",
+        data: {
+          projectId: quote.id,
+          title: "Pre-drywall inspection",
+          description: "The inspection time will be confirmed that morning.",
+          contractorId: "",
+          dueDate: "2026-11-10",
+          workType: "Inspection",
+          startTime: "10:30",
+          endTime: "14:30",
+          priority: "High",
+          status: "To do",
+        },
+      },
+    });
+    expect(taskResponse.status()).toBe(201);
+
+    const projectLinkResponse = await api.post("/api/client-links", {
+      headers: origin,
+      data: { projectId: quote.id, kind: "project" },
+    });
+    const projectLink = await projectLinkResponse.json();
+    expect(projectLinkResponse.status(), JSON.stringify(projectLink)).toBe(201);
+
+    const client = await browser.newContext();
+    const customerPage = await client.newPage();
+    await customerPage.goto(projectLink.url);
+    await expect(
+      customerPage.getByRole("heading", {
+        name: "Garage schedule portal test",
+      }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByRole("heading", { name: "Pre-drywall inspection" }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }),
+    ).toBeVisible();
+    await expect(customerPage.getByText("High", { exact: true })).toHaveCount(
+      0,
+    );
+
+    await customerPage.goto(`${link.url}?view=schedule`);
+    await expect(
+      customerPage.getByRole("heading", { name: "What’s happening next" }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByRole("link", { name: "Schedule", exact: true }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByRole("heading", { name: "Pre-drywall inspection" }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByText(
+        "The inspection time will be confirmed that morning.",
+      ),
+    ).toBeVisible();
+    await expect(customerPage.getByText("High", { exact: true })).toHaveCount(
+      0,
+    );
+    await client.close();
+  },
+);
+
+cloudTest(
   "a client quote link shows only one public quote and can be replaced",
   async ({ company, page, browser }) => {
     const api = page.request;
@@ -673,7 +824,7 @@ cloudTest(
       headers: origin,
       data: { projectId: quote.id, kind: "project" },
     });
-    expect(projectLink.status()).toBe(400);
+    expect(projectLink.status()).toBe(404);
 
     const rotated = await api.post("/api/client-links", {
       headers: origin,

@@ -5,6 +5,10 @@ import { clientPortalEmailTag, parseClientPortalAccess } from "./client-portal";
 import { quoteAcceptanceSchema } from "./quote-signature";
 import { supabaseAdmin } from "./supabase/server";
 import type { MsaAgreement, Quote, ScopeItem } from "./types";
+import {
+  readClientProjectSchedule,
+  type ClientScheduleItem,
+} from "./client-project-schedule";
 
 const quoteSchema = z.object({
   id: z.uuid(),
@@ -46,6 +50,7 @@ const itemSchema = z.object({
   position: z.number().optional(),
   customerVisible: z.boolean().optional(),
 });
+
 const snapshotSchema = z.object({
   quote: quoteSchema
     .extend({
@@ -84,6 +89,7 @@ const snapshotSchema = z.object({
 });
 
 export type ClientQuoteItem = z.infer<typeof itemSchema>;
+export type { ClientScheduleItem } from "./client-project-schedule";
 export type ClientQuoteView = {
   quote: z.infer<typeof quoteSchema>;
   items: ClientQuoteItem[];
@@ -205,11 +211,16 @@ export async function readClientQuoteSource(
         : undefined,
   };
 
+  const schedule: ClientScheduleItem[] = approved
+    ? await readClientProjectSchedule(link.organization_id, link.project_id)
+    : [];
+
   if (options.recordView !== false)
     await admin.rpc("remodel_note_client_portal_view", { target_link: id });
   return {
     view,
     organizationId: link.organization_id as string,
+    schedule,
     currentQuote: record.data as Quote,
     recordUpdatedAt: record.updated_at as string,
     // Kept on the server for the same customer-facing PDF used in the dashboard.

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   CalendarDays,
+  CheckCircle2,
+  Clock3,
   CreditCard,
   Download,
   FileText,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 import {
   readClientQuoteSource,
+  type ClientScheduleItem,
   type ClientQuoteView,
 } from "@/lib/client-quote";
 import {
@@ -88,6 +91,63 @@ function date(value: string | undefined, business: BusinessConfig) {
       }).format(parsed);
 }
 
+function scheduleDate(value: string) {
+  return new Date(`${value}T12:00:00Z`);
+}
+
+function scheduleWeekday(value: string, business: BusinessConfig) {
+  return new Intl.DateTimeFormat(business.regional.locale, {
+    weekday: "short",
+    timeZone: "UTC",
+  }).format(scheduleDate(value));
+}
+
+function scheduleDay(value: string, business: BusinessConfig) {
+  return new Intl.DateTimeFormat(business.regional.locale, {
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(scheduleDate(value));
+}
+
+function scheduleMonthShort(value: string, business: BusinessConfig) {
+  return new Intl.DateTimeFormat(business.regional.locale, {
+    month: "short",
+    timeZone: "UTC",
+  }).format(scheduleDate(value));
+}
+
+function scheduleMonth(value: string, business: BusinessConfig) {
+  return new Intl.DateTimeFormat(business.regional.locale, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(scheduleDate(value));
+}
+
+function scheduleLongDate(value: string, business: BusinessConfig) {
+  return new Intl.DateTimeFormat(business.regional.locale, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(scheduleDate(value));
+}
+
+function scheduleTime(item: ClientScheduleItem, business: BusinessConfig) {
+  const format = (value: string) => {
+    const [hour, minute] = value.split(":").map(Number);
+    return new Intl.DateTimeFormat(business.regional.locale, {
+      hour: "numeric",
+      minute: minute ? "2-digit" : undefined,
+      timeZone: "UTC",
+    }).format(new Date(Date.UTC(2020, 0, 1, hour, minute)));
+  };
+  if (!item.startTime) return "";
+  return item.endTime
+    ? `${format(item.startTime)}–${format(item.endTime)}`
+    : format(item.startTime);
+}
+
 async function receivedPaymentCents(organizationId: string, projectId: string) {
   const { data: payments, error } = await supabaseAdmin()
     .from("remodel_records")
@@ -107,6 +167,7 @@ async function receivedPaymentCents(organizationId: string, projectId: string) {
 
 type PortalView =
   | "detail"
+  | "schedule"
   | "requests"
   | "new-request"
   | "quotes"
@@ -121,14 +182,19 @@ function ClientNavigation({
   className,
   hasMsa,
   hasWallet,
+  hasSchedule,
 }: {
   quoteUrl: string;
   view: PortalView;
   className: string;
   hasMsa: boolean;
   hasWallet: boolean;
+  hasSchedule: boolean;
 }) {
   const links = [
+    ...(hasSchedule
+      ? [{ id: "schedule" as const, label: "Schedule", icon: CalendarDays }]
+      : []),
     { id: "requests", label: "Requests", icon: Inbox },
     { id: "quotes", label: "Quotes", icon: FileText },
     ...(hasMsa
@@ -173,6 +239,7 @@ async function ClientSectionView({
   emailQuotes,
   business,
   onsite,
+  schedule,
 }: {
   section: Exclude<PortalView, "detail">;
   quoteUrl: string;
@@ -185,6 +252,7 @@ async function ClientSectionView({
   emailQuotes: ClientEmailQuote[];
   business: BusinessConfig;
   onsite: boolean;
+  schedule: ClientScheduleItem[];
 }) {
   const { quote, total } = quoteView;
   const requestUrl = `${quoteUrl}?view=new-request`;
@@ -352,6 +420,149 @@ async function ClientSectionView({
         </div>
       </main>
     );
+
+  if (section === "schedule") {
+    const grouped = schedule.reduce<
+      Array<{ dueDate: string; items: ClientScheduleItem[] }>
+    >((days, item) => {
+      const current = days.at(-1);
+      if (current?.dueDate === item.dueDate) current.items.push(item);
+      else days.push({ dueDate: item.dueDate, items: [item] });
+      return days;
+    }, []);
+    const nextItem = schedule.find((item) => item.status !== "Done");
+    const completed = schedule.filter((item) => item.status === "Done").length;
+    const calendarRange = grouped.length
+      ? `${scheduleMonth(grouped[0].dueDate, business)}${
+          grouped.at(-1)?.dueDate !== grouped[0].dueDate
+            ? ` – ${scheduleMonth(grouped.at(-1)!.dueDate, business)}`
+            : ""
+        }`
+      : "Schedule pending";
+
+    return (
+      <main className={`${styles.sectionPage} ${styles.schedulePage}`}>
+        <header className={styles.scheduleHeading}>
+          <div>
+            <span>Project calendar</span>
+            <h1>What’s happening next</h1>
+            <p>
+              Your current project dates, delivery windows, and milestones in
+              one place. We’ll keep this updated as the schedule changes.
+            </p>
+          </div>
+          {schedule.length > 0 && (
+            <dl className={styles.scheduleSummary}>
+              <div>
+                <dt>Scheduled</dt>
+                <dd>{schedule.length}</dd>
+              </div>
+              <div>
+                <dt>Complete</dt>
+                <dd>{completed}</dd>
+              </div>
+            </dl>
+          )}
+        </header>
+
+        {schedule.length ? (
+          <>
+            <section
+              className={styles.scheduleCalendar}
+              aria-label="Project calendar dates"
+            >
+              <div className={styles.scheduleCalendarHeader}>
+                <span>Calendar</span>
+                <strong>{calendarRange}</strong>
+              </div>
+              <div className={styles.scheduleDateRail}>
+                {grouped.map((day) => (
+                  <a key={day.dueDate} href={`#schedule-${day.dueDate}`}>
+                    <span>{scheduleWeekday(day.dueDate, business)}</span>
+                    <strong>{scheduleDay(day.dueDate, business)}</strong>
+                    <small>
+                      {day.items.length}{" "}
+                      {day.items.length === 1 ? "item" : "items"}
+                    </small>
+                  </a>
+                ))}
+              </div>
+            </section>
+
+            {nextItem && (
+              <p className={styles.scheduleNext}>
+                <Clock3 size={17} aria-hidden="true" />
+                <span>
+                  <strong>Next up:</strong> {nextItem.title} ·{" "}
+                  {scheduleLongDate(nextItem.dueDate, business)}
+                  {scheduleTime(nextItem, business)
+                    ? ` at ${scheduleTime(nextItem, business)}`
+                    : ""}
+                </span>
+              </p>
+            )}
+
+            <ol className={styles.scheduleTimeline}>
+              {grouped.map((day) => (
+                <li key={day.dueDate} id={`schedule-${day.dueDate}`}>
+                  <div className={styles.scheduleDate} aria-hidden="true">
+                    <span>{scheduleWeekday(day.dueDate, business)}</span>
+                    <strong>{scheduleDay(day.dueDate, business)}</strong>
+                    <small>{scheduleMonthShort(day.dueDate, business)}</small>
+                  </div>
+                  <div className={styles.scheduleDayItems}>
+                    {day.items.map((item) => (
+                      <article key={item.id}>
+                        <div className={styles.scheduleItemHeading}>
+                          <div>
+                            <span>{item.workType}</span>
+                            <h2>{item.title}</h2>
+                          </div>
+                          <span
+                            className={`${styles.scheduleStatus} ${
+                              item.status === "Done"
+                                ? styles.scheduleDone
+                                : item.status === "In progress"
+                                  ? styles.scheduleActive
+                                  : ""
+                            }`}
+                          >
+                            {item.status === "Done" && (
+                              <CheckCircle2 size={14} aria-hidden="true" />
+                            )}
+                            {item.status === "To do"
+                              ? "Scheduled"
+                              : item.status}
+                          </span>
+                        </div>
+                        {scheduleTime(item, business) && (
+                          <p className={styles.scheduleItemTime}>
+                            <Clock3 size={15} aria-hidden="true" />
+                            {scheduleTime(item, business)}
+                          </p>
+                        )}
+                        {item.description && <p>{item.description}</p>}
+                      </article>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <div className={styles.emptyState}>
+            <span className={styles.emptyIcon}>
+              <CalendarDays size={30} aria-hidden="true" />
+            </span>
+            <h2>No project dates are scheduled yet</h2>
+            <p>
+              Your project timeline will appear here as dates are confirmed.
+            </p>
+          </div>
+        )}
+      </main>
+    );
+  }
 
   if (section === "requests")
     return (
@@ -643,6 +854,7 @@ export default async function ClientQuotePage({
 
   const rawSection = typeof query.view === "string" ? query.view : "";
   const section: PortalView = [
+    "schedule",
     "requests",
     "new-request",
     "quotes",
@@ -747,6 +959,7 @@ export default async function ClientQuotePage({
           className={styles.sidebarNav}
           hasMsa={business.features.agreements && Boolean(view.msa)}
           hasWallet={walletEnabled}
+          hasSchedule={approved}
         />
         <div className={styles.sidebarContact}>
           <span>Need help with your quote?</span>
@@ -781,6 +994,7 @@ export default async function ClientQuotePage({
               className={styles.mobileNav}
               hasMsa={business.features.agreements && Boolean(view.msa)}
               hasWallet={walletEnabled}
+              hasSchedule={approved}
             />
           </div>
         </details>
@@ -1044,6 +1258,7 @@ export default async function ClientQuotePage({
             emailQuotes={emailQuotes}
             business={business}
             onsite={onsite}
+            schedule={source.schedule}
           />
         )}
       </div>
