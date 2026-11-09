@@ -35,9 +35,6 @@ export default defineConfig({
       APP_URL: testOrigin,
       VERCEL: "",
       CRON_SECRET: process.env.CRON_SECRET || "playwright-workflow-secret",
-      WORKFLOW_ENGINE_MODE: process.env.WORKFLOW_ENGINE_MODE || "shadow",
-      WORKFLOW_CURRENT_FLOWS_MODE:
-        process.env.WORKFLOW_CURRENT_FLOWS_MODE || "shadow",
       // Tests must never use the company's real phone account.
       TWILIO_ACCOUNT_SID: "",
       TWILIO_AUTH_TOKEN: "",

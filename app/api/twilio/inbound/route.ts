@@ -7,11 +7,7 @@ import {
   organizationForTwilioAccount,
   twilioCredentialsForOrganization,
 } from "@/lib/twilio-connection-store";
-import {
-  currentWorkflowRolloutMode,
-  recordWorkflowEvent,
-  recordWorkflowShadowEvent,
-} from "@/lib/workflows/events";
+import { recordWorkflowEvent } from "@/lib/workflows/events";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -57,7 +53,6 @@ export async function POST(request: Request) {
       return twimlResponse(403);
 
     const eventType = classifySmsComplianceEvent(input.Body, input.OptOutType);
-    const workflowMode = currentWorkflowRolloutMode();
     if (eventType)
       await applySmsComplianceEvent({
         organizationId,
@@ -84,8 +79,7 @@ export async function POST(request: Request) {
       },
     };
     try {
-      if (workflowMode === "execute") await recordWorkflowEvent(workflowEvent);
-      else await recordWorkflowShadowEvent(workflowEvent);
+      await recordWorkflowEvent(workflowEvent);
     } catch (error) {
       console.error("Could not record the inbound SMS workflow run.", error);
     }

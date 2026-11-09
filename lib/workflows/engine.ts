@@ -2,7 +2,6 @@ import "server-only";
 
 import { getBusinessConfigForOrganization } from "../business-config";
 import { supabaseAdmin } from "../supabase/server";
-import { simulateWorkflow } from "./simulator";
 import { evaluateWorkflowCondition } from "./conditions";
 import { executeWorkflowNode } from "./executors";
 import { workflowNodeDefinition } from "./registry";
@@ -23,12 +22,7 @@ import {
   type WorkflowSettings,
 } from "./schema";
 import { ensureSeededWorkflows } from "./store";
-import {
-  openWorkflowIncident,
-  resolveWorkflowIncidents,
-} from "./incidents";
-
-type WorkflowEngineMode = "shadow" | "execute";
+import { openWorkflowIncident, resolveWorkflowIncidents } from "./incidents";
 
 type EventRow = {
   id: string;
@@ -127,133 +121,6 @@ async function storedWorkflowObject(
     .maybeSingle();
   if (record.error) throw record.error;
   return record.data?.data as Record<string, unknown> | undefined;
-}
-
-function runStatus(simulation: ReturnType<typeof simulateWorkflow>) {
-  if (!simulation.valid || simulation.stoppedReason)
-    return "needs_attention" as const;
-  if (simulation.steps.some((step) => step.status === "waiting"))
-    return "waiting" as const;
-  return "completed" as const;
-}
-
-async function persistShadowRun(input: {
-  event: WorkflowEvent;
-  workflowId: string;
-  versionId: string;
-  definition: ReturnType<typeof workflowDefinitionSchema.parse>;
-  context: WorkflowContext;
-}) {
-  const admin = supabaseAdmin();
-  const simulation = simulateWorkflow(
-    input.definition,
-    input.event,
-    input.context,
-  );
-  if (!simulation.matchedTriggers.length) return null;
-
-  const existing = await admin
-    .from("remodel_workflow_runs")
-    .select("id")
-    .eq("event_id", input.event.id)
-    .eq("version_id", input.versionId)
-    .maybeSingle();
-  if (existing.error) throw existing.error;
-  if (existing.data) return existing.data.id;
-
-  const now = new Date().toISOString();
-  const status = runStatus(simulation);
-  const enrollment = await admin
-    .from("remodel_workflow_enrollments")
-    .insert({
-      organization_id: input.event.organizationId,
-      workflow_id: input.workflowId,
-      version_id: input.versionId,
-      event_id: input.event.id,
-      object_type: input.event.objectType,
-      object_id: input.event.objectId,
-      scope_key: scopeKey(input.event, input.definition.settings),
-      reentry_key: input.event.idempotencyKey,
-      status: status === "waiting" ? "active" : "completed",
-      ...(status === "waiting" ? {} : { completed_at: now }),
-    })
-    .select("id")
-    .single();
-  if (enrollment.error) throw enrollment.error;
-
-  const run = await admin
-    .from("remodel_workflow_runs")
-    .insert({
-      organization_id: input.event.organizationId,
-      workflow_id: input.workflowId,
-      version_id: input.versionId,
-      enrollment_id: enrollment.data.id,
-      event_id: input.event.id,
-      object_type: input.event.objectType,
-      object_id: input.event.objectId,
-      contact_id: input.event.contactId || null,
-      correlation_id: input.event.correlationId,
-      status,
-      current_node_id: simulation.steps.at(-1)?.nodeId || null,
-      context: redactWorkflowValue(input.context),
-      summary: {
-        mode: "shadow",
-        matchedTriggers: simulation.matchedTriggers,
-        plannedEffects: simulation.wouldMutate,
-        stoppedReason: simulation.stoppedReason || null,
-      },
-      last_activity_at: now,
-      ...(status === "completed" || status === "needs_attention"
-        ? { completed_at: now }
-        : {}),
-    })
-    .select("id")
-    .single();
-  if (run.error) {
-    await admin
-      .from("remodel_workflow_enrollments")
-      .delete()
-      .eq("id", enrollment.data.id);
-    if (run.error.code === "23505") {
-      const raced = await admin
-        .from("remodel_workflow_runs")
-        .select("id")
-        .eq("event_id", input.event.id)
-        .eq("version_id", input.versionId)
-        .single();
-      if (raced.error) throw raced.error;
-      return raced.data.id;
-    }
-    throw run.error;
-  }
-
-  if (simulation.steps.length) {
-    const steps = simulation.steps.map((step, index) => ({
-      organization_id: input.event.organizationId,
-      run_id: run.data.id,
-      node_id: step.nodeId,
-      node_type: step.nodeType,
-      attempt: 1,
-      status: step.status,
-      input_snapshot: {
-        sequence: step.sequence,
-        branch: step.branch || null,
-        conditions: redactWorkflowValue(step.conditions || []),
-      },
-      output_snapshot: redactWorkflowValue({
-        summary: step.summary,
-        preview: step.preview || {},
-        shadow: true,
-      }),
-      idempotency_key: `shadow:${input.event.id}:${input.versionId}:${index}:${step.nodeId}`,
-      completed_at: now,
-    }));
-    const savedSteps = await admin
-      .from("remodel_workflow_step_runs")
-      .insert(steps);
-    if (savedSteps.error) throw savedSteps.error;
-  }
-  return run.data.id;
 }
 
 async function persistRuntimeSteps(input: {
@@ -575,8 +442,7 @@ async function executeRunSegment(input: {
         if (waitingRun.error) throw waitingRun.error;
         return "waiting" as const;
       }
-      const configurationBlocked =
-        error.errorCode === "CONFIGURATION_REQUIRED";
+      const configurationBlocked = error.errorCode === "CONFIGURATION_REQUIRED";
       if (
         !configurationBlocked &&
         input.definition.settings.failureBehavior === "continue"
@@ -1160,10 +1026,7 @@ async function stopRunsOnContactResponse(event: WorkflowEvent) {
   if (cancelledWaits.error) throw cancelledWaits.error;
 }
 
-export async function processWorkflowEvent(
-  eventId: string,
-  options: { mode: WorkflowEngineMode } = { mode: "shadow" },
-) {
+export async function processWorkflowEvent(eventId: string) {
   const admin = supabaseAdmin();
   const eventResult = await admin
     .from("remodel_workflow_events")
@@ -1175,10 +1038,8 @@ export async function processWorkflowEvent(
   if (eventResult.error) throw eventResult.error;
   const event = eventFromRow(eventResult.data as EventRow);
 
-  if (options.mode === "execute") {
-    await stopRunsOnContactResponse(event);
-    await resumeMatchingEventWaits(event);
-  }
+  await stopRunsOnContactResponse(event);
+  await resumeMatchingEventWaits(event);
 
   await ensureSeededWorkflows(event.organizationId);
   const subscriptions = await admin
@@ -1270,22 +1131,13 @@ export async function processWorkflowEvent(
       settings: row.settings,
       layout: row.layout,
     });
-    const runId =
-      options.mode === "execute"
-        ? await persistExecuteRun({
-            event,
-            workflowId: row.workflow_id,
-            versionId: row.id,
-            definition,
-            context,
-          })
-        : await persistShadowRun({
-            event,
-            workflowId: row.workflow_id,
-            versionId: row.id,
-            definition,
-            context,
-          });
+    const runId = await persistExecuteRun({
+      event,
+      workflowId: row.workflow_id,
+      versionId: row.id,
+      definition,
+      context,
+    });
     if (runId) runIds.push(runId);
   }
 
@@ -1298,7 +1150,7 @@ export async function processWorkflowEvent(
     })
     .eq("event_id", event.id);
   if (completed.error) throw completed.error;
-  return { eventId: event.id, mode: options.mode, runIds };
+  return { eventId: event.id, mode: "execute" as const, runIds };
 }
 
 export async function processWorkflowOutbox(input?: {
@@ -1307,7 +1159,7 @@ export async function processWorkflowOutbox(input?: {
   scheduleLimit?: number;
 }) {
   const admin = supabaseAdmin();
-  const worker = input?.worker || `workflow-shadow-${process.pid}`;
+  const worker = input?.worker || `workflow-execute-${process.pid}`;
   const scheduled = await admin.rpc("remodel_enqueue_due_workflow_schedules", {
     p_limit: input?.scheduleLimit || 50,
   });
@@ -1318,14 +1170,9 @@ export async function processWorkflowOutbox(input?: {
   });
   if (claimed.error) throw claimed.error;
   const results: { eventId: string; status: "completed" | "failed" }[] = [];
-  const mode: WorkflowEngineMode =
-    process.env.WORKFLOW_ENGINE_MODE === "execute" ||
-    process.env.WORKFLOW_CURRENT_FLOWS_MODE === "execute"
-      ? "execute"
-      : "shadow";
   for (const job of claimed.data || []) {
     try {
-      await processWorkflowEvent(job.event_id, { mode });
+      await processWorkflowEvent(job.event_id);
       results.push({ eventId: job.event_id, status: "completed" });
     } catch (error) {
       const attempt = Number(job.attempt_count || 1);
