@@ -27,13 +27,15 @@ export function quotePrefillFromLead(
       ? "Kitchen"
       : normalized.includes("basement") || normalized.includes("attic")
         ? "Basement"
-        : normalized.includes("deck") ||
-            normalized.includes("exterior") ||
-            normalized.includes("shed")
-          ? "Outdoor"
-          : normalized.includes("whole")
-            ? "Whole home"
-            : "Other";
+        : normalized.includes("garage") || /\badu\b/.test(normalized)
+          ? "Garage & ADU"
+          : normalized.includes("deck") ||
+              normalized.includes("exterior") ||
+              normalized.includes("shed")
+            ? "Outdoor"
+            : normalized.includes("whole")
+              ? "Whole home"
+              : "Other";
 
   return {
     name: `${client} · ${project}`,

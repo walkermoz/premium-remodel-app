@@ -134,6 +134,15 @@ export interface Project extends Base {
   cover: string;
   coverAttachmentId?: string;
 }
+export const projectCategories = [
+  "Kitchen",
+  "Bathroom",
+  "Basement",
+  "Outdoor",
+  "Garage & ADU",
+  "Whole home",
+  "Other",
+] as const;
 export const quoteStatuses = [
   "Draft",
   "Sent",

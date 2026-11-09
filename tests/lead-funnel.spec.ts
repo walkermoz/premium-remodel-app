@@ -104,6 +104,15 @@ test("quote defaults carry the available lead and contact details", () => {
   });
 });
 
+test("garage and ADU leads preselect the matching quote project type", () => {
+  expect(
+    quotePrefillFromLead({
+      ...baseLead,
+      project: "Garage & ADU",
+    }).category,
+  ).toBe("Garage & ADU");
+});
+
 test("leads UI offers future, archive, and junk without an all tab", async ({
   page,
 }) => {

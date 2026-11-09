@@ -15,7 +15,7 @@ import { Camera, LoaderCircle } from "lucide-react";
 import ContractorFields from "./contractor-fields";
 import { contactPhotoUrl } from "@/lib/contact-photo";
 import AddressInput from "./address-input";
-import { workTypes, type WorkType } from "@/lib/types";
+import { projectCategories, workTypes, type WorkType } from "@/lib/types";
 import { workToday } from "@/lib/work";
 import { contactAddress, customerContacts } from "@/lib/contacts";
 import CustomerContactPicker from "./customer-contact-picker";
@@ -443,14 +443,7 @@ export function EntityForm({
                       name="category"
                       defaultValue={projectValues.category || "Kitchen"}
                     >
-                      {[
-                        "Kitchen",
-                        "Bathroom",
-                        "Basement",
-                        "Outdoor",
-                        "Whole home",
-                        "Other",
-                      ].map((t) => (
+                      {projectCategories.map((t) => (
                         <option key={t}>{t}</option>
                       ))}
                     </select>
@@ -583,14 +576,7 @@ export function EntityForm({
                         name="category"
                         defaultValue={projectValues.category || "Kitchen"}
                       >
-                        {[
-                          "Kitchen",
-                          "Bathroom",
-                          "Basement",
-                          "Outdoor",
-                          "Whole home",
-                          "Other",
-                        ].map((t) => (
+                        {projectCategories.map((t) => (
                           <option key={t}>{t}</option>
                         ))}
                       </select>

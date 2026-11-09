@@ -499,6 +499,11 @@ test("a lead creates a quote with its available details filled in", async ({
   );
   await expect(dialog.getByLabel("Contact name")).toHaveValue("Taylor Reed");
   await expect(dialog.getByLabel("Project type")).toHaveValue("Kitchen");
+  await expect(
+    dialog.getByLabel("Project type").getByRole("option", {
+      name: "Garage & ADU",
+    }),
+  ).toHaveCount(1);
   await expect(dialog.getByLabel("Email")).toHaveValue("taylor@example.com");
   await expect(dialog.getByLabel("Phone")).toHaveValue("+19195550142");
   await expect(dialog.getByLabel("Address")).toHaveValue(

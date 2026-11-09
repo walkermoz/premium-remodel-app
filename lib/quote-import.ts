@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { projectCategories } from "./types";
 
 export const importedQuoteSchema = z.object({
   fileName: z.string().max(250),
@@ -6,9 +7,7 @@ export const importedQuoteSchema = z.object({
   client: z.string().trim().max(250),
   address: z.string().trim().max(250),
   preparedBy: z.string().trim().max(250).default(""),
-  category: z
-    .enum(["Kitchen", "Bathroom", "Basement", "Outdoor", "Whole home", "Other"])
-    .default("Other"),
+  category: z.enum(projectCategories).default("Other"),
   description: z.string().trim().max(15000),
   quoteNotes: z.string().trim().max(15000),
   expectedTotal: z.number().finite().min(0).max(1_000_000_000),
