@@ -23,12 +23,6 @@ export type WorkflowEventInput = {
   payload?: Record<string, unknown>;
 };
 
-export function currentWorkflowRolloutMode(): "shadow" | "execute" {
-  return process.env.WORKFLOW_CURRENT_FLOWS_MODE === "execute"
-    ? "execute"
-    : "shadow";
-}
-
 export function createWorkflowEvent(input: WorkflowEventInput): WorkflowEvent {
   return workflowEventSchema.parse({
     id: randomUUID(),
@@ -72,22 +66,9 @@ export async function enqueueWorkflowEvent(input: WorkflowEventInput) {
   };
 }
 
-/**
- * Records a production event and immediately builds a side-effect-free trace.
- * Domain routes deliberately treat failures here as non-fatal until shadow
- * parity is proven and execution is explicitly enabled.
- */
-export async function recordWorkflowShadowEvent(input: WorkflowEventInput) {
-  const queued = await enqueueWorkflowEvent(input);
-  const { processWorkflowEvent } = await import("./engine");
-  await processWorkflowEvent(queued.event.id, { mode: "shadow" });
-  return queued;
-}
-
 export async function recordWorkflowEvent(input: WorkflowEventInput) {
   const queued = await enqueueWorkflowEvent(input);
-  const mode = currentWorkflowRolloutMode();
   const { processWorkflowEvent } = await import("./engine");
-  await processWorkflowEvent(queued.event.id, { mode });
-  return { ...queued, mode };
+  await processWorkflowEvent(queued.event.id);
+  return { ...queued, mode: "execute" as const };
 }

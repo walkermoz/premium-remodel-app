@@ -192,6 +192,19 @@ test("Premium website leads fan out to a configurable SMS action", () => {
   );
 });
 
+test("published workflow events always execute without a hidden shadow rollout", () => {
+  const runtimeSources = [
+    readFileSync("lib/workflows/events.ts", "utf8"),
+    readFileSync("lib/workflows/engine.ts", "utf8"),
+    readFileSync("app/api/leads/route.ts", "utf8"),
+    readFileSync("app/api/twilio/inbound/route.ts", "utf8"),
+  ].join("\n");
+  expect(runtimeSources).not.toContain("WORKFLOW_CURRENT_FLOWS_MODE");
+  expect(runtimeSources).not.toContain("WORKFLOW_ENGINE_MODE");
+  expect(runtimeSources).not.toContain("recordWorkflowShadowEvent");
+  expect(runtimeSources).not.toContain('mode: "shadow"');
+});
+
 test("direct SMS uses the organization number without a customer consent gate", () => {
   const definition = workflowNodeDefinition("action.sendDirectSms");
   expect(definition).toMatchObject({
