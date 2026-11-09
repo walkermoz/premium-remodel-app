@@ -3,16 +3,14 @@ import { test, expect, password } from "./supabase-fixture";
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
 
-test("legacy project links open the new portal sign-in", async ({ page }) => {
-  await page.goto("/client/retired-project-token");
-  await expect(page).toHaveURL(/\/client\/sign-in$/);
-  await expect(
-    page.getByRole("heading", { name: "Sign in with your email" }),
-  ).toBeVisible();
+test("unknown project portal links remain unavailable", async ({ page }) => {
+  const response = await page.goto("/client/retired-project-token");
+  expect(response?.status()).toBe(404);
+  await expect(page).toHaveURL(/\/client\/retired-project-token$/);
 });
 
 cloudTest(
-  "administrators cannot create legacy project links",
+  "project links require an existing project",
   async ({ company, page }) => {
     const api = page.request;
     expect(
@@ -33,11 +31,11 @@ cloudTest(
           data: { projectId: id, kind: "project" },
         })
       ).status(),
-    ).toBe(400);
+    ).toBe(404);
     expect(
       (
         await api.get(`/api/client-links?projectId=${id}&kind=project`)
       ).status(),
-    ).toBe(400);
+    ).toBe(404);
   },
 );
