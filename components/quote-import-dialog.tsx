@@ -8,6 +8,7 @@ import {
   suggestedCombinedName,
   type ImportedQuote,
 } from "@/lib/quote-import";
+import { projectCategories } from "@/lib/types";
 import { readQuotePdf } from "@/lib/quote-pdf-text";
 import { Modal } from "./ui";
 
@@ -256,14 +257,7 @@ export default function QuoteImportDialog({
                     })
                   }
                 >
-                  {[
-                    "Kitchen",
-                    "Bathroom",
-                    "Basement",
-                    "Outdoor",
-                    "Whole home",
-                    "Other",
-                  ].map((category) => (
+                  {projectCategories.map((category) => (
                     <option key={category}>{category}</option>
                   ))}
                 </select>
