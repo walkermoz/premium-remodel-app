@@ -180,6 +180,345 @@
   line-height: 1.5;
 }
 
+.schedulePage {
+  width: min(100%, 880px);
+}
+
+.scheduleHeading {
+  margin-bottom: 30px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 48px;
+}
+
+.scheduleHeading > div:first-child {
+  max-width: 580px;
+}
+
+.scheduleHeading > div:first-child > span {
+  display: block;
+  margin-bottom: 10px;
+  color: #2e7fb8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.scheduleHeading h1 {
+  margin-bottom: 12px;
+}
+
+.scheduleHeading p {
+  margin: 0;
+  color: #526b79;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.scheduleSummary {
+  margin: 0;
+  display: flex;
+  gap: 28px;
+  flex: none;
+}
+
+.scheduleSummary > div {
+  min-width: 66px;
+}
+
+.scheduleSummary dt {
+  color: #6d7d87;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.scheduleSummary dd {
+  margin: 4px 0 0;
+  color: #15364a;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.scheduleCalendar {
+  overflow: hidden;
+  border-radius: 10px;
+  color: #eaf3f8;
+  background: #163447;
+  box-shadow: 0 14px 34px rgb(24 54 73 / 13%);
+}
+
+.scheduleCalendarHeader {
+  min-height: 48px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid rgb(255 255 255 / 12%);
+}
+
+.scheduleCalendarHeader span {
+  color: #83badc;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.scheduleCalendarHeader strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.scheduleDateRail {
+  padding: 16px;
+  display: grid;
+  grid-auto-columns: minmax(92px, 1fr);
+  grid-auto-flow: column;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.scheduleDateRail a {
+  min-height: 108px;
+  padding: 14px 12px 12px;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  border-radius: 7px;
+  color: inherit;
+  background: rgb(255 255 255 / 7%);
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+.scheduleDateRail a:hover,
+.scheduleDateRail a:focus-visible {
+  background: rgb(255 255 255 / 14%);
+  transform: translateY(-2px);
+}
+
+.scheduleDateRail a:focus-visible {
+  outline: 2px solid #8bc8ee;
+  outline-offset: -2px;
+}
+
+.scheduleDateRail span,
+.scheduleDateRail small {
+  color: #a7c4d5;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.scheduleDateRail strong {
+  margin: 3px 0 auto;
+  color: #fff;
+  font-size: 31px;
+  line-height: 1;
+}
+
+.scheduleDateRail small {
+  text-transform: none;
+}
+
+.scheduleNext {
+  margin: 22px 0 0;
+  padding: 14px 2px 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #d6e1e7;
+  color: #4b6575;
+  font-size: 13px;
+}
+
+.scheduleNext svg {
+  color: #2e87c7;
+  flex: none;
+}
+
+.scheduleNext strong {
+  color: #16384c;
+}
+
+.scheduleTimeline {
+  margin: 0;
+  padding: 10px 0 0;
+  list-style: none;
+}
+
+.scheduleTimeline > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 30px;
+  scroll-margin-top: 24px;
+  animation: scheduleReveal 320ms ease both;
+}
+
+.scheduleTimeline > li::before {
+  content: "";
+  position: absolute;
+  top: 62px;
+  bottom: 0;
+  left: 36px;
+  width: 1px;
+  background: #c9d8e1;
+}
+
+.scheduleTimeline > li:last-child::before {
+  display: none;
+}
+
+.scheduleDate {
+  width: 74px;
+  height: 74px;
+  margin-top: 26px;
+  display: grid;
+  place-content: center;
+  border: 1px solid #b9cdd8;
+  border-radius: 50%;
+  color: #15364a;
+  background: #f9f8f6;
+  text-align: center;
+}
+
+.scheduleDate span,
+.scheduleDate small {
+  color: #617989;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.scheduleDate strong {
+  margin: 3px 0 2px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.scheduleDayItems {
+  padding: 22px 0;
+  display: grid;
+  gap: 0;
+  border-bottom: 1px solid #d6e1e7;
+}
+
+.scheduleTimeline > li:last-child .scheduleDayItems {
+  border-bottom: 0;
+}
+
+.scheduleDayItems article {
+  padding: 14px 0 16px;
+  transition: transform 160ms ease;
+}
+
+.scheduleDayItems article + article {
+  border-top: 1px solid #e0e7eb;
+}
+
+.scheduleDayItems article:hover {
+  transform: translateX(3px);
+}
+
+.scheduleItemHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.scheduleItemHeading > div > span {
+  color: #2e7fb8;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.scheduleItemHeading h2 {
+  margin: 4px 0 0;
+  color: #123247;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.scheduleStatus {
+  min-height: 25px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #c7d7e0;
+  border-radius: 999px;
+  color: #4d6574;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.scheduleStatus.scheduleActive {
+  border-color: #79b5d7;
+  color: #1f6b98;
+  background: #edf7fc;
+}
+
+.scheduleStatus.scheduleDone {
+  border-color: #9dcbb0;
+  color: #237148;
+  background: #eff8f2;
+}
+
+.scheduleDayItems article > p {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: #576f7d;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.scheduleDayItems .scheduleItemTime {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #254f67;
+  font-weight: 700;
+}
+
+.scheduleItemTime svg {
+  color: #6e9ab5;
+}
+
+@keyframes scheduleReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scheduleTimeline > li,
+  .scheduleDateRail a,
+  .scheduleDayItems article {
+    animation: none;
+    transition: none;
+  }
+}
+
 .msaDocumentScroll {
   max-height: min(68svh, 720px);
   overflow-y: auto;
@@ -1563,6 +1902,32 @@
     padding: 28px 20px;
   }
 
+  .scheduleHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .scheduleSummary {
+    gap: 24px;
+  }
+
+  .scheduleCalendar {
+    margin-right: -20px;
+    margin-left: -20px;
+    border-radius: 0;
+  }
+
+  .scheduleCalendarHeader {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .scheduleDateRail {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
   .toolbar {
     width: 100%;
     margin: 0;
@@ -1646,6 +2011,43 @@
 
   .signedAgreementActions .outlineAction {
     width: 100%;
+  }
+
+  .scheduleHeading h1 {
+    font-size: 30px;
+  }
+
+  .scheduleTimeline > li {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .scheduleTimeline > li::before {
+    top: 53px;
+    left: 26px;
+  }
+
+  .scheduleDate {
+    width: 54px;
+    height: 54px;
+    margin-top: 30px;
+  }
+
+  .scheduleDate strong {
+    font-size: 18px;
+  }
+
+  .scheduleDate span {
+    display: none;
+  }
+
+  .scheduleItemHeading {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .scheduleStatus {
+    order: 2;
   }
 
   .toolbar {
