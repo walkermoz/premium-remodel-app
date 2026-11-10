@@ -641,7 +641,12 @@
   border-right: 1px solid #dbe4e9;
   border-bottom: 1px solid #dbe4e9;
   background: #fff;
+  cursor: pointer;
   transition: background 150ms ease;
+}
+
+.customerCalendarGrid td:hover {
+  background: #f7fafc;
 }
 
 .customerCalendarGrid td:last-child {

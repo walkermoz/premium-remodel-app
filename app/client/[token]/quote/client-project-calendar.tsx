@@ -187,6 +187,7 @@ export default function ClientProjectCalendar({
                         <td
                           key={day}
                           className={`${day.slice(0, 7) !== month ? styles.customerCalendarOutside : ""} ${day === selectedDay ? styles.customerCalendarSelected : ""}`}
+                          onClick={() => selectDay(day)}
                         >
                           <button
                             type="button"
