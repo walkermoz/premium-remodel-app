@@ -53,7 +53,7 @@ export async function POST(
       .from("remodel_client_links")
       .select("stripe_customer_id,stripe_account_id,organization_id")
       .eq("id", id)
-      .eq("kind", "quote")
+      .in("kind", ["project", "quote"])
       .is("revoked_at", null)
       .maybeSingle();
     if (error) throw error;
@@ -93,7 +93,7 @@ export async function POST(
           stripe_account_id: stripeContext.accountId,
         })
         .eq("id", id)
-        .eq("kind", "quote")
+        .in("kind", ["project", "quote"])
         .is("revoked_at", null);
       saveCustomer = link.stripe_customer_id
         ? saveCustomer.eq("stripe_customer_id", link.stripe_customer_id)
@@ -104,22 +104,28 @@ export async function POST(
       customerId = customer.id;
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "setup",
-      customer: customerId,
-      allowed_payment_method_types: ["card", "us_bank_account"],
-      billing_address_collection: "auto",
-      client_reference_id: id,
-      metadata: { source: "servicebuddy_client_wallet_v1", client_link_id: id },
-      setup_intent_data: {
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "setup",
+        customer: customerId,
+        allowed_payment_method_types: ["card", "us_bank_account"],
+        billing_address_collection: "auto",
+        client_reference_id: id,
         metadata: {
           source: "servicebuddy_client_wallet_v1",
           client_link_id: id,
         },
+        setup_intent_data: {
+          metadata: {
+            source: "servicebuddy_client_wallet_v1",
+            client_link_id: id,
+          },
+        },
+        success_url: walletUrl(request, token, "saved"),
+        cancel_url: walletUrl(request, token),
       },
-      success_url: walletUrl(request, token, "saved"),
-      cancel_url: walletUrl(request, token),
-    }, stripeRequestOptions(stripeContext));
+      stripeRequestOptions(stripeContext),
+    );
     if (!session.url) throw new Error("Stripe did not provide a setup URL.");
     return Response.redirect(session.url, 303);
   } catch (error) {

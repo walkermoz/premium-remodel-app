@@ -4,7 +4,7 @@ import { z } from "zod";
 import { clientPortalEmailTag, parseClientPortalAccess } from "./client-portal";
 import { quoteAcceptanceSchema } from "./quote-signature";
 import { supabaseAdmin } from "./supabase/server";
-import type { MsaAgreement, Quote, ScopeItem } from "./types";
+import type { MsaAgreement, Project, Quote, ScopeItem } from "./types";
 import {
   readClientProjectSchedule,
   type ClientScheduleItem,
@@ -118,9 +118,9 @@ export async function readClientQuoteSource(
   const admin = supabaseAdmin();
   const { data: link, error: linkError } = await admin
     .from("remodel_client_links")
-    .select("id,organization_id,project_id,quote_snapshot")
+    .select("id,organization_id,project_id,kind,quote_snapshot")
     .eq("id", id)
-    .eq("kind", "quote")
+    .in("kind", ["project", "quote"])
     .is("revoked_at", null)
     .maybeSingle();
   if (linkError) throw linkError;
@@ -135,7 +135,27 @@ export async function readClientQuoteSource(
   if (quoteResult.error) throw quoteResult.error;
 
   const record = quoteResult.data;
-  const snapshot = snapshotSchema.safeParse(link.quote_snapshot);
+  const projectPortal = link.kind === "project";
+  let snapshotValue = link.quote_snapshot;
+  if (projectPortal && record?.kind === "project") {
+    const scopeResult = await admin
+      .from("remodel_records")
+      .select("data")
+      .eq("organization_id", link.organization_id)
+      .eq("project_id", link.project_id)
+      .eq("kind", "scope")
+      .order("updated_at", { ascending: true })
+      .limit(500);
+    if (scopeResult.error) throw scopeResult.error;
+    snapshotValue = {
+      quote: {
+        ...(record.data as Project),
+        status: "Sent",
+      },
+      items: scopeResult.data.map((row) => row.data),
+    };
+  }
+  const snapshot = snapshotSchema.safeParse(snapshotValue);
   const currentEmail =
     record?.data &&
     typeof record.data === "object" &&
@@ -164,14 +184,17 @@ export async function readClientQuoteSource(
     z.object({ quoteAcceptance: z.unknown() }).safeParse(record.data).data
       ?.quoteAcceptance,
   );
-  const approved =
+  const quoteApproved =
     acceptedAt.success &&
     (record.kind === "project" ||
       (record.kind === "quote" &&
         (record.data as { status?: string }).status === "Accepted" &&
         parsedAcceptance.success));
+  const approved = projectPortal || quoteApproved;
   const acceptance =
-    approved && parsedAcceptance.success ? parsedAcceptance.data : undefined;
+    quoteApproved && parsedAcceptance.success
+      ? parsedAcceptance.data
+      : undefined;
   if (record.kind !== "quote" && !approved) return null;
   if (record.kind === "quote" && !approved) {
     const liveStatus = z
@@ -186,7 +209,9 @@ export async function readClientQuoteSource(
   const view: ClientQuoteView = {
     quote: {
       ...quoteSchema.parse(snapshot.data.quote),
-      quoteAcceptedAt: approved ? acceptedAt.data.quoteAcceptedAt : undefined,
+      quoteAcceptedAt: quoteApproved
+        ? acceptedAt.data.quoteAcceptedAt
+        : undefined,
     },
     items,
     total: items.reduce((sum, item) => sum + item.estimate, 0),
@@ -227,7 +252,9 @@ export async function readClientQuoteSource(
     pdfQuote: {
       ...snapshot.data.quote,
       quoteAcceptance: acceptance,
-      quoteAcceptedAt: approved ? acceptedAt.data.quoteAcceptedAt : undefined,
+      quoteAcceptedAt: quoteApproved
+        ? acceptedAt.data.quoteAcceptedAt
+        : undefined,
     } as Quote,
     pdfItems: snapshot.data.items.map((item) => ({
       ...item,
@@ -239,6 +266,7 @@ export async function readClientQuoteSource(
       contractorId: item.contractorId || "",
       status: item.status || "To do",
     })) as ScopeItem[],
+    projectPortal,
   };
 }
 

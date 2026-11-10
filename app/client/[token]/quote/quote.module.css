@@ -181,7 +181,7 @@
 }
 
 .schedulePage {
-  width: min(100%, 880px);
+  width: min(100%, 1080px);
 }
 
 .scheduleHeading {
@@ -515,6 +515,451 @@
   .scheduleDateRail a,
   .scheduleDayItems article {
     animation: none;
+    transition: none;
+  }
+}
+
+.scheduleNextSummary {
+  min-width: 210px;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.scheduleNextSummary > span {
+  color: #6d7d87;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.scheduleNextSummary strong {
+  color: #15364a;
+  font-size: 14px;
+}
+
+.scheduleNextSummary small {
+  color: #526b79;
+  font-size: 11px;
+}
+
+.customerCalendarLayout {
+  display: grid;
+  grid-template-columns: minmax(620px, 1fr) 292px;
+  gap: 22px;
+  align-items: start;
+}
+
+.customerCalendar,
+.customerCalendarAgenda {
+  overflow: hidden;
+  border: 1px solid #d4dfe5;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgb(28 53 67 / 6%);
+}
+
+.customerCalendarToolbar {
+  min-height: 66px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #dbe4e9;
+}
+
+.customerCalendarToolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customerCalendarToolbar h2 {
+  margin: 0 0 0 8px;
+  color: #15364a;
+  font-size: 19px;
+}
+
+.customerCalendarToolbar button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 10px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #cbd9e1;
+  border-radius: 5px;
+  color: #276f9e;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.customerCalendarToolbar button:hover,
+.customerCalendarToolbar button:focus-visible {
+  border-color: #83b4d2;
+  background: #f2f8fb;
+}
+
+.customerCalendarScroll {
+  overflow-x: auto;
+}
+
+.customerCalendarGrid {
+  width: 100%;
+  min-width: 620px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.customerCalendarGrid th {
+  height: 34px;
+  color: #6d7d87;
+  background: #fbfcfc;
+  border-bottom: 1px solid #dbe4e9;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.customerCalendarGrid abbr {
+  text-decoration: none;
+}
+
+.customerCalendarGrid td {
+  position: relative;
+  height: 102px;
+  padding: 7px;
+  vertical-align: top;
+  border-right: 1px solid #dbe4e9;
+  border-bottom: 1px solid #dbe4e9;
+  background: #fff;
+  transition: background 150ms ease;
+}
+
+.customerCalendarGrid td:last-child {
+  border-right: 0;
+}
+
+.customerCalendarGrid tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.customerCalendarGrid td.customerCalendarOutside {
+  color: #a7b6bf;
+  background: #fafbfb;
+}
+
+.customerCalendarGrid td.customerCalendarSelected {
+  background: #f0f7fb;
+  box-shadow: inset 0 0 0 2px #5ba2cd;
+}
+
+.customerCalendarDay {
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.customerCalendarDay:hover,
+.customerCalendarDay:focus-visible {
+  background: #e7f1f7;
+}
+
+.customerCalendarDay.customerCalendarToday {
+  color: #fff;
+  background: #2e87c7;
+}
+
+.customerCalendarEvents {
+  margin-top: 4px;
+  display: grid;
+  gap: 3px;
+}
+
+.customerCalendarEvent {
+  min-width: 0;
+  padding: 4px 5px;
+  display: grid;
+  gap: 1px;
+  border: 0;
+  border-left: 3px solid #2e87c7;
+  border-radius: 3px;
+  color: #173d53;
+  background: #e8f3f9;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customerCalendarEvent:hover,
+.customerCalendarEvent:focus-visible {
+  background: #dceef8;
+}
+
+.customerCalendarEvent small,
+.customerCalendarEvent span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customerCalendarEvent small {
+  color: #537487;
+  font-size: 8px;
+}
+
+.customerCalendarEvent span {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.customerCalendarEvent.customerCalendarEventDone {
+  border-left-color: #4b9a70;
+  color: #2b6748;
+  background: #eaf4ee;
+}
+
+.customerCalendarMore {
+  padding: 2px 4px;
+  border: 0;
+  color: #327da9;
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customerCalendarMobileCount {
+  display: none;
+}
+
+.customerCalendarAgenda > section > header {
+  padding: 20px 20px 17px;
+  border-bottom: 1px solid #dbe4e9;
+}
+
+.customerCalendarAgenda header > span {
+  color: #2e7fb8;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.customerCalendarAgenda header h2 {
+  margin: 6px 0 5px;
+  color: #15364a;
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.customerCalendarAgenda header p,
+.customerCalendarEmpty {
+  margin: 0;
+  color: #637985;
+  font-size: 11px;
+}
+
+.customerCalendarAgenda ul {
+  margin: 0;
+  padding: 6px 20px 16px;
+  list-style: none;
+}
+
+.customerCalendarAgenda li {
+  padding: 14px 0;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  border-bottom: 1px solid #e3eaee;
+}
+
+.customerCalendarAgenda li:last-child {
+  border-bottom: 0;
+}
+
+.customerCalendarMark {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #2e7fb8;
+  background: #e8f3f9;
+}
+
+.customerCalendarAgenda li strong,
+.customerCalendarAgenda li span,
+.customerCalendarAgenda li p {
+  display: block;
+}
+
+.customerCalendarAgenda li strong {
+  color: #17374b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.customerCalendarAgenda li div > span {
+  margin-top: 3px;
+  color: #496778;
+  font-size: 10px;
+}
+
+.customerCalendarAgenda li p {
+  margin: 5px 0 0;
+  color: #6b7d87;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.customerCalendarAgenda > section > .customerCalendarEmpty {
+  padding: 22px 20px;
+}
+
+.customerCalendarUpcoming {
+  margin: 0 20px 18px;
+  padding-top: 17px;
+  border-top: 1px solid #dbe4e9;
+}
+
+.customerCalendarUpcoming h3 {
+  margin: 0 0 8px;
+  color: #15364a;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.customerCalendarUpcoming ul {
+  padding: 0;
+}
+
+.customerCalendarUpcoming li {
+  padding: 6px 0;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  border: 0;
+}
+
+.customerCalendarUpcoming time {
+  color: #2e7fb8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.customerCalendarUpcoming li > span {
+  color: #3c5868;
+  font-size: 10px;
+}
+
+.customerCalendarNote {
+  margin: 16px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #657984;
+  font-size: 10px;
+}
+
+@media (max-width: 980px) {
+  .customerCalendarLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .customerCalendarAgenda {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .customerCalendarUpcoming {
+    margin-top: 20px;
+    border-top: 0;
+    border-left: 1px solid #dbe4e9;
+  }
+}
+
+@media (max-width: 700px) {
+  .scheduleNextSummary {
+    min-width: 0;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .customerCalendar,
+  .customerCalendarAgenda {
+    margin-right: -20px;
+    margin-left: -20px;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .customerCalendarGrid {
+    min-width: 560px;
+  }
+
+  .customerCalendarGrid td {
+    height: 68px;
+  }
+
+  .customerCalendarEvents {
+    display: none;
+  }
+
+  .customerCalendarMobileCount {
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #477185;
+    font-size: 9px;
+    font-weight: 800;
+  }
+
+  .customerCalendarMobileCount i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #2e87c7;
+  }
+
+  .customerCalendarAgenda {
+    display: block;
+  }
+
+  .customerCalendarUpcoming {
+    margin-top: 0;
+    padding-top: 17px;
+    border-top: 1px solid #dbe4e9;
+    border-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customerCalendarToolbar button,
+  .customerCalendarGrid td {
     transition: none;
   }
 }
