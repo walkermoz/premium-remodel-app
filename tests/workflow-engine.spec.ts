@@ -274,6 +274,13 @@ test("direct SMS uses the organization number without a customer consent gate", 
   expect(migration).toContain("+19194139782");
   expect(migration).toContain("+19194344860");
   expect(migration).toContain("action.sendDirectSms");
+  const matt2Migration = readFileSync(
+    "supabase/migrations/202611100003_add_matt2_lead_sms_recipient.sql",
+    "utf8",
+  );
+  expect(matt2Migration).toContain("'Matt 2'");
+  expect(matt2Migration).toContain("+19194544012");
+  expect(matt2Migration).toContain("add_matt2_lead_sms_recipient");
 });
 
 test("new-organization website starter is generic, disabled, and publishable", () => {
