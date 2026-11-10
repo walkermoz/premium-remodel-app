@@ -1841,6 +1841,12 @@ export default function WorkspaceApp({
                     <OverviewAlerts
                       alerts={workspace.alerts || []}
                       user={user}
+                      onRemove={
+                        user.group === "owner" ||
+                        config.rolePermissions[user.group].includes("alerts.manage")
+                          ? (alert) => requestDelete("alert", alert)
+                          : undefined
+                      }
                     />
                   )}
                   <div className="page-heading">

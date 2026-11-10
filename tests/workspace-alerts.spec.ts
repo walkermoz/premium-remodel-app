@@ -130,6 +130,20 @@ test("administrators can post, rotate, target, and remove overview alerts", asyn
   await expect(
     banner.getByRole("button", { name: "Next company alert" }),
   ).toHaveCount(0);
+  await banner
+    .getByRole("button", {
+      name: "Remove company alert: Crew meeting moved to 8:00 AM.",
+    })
+    .click();
+  const removeBannerDialog = page.getByRole("dialog", {
+    name: "Delete this alert?",
+  });
+  await removeBannerDialog
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
+  await expect(banner).toBeHidden();
+  await page.reload();
+  await expect(banner).toBeHidden();
 });
 
 cloudTest(

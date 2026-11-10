@@ -1,15 +1,17 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellRing, ChevronLeft, ChevronRight } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import type { User, WorkspaceAlert } from "@/lib/types";
 import { visibleWorkspaceAlerts } from "@/lib/workspace-alerts";
 
 export default function OverviewAlerts({
   alerts,
   user,
+  onRemove,
 }: {
   alerts: WorkspaceAlert[];
   user: User;
+  onRemove?: (alert: WorkspaceAlert) => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const visible = useMemo(
@@ -60,25 +62,39 @@ export default function OverviewAlerts({
           </a>
         )}
       </div>
-      {visible.length > 1 && (
+      {(visible.length > 1 || onRemove) && (
         <div className="overview-alert-controls">
-          <span aria-hidden="true">
-            {index + 1} / {visible.length}
-          </span>
-          <button
-            type="button"
-            aria-label="Previous company alert"
-            onClick={() => move(-1)}
-          >
-            <ChevronLeft size={17} />
-          </button>
-          <button
-            type="button"
-            aria-label="Next company alert"
-            onClick={() => move(1)}
-          >
-            <ChevronRight size={17} />
-          </button>
+          {visible.length > 1 && (
+            <>
+              <span aria-hidden="true">
+                {index + 1} / {visible.length}
+              </span>
+              <button
+                type="button"
+                aria-label="Previous company alert"
+                onClick={() => move(-1)}
+              >
+                <ChevronLeft size={17} />
+              </button>
+              <button
+                type="button"
+                aria-label="Next company alert"
+                onClick={() => move(1)}
+              >
+                <ChevronRight size={17} />
+              </button>
+            </>
+          )}
+          {onRemove && (
+            <button
+              type="button"
+              aria-label={`Remove company alert: ${alert.message}`}
+              title="Remove this alert for everyone"
+              onClick={() => onRemove(alert)}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
     </section>
