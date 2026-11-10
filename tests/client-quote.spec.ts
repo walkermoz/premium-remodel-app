@@ -593,6 +593,15 @@ cloudTest(
       expect(response.status()).toBe(201);
     }
 
+    const savedTasks = await company.admin
+      .from("remodel_records")
+      .select("id")
+      .eq("organization_id", company.organizationId)
+      .eq("project_id", quote.id)
+      .eq("kind", "task");
+    expect(savedTasks.error).toBeNull();
+    expect(savedTasks.data).toHaveLength(7);
+
     const projectLinkResponse = await api.post("/api/client-links", {
       headers: origin,
       data: { projectId: quote.id, kind: "project" },
@@ -641,34 +650,73 @@ cloudTest(
 
     await customerPage.setViewportSize({ width: 390, height: 844 });
     await customerPage.goto(projectLink.url);
-    const calendarScroll = customerPage
-      .getByRole("table", { name: /November 2026 project calendar/ })
-      .locator("..");
-    await expect(calendarScroll).toBeVisible();
+    const mobileCalendar = customerPage.getByRole("region", {
+      name: "Mobile project calendar",
+    });
+    await expect(mobileCalendar).toBeVisible();
+    await expect(
+      customerPage.getByRole("table", {
+        name: /November 2026 project calendar/,
+      }),
+    ).toBeHidden();
+    await expect(
+      mobileCalendar.getByRole("button", {
+        name: /Select Tuesday, November 10, 1 scheduled/,
+      }),
+    ).toBeVisible();
+    await expect(
+      mobileCalendar.getByRole("region", {
+        name: "Selected day schedule",
+      }),
+    ).toContainText("Pre-drywall inspection");
+    const mobileUpcoming = mobileCalendar.getByRole("region", {
+      name: "Mobile upcoming project schedule",
+    });
+    await expect(
+      mobileUpcoming.getByText("Final inspection", { exact: true }),
+    ).toBeVisible();
     expect(
-      await calendarScroll.evaluate(
-        (element) => element.scrollWidth <= element.clientWidth + 1,
+      await mobileCalendar.evaluate(
+        (element) =>
+          document.documentElement.scrollWidth <= window.innerWidth + 1 &&
+          element.scrollWidth <= element.clientWidth + 1,
       ),
     ).toBe(true);
+    await mobileCalendar
+      .getByRole("button", { name: "View full month" })
+      .click();
     await expect(
-      upcoming.getByText("Final inspection", { exact: true }),
+      mobileCalendar.getByRole("group", {
+        name: /November 2026 mobile project calendar/,
+      }),
     ).toBeVisible();
+    await expect(
+      mobileCalendar.getByRole("button", {
+        name: /Select December 1, 2026, 1 scheduled/,
+      }),
+    ).toBeVisible();
+    await mobileCalendar
+      .getByRole("button", { name: "Back to agenda" })
+      .click();
+    await expect(mobileUpcoming).toBeVisible();
 
     await customerPage.goto(`${link.url}?view=schedule`);
     await expect(
       customerPage.getByRole("heading", { name: "Your calendar" }),
     ).toBeVisible();
+    const quoteMobileCalendar = customerPage.getByRole("region", {
+      name: "Mobile project calendar",
+    });
     await expect(
-      customerPage.getByRole("link", { name: "Schedule", exact: true }),
+      quoteMobileCalendar
+        .getByText("Pre-drywall inspection", { exact: true })
+        .first(),
     ).toBeVisible();
     await expect(
-      customerPage.getByText("Pre-drywall inspection", { exact: true }).first(),
+      quoteMobileCalendar.getByText("Time TBD", { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      customerPage.getByText("Time TBD", { exact: true }).first(),
-    ).toBeVisible();
-    await expect(
-      customerPage.getByText(
+      quoteMobileCalendar.getByText(
         "The inspection time will be confirmed that morning.",
       ),
     ).toBeVisible();
