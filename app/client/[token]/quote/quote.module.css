@@ -887,6 +887,10 @@
   font-size: 10px;
 }
 
+.mobileCalendar {
+  display: none;
+}
+
 @media (max-width: 980px) {
   .customerCalendarLayout {
     grid-template-columns: 1fr;
@@ -911,111 +915,394 @@
     text-align: left;
   }
 
-  .customerCalendar,
-  .customerCalendarAgenda {
-    margin-right: -20px;
-    margin-left: -20px;
-    border-right: 0;
-    border-left: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .customerCalendarGrid {
-    min-width: 0;
-  }
-
-  .customerCalendarGrid td {
-    height: 58px;
-    padding: 4px;
-  }
-
-  .customerCalendarToolbar {
-    min-height: 60px;
-    padding: 0 12px;
-    gap: 10px;
-  }
-
-  .customerCalendarToolbar > div {
-    gap: 5px;
-  }
-
-  .customerCalendarToolbar h2 {
-    margin-left: 4px;
-    font-size: 16px;
-  }
-
-  .customerCalendarToolbar button {
-    min-width: 32px;
-    min-height: 32px;
-    padding: 0 8px;
-  }
-
-  .customerCalendarGrid th {
-    height: 30px;
-    font-size: 8px;
-  }
-
-  .customerCalendarDay {
-    width: 23px;
-    height: 23px;
-    font-size: 10px;
-  }
-
-  .customerCalendarEvents {
+  .customerCalendarLayout {
     display: none;
   }
 
-  .customerCalendarMobileCount {
-    margin-top: 5px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: #477185;
-    font-size: 9px;
-    font-weight: 800;
+  .mobileCalendar {
+    margin: 0 -20px;
+    display: block;
+    overflow: hidden;
+    border-top: 1px solid #d7e2e8;
+    border-bottom: 1px solid #d7e2e8;
+    background: #fff;
   }
 
-  .customerCalendarMobileCount i {
-    width: 5px;
-    height: 5px;
+  .mobileCalendarToolbar {
+    min-height: 72px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid #e1e8ec;
+  }
+
+  .mobileCalendarToolbar > div {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobileCalendarToolbar > div > div {
+    min-width: 116px;
+    display: grid;
+    gap: 2px;
+    text-align: center;
+  }
+
+  .mobileCalendarToolbar span,
+  .mobileDayAgenda header span,
+  .mobileUpcoming > header span {
+    color: #2e7fb8;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .mobileCalendarToolbar strong {
+    overflow: hidden;
+    color: #15364a;
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobileCalendarToolbar button,
+  .mobileMonthToggle {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid #cfdae1;
+    border-radius: 7px;
+    color: #276f9e;
+    background: #fff;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .mobileCalendarToolbar .mobileCalendarToday {
+    padding: 0 12px;
+  }
+
+  .mobileWeekStrip {
+    padding: 14px 12px 12px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+    touch-action: pan-y;
+  }
+
+  .mobileWeekStrip > button {
+    min-width: 0;
+    min-height: 66px;
+    padding: 7px 2px 5px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 4px;
+    border: 1px solid transparent;
+    border-radius: 18px;
+    color: #59717e;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    transition:
+      color 150ms ease,
+      background 150ms ease,
+      transform 150ms ease;
+  }
+
+  .mobileWeekStrip > button > span {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .mobileWeekStrip > button > strong {
+    font-size: 16px;
+  }
+
+  .mobileWeekStrip > button > i {
+    width: 4px;
+    height: 4px;
+    display: block;
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .mobileWeekStrip > button > i.mobileWeekHasItems {
+    background: #2e87c7;
+  }
+
+  .mobileWeekStrip > button.mobileWeekSelected {
+    color: #fff;
+    background: #1f719f;
+    box-shadow: 0 5px 12px rgb(28 91 128 / 22%);
+  }
+
+  .mobileWeekStrip > button.mobileWeekSelected > i {
+    background: #fff;
+  }
+
+  .mobileMonthToggle {
+    width: calc(100% - 32px);
+    margin: 0 16px 16px;
+    display: flex;
+    gap: 7px;
+    background: #f7fafc;
+  }
+
+  .mobileDayAgenda {
+    border-top: 1px solid #e1e8ec;
+  }
+
+  .mobileDayAgenda > header {
+    padding: 20px 20px 15px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .mobileDayAgenda header h2,
+  .mobileUpcoming > header h2 {
+    margin: 5px 0 0;
+    color: #15364a;
+    font-size: 20px;
+    line-height: 1.2;
+  }
+
+  .mobileDayAgenda > header > strong {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    border-radius: 999px;
+    color: #4c6c7d;
+    background: #eef4f7;
+    font-size: 9px;
+  }
+
+  .mobileDayAgenda ul,
+  .mobileUpcoming ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mobileDayAgenda li {
+    margin: 0 20px;
+    padding: 16px 0;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 11px;
+    border-top: 1px solid #e3eaee;
+  }
+
+  .mobileDayAgenda .customerCalendarMark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mobileDayAgenda li div > strong,
+  .mobileDayAgenda li div > span,
+  .mobileDayAgenda li div > p {
+    display: block;
+  }
+
+  .mobileDayAgenda li div > strong {
+    color: #17374b;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .mobileDayAgenda li div > span {
+    margin-top: 3px;
+    color: #42687c;
+    font-size: 11px;
+  }
+
+  .mobileDayAgenda li div > p {
+    margin: 7px 0 0;
+    color: #657984;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .mobileDayEmpty {
+    margin: 0;
+    padding: 3px 20px 23px;
+    color: #657984;
+    font-size: 11px;
+  }
+
+  .mobileUpcoming {
+    padding: 26px 20px 20px;
+    border-top: 9px solid #f1f5f7;
+  }
+
+  .mobileUpcoming > header {
+    margin-bottom: 18px;
+  }
+
+  .mobileUpcoming > div > section {
+    padding: 0 0 18px;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .mobileUpcoming > div > section > button {
+    width: 48px;
+    height: 58px;
+    padding: 5px 0;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 0;
+    border: 1px solid #cddce4;
+    border-radius: 7px;
+    color: #235f83;
+    background: #f5fafc;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .mobileUpcoming > div > section > button span,
+  .mobileUpcoming > div > section > button small {
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .mobileUpcoming > div > section > button strong {
+    font-size: 17px;
+    line-height: 1.1;
+  }
+
+  .mobileUpcoming li {
+    border-top: 1px solid #e2eaee;
+  }
+
+  .mobileUpcoming li:last-child {
+    border-bottom: 1px solid #e2eaee;
+  }
+
+  .mobileUpcoming li > button {
+    width: 100%;
+    min-height: 54px;
+    padding: 10px 4px;
+    display: grid;
+    gap: 4px;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobileUpcoming li > button span {
+    color: #587584;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .mobileUpcoming li > button strong {
+    color: #17374b;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .mobileMonth {
+    padding: 0 12px 18px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .mobileMonth > span {
+    height: 28px;
+    display: grid;
+    place-items: center;
+    color: #71838d;
+    font-size: 8px;
+    font-weight: 900;
+  }
+
+  .mobileMonth > button {
+    position: relative;
+    min-width: 0;
+    min-height: 46px;
+    padding: 4px;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: #17374b;
+    background: transparent;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .mobileMonth > button > i {
+    position: absolute;
+    bottom: 5px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: #2e87c7;
   }
 
-  .customerCalendarAgenda {
-    display: block;
+  .mobileMonth > button.mobileMonthOutside {
+    color: #a6b3ba;
   }
 
-  .customerCalendarUpcoming {
-    margin-top: 0;
-    padding-top: 17px;
-    border-top: 1px solid #dbe4e9;
-    border-left: 0;
+  .mobileMonth > button.mobileMonthSelected {
+    border-color: #6eafd4;
+    color: #fff;
+    background: #1f719f;
+  }
+
+  .mobileMonth > button.mobileMonthSelected > i {
+    background: #fff;
+  }
+
+  .customerCalendarNote {
+    margin-top: 13px;
   }
 }
 
 @media (max-width: 390px) {
-  .customerCalendarToolbar h2 {
+  .mobileCalendarToolbar {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .mobileCalendarToolbar > div {
+    gap: 4px;
+  }
+
+  .mobileCalendarToolbar > div > div {
+    min-width: 106px;
+  }
+
+  .mobileCalendarToolbar strong {
     font-size: 14px;
-  }
-
-  .customerCalendarToolbar button {
-    min-width: 30px;
-    min-height: 30px;
-    padding: 0 6px;
-    font-size: 10px;
-  }
-
-  .customerCalendarGrid td {
-    height: 54px;
-    padding: 3px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .customerCalendarToolbar button,
-  .customerCalendarGrid td {
+  .customerCalendarGrid td,
+  .mobileWeekStrip > button {
     transition: none;
   }
 }
