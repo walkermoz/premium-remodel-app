@@ -199,23 +199,24 @@ export default function WorkspaceAlertSettings({
                       </a>
                     )}
                   </div>
-                  {alert.systemKind !== "workflow_incident" && (
-                    <div className="active-alert-actions">
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Edit alert: ${alert.message}`}
-                      onClick={() => {
-                        setEditing(alert);
-                        setEditMessage(alert.message);
-                        setEditExpiresAt(
-                          localDateTime(new Date(alert.expiresAt)),
-                        );
-                        setEditError("");
-                      }}
-                    >
-                      <Pencil size={15} />
-                    </button>
+                  <div className="active-alert-actions">
+                    {alert.systemKind !== "workflow_incident" && (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Edit alert: ${alert.message}`}
+                        onClick={() => {
+                          setEditing(alert);
+                          setEditMessage(alert.message);
+                          setEditExpiresAt(
+                            localDateTime(new Date(alert.expiresAt)),
+                          );
+                          setEditError("");
+                        }}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="icon-button delete-action"
@@ -224,8 +225,7 @@ export default function WorkspaceAlertSettings({
                     >
                       <Trash2 size={16} />
                     </button>
-                    </div>
-                  )}
+                  </div>
                 </li>
               ))}
             </ul>
