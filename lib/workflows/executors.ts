@@ -5,7 +5,6 @@ import { isDeepStrictEqual } from "node:util";
 import { getBusinessConfigForOrganization } from "../business-config";
 import { recordContactCommunication } from "../contact-communications";
 import {
-  configuredDiscordLeadWebhook,
   sendDiscordLeadNotification,
   sendDiscordWorkflowNotification,
 } from "../discord-leads";
@@ -1002,10 +1001,7 @@ handlers.set("communication.sendDirectSms", async (input) => {
     };
 
   const missing = String(input.node.config.missingValueBehavior || "blank") as
-    | "blank"
-    | "fallback"
-    | "skip"
-    | "error";
+    "blank" | "fallback" | "skip" | "error";
   const rendered = interpolateWorkflowText(
     String(input.node.config.body || ""),
     input.context,
@@ -1140,19 +1136,58 @@ handlers.set("integration.webhook", async (input) => {
   }
 
   const destination = String(input.node.config.destination || "custom");
+  if (destination === "discord_lead_webhook") {
+    if (!isOriginalOrganization(input.organizationId)) {
+      if (skipsUnavailableConnection(input.node))
+        return unavailableConnectionResult(
+          "HTTPS request skipped because its connection is unavailable.",
+        );
+      throw new WorkflowConfigurationError(
+        "Configure the selected HTTPS destination before this action can run.",
+      );
+    }
+
+    const result = await sendDiscordLeadNotification({
+      first_name: String(input.event.payload.firstName || ""),
+      last_name: String(input.event.payload.lastName || ""),
+      email: String(input.event.payload.email || ""),
+      phone: String(input.event.payload.phone || ""),
+      zip: String(input.event.payload.zip || ""),
+      address: String(input.event.payload.address || ""),
+      project: String(input.event.payload.project || ""),
+      project_description: String(input.event.payload.description || ""),
+    });
+    if (websiteLeadRequest)
+      await recordWebsiteLeadDelivery(input, "discordNotification", {
+        ...result,
+      });
+    if (result.status === "not_configured") {
+      if (skipsUnavailableConnection(input.node))
+        return unavailableConnectionResult(
+          "HTTPS request skipped because its connection is unavailable.",
+        );
+      throw new WorkflowConfigurationError(
+        "Configure the selected HTTPS destination before this action can run.",
+      );
+    }
+    if (result.status !== "sent")
+      throw new Error(
+        result.detail || "Discord delivery could not be confirmed.",
+      );
+    return {
+      summary: "Discord lead notification sent.",
+      output: { ...result },
+    };
+  }
+
   let configuredUrl: string | null = "";
   try {
-    configuredUrl =
-      destination === "discord_lead_webhook"
-        ? isOriginalOrganization(input.organizationId)
-          ? configuredDiscordLeadWebhook()
-          : ""
-        : input.node.config.urlSecretId
-          ? await organizationSecretValue(
-              input.organizationId,
-              String(input.node.config.urlSecretId),
-            )
-          : String(input.node.config.url || "");
+    configuredUrl = input.node.config.urlSecretId
+      ? await organizationSecretValue(
+          input.organizationId,
+          String(input.node.config.urlSecretId),
+        )
+      : String(input.node.config.url || "");
   } catch (error) {
     if (skipsUnavailableConnection(input.node))
       return unavailableConnectionResult(

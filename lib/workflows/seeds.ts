@@ -216,24 +216,24 @@ export function websiteLeadWorkflowSeed(
                 ],
               },
             },
-            {
-              id: "router-team",
-              to: "team-notification",
-              label: "Team notification",
-              order: 2,
-              kind: "always",
-            },
             ...(smsRecipients.length
               ? [
                   {
                     id: "router-lead-alert-sms",
                     to: "lead-alert-sms",
                     label: "Send SMS",
-                    order: 3,
+                    order: 2,
                     kind: "always" as const,
                   },
                 ]
               : []),
+            {
+              id: "router-team",
+              to: "team-notification",
+              label: "Team notification",
+              order: 3,
+              kind: "always",
+            },
           ],
         },
         {

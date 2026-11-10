@@ -159,8 +159,8 @@ test("seeded production workflows are valid registered graphs", () => {
   });
   for (const nodeId of ["sms-policy", "confirmation-sms"])
     expect(
-      website.definition?.graph.nodes.find((node) => node.id === nodeId)
-        ?.config.recipient,
+      website.definition?.graph.nodes.find((node) => node.id === nodeId)?.config
+        .recipient,
     ).toEqual({
       kind: "reference",
       path: "outputs.contactResult.contact.phone",
@@ -190,6 +190,12 @@ test("Premium website leads fan out to a configurable SMS action", () => {
         kind: "always",
       }),
     ]),
+  );
+  const deliveryOrder = workflow.graph.nodes
+    .find((node) => node.id === "delivery-router")
+    ?.outgoing.map((edge) => edge.id);
+  expect(deliveryOrder?.indexOf("router-lead-alert-sms")).toBeLessThan(
+    deliveryOrder?.indexOf("router-team") ?? 0,
   );
   expect(
     workflow.graph.nodes.find((node) => node.id === "lead-alert-sms"),
@@ -753,6 +759,21 @@ test("outbound webhooks pin the validated public address for the TLS request", (
   expect(source).toContain("servername: url.hostname");
   expect(source).toContain("headers: { ...options.headers, Host: url.host }");
   expect(source).toContain("Math.min(50_000");
+});
+
+test("the connected Discord lead destination uses the trusted Discord sender", () => {
+  const source = readFileSync("lib/workflows/executors.ts", "utf8");
+  const destinationBranch = source.indexOf(
+    'if (destination === "discord_lead_webhook")',
+  );
+  const genericRequest = source.indexOf(
+    "requestPublicWorkflowWebhook(configuredUrl",
+  );
+  expect(destinationBranch).toBeGreaterThan(-1);
+  expect(genericRequest).toBeGreaterThan(destinationBranch);
+  expect(source.slice(destinationBranch, genericRequest)).toContain(
+    "sendDiscordLeadNotification",
+  );
 });
 
 test("Send SMS cannot be published without its non-bypassable system policy gate", () => {
