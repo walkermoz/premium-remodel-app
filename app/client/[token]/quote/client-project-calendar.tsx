@@ -291,7 +291,7 @@ export default function ClientProjectCalendar({
             <h3>Coming up</h3>
             {upcoming.length ? (
               <ul>
-                {upcoming.slice(0, 6).map((item) => (
+                {upcoming.map((item) => (
                   <li key={`upcoming-${item.id}`}>
                     <time dateTime={item.dueDate}>
                       {dateLabel(item.dueDate, locale, {
