@@ -735,6 +735,20 @@ cloudTest(
         name: /Select Tuesday, November 10, 1 scheduled/,
       }),
     ).toBeVisible();
+    await mobileCalendar
+      .getByRole("button", { name: /Select Monday, November 9/ })
+      .click();
+    await expect(
+      mobileCalendar.locator('button[aria-pressed="true"] i'),
+    ).toHaveCount(0);
+    await mobileCalendar
+      .getByRole("button", {
+        name: /Select Tuesday, November 10, 1 scheduled/,
+      })
+      .click();
+    await expect(
+      mobileCalendar.locator('button[aria-pressed="true"] i'),
+    ).toHaveCount(1);
     await expect(
       mobileCalendar.getByRole("region", {
         name: "Selected day schedule",
