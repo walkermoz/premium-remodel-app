@@ -172,7 +172,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
                 {notice}
               </div>
             )}
-            {!loading && !status.configured && (
+            {!loading && !error && !status.configured && (
               <p className="generation-note">
                 Calendar connections are not available yet. The platform needs a
                 one-time Google Calendar setup; your company does not need to

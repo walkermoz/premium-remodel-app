@@ -489,10 +489,7 @@ function nodeIcon(node: WorkflowNode) {
   if (node.type === "logic.wait") return Clock3;
   if (node.type.startsWith("system.")) return ShieldCheck;
   if (node.type === "control.end") return CircleStop;
-  if (
-    node.type === "action.sendSms" ||
-    node.type === "action.sendDirectSms"
-  )
+  if (node.type === "action.sendSms" || node.type === "action.sendDirectSms")
     return MessageSquareText;
   if (node.type === "action.webhook") return Webhook;
   return Workflow;
@@ -523,10 +520,18 @@ function nodeSummary(node: WorkflowNode) {
       : [];
     return node.config.enabled === false
       ? "Disabled"
-      : `${recipients.length} recipient${recipients.length === 1 ? "" : "s"}`;
+      : recipients
+          .map((recipient: { name?: string; phone?: string }) =>
+            [recipient.name, recipient.phone].filter(Boolean).join(" · "),
+          )
+          .join("\n") || "Configure SMS recipients";
   }
   if (node.type === "action.webhook")
-    return `${String(node.config.method || "POST")} · ${node.config.destination === "discord_lead_webhook" ? "Connected Discord webhook" : String(node.config.url || "Configure HTTPS URL")}`;
+    return node.config.enabled === false
+      ? "Disabled"
+      : node.config.destination === "discord_lead_webhook"
+        ? "Send the standard Discord lead notification"
+        : `${String(node.config.method || "POST")} · ${node.config.urlSecretId ? "URL stored in organization secrets" : String(node.config.url || "Configure HTTPS URL")}`;
   if (node.type === "action.createLead") return "Create and link a Lead";
   if (node.type === "action.findOrCreateContact")
     return "Match email first, then phone";
@@ -660,7 +665,16 @@ function WorkflowTree({
                 : node.kind.toUpperCase()}
             </span>
             <h2>{node.name}</h2>
-            <small>{nodeSummary(node)}</small>
+            <small
+              title={nodeSummary(node)}
+              style={
+                node.type === "action.sendDirectSms"
+                  ? { display: "block", whiteSpace: "pre-line", overflowWrap: "anywhere" }
+                  : undefined
+              }
+            >
+              {nodeSummary(node)}
+            </small>
           </span>
           {node.type.startsWith("system.") && (
             <span className="workflow-system-lock">Required</span>
@@ -5218,106 +5232,122 @@ export default function WorkflowAutomationPanel({
                         <span>Reuse an existing matching Contact</span>
                       </label>
                     )}
-                    <div className="workflow-inspector-section-title">
-                      <span>Match Contact by</span>
-                    </div>
-                    {(["email", "phone", "id"] as const).map((matchField) => {
-                      const matchFields =
-                        (selectedNode.config.matchFields as string[]) || [];
-                      const enabled = matchFields.includes(matchField);
-                      return (
-                        <div
-                          className="workflow-trigger-filter"
-                          key={matchField}
-                        >
-                          <label className="workflow-checkbox-row">
-                            <input
-                              type="checkbox"
-                              checked={enabled}
-                              disabled={
-                                !editable ||
-                                (enabled && matchFields.length === 1)
-                              }
-                              onChange={(event) =>
-                                updateNode({
-                                  config: {
-                                    ...selectedNode.config,
-                                    matchFields: event.target.checked
-                                      ? [...matchFields, matchField]
-                                      : matchFields.filter(
-                                          (field) => field !== matchField,
-                                        ),
-                                    ...(event.target.checked
-                                      ? {
-                                          [matchField]: {
-                                            kind: "reference",
-                                            path:
-                                              matchField === "id"
-                                                ? "contact.id"
-                                                : `event.payload.${matchField}`,
-                                          },
-                                        }
-                                      : { [matchField]: undefined }),
-                                  },
-                                })
-                              }
-                            />
-                            <span>
-                              {matchField === "id"
-                                ? "Contact ID"
-                                : matchField[0].toUpperCase() +
-                                  matchField.slice(1)}
-                            </span>
-                          </label>
-                          {enabled && (
-                            <OperandEditor
-                              id={`find-${selectedNode.id}-${matchField}`}
-                              label={`${matchField === "id" ? "Contact ID" : matchField} value`}
-                              value={
-                                selectedNode.config[
-                                  matchField
-                                ] as WorkflowOperand
-                              }
-                              variables={availableVariables}
-                              disabled={!editable}
-                              onChange={(value) =>
-                                updateNode({
-                                  config: {
-                                    ...selectedNode.config,
-                                    [matchField]: value,
-                                  },
-                                })
-                              }
-                            />
-                          )}
+                    {selectedNode.type === "action.findOrCreateContact" ? (
+                      <p className="workflow-condition-help">
+                        When reuse is enabled, matches the email and phone in the Contact fields below,
+                        using the most recently updated match. A conflicting
+                        saved phone is protected; otherwise phone matching is
+                        used before creating a new Contact.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="workflow-inspector-section-title">
+                          <span>Match Contact by</span>
                         </div>
-                      );
-                    })}
-                    <label className="workflow-field">
-                      <span>If more than one Contact matches</span>
-                      <select
-                        value={String(
-                          selectedNode.config.multipleMatch || "latest",
+                        {(["email", "phone", "id"] as const).map(
+                          (matchField) => {
+                            const matchFields =
+                              (selectedNode.config.matchFields as string[]) ||
+                              [];
+                            const enabled = matchFields.includes(matchField);
+                            return (
+                              <div
+                                className="workflow-trigger-filter"
+                                key={matchField}
+                              >
+                                <label className="workflow-checkbox-row">
+                                  <input
+                                    type="checkbox"
+                                    checked={enabled}
+                                    disabled={
+                                      !editable ||
+                                      (enabled && matchFields.length === 1)
+                                    }
+                                    onChange={(event) =>
+                                      updateNode({
+                                        config: {
+                                          ...selectedNode.config,
+                                          matchFields: event.target.checked
+                                            ? [...matchFields, matchField]
+                                            : matchFields.filter(
+                                                (field) => field !== matchField,
+                                              ),
+                                          ...(event.target.checked
+                                            ? {
+                                                [matchField]: {
+                                                  kind: "reference",
+                                                  path:
+                                                    matchField === "id"
+                                                      ? "contact.id"
+                                                      : `event.payload.${matchField}`,
+                                                },
+                                              }
+                                            : { [matchField]: undefined }),
+                                        },
+                                      })
+                                    }
+                                  />
+                                  <span>
+                                    {matchField === "id"
+                                      ? "Contact ID"
+                                      : matchField[0].toUpperCase() +
+                                        matchField.slice(1)}
+                                  </span>
+                                </label>
+                                {enabled && (
+                                  <OperandEditor
+                                    id={`find-${selectedNode.id}-${matchField}`}
+                                    label={`${matchField === "id" ? "Contact ID" : matchField} value`}
+                                    value={
+                                      selectedNode.config[
+                                        matchField
+                                      ] as WorkflowOperand
+                                    }
+                                    variables={availableVariables}
+                                    disabled={!editable}
+                                    onChange={(value) =>
+                                      updateNode({
+                                        config: {
+                                          ...selectedNode.config,
+                                          [matchField]: value,
+                                        },
+                                      })
+                                    }
+                                  />
+                                )}
+                              </div>
+                            );
+                          },
                         )}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          updateNode({
-                            config: {
-                              ...selectedNode.config,
-                              multipleMatch: event.target.value,
-                            },
-                          })
-                        }
-                      >
-                        <option value="latest">
-                          Use the most recently updated
-                        </option>
-                        <option value="earliest">
-                          Use the earliest created
-                        </option>
-                        <option value="fail">Stop and require review</option>
-                      </select>
-                    </label>
+                        <label className="workflow-field">
+                          <span>If more than one Contact matches</span>
+                          <select
+                            value={String(
+                              selectedNode.config.multipleMatch || "latest",
+                            )}
+                            disabled={!editable}
+                            onChange={(event) =>
+                              updateNode({
+                                config: {
+                                  ...selectedNode.config,
+                                  multipleMatch: event.target.value,
+                                },
+                              })
+                            }
+                          >
+                            <option value="latest">
+                              Use the most recently updated
+                            </option>
+                            <option value="earliest">
+                              Use the earliest created
+                            </option>
+                            <option value="fail">
+                              Stop and require review
+                            </option>
+                          </select>
+                        </label>
+                      </>
+                    )}
                   </div>
                 )}
                 {selectedNode.type === "action.assignUser" && (
@@ -5474,416 +5504,444 @@ export default function WorkflowAutomationPanel({
                         </small>
                       )}
                     </label>
-                    <div className="workflow-schedule-interval">
-                      <label className="workflow-field">
-                        <span>Method</span>
-                        <select
-                          value={String(selectedNode.config.method || "POST")}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                method: event.target.value,
-                              },
-                            })
-                          }
-                        >
-                          {(
-                            ["GET", "POST", "PUT", "PATCH", "DELETE"] as const
-                          ).map((method) => (
-                            <option key={method} value={method}>
-                              {method}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="workflow-field">
-                        <span>Public HTTPS URL</span>
-                        <input
-                          type="url"
-                          value={
-                            selectedNode.config.destination ===
-                            "discord_lead_webhook"
-                              ? "https://discord.com/api/webhooks/••••••••"
-                              : String(selectedNode.config.url || "")
-                          }
-                          disabled={
-                            !editable ||
-                            Boolean(selectedNode.config.urlSecretId) ||
-                            selectedNode.config.destination ===
-                              "discord_lead_webhook"
-                          }
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                url: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    {selectedNode.config.destination !==
-                      "discord_lead_webhook" && (
-                      <label className="workflow-field">
-                        <span>Or use a URL stored as a secret</span>
-                        <select
-                          value={String(selectedNode.config.urlSecretId || "")}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                urlSecretId: event.target.value || undefined,
-                              },
-                            })
-                          }
-                        >
-                          <option value="">Use the public URL above</option>
-                          {senderOptions.secrets.map((secret) => (
-                            <option key={secret.id} value={secret.id}>
-                              {secret.label}
-                            </option>
-                          ))}
-                        </select>
-                        <small>
-                          Store webhook URLs containing credentials in the
-                          organization vault, then select the secret here.
-                        </small>
-                      </label>
-                    )}
-                    <div className="workflow-inspector-section-title">
-                      <span>Headers</span>
-                      <button
-                        type="button"
-                        disabled={!editable}
-                        onClick={() => {
-                          const headers = {
-                            ...((selectedNode.config.headers || {}) as Record<
-                              string,
-                              string
-                            >),
-                          };
-                          let index = Object.keys(headers).length + 1;
-                          let name = `X-Custom-Header-${index}`;
-                          while (name in headers)
-                            name = `X-Custom-Header-${++index}`;
-                          updateNode({
-                            config: {
-                              ...selectedNode.config,
-                              headers: { ...headers, [name]: "" },
-                            },
-                          });
-                        }}
-                      >
-                        <Plus size={13} /> Add header
-                      </button>
-                    </div>
-                    {Object.entries(
-                      (selectedNode.config.headers || {}) as Record<
-                        string,
-                        string
-                      >,
-                    ).map(([name, value]) => (
-                      <div className="workflow-request-header" key={name}>
-                        <input
-                          aria-label="Header name"
-                          value={name}
-                          disabled={!editable}
-                          onChange={(event) => {
-                            const headers = Object.fromEntries(
-                              Object.entries(
-                                (selectedNode.config.headers || {}) as Record<
-                                  string,
-                                  string
-                                >,
-                              ).map(([currentName, currentValue]) => [
-                                currentName === name
-                                  ? event.target.value
-                                  : currentName,
-                                currentValue,
-                              ]),
-                            );
-                            updateNode({
-                              config: { ...selectedNode.config, headers },
-                            });
-                          }}
-                        />
-                        <input
-                          aria-label={`${name} header value`}
-                          value={value}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                headers: {
-                                  ...((selectedNode.config.headers ||
-                                    {}) as Record<string, string>),
-                                  [name]: event.target.value,
+                    {selectedNode.config.destination ===
+                    "discord_lead_webhook" ? (
+                      <p className="workflow-condition-help">
+                        Sends the standard lead notification using the submitted
+                        name, project, phone, email, address, and description.
+                        The connected Discord sender manages the request and
+                        message format automatically.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="workflow-schedule-interval">
+                          <label className="workflow-field">
+                            <span>Method</span>
+                            <select
+                              value={String(
+                                selectedNode.config.method || "POST",
+                              )}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    method: event.target.value,
+                                  },
+                                })
+                              }
+                            >
+                              {(
+                                [
+                                  "GET",
+                                  "POST",
+                                  "PUT",
+                                  "PATCH",
+                                  "DELETE",
+                                ] as const
+                              ).map((method) => (
+                                <option key={method} value={method}>
+                                  {method}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="workflow-field">
+                            <span>Public HTTPS URL</span>
+                            <input
+                              type="url"
+                              value={
+                                selectedNode.config.destination ===
+                                "discord_lead_webhook"
+                                  ? "https://discord.com/api/webhooks/••••••••"
+                                  : String(selectedNode.config.url || "")
+                              }
+                              disabled={
+                                !editable ||
+                                Boolean(selectedNode.config.urlSecretId) ||
+                                selectedNode.config.destination ===
+                                  "discord_lead_webhook"
+                              }
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    url: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                        {selectedNode.config.destination !==
+                          "discord_lead_webhook" && (
+                          <label className="workflow-field">
+                            <span>Or use a URL stored as a secret</span>
+                            <select
+                              value={String(
+                                selectedNode.config.urlSecretId || "",
+                              )}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    urlSecretId:
+                                      event.target.value || undefined,
+                                  },
+                                })
+                              }
+                            >
+                              <option value="">Use the public URL above</option>
+                              {senderOptions.secrets.map((secret) => (
+                                <option key={secret.id} value={secret.id}>
+                                  {secret.label}
+                                </option>
+                              ))}
+                            </select>
+                            <small>
+                              Store webhook URLs containing credentials in the
+                              organization vault, then select the secret here.
+                            </small>
+                          </label>
+                        )}
+                        <div className="workflow-inspector-section-title">
+                          <span>Headers</span>
+                          <button
+                            type="button"
+                            disabled={!editable}
+                            onClick={() => {
+                              const headers = {
+                                ...((selectedNode.config.headers ||
+                                  {}) as Record<string, string>),
+                              };
+                              let index = Object.keys(headers).length + 1;
+                              let name = `X-Custom-Header-${index}`;
+                              while (name in headers)
+                                name = `X-Custom-Header-${++index}`;
+                              updateNode({
+                                config: {
+                                  ...selectedNode.config,
+                                  headers: { ...headers, [name]: "" },
                                 },
-                              },
-                            })
-                          }
-                        />
-                        <button
-                          type="button"
-                          aria-label={`Remove ${name} header`}
-                          disabled={!editable}
-                          onClick={() =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                headers: Object.fromEntries(
+                              });
+                            }}
+                          >
+                            <Plus size={13} /> Add header
+                          </button>
+                        </div>
+                        {Object.entries(
+                          (selectedNode.config.headers || {}) as Record<
+                            string,
+                            string
+                          >,
+                        ).map(([name, value]) => (
+                          <div className="workflow-request-header" key={name}>
+                            <input
+                              aria-label="Header name"
+                              value={name}
+                              disabled={!editable}
+                              onChange={(event) => {
+                                const headers = Object.fromEntries(
                                   Object.entries(
                                     (selectedNode.config.headers ||
                                       {}) as Record<string, string>,
-                                  ).filter(
-                                    ([currentName]) => currentName !== name,
-                                  ),
-                                ),
-                              },
-                            })
-                          }
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                    <div className="workflow-inspector-section-title">
-                      <span>Secret headers</span>
-                      <button
-                        type="button"
-                        disabled={
-                          !editable || senderOptions.secrets.length === 0
-                        }
-                        onClick={() => {
-                          const headers = {
-                            ...((selectedNode.config.secretHeaders ||
-                              {}) as Record<string, string>),
-                          };
-                          let index = Object.keys(headers).length + 1;
-                          let name =
-                            index === 1 ? "Authorization" : `X-Secret-${index}`;
-                          while (name in headers) name = `X-Secret-${++index}`;
-                          updateNode({
-                            config: {
-                              ...selectedNode.config,
-                              secretHeaders: {
-                                ...headers,
-                                [name]: senderOptions.secrets[0].id,
-                              },
-                            },
-                          });
-                        }}
-                      >
-                        <Plus size={13} /> Add secret header
-                      </button>
-                    </div>
-                    {Object.entries(
-                      (selectedNode.config.secretHeaders || {}) as Record<
-                        string,
-                        string
-                      >,
-                    ).map(([name, secretId]) => (
-                      <div className="workflow-request-header" key={name}>
-                        <input
-                          aria-label="Secret header name"
-                          value={name}
-                          disabled={!editable}
-                          onChange={(event) => {
-                            const secretHeaders = Object.fromEntries(
-                              Object.entries(
-                                (selectedNode.config.secretHeaders ||
-                                  {}) as Record<string, string>,
-                              ).map(([currentName, currentSecretId]) => [
-                                currentName === name
-                                  ? event.target.value
-                                  : currentName,
-                                currentSecretId,
-                              ]),
-                            );
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                secretHeaders,
-                              },
-                            });
-                          }}
-                        />
-                        <select
-                          aria-label={`${name} secret`}
-                          value={secretId}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                secretHeaders: {
-                                  ...((selectedNode.config.secretHeaders ||
-                                    {}) as Record<string, string>),
-                                  [name]: event.target.value,
+                                  ).map(([currentName, currentValue]) => [
+                                    currentName === name
+                                      ? event.target.value
+                                      : currentName,
+                                    currentValue,
+                                  ]),
+                                );
+                                updateNode({
+                                  config: { ...selectedNode.config, headers },
+                                });
+                              }}
+                            />
+                            <input
+                              aria-label={`${name} header value`}
+                              value={value}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    headers: {
+                                      ...((selectedNode.config.headers ||
+                                        {}) as Record<string, string>),
+                                      [name]: event.target.value,
+                                    },
+                                  },
+                                })
+                              }
+                            />
+                            <button
+                              type="button"
+                              aria-label={`Remove ${name} header`}
+                              disabled={!editable}
+                              onClick={() =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    headers: Object.fromEntries(
+                                      Object.entries(
+                                        (selectedNode.config.headers ||
+                                          {}) as Record<string, string>,
+                                      ).filter(
+                                        ([currentName]) => currentName !== name,
+                                      ),
+                                    ),
+                                  },
+                                })
+                              }
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="workflow-inspector-section-title">
+                          <span>Secret headers</span>
+                          <button
+                            type="button"
+                            disabled={
+                              !editable || senderOptions.secrets.length === 0
+                            }
+                            onClick={() => {
+                              const headers = {
+                                ...((selectedNode.config.secretHeaders ||
+                                  {}) as Record<string, string>),
+                              };
+                              let index = Object.keys(headers).length + 1;
+                              let name =
+                                index === 1
+                                  ? "Authorization"
+                                  : `X-Secret-${index}`;
+                              while (name in headers)
+                                name = `X-Secret-${++index}`;
+                              updateNode({
+                                config: {
+                                  ...selectedNode.config,
+                                  secretHeaders: {
+                                    ...headers,
+                                    [name]: senderOptions.secrets[0].id,
+                                  },
                                 },
-                              },
-                            })
-                          }
-                        >
-                          {senderOptions.secrets.map((secret) => (
-                            <option key={secret.id} value={secret.id}>
-                              {secret.label}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${name} secret header`}
-                          disabled={!editable}
-                          onClick={() =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                secretHeaders: Object.fromEntries(
+                              });
+                            }}
+                          >
+                            <Plus size={13} /> Add secret header
+                          </button>
+                        </div>
+                        {Object.entries(
+                          (selectedNode.config.secretHeaders || {}) as Record<
+                            string,
+                            string
+                          >,
+                        ).map(([name, secretId]) => (
+                          <div className="workflow-request-header" key={name}>
+                            <input
+                              aria-label="Secret header name"
+                              value={name}
+                              disabled={!editable}
+                              onChange={(event) => {
+                                const secretHeaders = Object.fromEntries(
                                   Object.entries(
                                     (selectedNode.config.secretHeaders ||
                                       {}) as Record<string, string>,
-                                  ).filter(
-                                    ([currentName]) => currentName !== name,
-                                  ),
-                                ),
-                              },
-                            })
-                          }
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                    <label className="workflow-field">
-                      <span>Body format</span>
-                      <select
-                        value={String(selectedNode.config.bodyType || "json")}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          updateNode({
-                            config: {
-                              ...selectedNode.config,
-                              bodyType: event.target.value,
-                            },
-                          })
-                        }
-                      >
-                        <option value="json">JSON</option>
-                        <option value="text">Plain text</option>
-                      </select>
-                    </label>
-                    <label className="workflow-field">
-                      <span>Request body</span>
-                      <textarea
-                        className="workflow-request-body"
-                        value={String(selectedNode.config.body || "")}
-                        disabled={!editable}
-                        placeholder='{"contactId":"{{contact.id}}"}'
-                        onChange={(event) =>
-                          updateNode({
-                            config: {
-                              ...selectedNode.config,
-                              body: event.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </label>
-                    <div className="workflow-setting-pair">
-                      <label className="workflow-field">
-                        <span>If a value is missing</span>
-                        <select
-                          value={String(
-                            selectedNode.config.missingValueBehavior || "blank",
-                          )}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                missingValueBehavior: event.target.value,
-                              },
-                            })
-                          }
-                        >
-                          <option value="blank">Leave it blank</option>
-                          <option value="fallback">Use fallback</option>
-                          <option value="skip">Skip request</option>
-                          <option value="error">Stop with an error</option>
-                        </select>
-                      </label>
-                      <label className="workflow-field">
-                        <span>Timeout in seconds</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={30}
-                          value={Number(
-                            selectedNode.config.timeoutSeconds || 15,
-                          )}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                timeoutSeconds: Math.min(
-                                  30,
-                                  Math.max(1, Number(event.target.value) || 15),
-                                ),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    {selectedNode.config.missingValueBehavior ===
-                      "fallback" && (
-                      <label className="workflow-field">
-                        <span>Fallback value</span>
-                        <input
-                          value={String(
-                            selectedNode.config.fallbackValue || "",
-                          )}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                fallbackValue: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
+                                  ).map(([currentName, currentSecretId]) => [
+                                    currentName === name
+                                      ? event.target.value
+                                      : currentName,
+                                    currentSecretId,
+                                  ]),
+                                );
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    secretHeaders,
+                                  },
+                                });
+                              }}
+                            />
+                            <select
+                              aria-label={`${name} secret`}
+                              value={secretId}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    secretHeaders: {
+                                      ...((selectedNode.config.secretHeaders ||
+                                        {}) as Record<string, string>),
+                                      [name]: event.target.value,
+                                    },
+                                  },
+                                })
+                              }
+                            >
+                              {senderOptions.secrets.map((secret) => (
+                                <option key={secret.id} value={secret.id}>
+                                  {secret.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${name} secret header`}
+                              disabled={!editable}
+                              onClick={() =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    secretHeaders: Object.fromEntries(
+                                      Object.entries(
+                                        (selectedNode.config.secretHeaders ||
+                                          {}) as Record<string, string>,
+                                      ).filter(
+                                        ([currentName]) => currentName !== name,
+                                      ),
+                                    ),
+                                  },
+                                })
+                              }
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="workflow-field">
+                          <span>Body format</span>
+                          <select
+                            value={String(
+                              selectedNode.config.bodyType || "json",
+                            )}
+                            disabled={!editable}
+                            onChange={(event) =>
+                              updateNode({
+                                config: {
+                                  ...selectedNode.config,
+                                  bodyType: event.target.value,
+                                },
+                              })
+                            }
+                          >
+                            <option value="json">JSON</option>
+                            <option value="text">Plain text</option>
+                          </select>
+                        </label>
+                        <label className="workflow-field">
+                          <span>Request body</span>
+                          <textarea
+                            className="workflow-request-body"
+                            value={String(selectedNode.config.body || "")}
+                            disabled={!editable}
+                            placeholder='{"contactId":"{{contact.id}}"}'
+                            onChange={(event) =>
+                              updateNode({
+                                config: {
+                                  ...selectedNode.config,
+                                  body: event.target.value,
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                        <div className="workflow-setting-pair">
+                          <label className="workflow-field">
+                            <span>If a value is missing</span>
+                            <select
+                              value={String(
+                                selectedNode.config.missingValueBehavior ||
+                                  "blank",
+                              )}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    missingValueBehavior: event.target.value,
+                                  },
+                                })
+                              }
+                            >
+                              <option value="blank">Leave it blank</option>
+                              <option value="fallback">Use fallback</option>
+                              <option value="skip">Skip request</option>
+                              <option value="error">Stop with an error</option>
+                            </select>
+                          </label>
+                          <label className="workflow-field">
+                            <span>Timeout in seconds</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={30}
+                              value={Number(
+                                selectedNode.config.timeoutSeconds || 15,
+                              )}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    timeoutSeconds: Math.min(
+                                      30,
+                                      Math.max(
+                                        1,
+                                        Number(event.target.value) || 15,
+                                      ),
+                                    ),
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                        {selectedNode.config.missingValueBehavior ===
+                          "fallback" && (
+                          <label className="workflow-field">
+                            <span>Fallback value</span>
+                            <input
+                              value={String(
+                                selectedNode.config.fallbackValue || "",
+                              )}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    fallbackValue: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                        )}
+                        <label className="workflow-checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={selectedNode.config.saveResponse === true}
+                            disabled={!editable}
+                            onChange={(event) =>
+                              updateNode({
+                                config: {
+                                  ...selectedNode.config,
+                                  saveResponse: event.target.checked,
+                                },
+                              })
+                            }
+                          />
+                          <span>Expose the response to later steps</span>
+                        </label>
+                        <p className="workflow-condition-help">
+                          Requests are limited to public HTTPS destinations.
+                          Private networks, redirects, embedded credentials, and
+                          inline sensitive headers are blocked. Use secret
+                          headers from the organization vault for credentials.
+                        </p>
+                      </>
                     )}
-                    <label className="workflow-checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={selectedNode.config.saveResponse === true}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          updateNode({
-                            config: {
-                              ...selectedNode.config,
-                              saveResponse: event.target.checked,
-                            },
-                          })
-                        }
-                      />
-                      <span>Expose the response to later steps</span>
-                    </label>
-                    <p className="workflow-condition-help">
-                      Requests are limited to public HTTPS destinations. Private
-                      networks, redirects, embedded credentials, and secret
-                      headers are blocked. Use a managed connection for
-                      credentials.
-                    </p>
                   </div>
                 )}
                 {(selectedNode.type === "action.enrollWorkflow" ||
