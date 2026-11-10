@@ -574,16 +574,26 @@ cloudTest(
     const client = await browser.newContext();
     const customerPage = await client.newPage();
     await customerPage.goto(projectLink.url);
+    await expect(customerPage).toHaveURL(/\/quote\?view=schedule$/);
     await expect(
-      customerPage.getByRole("heading", {
-        name: "Garage schedule portal test",
+      customerPage.getByRole("heading", { name: "Your calendar" }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByRole("table", {
+        name: /November 2026 project calendar/,
       }),
     ).toBeVisible();
     await expect(
-      customerPage.getByRole("heading", { name: "Pre-drywall inspection" }),
+      customerPage.getByText("Pre-drywall inspection", { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }),
+      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByRole("link", { name: "Quotes", exact: true }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByRole("link", { name: "Invoices", exact: true }),
     ).toBeVisible();
     await expect(customerPage.getByText("High", { exact: true })).toHaveCount(
       0,
@@ -591,16 +601,16 @@ cloudTest(
 
     await customerPage.goto(`${link.url}?view=schedule`);
     await expect(
-      customerPage.getByRole("heading", { name: "What’s happening next" }),
+      customerPage.getByRole("heading", { name: "Your calendar" }),
     ).toBeVisible();
     await expect(
       customerPage.getByRole("link", { name: "Schedule", exact: true }),
     ).toBeVisible();
     await expect(
-      customerPage.getByRole("heading", { name: "Pre-drywall inspection" }),
+      customerPage.getByText("Pre-drywall inspection", { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }),
+      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }).first(),
     ).toBeVisible();
     await expect(
       customerPage.getByText(

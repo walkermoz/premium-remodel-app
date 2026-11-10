@@ -6,7 +6,9 @@ const origin = { Origin: "http://localhost:3100" };
 test("unknown project portal links remain unavailable", async ({ page }) => {
   const response = await page.goto("/client/retired-project-token");
   expect(response?.status()).toBe(404);
-  await expect(page).toHaveURL(/\/client\/retired-project-token$/);
+  await expect(page).toHaveURL(
+    /\/client\/retired-project-token\/quote\?view=schedule$/,
+  );
 });
 
 cloudTest(

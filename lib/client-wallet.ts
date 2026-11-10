@@ -15,7 +15,7 @@ export async function walletCustomerId(token: string) {
     .from("remodel_client_links")
     .select("stripe_customer_id,stripe_account_id,organization_id")
     .eq("id", id)
-    .eq("kind", "quote")
+    .in("kind", ["project", "quote"])
     .is("revoked_at", null)
     .maybeSingle();
   if (error) throw error;

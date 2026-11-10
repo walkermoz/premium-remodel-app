@@ -150,7 +150,7 @@ export default function ClientLinkDialog({
       title={kind === "project" ? "Customer portal URL" : "Client quote link"}
       subtitle={
         kind === "project"
-          ? "A private, customer-safe project schedule you can share by text or email."
+          ? "A private customer portal with the live schedule, project scope, invoices, payments, requests, and contact details."
           : "A client-safe quote page with scope, total, and PDF."
       }
       onClose={onClose}
@@ -174,7 +174,7 @@ export default function ClientLinkDialog({
                 <strong>Client access is active</strong>
                 <p>
                   {kind === "project"
-                    ? "The portal stays current with the project schedule. Contractor assignments, priorities, costs, and workspace notes are excluded."
+                    ? "The portal stays current with the project schedule and customer-facing project records. Contractor assignments, priorities, internal costs, and workspace notes are excluded."
                     : "The page shows a saved version of the quote. Replace this link to publish later edits. Internal costs and workspace notes are excluded."}
                 </p>
               </div>
@@ -236,7 +236,7 @@ export default function ClientLinkDialog({
               !project.quoteAcceptedAt
                 ? "Mark this quote as sent before creating a client link."
                 : kind === "project"
-                  ? "Anyone with the URL can view the customer-safe project schedule. You can replace or disable it at any time."
+                  ? "Anyone with the URL can open the customer portal. You can replace or disable it at any time."
                   : "Anyone with the link can view the client-safe summary. You can replace or disable the link at any time."}
             </p>
           </div>
