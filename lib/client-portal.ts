@@ -3,6 +3,7 @@ import "server-only";
 export {
   clientPortalEmailTag,
   createClientEmailToken,
+  createClientEmailTokenExpiringAt,
   createClientPortalToken,
   createClientWalletFormToken,
   isExpiredClientPortalToken,

@@ -44,8 +44,8 @@ export default function SignInForm({
       <div className={styles.sent} role="status">
         <strong>Check your inbox</strong>
         <p>
-          If this email has a quote with this business, we’ve sent a new portal
-          link. It may take a few minutes to arrive.
+          If this email has a project or quote with this business, we’ve sent a
+          new portal link. It may take a few minutes to arrive.
         </p>
         <button
           className={styles.again}

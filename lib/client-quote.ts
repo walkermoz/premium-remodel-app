@@ -1,7 +1,11 @@
 import "server-only";
 
 import { z } from "zod";
-import { clientPortalEmailTag, parseClientPortalAccess } from "./client-portal";
+import {
+  clientPortalEmailTag,
+  createClientEmailTokenExpiringAt,
+  parseClientPortalAccess,
+} from "./client-portal";
 import { quoteAcceptanceSchema } from "./quote-signature";
 import { supabaseAdmin } from "./supabase/server";
 import type { MsaAgreement, Project, Quote, ScopeItem } from "./types";
@@ -90,6 +94,19 @@ const snapshotSchema = z.object({
 
 export type ClientQuoteItem = z.infer<typeof itemSchema>;
 export type { ClientScheduleItem } from "./client-project-schedule";
+export type ClientPortalProject = {
+  id: string;
+  name: string;
+  address: string;
+  category: string;
+  status: string;
+  url: string;
+  current: boolean;
+};
+export type ClientPortalScheduleItem = ClientScheduleItem & {
+  projectId: string;
+  projectName: string;
+};
 export type ClientQuoteView = {
   quote: z.infer<typeof quoteSchema>;
   items: ClientQuoteItem[];
@@ -106,10 +123,111 @@ export function isValidClientQuoteSnapshot(value: unknown) {
   return snapshotSchema.safeParse(value).success;
 }
 
+async function customerProjectsForEmail(input: {
+  organizationId: string;
+  email: string;
+  emailTag: string;
+  expiresAt: number;
+  currentProjectId: string;
+  currentToken: string;
+}) {
+  const admin = supabaseAdmin();
+  const linksResult = await admin
+    .from("remodel_client_links")
+    .select("id,project_id,kind,quote_snapshot,created_at")
+    .eq("organization_id", input.organizationId)
+    .in("kind", ["project", "quote"])
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (linksResult.error) throw linksResult.error;
+
+  const projectIds = [
+    ...new Set(linksResult.data.map((link) => link.project_id)),
+  ];
+  if (!projectIds.length) return [];
+  const recordsResult = await admin
+    .from("remodel_records")
+    .select("id,kind,data,updated_at")
+    .eq("organization_id", input.organizationId)
+    .in("id", projectIds);
+  if (recordsResult.error) throw recordsResult.error;
+  const records = new Map(
+    recordsResult.data.map((record) => [record.id, record]),
+  );
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const selected = new Map<string, (typeof linksResult.data)[number]>();
+
+  for (const link of linksResult.data) {
+    const record = records.get(link.project_id);
+    if (!record || !record.data || typeof record.data !== "object") continue;
+    if (record.kind !== "project") continue;
+    const data = record.data as Record<string, unknown>;
+    const email = typeof data.clientEmail === "string" ? data.clientEmail : "";
+    if (
+      email.trim().toLowerCase() !== normalizedEmail ||
+      clientPortalEmailTag(email) !== input.emailTag
+    )
+      continue;
+    const snapshot = snapshotSchema.safeParse(link.quote_snapshot);
+    const validQuoteLink =
+      link.kind === "quote" &&
+      snapshot.success &&
+      snapshot.data.quote.id === link.project_id &&
+      snapshot.data.quote.clientEmail?.trim().toLowerCase() ===
+        normalizedEmail &&
+      snapshot.data.items.every((item) => item.projectId === link.project_id) &&
+      typeof data.quoteAcceptedAt === "string";
+    const validProjectLink =
+      link.kind === "project" && record.kind === "project";
+    if (!validQuoteLink && !validProjectLink) continue;
+    const existing = selected.get(link.project_id);
+    if (!existing || (link.kind === "project" && existing.kind !== "project"))
+      selected.set(link.project_id, link);
+  }
+
+  return [...selected.entries()]
+    .map(([projectId, link]) => {
+      const record = records.get(projectId)!;
+      const data = record.data as Record<string, unknown>;
+      const current = projectId === input.currentProjectId;
+      const siblingToken = current
+        ? input.currentToken
+        : createClientEmailTokenExpiringAt(
+            link.id,
+            input.email,
+            input.expiresAt,
+          );
+      return {
+        id: projectId,
+        name: typeof data.name === "string" ? data.name : "Project",
+        address: typeof data.address === "string" ? data.address : "",
+        category: typeof data.category === "string" ? data.category : "Project",
+        status: typeof data.status === "string" ? data.status : "Active",
+        url: `/client/${encodeURIComponent(siblingToken)}/quote`,
+        current,
+        updatedAt: record.updated_at as string,
+      };
+    })
+    .sort((a, b) => {
+      if (a.current !== b.current) return a.current ? -1 : 1;
+      return b.updatedAt.localeCompare(a.updatedAt);
+    })
+    .map((project) => ({
+      id: project.id,
+      name: project.name,
+      address: project.address,
+      category: project.category,
+      status: project.status,
+      url: project.url,
+      current: project.current,
+    }));
+}
+
 /** The shared token only grants access to this one quote and its public scope. */
 export async function readClientQuoteSource(
   token: string,
-  options: { recordView?: boolean } = {},
+  options: { recordView?: boolean; includeCombinedSchedule?: boolean } = {},
 ) {
   const access = parseClientPortalAccess(token);
   if (!access || access.expired) return null;
@@ -239,6 +357,42 @@ export async function readClientQuoteSource(
   const schedule: ClientScheduleItem[] = approved
     ? await readClientProjectSchedule(link.organization_id, link.project_id)
     : [];
+  const customerProjects: ClientPortalProject[] =
+    access.emailTag !== null && currentEmail
+      ? await customerProjectsForEmail({
+          organizationId: link.organization_id,
+          email: currentEmail,
+          emailTag: access.emailTag,
+          expiresAt: access.expiresAt,
+          currentProjectId: link.project_id,
+          currentToken: token,
+        })
+      : [];
+  const combinedSchedule: ClientPortalScheduleItem[] =
+    options.includeCombinedSchedule && customerProjects.length > 1
+      ? (
+          await Promise.all(
+            customerProjects.map(async (project) =>
+              (
+                await readClientProjectSchedule(
+                  link.organization_id,
+                  project.id,
+                )
+              ).map((item) => ({
+                ...item,
+                projectId: project.id,
+                projectName: project.name,
+              })),
+            ),
+          )
+        )
+          .flat()
+          .sort((a, b) =>
+            `${a.dueDate} ${a.startTime || ""} ${a.title}`.localeCompare(
+              `${b.dueDate} ${b.startTime || ""} ${b.title}`,
+            ),
+          )
+      : [];
 
   if (options.recordView !== false)
     await admin.rpc("remodel_note_client_portal_view", { target_link: id });
@@ -246,6 +400,8 @@ export async function readClientQuoteSource(
     view,
     organizationId: link.organization_id as string,
     schedule,
+    customerProjects,
+    combinedSchedule,
     currentQuote: record.data as Quote,
     recordUpdatedAt: record.updated_at as string,
     // Kept on the server for the same customer-facing PDF used in the dashboard.

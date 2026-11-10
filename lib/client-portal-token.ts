@@ -58,8 +58,22 @@ export function createClientEmailToken(
   email: string,
   issuedAt = Date.now(),
 ) {
+  return createClientEmailTokenExpiringAt(
+    id,
+    email,
+    Math.floor(issuedAt / 1000) + emailLinkLifetimeSeconds,
+  );
+}
+
+/** Mints a sibling-project link without extending the signed-in session. */
+export function createClientEmailTokenExpiringAt(
+  id: string,
+  email: string,
+  expiresAt: number,
+) {
   const parsedId = linkId.parse(id);
-  const expiresAt = Math.floor(issuedAt / 1000) + emailLinkLifetimeSeconds;
+  if (!Number.isInteger(expiresAt) || expiresAt <= 0)
+    throw new Error("Invalid client portal expiration.");
   const nonce = randomBytes(16).toString("base64url");
   const emailTag = clientPortalEmailTag(email);
   return `${parsedId}.${expiresAt}.${nonce}.${emailTag}.${emailLinkSignature(parsedId, expiresAt, nonce, emailTag)}`;

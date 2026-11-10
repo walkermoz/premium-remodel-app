@@ -12,6 +12,56 @@ export type ClientEmailQuote = {
   url: string;
 };
 
+/** Finds a project-first entry point for email sign-in, with quotes as fallback. */
+export async function clientPortalEntriesForEmail(
+  organizationId: string,
+  email: string,
+  origin: string,
+  issuedAt = Date.now(),
+) {
+  const normalized = email.trim().toLowerCase();
+  const admin = supabaseAdmin();
+  const linksResult = await admin
+    .from("remodel_client_links")
+    .select("id,project_id,created_at")
+    .eq("organization_id", organizationId)
+    .eq("kind", "project")
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (linksResult.error) throw linksResult.error;
+  if (linksResult.data.length) {
+    const recordsResult = await admin
+      .from("remodel_records")
+      .select("id,kind,data")
+      .eq("organization_id", organizationId)
+      .in(
+        "id",
+        linksResult.data.map((link) => link.project_id),
+      );
+    if (recordsResult.error) throw recordsResult.error;
+    const records = new Map(
+      recordsResult.data.map((record) => [record.id, record]),
+    );
+    const projectEntries = linksResult.data.flatMap((link) => {
+      const record = records.get(link.project_id);
+      if (record?.kind !== "project") return [];
+      const project = record.data as Quote;
+      if (project.clientEmail?.trim().toLowerCase() !== normalized) return [];
+      return [
+        {
+          id: link.id,
+          quote: project,
+          items: [] as ScopeItem[],
+          url: `${origin}/client/${createClientEmailToken(link.id, normalized, issuedAt)}/quote`,
+        },
+      ];
+    });
+    if (projectEntries.length) return projectEntries;
+  }
+  return clientQuotesForEmail(organizationId, email, origin, issuedAt);
+}
+
 /** Only active quotes currently addressed to this email can be reissued. */
 export async function clientQuotesForEmail(
   organizationId: string,

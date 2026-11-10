@@ -10,6 +10,7 @@ import {
   defaultMsaContractTerms,
   defaultMsaPaymentSchedule,
 } from "@/lib/msa-draft";
+import { createClientEmailToken } from "@/lib/client-portal-token";
 
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
@@ -609,9 +610,79 @@ cloudTest(
     const projectLink = await projectLinkResponse.json();
     expect(projectLinkResponse.status(), JSON.stringify(projectLink)).toBe(201);
 
+    const secondProjectResponse = await api.post("/api/workspace", {
+      headers: origin,
+      data: {
+        kind: "quote",
+        data: {
+          name: "Kitchen schedule portal test",
+          address: "200 Test Lane",
+          client: "Portal Schedule Client",
+          clientEmail: "schedule-client@example.com",
+          clientPhone: "",
+          startDate: "",
+          endDate: "",
+          completedDate: "",
+          status: "Sent",
+          description: "Second customer project",
+          category: "Kitchen",
+          cover: "",
+          quoteNumber: "999",
+          quoteNotes: "",
+        },
+      },
+    });
+    expect(secondProjectResponse.status()).toBe(201);
+    const secondProject = await secondProjectResponse.json();
+    const secondAcceptedAt = new Date().toISOString();
+    const secondPromoted = await company.admin
+      .from("remodel_records")
+      .update({
+        kind: "project",
+        data: {
+          ...secondProject,
+          status: "Planning",
+          quoteAcceptedAt: secondAcceptedAt,
+          updatedAt: secondAcceptedAt,
+        },
+        updated_at: secondAcceptedAt,
+      })
+      .eq("organization_id", company.organizationId)
+      .eq("id", secondProject.id)
+      .eq("kind", "quote");
+    expect(secondPromoted.error).toBeNull();
+    expect(
+      (
+        await api.post("/api/workspace", {
+          headers: origin,
+          data: {
+            kind: "task",
+            data: {
+              projectId: secondProject.id,
+              title: "Kitchen cabinet delivery",
+              description: "Cabinets arrive for the kitchen project.",
+              contractorId: "",
+              dueDate: "2026-11-17",
+              workType: "Delivery",
+              startTime: "10:00",
+              endTime: "12:00",
+              priority: "Medium",
+              status: "To do",
+            },
+          },
+        })
+      ).status(),
+    ).toBe(201);
+    const secondLinkResponse = await api.post("/api/client-links", {
+      headers: origin,
+      data: { projectId: secondProject.id, kind: "project" },
+    });
+    expect(secondLinkResponse.status()).toBe(201);
+
     const client = await browser.newContext();
     const customerPage = await client.newPage();
     await customerPage.goto(projectLink.url);
+    await expect(customerPage.getByText("Current project")).toHaveCount(0);
     await expect(customerPage).toHaveURL(/\/quote\?view=schedule$/);
     await expect(
       customerPage.getByRole("heading", { name: "Your calendar" }),
@@ -723,6 +794,41 @@ cloudTest(
     await expect(customerPage.getByText("High", { exact: true })).toHaveCount(
       0,
     );
+
+    process.env.CLIENT_PORTAL_SECRET =
+      "playwright-only-client-portal-secret-change-before-production";
+    const firstLinkId = new URL(projectLink.url).pathname
+      .split("/")[2]
+      .split(".")[0];
+    const customerToken = createClientEmailToken(
+      firstLinkId,
+      "schedule-client@example.com",
+    );
+    await customerPage.setViewportSize({ width: 1280, height: 900 });
+    await customerPage.goto(`/client/${customerToken}/quote?view=schedule`);
+    await expect(
+      customerPage.getByText("Current project").first(),
+    ).toBeVisible();
+    await customerPage.getByText("Current project").first().click();
+    await expect(customerPage.getByText("Your projects").first()).toBeVisible();
+    await expect(
+      customerPage.getByText("Garage schedule portal test").first(),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByText("Kitchen schedule portal test").first(),
+    ).toBeVisible();
+    await customerPage.getByText("All projects").first().click();
+    await expect(customerPage).toHaveURL(/view=schedule&projects=all/);
+    await expect(
+      customerPage
+        .getByText("Kitchen cabinet delivery", { exact: true })
+        .first(),
+    ).toBeVisible();
+    await expect(
+      customerPage
+        .getByText("Kitchen schedule portal test", { exact: true })
+        .first(),
+    ).toBeVisible();
     await client.close();
   },
 );
