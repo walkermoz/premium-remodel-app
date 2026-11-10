@@ -31,6 +31,7 @@ as $$
                       else coalesce((edge->>'order')::integer, edge_ordinal::integer)
                     end,
                     edge_ordinal
+                )
                 from jsonb_array_elements(node->'outgoing')
                   with ordinality as edges(edge, edge_ordinal)
               ),
