@@ -62,8 +62,9 @@ import styles from "./quote.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Your project quote",
-  description: "A private project quote.",
+  title: "Premium Remodel Customer Portal",
+  description:
+    "View your project schedule, updates, documents, invoices, and payments in one private place.",
   robots: { index: false, follow: false, noarchive: true },
 };
 
