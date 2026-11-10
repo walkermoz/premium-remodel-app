@@ -13,6 +13,8 @@ import type { ClientScheduleItem } from "@/lib/client-quote";
 import { workToday } from "@/lib/work";
 import styles from "./quote.module.css";
 
+type PortalScheduleItem = ClientScheduleItem & { projectName?: string };
+
 function calendarDate(value: string) {
   return new Date(`${value}T12:00:00Z`);
 }
@@ -59,7 +61,7 @@ export default function ClientProjectCalendar({
   timeZone,
   projectName,
 }: {
-  schedule: ClientScheduleItem[];
+  schedule: PortalScheduleItem[];
   locale: string;
   timeZone: string;
   projectName: string;
@@ -75,7 +77,7 @@ export default function ClientProjectCalendar({
   const [mobileMonthOpen, setMobileMonthOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const byDate = useMemo(() => {
-    const grouped = new Map<string, ClientScheduleItem[]>();
+    const grouped = new Map<string, PortalScheduleItem[]>();
     for (const item of schedule)
       grouped.set(item.dueDate, [...(grouped.get(item.dueDate) || []), item]);
     return grouped;
@@ -90,7 +92,7 @@ export default function ClientProjectCalendar({
     [schedule, today],
   );
   const upcomingGroups = useMemo(() => {
-    const grouped = new Map<string, ClientScheduleItem[]>();
+    const grouped = new Map<string, PortalScheduleItem[]>();
     for (const item of upcoming)
       grouped.set(item.dueDate, [...(grouped.get(item.dueDate) || []), item]);
     return [...grouped.entries()];
@@ -151,6 +153,7 @@ export default function ClientProjectCalendar({
           <div className={styles.scheduleNextSummary}>
             <span>Next up</span>
             <strong>{nextItem.title}</strong>
+            {nextItem.projectName && <em>{nextItem.projectName}</em>}
             <small>
               {dateLabel(nextItem.dueDate, locale, {
                 weekday: "long",
@@ -248,7 +251,7 @@ export default function ClientProjectCalendar({
                                 type="button"
                                 key={item.id}
                                 className={`${styles.customerCalendarEvent} ${item.status === "Done" ? styles.customerCalendarEventDone : ""}`}
-                                title={`${timeLabel(item, locale)} · ${item.title}`}
+                                title={`${timeLabel(item, locale)} · ${item.title}${item.projectName ? ` · ${item.projectName}` : ""}`}
                                 onClick={() => selectDay(day)}
                               >
                                 <small>{timeLabel(item, locale)}</small>
@@ -312,6 +315,11 @@ export default function ClientProjectCalendar({
                     </span>
                     <div>
                       <strong>{item.title}</strong>
+                      {item.projectName && (
+                        <em className={styles.calendarProjectName}>
+                          {item.projectName}
+                        </em>
+                      )}
                       <span>{timeLabel(item, locale)}</span>
                       {item.description && <p>{item.description}</p>}
                     </div>
@@ -339,7 +347,10 @@ export default function ClientProjectCalendar({
                         day: "numeric",
                       })}
                     </time>
-                    <span>{item.title}</span>
+                    <span>
+                      {item.title}
+                      {item.projectName && <small>{item.projectName}</small>}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -513,6 +524,11 @@ export default function ClientProjectCalendar({
                       </span>
                       <div>
                         <strong>{item.title}</strong>
+                        {item.projectName && (
+                          <em className={styles.calendarProjectName}>
+                            {item.projectName}
+                          </em>
+                        )}
                         <span>{timeLabel(item, locale)}</span>
                         {item.description && <p>{item.description}</p>}
                       </div>
@@ -556,6 +572,9 @@ export default function ClientProjectCalendar({
                             >
                               <span>{timeLabel(item, locale)}</span>
                               <strong>{item.title}</strong>
+                              {item.projectName && (
+                                <small>{item.projectName}</small>
+                              )}
                             </button>
                           </li>
                         ))}

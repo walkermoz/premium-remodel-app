@@ -23,8 +23,8 @@ export default async function ClientSignInPage({
           <p className={styles.eyebrow}>CLIENT PORTAL</p>
           <h1>Sign in with your email</h1>
           <p className={styles.intro}>
-            Enter the email address on your quote. We’ll send you a private link
-            to open your portal on this device.
+            Enter the email address on your project or quote. We’ll send you a
+            private link to open your customer portal on this device.
           </p>
           {query.expired === "1" ? (
             <p className={styles.expired}>

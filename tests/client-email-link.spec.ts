@@ -3,6 +3,7 @@ import { test as companyTest, password } from "./supabase-fixture";
 import {
   clientPortalEmailTag,
   createClientEmailToken,
+  createClientEmailTokenExpiringAt,
   createClientPortalToken,
   parseClientPortalAccess,
   parseClientPortalToken,
@@ -25,6 +26,14 @@ test("email portal links are fresh, recipient-bound, and expire after 30 days", 
     expect(parsed?.id).toBe(id);
     expect(parsed?.emailTag).toBe(clientPortalEmailTag("client@example.com"));
     expect(parsed?.expired).toBe(false);
+    const sibling = createClientEmailTokenExpiringAt(
+      "22222222-2222-4222-8222-222222222222",
+      "client@example.com",
+      parsed!.expiresAt,
+    );
+    const parsedSibling = parseClientPortalAccess(sibling, issuedAt);
+    expect(parsedSibling?.expiresAt).toBe(parsed?.expiresAt);
+    expect(parsedSibling?.emailTag).toBe(parsed?.emailTag);
     expect(
       parseClientPortalAccess(first, issuedAt + 30 * 24 * 60 * 60 * 1000)
         ?.expired,
@@ -77,7 +86,7 @@ test("client sign-in offers a new email link without exposing quote details", as
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
   await expect(page.getByText("Check your inbox")).toBeVisible();
   await expect(
-    page.getByText(/If this email has a quote with this business/),
+    page.getByText(/If this email has a project or quote with this business/),
   ).toBeVisible();
 });
 
@@ -137,9 +146,15 @@ cloudTest(
     await expect(
       customerPage.getByRole("heading", { name: "Customer acceptance" }),
     ).toBeVisible();
+    // Multiple quotes are not multiple active projects and do not show a switcher.
+    await expect(customerPage.getByText("Current project")).toHaveCount(0);
     await customerPage.goto(`/client/${token}/quote?view=quotes`);
     await expect(customerPage.getByText(`Quote #${numbers[0]}`)).toBeVisible();
     await expect(customerPage.getByText(`Quote #${numbers[1]}`)).toBeVisible();
+
+    await customerPage.goto(new URL(links[0]).pathname);
+    await expect(customerPage.getByText("Current project")).toHaveCount(0);
+    await expect(customerPage.getByText("Your projects")).toHaveCount(0);
 
     const wrongEmail = createClientEmailToken(id, "other@example.com");
     expect(

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   CalendarDays,
+  Check,
+  ChevronDown,
   CreditCard,
   Download,
   FileText,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 import {
   readClientQuoteSource,
+  type ClientPortalProject,
   type ClientScheduleItem,
   type ClientQuoteView,
 } from "@/lib/client-quote";
@@ -119,6 +122,58 @@ type PortalView =
   | "contact"
   | "msa";
 
+function ClientProjectSwitcher({
+  projects,
+  allProjects,
+  className,
+}: {
+  projects: ClientPortalProject[];
+  allProjects: boolean;
+  className: string;
+}) {
+  if (projects.length < 2) return null;
+  const current = projects.find((project) => project.current) || projects[0];
+  return (
+    <details className={className}>
+      <summary>
+        <span>
+          <small>{allProjects ? "Viewing schedules" : "Current project"}</small>
+          <strong>{allProjects ? "All projects" : current.name}</strong>
+        </span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </summary>
+      <div className={styles.projectSwitcherPanel}>
+        <span className={styles.projectSwitcherLabel}>Your projects</span>
+        {projects.map((project) => (
+          <a
+            key={project.id}
+            href={`${project.url}?view=schedule`}
+            aria-current={!allProjects && project.current ? "page" : undefined}
+          >
+            <span>
+              <strong>{project.name}</strong>
+              <small>{project.address || project.category}</small>
+            </span>
+            {!allProjects && project.current && (
+              <Check size={15} aria-hidden="true" />
+            )}
+          </a>
+        ))}
+        <a
+          href={`${current.url}?view=schedule&projects=all`}
+          aria-current={allProjects ? "page" : undefined}
+        >
+          <span>
+            <strong>All projects</strong>
+            <small>Combined calendar</small>
+          </span>
+          {allProjects && <Check size={15} aria-hidden="true" />}
+        </a>
+      </div>
+    </details>
+  );
+}
+
 function ClientNavigation({
   quoteUrl,
   view,
@@ -183,6 +238,7 @@ async function ClientSectionView({
   business,
   onsite,
   schedule,
+  scheduleProjectName,
   projectPortal,
 }: {
   section: Exclude<PortalView, "detail">;
@@ -196,7 +252,8 @@ async function ClientSectionView({
   emailQuotes: ClientEmailQuote[];
   business: BusinessConfig;
   onsite: boolean;
-  schedule: ClientScheduleItem[];
+  schedule: Array<ClientScheduleItem & { projectName?: string }>;
+  scheduleProjectName: string;
   projectPortal: boolean;
 }) {
   const { quote, total } = quoteView;
@@ -373,7 +430,7 @@ async function ClientSectionView({
           schedule={schedule}
           locale={business.regional.locale}
           timeZone={business.regional.timezone}
-          projectName={quote.name}
+          projectName={scheduleProjectName}
         />
       </main>
     );
@@ -646,10 +703,14 @@ export default async function ClientQuotePage({
     view?: string | string[];
     result?: string | string[];
     onsite?: string | string[];
+    projects?: string | string[];
   }>;
 }) {
   const [{ token }, query] = await Promise.all([params, searchParams]);
-  const source = await readClientQuoteSource(token);
+  const requestedAllProjects = query.projects === "all";
+  const source = await readClientQuoteSource(token, {
+    includeCombinedSchedule: requestedAllProjects,
+  });
   if (!source) {
     if (isExpiredClientPortalToken(token))
       redirect("/client/sign-in?expired=1");
@@ -678,6 +739,8 @@ export default async function ClientQuotePage({
       ? `/api/client-quote/${encodeURIComponent(token)}/banner`
       : business.profile.bannerUrl;
   const onsite = query.onsite === "1";
+  const allProjects =
+    requestedAllProjects && source.customerProjects.length > 1;
 
   const rawSection = typeof query.view === "string" ? query.view : "";
   const section: PortalView = [
@@ -783,6 +846,11 @@ export default async function ClientQuotePage({
             <strong>{business.profile.name}</strong>
           )}
         </div>
+        <ClientProjectSwitcher
+          projects={source.customerProjects}
+          allProjects={allProjects}
+          className={styles.projectSwitcher}
+        />
         <a className={styles.newRequest} href={`${quoteUrl}?view=new-request`}>
           <Plus size={18} aria-hidden="true" /> New request
         </a>
@@ -817,6 +885,11 @@ export default async function ClientQuotePage({
             <Menu size={18} aria-hidden="true" /> Menu
           </summary>
           <div className={styles.mobileMenuPanel}>
+            <ClientProjectSwitcher
+              projects={source.customerProjects}
+              allProjects={allProjects}
+              className={styles.mobileProjectSwitcher}
+            />
             <a
               className={styles.mobileNewRequest}
               href={`${quoteUrl}?view=new-request`}
@@ -1101,7 +1174,8 @@ export default async function ClientQuotePage({
             emailQuotes={emailQuotes}
             business={business}
             onsite={onsite}
-            schedule={source.schedule}
+            schedule={allProjects ? source.combinedSchedule : source.schedule}
+            scheduleProjectName={allProjects ? "All projects" : quote.name}
             projectPortal={source.projectPortal}
           />
         )}

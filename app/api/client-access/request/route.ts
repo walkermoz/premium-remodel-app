@@ -6,7 +6,7 @@ import {
   HttpError,
   limitAttempts,
 } from "@/lib/auth";
-import { clientQuotesForEmail } from "@/lib/client-access";
+import { clientPortalEntriesForEmail } from "@/lib/client-access";
 import { sendClientAccessEmail } from "@/lib/client-access-email";
 import {
   findContactIdForRecipient,
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       input.organizationId || process.env.SUPABASE_ORGANIZATION_ID;
     if (!organizationId)
       throw new HttpError(503, "Client portal sign-in is unavailable.");
-    const matches = await clientQuotesForEmail(
+    const matches = await clientPortalEntriesForEmail(
       organizationId,
       email,
       appOrigin(request),
