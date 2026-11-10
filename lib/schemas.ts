@@ -8,6 +8,7 @@ import {
   leadStages,
   leadDispositions,
   leadApprovalStates,
+  actualCostCategories,
 } from "./types";
 import { isPayment, paymentMethods } from "./activity";
 import { workToday } from "./work";
@@ -51,6 +52,21 @@ const time = z
   .regex(/^$|^(?:[01]\d|2[0-3]):[0-5]\d$/, "Enter a valid time")
   .default("");
 export const schemas = {
+  actual_cost: z.object({
+    projectId: short.min(1),
+    scopeItemId: short.optional(),
+    category: z.enum(actualCostCategories),
+    description: short.min(1),
+    vendor: short,
+    amount: amount.refine(
+      (value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.00001,
+      "Enter an amount with at most two decimal places.",
+    ),
+    incurredAt: date.refine(Boolean, "Choose the date this cost was incurred."),
+    notes: text.default(""),
+    recordedById: z.uuid().optional(),
+    recordedByName: short.optional(),
+  }),
   contact: z.object({
     firstName: short.min(1),
     lastName: short,
@@ -314,6 +330,23 @@ export const schemas = {
           buildersRisk: text.min(1),
           siteAccess: text.min(1),
           plans: text.min(1),
+        })
+        .optional(),
+      jobCostBudgetSnapshot: z
+        .object({
+          capturedAt: z.iso.datetime(),
+          source: z.literal("accepted_quote"),
+          items: z
+            .array(
+              z.object({
+                scopeItemId: short.min(1),
+                title: short.min(1),
+                estimate: amount,
+                subCost: amount,
+                materialCost: amount,
+              }),
+            )
+            .max(1000),
         })
         .optional(),
       completedDate: date.default(""),

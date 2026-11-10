@@ -582,6 +582,17 @@ export default function WorkspaceApp({
           );
           if (previous) return previous;
         }
+        if (kind === "actual_cost") {
+          data = {
+            ...data,
+            recordedById:
+              (existing as import("@/lib/types").ActualCost | undefined)
+                ?.recordedById || user.id,
+            recordedByName:
+              (existing as import("@/lib/types").ActualCost | undefined)
+                ?.recordedByName || user.name,
+          };
+        }
         if (kind === "task") {
           const previous = existing as Task | undefined;
           if (data.status === "Done" && previous?.status !== "Done")
@@ -692,6 +703,7 @@ export default function WorkspaceApp({
               contact: "Contact created",
               lead: "Lead created",
               door_visit: "House visit saved",
+              actual_cost: "Actual cost recorded",
             }[kind],
       );
       if (kind === "quote" && !existing) navigate("Quotes", entity.id);
@@ -1674,6 +1686,12 @@ export default function WorkspaceApp({
               onUpload={upload}
               onToggle={toggle}
               notify={notify}
+              canManageJobCosts={
+                user.group === "owner" ||
+                config.rolePermissions[user.group].includes(
+                  "job_costs.manage",
+                )
+              }
               tab={projectTab}
               onTabChange={changeProjectTab}
               upcomingView={upcomingView}

@@ -10,6 +10,7 @@ import {
   Clock3,
   ArrowUpRight,
   ListChecks,
+  ChartNoAxesCombined,
   MessageSquare,
   ImageIcon,
   LayoutDashboard,
@@ -29,6 +30,7 @@ import type {
   Workspace,
 } from "@/lib/types";
 import { projectFinances, scopeDifference } from "@/lib/project-finances";
+import { jobCostSummary } from "@/lib/job-costing";
 import TaskList from "./task-list";
 import ScopeTable from "./scope-table";
 import FilesPanel from "./files-panel";
@@ -42,11 +44,13 @@ import { contractClock } from "@/lib/project-timing";
 import ClientLinkDialog from "./client-link-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
 import { useRegionalFormat } from "./regional-format-context";
+import JobCostingPanel from "./job-costing-panel";
 
 export const projectTabs = [
   "Overview",
   "Upcoming",
   "Scope & costs",
+  "Job costing",
   "Contracts",
   "Notes",
   "Photos & files",
@@ -69,6 +73,7 @@ export default function ProjectDetail({
   onUpload,
   onToggle,
   notify,
+  canManageJobCosts,
   tab,
   onTabChange: setTab,
   upcomingView,
@@ -93,6 +98,7 @@ export default function ProjectDetail({
   onUpload: (file: File, projectId: string) => Promise<Attachment>;
   onToggle: (task: Task) => void;
   notify: (message: string, error?: boolean) => void;
+  canManageJobCosts: boolean;
   tab: ProjectTab;
   onTabChange: (tab: ProjectTab) => void;
   upcomingView: UpcomingView;
@@ -129,6 +135,12 @@ export default function ProjectDetail({
   const files = workspace.attachments.filter((f) => f.projectId === project.id);
   const comments = workspace.comments.filter((c) => c.projectId === project.id);
   const finances = projectFinances(project, items, workspace.activities);
+  const costing = jobCostSummary(
+    project.id,
+    items,
+    workspace.actualCosts,
+    project.jobCostBudgetSnapshot,
+  );
   const {
     total: estimated,
     costs,
@@ -167,6 +179,9 @@ export default function ProjectDetail({
       ["Collected percentage", percent(finances.collectedPercent)],
       ["Remaining percentage", percent(finances.remainingPercent)],
       ["Overpayment", finances.credit],
+      ["Actual job costs", costing.actual],
+      ["Cost variance", costing.variance],
+      ["Actual gross margin", costing.actualMargin],
       ["Start date", project.startDate],
       ["Target completion", project.endDate],
       ["Actual completion", project.completedDate || ""],
@@ -214,6 +229,28 @@ export default function ProjectDetail({
         "",
         "",
       ],
+      [],
+      [
+        "ACTUAL COST LEDGER",
+        "Category",
+        "Scope item",
+        "Vendor",
+        "Date",
+        "Amount",
+        "Recorded by",
+        "Notes",
+      ],
+      ...costing.costs.map((cost) => [
+        cost.description,
+        cost.category,
+        items.find((item) => item.id === cost.scopeItemId)?.title ||
+          "Unallocated",
+        cost.vendor,
+        cost.incurredAt,
+        cost.amount,
+        cost.recordedByName,
+        cost.notes,
+      ]),
       [],
       [
         "Work",
@@ -438,6 +475,13 @@ export default function ProjectDetail({
           },
           { name: "Scope & costs", icon: ListChecks, count: items.length },
           {
+            name: "Job costing",
+            icon: ChartNoAxesCombined,
+            count: workspace.actualCosts.filter(
+              (cost) => cost.projectId === project.id,
+            ).length,
+          },
+          {
             name: "Contracts",
             icon: FileSignature,
             count: project.quoteAcceptedAt ? 1 : 0,
@@ -638,6 +682,18 @@ export default function ProjectDetail({
               excludes materials already included in the subcontractor cost.
             </p>
           </>
+        )}
+        {tab === "Job costing" && (
+          <JobCostingPanel
+            project={project}
+            scope={items}
+            actualCosts={workspace.actualCosts}
+            canManage={canManageJobCosts}
+            demo={demo}
+            onSave={onSave}
+            onDelete={onDelete}
+            notify={notify}
+          />
         )}
         {tab === "Photos & files" && (
           <>

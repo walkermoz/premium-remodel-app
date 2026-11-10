@@ -24,6 +24,7 @@ import type {
   ScopeItem,
   Task,
   WorkspaceAlert,
+  ActualCost,
 } from "@/lib/types";
 import { preserveScopeCosts } from "@/lib/project-finances";
 import { FILE_VALIDATION_VERSION } from "@/lib/file-policy";
@@ -62,6 +63,8 @@ import { normalizeSmsRecipient } from "@/lib/install-link";
 import { smsDoNotDisturbPhones } from "@/lib/sms-compliance";
 import { emitWorkspaceRecordEvents } from "@/lib/workflows/domain-events";
 import { requireOrganizationCapability } from "@/lib/organization-permissions";
+import { recordAuditEvent } from "@/lib/audit-server";
+import { emitJobCostVarianceEvent } from "@/lib/job-cost-events";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const filesBucket = "remodel-files";
@@ -196,6 +199,10 @@ async function save(request: Request, editing: boolean) {
     if (kind === "alert") {
       await requireOrganizationCapability(user, "alerts.manage");
       await limitAttempts(`alerts:${user.id}`, 60);
+    }
+    if (kind === "actual_cost") {
+      await requireOrganizationCapability(user, "job_costs.manage");
+      await limitAttempts(`actual-cost:${user.id}`, 120);
     }
     let input = body.data;
     if (
@@ -489,6 +496,15 @@ async function save(request: Request, editing: boolean) {
       )
     )
       throw new HttpError(404, "Project not found.");
+    if (kind === "actual_cost" && data.scopeItemId) {
+      const scopeItem = (await findRecord(
+        user,
+        String(data.scopeItemId),
+        "scope",
+      )) as ScopeItem | null;
+      if (!scopeItem || scopeItem.projectId !== data.projectId)
+        throw new HttpError(400, "Choose a scope item from this project.");
+    }
     if (
       data.contractorId &&
       !(await findRecord(user, String(data.contractorId), "contractor"))
@@ -505,6 +521,12 @@ async function save(request: Request, editing: boolean) {
           ))
       )
         throw new HttpError(400, "Invalid note request identifier.");
+    }
+    if (kind === "actual_cost") {
+      data.recordedById =
+        (current as ActualCost | null)?.recordedById || user.id;
+      data.recordedByName =
+        (current as ActualCost | null)?.recordedByName || user.name;
     }
     const responseWithActivity = async (
       entity: Record<string, unknown> | import("@/lib/types").Entity,
@@ -539,6 +561,26 @@ async function save(request: Request, editing: boolean) {
             );
           }
         }
+      }
+      if (kind === "actual_cost") {
+        const cost = entity as ActualCost;
+        await recordAuditEvent(user, {
+          action: current ? "updated" : "created",
+          entityKind: "actual_cost",
+          entityId: cost.id,
+          projectId: cost.projectId,
+          subject: `${current ? "Updated" : "Recorded"} actual cost ${cost.description}`,
+          beforeData: current as unknown as Record<string, unknown> | null,
+          afterData: cost as unknown as Record<string, unknown>,
+        });
+        after(() =>
+          emitJobCostVarianceEvent(user, cost).catch((error) =>
+            console.error(
+              "Could not enqueue job-cost variance event",
+              error instanceof Error ? error.name : "JobCostEventError",
+            ),
+          ),
+        );
       }
       if (["project", "task", "lead", "contact"].includes(kind)) {
         const origin = appOrigin(request);
@@ -626,7 +668,16 @@ export async function DELETE(request: Request) {
       throw new HttpError(403, "Door-knocker records cannot be removed here.");
     const body = await request.json();
     const kind = body.kind as EntityKind;
-    if (!["task", "scope", "comment", "activity", "alert"].includes(kind))
+    if (
+      ![
+        "task",
+        "scope",
+        "comment",
+        "activity",
+        "alert",
+        "actual_cost",
+      ].includes(kind)
+    )
       throw new HttpError(
         400,
         "This record cannot be deleted. Projects can be marked completed.",
@@ -656,6 +707,8 @@ export async function DELETE(request: Request) {
       );
     if (kind === "alert")
       await requireOrganizationCapability(user, "alerts.manage");
+    if (kind === "actual_cost")
+      await requireOrganizationCapability(user, "job_costs.manage");
     if (
       (kind === "comment" || kind === "activity") &&
       "authorId" in current &&
@@ -664,6 +717,17 @@ export async function DELETE(request: Request) {
     )
       throw new HttpError(403, "You can only delete entries you logged.");
     await deleteRecord(user, current.id);
+    if (kind === "actual_cost") {
+      const cost = current as ActualCost;
+      await recordAuditEvent(user, {
+        action: "deleted",
+        entityKind: "actual_cost",
+        entityId: cost.id,
+        projectId: cost.projectId,
+        subject: `Deleted actual cost ${cost.description}`,
+        beforeData: cost as unknown as Record<string, unknown>,
+      });
+    }
     if (kind === "task") {
       const origin = appOrigin(request);
       after(() =>
