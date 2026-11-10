@@ -23,6 +23,7 @@ import {
 } from "./schema";
 import { ensureSeededWorkflows } from "./store";
 import { openWorkflowIncident, resolveWorkflowIncidents } from "./incidents";
+import { workflowFailureAction } from "./failure-policy";
 
 type EventRow = {
   id: string;
@@ -442,11 +443,11 @@ async function executeRunSegment(input: {
         if (waitingRun.error) throw waitingRun.error;
         return "waiting" as const;
       }
-      const configurationBlocked = error.errorCode === "CONFIGURATION_REQUIRED";
-      if (
-        !configurationBlocked &&
-        input.definition.settings.failureBehavior === "continue"
-      ) {
+      const failureAction = workflowFailureAction(
+        input.definition.settings,
+        error.errorCode,
+      );
+      if (failureAction === "continue") {
         if (error.state.queue[0]?.nodeId === error.node.id)
           error.state.queue.shift();
         const next = [...error.node.outgoing].sort(
@@ -457,10 +458,7 @@ async function executeRunSegment(input: {
           error.state.queue.unshift({ nodeId: next.to, branch: next.label });
         return executeRunSegment({ ...input, state: error.state });
       }
-      if (
-        !configurationBlocked &&
-        input.definition.settings.failureBehavior === "stop"
-      ) {
+      if (failureAction === "stop") {
         const stoppedRun = await admin
           .from("remodel_workflow_runs")
           .update({

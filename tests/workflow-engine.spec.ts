@@ -35,6 +35,7 @@ import {
 import { workflowRecordEvents } from "../lib/workflows/domain-event-map";
 import { workflowTemplateDefinition } from "../lib/workflows/templates";
 import { redactWorkflowValue } from "../lib/workflows/redaction";
+import { workflowFailureAction } from "../lib/workflows/failure-policy";
 
 function event(
   type: WorkflowEvent["type"],
@@ -96,6 +97,32 @@ test("configuration failures are explicitly non-retryable and preserve a stable 
   expect(failure?.node.id).toBe("confirmation-email");
 });
 
+test("lead-intake branch failures continue even when the failure is configuration-related", () => {
+  const settings = websiteLeadWorkflowSeed().settings;
+  expect(settings.failureBehavior).toBe("continue");
+  expect(workflowFailureAction(settings, "CONFIGURATION_REQUIRED")).toBe(
+    "continue",
+  );
+  expect(workflowFailureAction(settings, "ACTION_FAILED")).toBe("continue");
+  expect(
+    workflowFailureAction(
+      { ...settings, failureBehavior: "needs_attention" },
+      "CONFIGURATION_REQUIRED",
+    ),
+  ).toBe("needs_attention");
+});
+
+test("website lead SMS upgrade keeps the saved Contact and independent branches authoritative", () => {
+  const migration = readFileSync(
+    "supabase/migrations/202611100001_website_lead_sms_branch_isolation.sql",
+    "utf8",
+  );
+  expect(migration).toContain("v_existing_phone_key <> v_phone_key");
+  expect(migration).toContain("outputs.contactResult.contact.phone");
+  expect(migration).toContain("'{failureBehavior}'");
+  expect(migration).toContain("'\"continue\"'::jsonb");
+});
+
 test("seeded production workflows are valid registered graphs", () => {
   const website = workflowCanPublish(websiteLeadWorkflowSeed());
   const compliance = workflowCanPublish(smsComplianceWorkflowSeed());
@@ -130,6 +157,14 @@ test("seeded production workflows are valid registered graphs", () => {
     presentation: "business",
     resultTracking: { field: "emailAcknowledgement" },
   });
+  for (const nodeId of ["sms-policy", "confirmation-sms"])
+    expect(
+      website.definition?.graph.nodes.find((node) => node.id === nodeId)
+        ?.config.recipient,
+    ).toEqual({
+      kind: "reference",
+      path: "outputs.contactResult.contact.phone",
+    });
 });
 
 test("Premium website leads fan out to a configurable SMS action", () => {
