@@ -636,7 +636,7 @@ register({
   description: "Send an SMS to one or more configured recipients.",
   icon: "MessagesSquare",
   configSchema: sendDirectSmsSchema,
-  outputFields: ["status", "deliveries"],
+  outputFields: ["status", "deliveries", "failures"],
   retry: "none",
   connection: "sms",
   sideEffect: true,

@@ -400,7 +400,10 @@ async function executeRunSegment(input: {
             attempt: error.state.executedSteps,
             status: "failed",
             input_snapshot: { retry: failureNumber, idempotencyKey: retryKey },
-            output_snapshot: {},
+            output_snapshot: redactWorkflowValue({
+              output: error.output,
+              summary: message,
+            }),
             error_code: error.errorCode,
             error_detail: message,
             idempotency_key: `run:${input.runId}:${error.node.id}:${error.state.executedSteps}`,
