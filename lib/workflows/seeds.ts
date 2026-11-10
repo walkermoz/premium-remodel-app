@@ -274,7 +274,7 @@ export function websiteLeadWorkflowSeed(
           outputAlias: "smsPolicy",
           config: {
             category: "appointment",
-            recipient: ref("event.payload.phone"),
+            recipient: ref("outputs.contactResult.contact.phone"),
             contactId: ref("outputs.contactResult.contact.id"),
           },
           outgoing: [
@@ -298,7 +298,7 @@ export function websiteLeadWorkflowSeed(
               objectId: ref("outputs.leadResult.id"),
               field: "smsAcknowledgement",
             },
-            recipient: ref("event.payload.phone"),
+            recipient: ref("outputs.contactResult.contact.phone"),
             contactId: ref("outputs.contactResult.contact.id"),
             category: "appointment",
             body: "{{organization.name}}: We received your {{event.payload.project}} request. A member of our team will be in touch soon to schedule a visit. STOP to opt out; HELP for help.",
@@ -401,7 +401,7 @@ export function websiteLeadWorkflowSeed(
       concurrencyScope: "event",
       duplicateEventPolicy: "ignore",
       timezone: "America/New_York",
-      failureBehavior: "needs_attention",
+      failureBehavior: "continue",
       tags: ["Lead intake"],
       folder: "Lead management",
     },
