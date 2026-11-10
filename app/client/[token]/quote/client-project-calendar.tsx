@@ -433,10 +433,12 @@ export default function ClientProjectCalendar({
                     {dateLabel(day, locale, { weekday: "short" }).slice(0, 2)}
                   </span>
                   <strong>{Number(day.slice(-2))}</strong>
-                  <i
-                    className={items.length ? styles.mobileWeekHasItems : ""}
-                    aria-hidden="true"
-                  />
+                  {!!items.length && (
+                    <i
+                      className={styles.mobileWeekHasItems}
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
               );
             })}
