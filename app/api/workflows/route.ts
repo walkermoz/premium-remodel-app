@@ -12,7 +12,12 @@ const createInput = z.object({
   description: z.string().trim().max(2_000).optional(),
   primaryObjectType: workflowObjectTypeSchema,
   template: z
-    .enum(["blank", "lead-follow-up", "project-item-handoff"])
+    .enum([
+      "blank",
+      "lead-follow-up",
+      "project-item-handoff",
+      "invoice-payment-reminders",
+    ])
     .default("blank"),
 });
 

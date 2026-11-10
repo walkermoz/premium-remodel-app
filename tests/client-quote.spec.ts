@@ -400,6 +400,8 @@ cloudTest(
     await expect(invoice).toContainText("$1,850.00");
     await expect(invoice).toContainText("Deposit currently due");
     await expect(invoice).toContainText("$925.00");
+    await expect(invoice).toContainText("Payment status");
+    await expect(invoice).toContainText("Deposit due");
     expect(
       (
         await api.post("/api/quotes/accept", {

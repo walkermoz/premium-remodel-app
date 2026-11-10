@@ -62,19 +62,35 @@ export async function POST(
         );
       const promoted = await promotePaidQuote(user.organizationId, id);
       try {
-        await enqueueWorkflowEvent({
+        const eventBase = {
           organizationId: user.organizationId,
-          type: "payment.deposit.received",
-          objectType: "payment",
-          objectId: input.requestId,
-          actor: { type: "user", id: user.id, name: user.name },
-          idempotencyKey: `deposit:${input.requestId}`,
+          actor: { type: "user" as const, id: user.id, name: user.name },
           payload: {
             quoteId: id,
             amount: amountCents / 100,
             paymentMethod: "Check",
           },
-        });
+        };
+        await Promise.all([
+          enqueueWorkflowEvent({
+            ...eventBase,
+            type: "payment.deposit.received",
+            objectType: "payment",
+            objectId: input.requestId,
+            idempotencyKey: `deposit:${input.requestId}`,
+          }),
+          ...(promoted
+            ? [
+                enqueueWorkflowEvent({
+                  ...eventBase,
+                  type: "invoice.payment.received" as const,
+                  objectType: "invoice" as const,
+                  objectId: id,
+                  idempotencyKey: `invoice-payment:${input.requestId}`,
+                }),
+              ]
+            : []),
+        ]);
       } catch {
         console.error("Could not enqueue the existing check deposit workflow event.");
       }
@@ -183,22 +199,38 @@ export async function POST(
     }
     const promoted = await promotePaidQuote(user.organizationId, id);
     try {
-      await enqueueWorkflowEvent({
+      const eventBase = {
         organizationId: user.organizationId,
-        type: "payment.deposit.received",
-        objectType: "payment",
-        objectId: input.requestId,
         ...(quote.contactId ? { contactId: quote.contactId } : {}),
-        actor: { type: "user", id: user.id, name: user.name },
+        actor: { type: "user" as const, id: user.id, name: user.name },
         occurredAt: now,
-        idempotencyKey: `deposit:${input.requestId}`,
         payload: {
           quoteId: id,
           amount: amountCents / 100,
           paymentMethod: "Check",
           projectReady: Boolean(promoted),
         },
-      });
+      };
+      await Promise.all([
+        enqueueWorkflowEvent({
+          ...eventBase,
+          type: "payment.deposit.received",
+          objectType: "payment",
+          objectId: input.requestId,
+          idempotencyKey: `deposit:${input.requestId}`,
+        }),
+        ...(promoted
+          ? [
+              enqueueWorkflowEvent({
+                ...eventBase,
+                type: "invoice.payment.received" as const,
+                objectType: "invoice" as const,
+                objectId: id,
+                idempotencyKey: `invoice-payment:${input.requestId}`,
+              }),
+            ]
+          : []),
+      ]);
     } catch {
       console.error("Could not enqueue the check deposit workflow event.");
     }

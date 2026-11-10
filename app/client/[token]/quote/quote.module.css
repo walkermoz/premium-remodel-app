@@ -2007,6 +2007,43 @@
   font-size: 22px;
 }
 
+.invoiceFollowUp {
+  padding: 18px 26px;
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) 1fr;
+  gap: 20px;
+  border-bottom: 1px solid #dce4e9;
+  background: #f4f8fb;
+}
+
+.invoiceFollowUp > span {
+  color: #526b79;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.invoiceFollowUp strong {
+  color: #0d2d3d;
+  font-size: 14px;
+}
+
+.invoiceFollowUp p {
+  margin: 4px 0 0;
+  color: #526b79;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.invoiceFollowUpOverdue {
+  background: #fff4ef;
+}
+
+.invoiceFollowUpOverdue strong {
+  color: #9a3412;
+}
+
 .invoiceActions {
   padding: 20px 26px;
   display: flex;
