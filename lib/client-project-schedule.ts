@@ -3,19 +3,21 @@ import "server-only";
 import { z } from "zod";
 import { supabaseAdmin } from "./supabase/server";
 
+const optionalTimeSchema = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+);
+
 const clientScheduleItemSchema = z.object({
   id: z.uuid(),
   title: z.string().trim().min(1),
   description: z.string().optional().default(""),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  startTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/)
-    .optional(),
-  endTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/)
-    .optional(),
+  startTime: optionalTimeSchema,
+  endTime: optionalTimeSchema,
   workType: z
     .enum(["Task", "Inspection", "Delivery", "Contractor visit"])
     .default("Task"),

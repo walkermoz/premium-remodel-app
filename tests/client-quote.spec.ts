@@ -555,14 +555,43 @@ cloudTest(
           contractorId: "",
           dueDate: "2026-11-10",
           workType: "Inspection",
-          startTime: "10:30",
-          endTime: "14:30",
+          startTime: "",
+          endTime: "",
           priority: "High",
           status: "To do",
         },
       },
     });
     expect(taskResponse.status()).toBe(201);
+
+    for (const [title, dueDate] of [
+      ["Start insulation and hang drywall", "2026-11-11"],
+      ["Continue drywall and insulation", "2026-11-12"],
+      ["Finish drywall and touchups", "2026-11-13"],
+      ["Exterior touchups", "2026-11-13"],
+      ["Garage door delivery and installation", "2026-11-30"],
+      ["Final inspection", "2026-12-01"],
+    ]) {
+      const response = await api.post("/api/workspace", {
+        headers: origin,
+        data: {
+          kind: "task",
+          data: {
+            projectId: quote.id,
+            title,
+            description: `${title} customer schedule detail.`,
+            contractorId: "",
+            dueDate,
+            workType: title.includes("inspection") ? "Inspection" : "Task",
+            startTime: "",
+            endTime: "",
+            priority: "Medium",
+            status: "To do",
+          },
+        },
+      });
+      expect(response.status()).toBe(201);
+    }
 
     const projectLinkResponse = await api.post("/api/client-links", {
       headers: origin,
@@ -587,7 +616,18 @@ cloudTest(
       customerPage.getByText("Pre-drywall inspection", { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }).first(),
+      customerPage.getByText("Time TBD", { exact: true }).first(),
+    ).toBeVisible();
+    const upcoming = customerPage.getByRole("region", {
+      name: "Upcoming project schedule",
+    });
+    await expect(
+      upcoming.getByText("Final inspection", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      customerPage.getByRole("button", {
+        name: /Select December 1, 2026, 1 scheduled/,
+      }),
     ).toBeVisible();
     await expect(
       customerPage.getByRole("link", { name: "Quotes", exact: true }),
@@ -598,6 +638,21 @@ cloudTest(
     await expect(customerPage.getByText("High", { exact: true })).toHaveCount(
       0,
     );
+
+    await customerPage.setViewportSize({ width: 390, height: 844 });
+    await customerPage.goto(projectLink.url);
+    const calendarScroll = customerPage
+      .getByRole("table", { name: /November 2026 project calendar/ })
+      .locator("..");
+    await expect(calendarScroll).toBeVisible();
+    expect(
+      await calendarScroll.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1,
+      ),
+    ).toBe(true);
+    await expect(
+      upcoming.getByText("Final inspection", { exact: true }),
+    ).toBeVisible();
 
     await customerPage.goto(`${link.url}?view=schedule`);
     await expect(
@@ -610,7 +665,7 @@ cloudTest(
       customerPage.getByText("Pre-drywall inspection", { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      customerPage.getByText("10:30 AM–2:30 PM", { exact: true }).first(),
+      customerPage.getByText("Time TBD", { exact: true }).first(),
     ).toBeVisible();
     await expect(
       customerPage.getByText(

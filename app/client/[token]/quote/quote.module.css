@@ -808,7 +808,7 @@
 }
 
 .customerCalendarAgenda li strong,
-.customerCalendarAgenda li span,
+.customerCalendarAgenda li div > span,
 .customerCalendarAgenda li p {
   display: block;
 }
@@ -917,11 +917,44 @@
   }
 
   .customerCalendarGrid {
-    min-width: 560px;
+    min-width: 0;
   }
 
   .customerCalendarGrid td {
-    height: 68px;
+    height: 58px;
+    padding: 4px;
+  }
+
+  .customerCalendarToolbar {
+    min-height: 60px;
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .customerCalendarToolbar > div {
+    gap: 5px;
+  }
+
+  .customerCalendarToolbar h2 {
+    margin-left: 4px;
+    font-size: 16px;
+  }
+
+  .customerCalendarToolbar button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0 8px;
+  }
+
+  .customerCalendarGrid th {
+    height: 30px;
+    font-size: 8px;
+  }
+
+  .customerCalendarDay {
+    width: 23px;
+    height: 23px;
+    font-size: 10px;
   }
 
   .customerCalendarEvents {
@@ -954,6 +987,24 @@
     padding-top: 17px;
     border-top: 1px solid #dbe4e9;
     border-left: 0;
+  }
+}
+
+@media (max-width: 390px) {
+  .customerCalendarToolbar h2 {
+    font-size: 14px;
+  }
+
+  .customerCalendarToolbar button {
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0 6px;
+    font-size: 10px;
+  }
+
+  .customerCalendarGrid td {
+    height: 54px;
+    padding: 3px;
   }
 }
 
