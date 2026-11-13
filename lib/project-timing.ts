@@ -9,6 +9,13 @@ export function projectDates(
   today = workToday(),
 ) {
   const result = { ...data };
+  for (const key of [
+    "smsScheduleEnabled",
+    "smsScheduleTime",
+    "contactId",
+  ] as const)
+    if (!(key in result) && current?.[key] !== undefined)
+      result[key] = current[key];
   if (result.status === "In progress" && result.startDate === "")
     result.startDate = today;
   if (result.status === "Completed") {

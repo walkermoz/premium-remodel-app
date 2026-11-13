@@ -9,7 +9,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 import type { Project, Task, Workspace } from "@/lib/types";
-import { entryTiming, entryType, workToday } from "@/lib/work";
+import { entryTiming, entryType, timeLabel, workToday } from "@/lib/work";
 import {
   calendarDate,
   calendarDays,
@@ -143,6 +143,16 @@ export default function CalendarPanel({
           {contractor && (
             <span className="calendar-entry-meta">{contractor.name}</span>
           )}
+          {entry.task &&
+            entry.project?.smsScheduleEnabled &&
+            (!entry.task.startTime ||
+              entry.task.startTime >
+                (entry.project.smsScheduleTime || "09:00")) && (
+              <span className="calendar-entry-meta">
+                Included in homeowner text at{" "}
+                {timeLabel(entry.project.smsScheduleTime || "09:00")}
+              </span>
+            )}
           {entry.contact?.address && (
             <span className="calendar-entry-meta">{entry.contact.address}</span>
           )}

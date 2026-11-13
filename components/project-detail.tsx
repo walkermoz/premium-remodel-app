@@ -37,7 +37,7 @@ import ProjectPayments from "./project-payments";
 import ProjectNotes from "./project-notes";
 import type { Editor } from "./entity-form";
 import UpcomingPanel from "./upcoming-panel";
-import { workType, type UpcomingView } from "@/lib/work";
+import { timeLabel, workType, type UpcomingView } from "@/lib/work";
 import { contractClock } from "@/lib/project-timing";
 import ClientLinkDialog from "./client-link-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
@@ -368,6 +368,11 @@ export default function ProjectDetail({
         <span className="muted">
           {done} of {tasks.length} items complete
         </span>
+        {project.smsScheduleEnabled && (
+          <span className="muted">
+            Homeowner texts · {timeLabel(project.smsScheduleTime || "09:00")}
+          </span>
+        )}
         <span className="mini-progress">
           <i style={{ width: `${progress}%` }} />
         </span>

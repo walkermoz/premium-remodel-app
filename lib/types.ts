@@ -110,6 +110,9 @@ export interface Project extends Base {
   name: string;
   address: string;
   client: string;
+  smsScheduleEnabled?: boolean;
+  smsScheduleTime?: string;
+  contactId?: string;
   // Historical agreed amount, retained only to flag differences from the scope.
   contractPrice?: number;
   clientEmail?: string;

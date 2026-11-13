@@ -341,6 +341,33 @@ async function save(request: Request, editing: boolean) {
     }
     if (kind === "project" || kind === "quote") {
       data = preserveProjectHistory(data, current as Project | Quote | null);
+      if (kind === "project" && data.smsScheduleEnabled) {
+        const homeownerId = String(data.contactId || "");
+        const homeowner = homeownerId
+          ? await findRecord(user, homeownerId, "contact")
+          : null;
+        if (
+          !homeowner ||
+          !("phone" in homeowner) ||
+          !normalizeSmsRecipient(String(homeowner.phone || ""))
+        )
+          throw new HttpError(
+            400,
+            "Choose a homeowner contact with a valid mobile number.",
+          );
+        const leads = (await getWorkspace(user)).leads;
+        if (
+          !leads.some(
+            (lead) =>
+              lead.contactId === homeownerId &&
+              lead.smsAppointmentOptIn === true,
+          )
+        )
+          throw new HttpError(
+            400,
+            "This homeowner has not opted in to appointment and project texts.",
+          );
+      }
       if (kind === "quote") {
         const prior = current as Quote | null;
         data.quoteNumber =

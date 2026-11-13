@@ -280,6 +280,9 @@ export const schemas = {
   project: z
     .object({
       ...projectFields,
+      smsScheduleEnabled: z.boolean().default(false),
+      smsScheduleTime: time.default("09:00"),
+      contactId: z.uuid().optional(),
       msaPaymentSchedule: z
         .array(
           z.object({
@@ -333,7 +336,16 @@ export const schemas = {
     .refine((p) => !p.completedDate || p.completedDate <= workToday(), {
       message: "Completion date cannot be in the future",
       path: ["completedDate"],
-    }),
+    })
+    .refine(
+      (p) =>
+        !p.smsScheduleEnabled ||
+        (p.smsScheduleTime >= "04:00" && p.smsScheduleTime < "12:00"),
+      {
+        message: "Choose a text time between 4:00 AM and noon.",
+        path: ["smsScheduleTime"],
+      },
+    ),
   task: z
     .object({
       projectId: short.min(1),

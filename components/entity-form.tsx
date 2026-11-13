@@ -112,6 +112,12 @@ export function EntityForm({
   const [projectStatus, setProjectStatus] = useState<string>(
     projectValues.status || (kind === "quote" ? "Draft" : "Planning"),
   );
+  const [smsScheduleEnabled, setSmsScheduleEnabled] = useState(
+    projectValues.smsScheduleEnabled === true,
+  );
+  const [smsScheduleTime, setSmsScheduleTime] = useState(
+    projectValues.smsScheduleTime || "09:00",
+  );
   const task = entity as Task | undefined;
   const [workType, setWorkType] = useState<WorkType>(
     task?.workType || editor.workType || "Task",
@@ -211,6 +217,16 @@ export function EntityForm({
     const data: Record<string, unknown> = Object.fromEntries(
       new FormData(event.currentTarget),
     );
+    if (kind === "project") {
+      data.smsScheduleEnabled = smsScheduleEnabled;
+      data.smsScheduleTime = smsScheduleTime;
+      if (contactId && contactId !== "__new__") data.contactId = contactId;
+      if (smsScheduleEnabled && !contactId) {
+        setError("Choose a homeowner contact for schedule texts.");
+        setBusy(false);
+        return;
+      }
+    }
     if (kind === "contact") {
       data.firstName = String(data.firstName || "").trim();
       data.lastName = String(data.lastName || "").trim();
@@ -649,6 +665,69 @@ export function EntityForm({
                   </select>
                 </label>
               )}
+              {kind === "project" && (
+                <fieldset className="work-schedule-fields">
+                  <legend>Schedule notifications</legend>
+                  <div className="form-grid">
+                    <label>
+                      Text homeowner
+                      <select
+                        value={smsScheduleEnabled ? "homeowner" : "none"}
+                        onChange={(event) =>
+                          setSmsScheduleEnabled(
+                            event.target.value === "homeowner",
+                          )
+                        }
+                      >
+                        <option value="none">No texts</option>
+                        <option value="homeowner">Homeowner</option>
+                      </select>
+                    </label>
+                    {smsScheduleEnabled && (
+                      <label>
+                        Send at ({regional.timezone})
+                        <input
+                          type="time"
+                          value={smsScheduleTime}
+                          onChange={(event) =>
+                            setSmsScheduleTime(event.target.value)
+                          }
+                          min="04:00"
+                          max="11:59"
+                          required
+                        />
+                      </label>
+                    )}
+                  </div>
+                  {smsScheduleEnabled && (
+                    <label>
+                      Homeowner contact
+                      <select
+                        value={contactId}
+                        onChange={(event) => setContactId(event.target.value)}
+                        required
+                      >
+                        <option value="">Choose a contact</option>
+                        {availableCustomers
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((contact) => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.name}
+                              {contact.phone
+                                ? ` · ${contact.phone}`
+                                : " · No phone"}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
+                  <p>
+                    {smsScheduleEnabled
+                      ? "The homeowner receives one text each workday listing that day's scheduled items. They must have opted in to project texts. Items starting before the send time are skipped."
+                      : "Turn this on to text the homeowner about scheduled work in this project."}
+                  </p>
+                </fieldset>
+              )}
               <div className="form-grid">
                 <label>
                   Start date
@@ -763,7 +842,7 @@ export function EntityForm({
               </div>
               <fieldset className="work-schedule-fields">
                 <legend>
-                  Time <span>optional · Eastern Time</span>
+                  Time <span>optional · {regional.timezone}</span>
                 </legend>
                 <div className="form-grid">
                   <label>

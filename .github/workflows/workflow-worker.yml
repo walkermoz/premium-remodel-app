@@ -15,7 +15,7 @@ concurrency:
 jobs:
   process:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Process workflow events and waits
         env:
@@ -58,3 +58,20 @@ jobs:
           DISCORD_BUILD_WEBHOOK: ${{ secrets.DISCORD_BUILD_WEBHOOK }}
           GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: node .github/scripts/notify-product-council-failure.mjs
+      - name: Send scheduled work text reminders
+        if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          response=$(curl --fail --silent --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --max-time 65 \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://servicebuddy-ui.vercel.app/api/schedule-reminders/worker)
+          node -e '
+            const result = JSON.parse(process.argv[1]);
+            console.log(`Schedule reminders: ${result.sent ?? 0} sent, ${result.failed ?? 0} failed.`);
+            if ((result.failed ?? 0) > 0) process.exit(1);
+          ' "$response"
