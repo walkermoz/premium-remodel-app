@@ -184,6 +184,24 @@ test("automation workspace visualizes the website lead workflow", async ({
   ).toBe(true);
 });
 
+test("workflow inspector only offers controls used by its connected actions", async ({ page }) => {
+  await page.goto("/demo?view=Automation");
+  const tree = page.getByLabel("Workflow decision tree");
+  const inspector = page.getByLabel("Workflow inspector");
+  await tree.locator(".workflow-tree-node").filter({
+    has: page.getByRole("heading", { name: "Find or create Contact", exact: true }),
+  }).click();
+  await expect(inspector).toContainText("most recently updated match");
+  await expect(inspector.getByText("Match Contact by", { exact: true })).toHaveCount(0);
+  await expect(inspector.getByText("If more than one Contact matches", { exact: true })).toHaveCount(0);
+  await tree.locator(".workflow-tree-node").filter({
+    has: page.getByRole("heading", { name: "Send lead to Discord", exact: true }),
+  }).click();
+  await expect(inspector).toContainText("Sends the standard lead notification");
+  await expect(inspector.getByLabel("Request body", { exact: true })).toHaveCount(0);
+  await expect(inspector.getByLabel("Method", { exact: true })).toHaveCount(0);
+});
+
 test("workflow webhook management is private and inbound hooks require JSON", async ({
   request,
 }) => {

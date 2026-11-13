@@ -396,7 +396,9 @@ async function findContact(input: WorkflowExecutorInput) {
       .eq("organization_id", input.organizationId)
       .eq("kind", "contact")
       .ilike("data->>email", email)
-      .order("updated_at", { ascending: matchMode === "earliest" })
+      .order(matchMode === "earliest" ? "created_at" : "updated_at", {
+        ascending: matchMode === "earliest",
+      })
       .limit(matchMode === "fail" ? 2 : 1);
     if (result.error) throw result.error;
     const selected = choose(result.data || []);
@@ -409,7 +411,9 @@ async function findContact(input: WorkflowExecutorInput) {
       .eq("organization_id", input.organizationId)
       .eq("kind", "contact")
       .eq("data->>phone", phone)
-      .order("updated_at", { ascending: matchMode === "earliest" })
+      .order(matchMode === "earliest" ? "created_at" : "updated_at", {
+        ascending: matchMode === "earliest",
+      })
       .limit(matchMode === "fail" ? 2 : 1);
     if (result.error) throw result.error;
     const selected = choose(result.data || []);
