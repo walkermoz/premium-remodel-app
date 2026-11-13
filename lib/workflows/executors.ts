@@ -40,7 +40,9 @@ import {
   WorkflowEmailUncertainError,
 } from "./workflow-email";
 import { enqueueWorkflowEvent } from "./events";
-import { WorkflowConfigurationError } from "./runtime";
+import { WorkflowActionError, WorkflowConfigurationError } from "./runtime";
+import { collectSmsDeliveries } from "./sms-deliveries";
+import { redactWorkflowValue } from "./redaction";
 
 export type WorkflowExecutorInput = {
   organizationId: string;
@@ -1020,45 +1022,52 @@ handlers.set("communication.sendDirectSms", async (input) => {
     name: string;
     phone: string;
   }>;
-  const attempts = await Promise.allSettled(
-    recipients.map(async (recipient) => {
-      const sent = await sendOrganizationSms(input.organizationId, {
+  const { deliveries, failures, errors } = await collectSmsDeliveries(
+    recipients,
+    (recipient) =>
+      sendOrganizationSms(input.organizationId, {
         to: recipient.phone,
         body: rendered.value,
-      });
-      return { name: recipient.name, messageSid: sent.sid };
-    }),
+      }),
   );
-  const deliveries = attempts.flatMap((attempt) =>
-    attempt.status === "fulfilled" ? [attempt.value] : [],
-  );
-  const failedNames = attempts.flatMap((attempt, index) =>
-    attempt.status === "rejected" ? [recipients[index].name] : [],
-  );
+  const output = {
+    status: failures.length
+      ? deliveries.length
+        ? "partial"
+        : "failed"
+      : "sent",
+    deliveries,
+    failures,
+  };
 
-  if (failedNames.length) {
-    const firstFailure = attempts.find(
-      (attempt): attempt is PromiseRejectedResult =>
-        attempt.status === "rejected",
-    );
+  if (failures.length) {
+    const firstFailure = errors[0];
     if (
       deliveries.length === 0 &&
-      firstFailure?.reason instanceof TwilioConnectionError
+      firstFailure instanceof TwilioConnectionError
     ) {
       if (skipsUnavailableConnection(input.node))
-        return unavailableConnectionResult(
-          "SMS messages skipped because company texting is not connected.",
-        );
-      throw new WorkflowConfigurationError(firstFailure.reason.message);
+        return {
+          ...unavailableConnectionResult(
+            "SMS messages skipped because company texting is not connected.",
+          ),
+          output: {
+            ...output,
+            status: "skipped",
+            reason: "connection_unavailable",
+          },
+        };
+      throw new WorkflowConfigurationError(firstFailure.message, output);
     }
-    throw new Error(
-      `${deliveries.length} SMS message${deliveries.length === 1 ? " was" : "s were"} sent, but delivery failed for ${failedNames.join(", ")}. The action will not retry automatically.`,
+    throw new WorkflowActionError(
+      `${deliveries.length} SMS message${deliveries.length === 1 ? " was" : "s were"} accepted by Twilio, but sending could not be confirmed for ${failures.map((failure) => failure.name).join(", ")}. The action will not retry automatically.`,
+      output,
     );
   }
 
   return {
     summary: `SMS sent to ${deliveries.map((delivery) => delivery.name).join(", ")}.`,
-    output: { status: "sent", deliveries },
+    output,
     providerId: deliveries[0]?.messageSid,
   };
 });
@@ -1473,6 +1482,9 @@ export async function executeWorkflowNode(input: WorkflowExecutorInput) {
       .from("remodel_workflow_effects")
       .update({
         status: "failed",
+        ...(error instanceof WorkflowActionError
+          ? { result: redactWorkflowValue(error.output) }
+          : {}),
         last_error:
           error instanceof Error
             ? error.message.slice(0, 2_000)

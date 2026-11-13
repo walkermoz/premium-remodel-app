@@ -1,4 +1,5 @@
 "use client";
+import WorkflowSmsDeliveries from "./workflow-sms-deliveries";
 
 import {
   AlertCircle,
@@ -3629,6 +3630,9 @@ export default function WorkflowAutomationPanel({
                                         {affectedObject.objectType}
                                         <ArrowRight size={11} />
                                       </a>
+                                    )}
+                                    {step.node_type === "action.sendDirectSms" && (
+                                      <WorkflowSmsDeliveries output={output} />
                                     )}
                                     {branches.length > 0 && (
                                       <ul className="workflow-run-branches">
