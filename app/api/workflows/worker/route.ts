@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { processWebsiteLeadDeliveries } from "@/lib/website-lead-delivery-store";
 import {
   processWorkflowOutbox,
   resumeDueWorkflowWaits,
@@ -24,10 +25,13 @@ function authorized(request: Request) {
 async function runWorker(request: Request) {
   if (!authorized(request))
     return Response.json({ error: "Unauthorized." }, { status: 401 });
-  const results = await processWorkflowOutbox({
-    worker: `api-worker-${crypto.randomUUID()}`,
-    limit: 20,
-  });
+  const [results, deliveries] = await Promise.all([
+    processWorkflowOutbox({
+      worker: `api-worker-${crypto.randomUUID()}`,
+      limit: 20,
+    }),
+    processWebsiteLeadDeliveries(),
+  ]);
   const waits = await resumeDueWorkflowWaits({
     worker: `api-waits-${crypto.randomUUID()}`,
     limit: 20,
@@ -36,7 +40,10 @@ async function runWorker(request: Request) {
     {
       processed: results.length,
       completed: results.filter((item) => item.status === "completed").length,
-      failed: results.filter((item) => item.status === "failed").length,
+      failed:
+        results.filter((item) => item.status === "failed").length +
+        deliveries.needsAttention,
+      websiteLeadDeliveries: deliveries,
       results,
       scheduled: results.scheduled,
       waits: {

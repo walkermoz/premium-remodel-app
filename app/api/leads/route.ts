@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
+import { after } from "next/server";
 import { apiError, HttpError, limitAttempts } from "@/lib/auth";
 import { getWebsiteLeadAutomation } from "@/lib/automation-store";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -11,6 +12,13 @@ import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import { readClientQuoteSource } from "@/lib/client-quote";
 import { createWorkflowEvent } from "@/lib/workflows/events";
 import { processWorkflowEvent } from "@/lib/workflows/engine";
+import { requestsBackgroundLeadDelivery } from "@/lib/website-lead-delivery";
+import { processWebsiteLeadDeliveries } from "@/lib/website-lead-delivery-store";
+import {
+  captureWebsiteLead,
+  parseCapturedWebsiteLead,
+  runCapturedLeadFollowups,
+} from "@/lib/website-lead-intake";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -300,15 +308,38 @@ export async function POST(request: Request) {
         otherSubmittedFields: lead.otherSubmittedFields || {},
       },
     });
-    const captureRequest = admin.rpc("remodel_capture_workflow_website_lead", {
-      p_organization_id: organizationId,
-      p_contact: contact,
-      p_lead: lead,
-      p_match_existing: automation.matchExistingContacts,
-      p_event: workflowEvent,
+    const backgroundDelivery = requestsBackgroundLeadDelivery({
+      url: request.url,
+      origin,
+      organizationId,
+      primaryOrganizationId: process.env.SUPABASE_ORGANIZATION_ID,
+      fromPortal: Boolean(portalSource),
     });
-    const { data: capture, error: captureError } =
-      await captureRequest.single();
+    const deliveryPayload = backgroundDelivery
+      ? {
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone,
+          zip: data.zip || "",
+          address: data.address || "",
+          project: lead.project,
+          project_description: lead.projectDescription,
+          sms_appointment_opt_in: data.sms_appointment_opt_in,
+          sms_marketing_opt_in: data.sms_marketing_opt_in,
+        }
+      : undefined;
+    const { data: capture, error: captureError } = await captureWebsiteLead(
+      {
+        p_organization_id: organizationId,
+        p_contact: contact,
+        p_lead: lead,
+        p_match_existing: automation.matchExistingContacts,
+        p_event: workflowEvent,
+      },
+      deliveryPayload,
+      async (name, args) => admin.rpc(name, args).single(),
+    );
     if (captureError) {
       if (
         data.submission_id &&
@@ -322,22 +353,28 @@ export async function POST(request: Request) {
         return cors(Response.json({ received: true, duplicate: true }), origin);
       throw captureError;
     }
-    const captured = {
-      contactId: String((capture as Record<string, unknown>).contactId),
-      eventId: String((capture as Record<string, unknown>).eventId),
-    };
+    const captured = parseCapturedWebsiteLead(capture);
     lead.contactId = captured.contactId;
-    try {
-      await processWorkflowEvent(captured.eventId);
-    } catch (error) {
-      // Contact and Lead capture is already committed atomically with the
-      // outbox event. The worker will retry without failing the public form.
-      console.error(
-        "Could not execute the website lead workflow immediately.",
-        error,
-      );
-    }
-    return cors(Response.json({ received: true }, { status: 201 }), origin);
+    after(() =>
+      runCapturedLeadFollowups(captured, {
+        workflow: processWorkflowEvent,
+        delivery: processWebsiteLeadDeliveries,
+        report: (message) => console.error(message),
+      }),
+    );
+    // This acknowledgement is only emitted after the atomic transaction has
+    // committed the lead, workflow event and (for negotiated clients) copy job.
+    const queued = captured.goHighLevelQueued === true;
+    return cors(
+      Response.json(
+        {
+          received: true,
+          ...(queued ? { goHighLevelDelivery: "queued" } : {}),
+        },
+        { status: 201 },
+      ),
+      origin,
+    );
   } catch (error) {
     response = apiError(error);
   }
