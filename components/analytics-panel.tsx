@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ArrowUpRight,
   ChartNoAxesCombined,
@@ -380,10 +381,14 @@ export default function AnalyticsPanel({
                 Connect Google Business Profile
               </a>
             ) : (
-              <p className="analytics-setup-note">
-                Platform setup is needed: enable the Google Business Profile
-                APIs and add the OAuth connection credentials.
-              </p>
+              <div className="analytics-setup-note">
+                Platform setup is needed before any business can connect Google
+                reviews. See the guided setup in{" "}
+                <Link href="/?view=Settings#connections">
+                  Settings → Connections
+                </Link>
+                .
+              </div>
             )
           ) : (
             <p className="analytics-setup-note">

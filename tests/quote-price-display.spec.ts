@@ -71,6 +71,7 @@ test("customer PDF offers itemized prices or total only", async () => {
   for (const text of [itemized, legacyProject, total]) {
     expect(text).toContain("Waterproofing");
     expect(text).toContain("$850.00");
+    expect(text.match(/TOTAL PROJECT INVESTMENT/g)).toHaveLength(1);
   }
   expect(itemized).toContain("LINE TOTAL");
   expect(legacyProject).not.toContain("LINE TOTAL");

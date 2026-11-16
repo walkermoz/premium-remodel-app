@@ -6,28 +6,17 @@ const cloudTest =
   process.env.RUN_SUPABASE_TESTS === "1" ? companyTest : companyTest.skip;
 const origin = { Origin: "http://localhost:3100" };
 
-test("Analytics shows the Google review flow in the workspace preview", async ({
+test("Analytics stays hidden while Google review access is pending", async ({
   page,
 }) => {
   await page.goto("/demo?view=Analytics");
-  await expect(page.getByRole("heading", { name: "Analytics." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Analytics" })).toHaveCount(0);
   await expect(
-    page.getByText(
-      "Preview data — connect a real Google Business Profile in your workspace.",
-    ),
+    page.getByRole("heading", { name: "Project overview." }),
   ).toBeVisible();
-  await expect(page.getByText("Sample customer")).toBeVisible();
-  await page.getByRole("button", { name: "Reply", exact: true }).click();
-  await expect(page.getByLabel("Write a public reply")).toBeVisible();
-  await page
-    .getByLabel("Write a public reply")
-    .fill("Thanks for sharing your feedback!");
-  await page.getByRole("button", { name: "Post reply" }).click();
-  await expect(
-    page.getByText(
-      "This is a preview. Connect Google Business Profile to post a reply.",
-    ),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Analytics." })).toHaveCount(
+    0,
+  );
 });
 
 test("Google review APIs require a signed-in workspace member", async ({

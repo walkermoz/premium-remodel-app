@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Mail, Unplug } from "lucide-react";
+import ConnectionSetupGuide from "./connection-setup-guide";
 
 type Status = {
   configured: boolean;
@@ -84,7 +85,11 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
   }
 
   return (
-    <section className="settings-section" aria-labelledby="google-mail-heading">
+    <section
+      id="connection-google-mail"
+      className="settings-section"
+      aria-labelledby="google-mail-heading"
+    >
       <div className="settings-title">
         <Mail size={22} aria-hidden="true" />
         <div>
@@ -101,9 +106,14 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
       </div>
       <div className="settings-form google-calendar-settings">
         {demo ? (
-          <p className="generation-note">
-            Company email is available in your signed-in workspace.
-          </p>
+          <ConnectionSetupGuide
+            title="Connect in three steps"
+            steps={[
+              "Choose the Google account that sends this business’s quote emails.",
+              "Approve send-only Gmail access. The app does not read the inbox.",
+              "Send a test email from Get started to confirm delivery.",
+            ]}
+          />
         ) : (
           <>
             {error && (
@@ -125,27 +135,52 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
               <p className="generation-note">Checking company email…</p>
             )}
             {status && !status.configured && (
-              <p className="generation-note">
-                Email connections are not available yet. The platform needs a
-                one-time Google setup before an administrator can connect your
-                company mailbox. Your company does not need to supply OAuth
-                credentials.
-              </p>
+              <ConnectionSetupGuide
+                title="Waiting for platform setup"
+                platform
+                steps={[
+                  "The ServiceBuddy platform administrator enables the Gmail API and creates a Google OAuth web client with redirect URI https://servicebuddy-ui.vercel.app/api/google-mail/callback.",
+                  "Set GOOGLE_GMAIL_CLIENT_ID, GOOGLE_GMAIL_CLIENT_SECRET, and GOOGLE_TOKEN_ENCRYPTION_KEY in the app’s production environment, then redeploy.",
+                  "Once configured, this business can connect its mailbox with one Google sign-in. No company API keys are needed.",
+                ]}
+                resources={[
+                  {
+                    label: "Open Google Cloud Console",
+                    href: "https://console.cloud.google.com/apis/credentials",
+                  },
+                  {
+                    label: "Google OAuth setup",
+                    href: "https://developers.google.com/identity/protocols/oauth2/web-server",
+                  },
+                  {
+                    label: "Vercel environment variables",
+                    href: "https://vercel.com/docs/environment-variables",
+                  },
+                ]}
+              />
             )}
             {status?.configured && !status.connected && status.canManage && (
-              <div className="calendar-connect-card">
-                <div>
-                  <strong>Connect the company mailbox</strong>
-                  <p>
-                    Sign in with the mailbox this business will use for quotes.
-                    Google will request permission to send email only; the app
-                    will not read the inbox.
-                  </p>
+              <>
+                <div className="calendar-connect-card">
+                  <div>
+                    <strong>Connect the company mailbox</strong>
+                    <p>
+                      Choose the Google account this business uses to send
+                      quotes.
+                    </p>
+                  </div>
+                  <a className="button primary" href="/api/google-mail/connect">
+                    <Mail size={15} aria-hidden="true" /> Connect Gmail
+                  </a>
                 </div>
-                <a className="button primary" href="/api/google-mail/connect">
-                  <Mail size={15} aria-hidden="true" /> Connect Gmail
-                </a>
-              </div>
+                <ConnectionSetupGuide
+                  title="What happens next"
+                  steps={[
+                    "Google asks you to approve permission to send email only.",
+                    "Return here and use Get started to send a test email to yourself.",
+                  ]}
+                />
+              </>
             )}
             {status?.configured && !status.connected && !status.canManage && (
               <p className="generation-note">

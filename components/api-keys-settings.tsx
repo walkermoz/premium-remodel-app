@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { KeyRound, LoaderCircle, Trash2 } from "lucide-react";
+import ConnectionSetupGuide from "./connection-setup-guide";
 import {
   apiKeyScopes,
   apiKeyScopeLabels,
@@ -147,6 +148,14 @@ export default function ApiKeysSettings({ demo }: { demo: boolean }) {
         </div>
       </div>
       <div className="settings-form" aria-busy={loading}>
+        <ConnectionSetupGuide
+          title="Give a developer access to leads"
+          steps={[
+            "Create a named key for the outside app or developer and select only the lead permissions it needs.",
+            "Copy the key when it appears. It is shown once, so store it in the outside app’s secret settings.",
+            "Use the key for lead reads or updates. For a website form that creates new leads, use the Website lead intake workflow instead.",
+          ]}
+        />
         {demo ? (
           <p className="generation-note">
             API key management is available in your company workspace.

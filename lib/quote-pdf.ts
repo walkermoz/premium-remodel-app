@@ -214,13 +214,13 @@ function drawTableHeader(
 ) {
   page.drawRectangle({
     x: LEFT,
-    y: PAGE_HEIGHT - top - 23,
+    y: PAGE_HEIGHT - top - 28,
     width: CONTENT_WIDTH,
-    height: 23,
+    height: 28,
     color: colors.pale,
   });
-  drawTop(page, "SCOPE OF WORK", 54, top + 5, bold, 8);
-  if (showLineItemPrices) drawRight(page, "LINE TOTAL", 558, top + 5, bold, 8);
+  drawTop(page, "SCOPE OF WORK", 54, top + 9, bold, 8);
+  if (showLineItemPrices) drawRight(page, "LINE TOTAL", 558, top + 9, bold, 8);
 }
 
 function quoteSectionKey(item: ScopeItem) {
@@ -355,7 +355,7 @@ export async function buildQuotePdf(
 
   let tableTop = 301;
   drawTableHeader(page, bold, tableTop, showLineItemPrices);
-  let rowTop = tableTop + 23;
+  let rowTop = tableTop + 28;
   const rowBottomLimit = 572;
   let itemIndex = 0;
   let lastSectionKey = "";
@@ -368,17 +368,20 @@ export async function buildQuotePdf(
       item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID &&
       sectionKey !== lastSectionKey &&
       Boolean(section?.name);
-    const titleLines = wrap(item.title, regular, 9, 390);
+    const textWidth = showLineItemPrices ? 390 : CONTENT_WIDTH - 20;
+    const titleLines = wrap(item.title, bold, 9, textWidth);
     const allDetailLines = item.details
-      ? wrap(item.details, regular, 7.2, 425)
+      ? wrap(item.details, regular, 8, textWidth)
       : [];
     const detailLines = allDetailLines.slice(0, 8);
     if (allDetailLines.length > detailLines.length)
       detailLines[detailLines.length - 1] =
         "Additional details are saved in the workspace.";
     const rowHeight = Math.max(
-      22,
-      8 + titleLines.length * 10 + detailLines.length * 9,
+      32,
+      20 +
+        titleLines.length * 12 +
+        (detailLines.length ? 4 + detailLines.length * 11 : 0),
     );
     if (rowTop + rowHeight + (needsSectionHeader ? 21 : 0) > rowBottomLimit) {
       page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
@@ -387,7 +390,7 @@ export async function buildQuotePdf(
       drawTop(page, meta, LEFT, 65, regular, 7.5, colors.muted);
       tableTop = 92;
       drawTableHeader(page, bold, tableTop, showLineItemPrices);
-      rowTop = tableTop + 23;
+      rowTop = tableTop + 28;
       needsSectionHeader =
         item.sectionId !== UNGROUPED_SCOPE_PROJECT_ID && Boolean(section?.name);
     }
@@ -429,16 +432,16 @@ export async function buildQuotePdf(
         color: colors.stripe,
       });
     titleLines.forEach((line, index) =>
-      drawTop(page, line, 54, rowTop + 5 + index * 10, regular, 9),
+      drawTop(page, line, 54, rowTop + 10 + index * 12, bold, 9),
     );
     detailLines.forEach((line, index) =>
       drawTop(
         page,
         line,
         54,
-        rowTop + 7 + titleLines.length * 10 + index * 9,
+        rowTop + 14 + titleLines.length * 12 + index * 11,
         regular,
-        7.2,
+        8,
         colors.muted,
       ),
     );
@@ -447,7 +450,7 @@ export async function buildQuotePdf(
         page,
         money(item.estimate, business),
         558,
-        rowTop + 6,
+        rowTop + 10,
         regular,
         9,
       );
@@ -462,23 +465,7 @@ export async function buildQuotePdf(
     itemIndex++;
   }
 
-  if (page !== pages[0] || rowTop + 27 > rowBottomLimit) {
-    page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    pages.push(page);
-    drawTop(page, `${heading} - TOTAL`, LEFT, 44, bold, 13);
-    rowTop = 92;
-  }
-  page.drawRectangle({
-    x: LEFT,
-    y: PAGE_HEIGHT - rowTop - 27,
-    width: CONTENT_WIDTH,
-    height: 27,
-    color: colors.pale,
-  });
-  drawTop(page, "TOTAL PROJECT INVESTMENT", 54, rowTop + 8, bold, 9.5);
-  drawRight(page, money(total, business), 558, rowTop + 6, bold, 12.5);
-
-  let notesTop = rowTop + 37;
+  let notesTop = rowTop + 20;
   if (notesTop > 600) {
     page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     pages.push(page);

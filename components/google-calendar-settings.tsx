@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { GoogleCalendarStatus } from "@/lib/google-calendar-types";
 import { useRegionalFormat } from "./regional-format-context";
+import ConnectionSetupGuide from "./connection-setup-guide";
 
 const emptyStatus: GoogleCalendarStatus = {
   configured: false,
@@ -125,6 +126,7 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
 
   return (
     <section
+      id="connection-google-calendar"
       className="settings-section"
       aria-labelledby="google-calendar-heading"
     >
@@ -148,10 +150,13 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
         aria-busy={loading || Boolean(busy)}
       >
         {demo ? (
-          <p className="generation-note">
-            Google Calendar connections are available in your signed-in company
-            workspace.
-          </p>
+          <ConnectionSetupGuide
+            title="Connect your calendar"
+            steps={[
+              "Choose your Google account and approve access to a calendar created by the app.",
+              "Return here to run the first sync and check the result.",
+            ]}
+          />
         ) : (
           <>
             {loading && (
@@ -173,30 +178,56 @@ export default function GoogleCalendarSettings({ demo }: { demo: boolean }) {
               </div>
             )}
             {!loading && !status.configured && (
-              <p className="generation-note">
-                Calendar connections are not available yet. The platform needs a
-                one-time Google Calendar setup; your company does not need to
-                supply OAuth credentials. Your workspace schedule continues to
-                work.
-              </p>
+              <ConnectionSetupGuide
+                title="Waiting for platform setup"
+                platform
+                steps={[
+                  "The ServiceBuddy platform administrator enables the Google Calendar API and creates a Google OAuth web client with redirect URI https://servicebuddy-ui.vercel.app/api/google-calendar/callback.",
+                  "Set GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, and GOOGLE_TOKEN_ENCRYPTION_KEY in the app’s production environment, then redeploy.",
+                  "Once available, each team member can connect their own Google account here. The built-in schedule works meanwhile.",
+                ]}
+                resources={[
+                  {
+                    label: "Open Google Cloud Console",
+                    href: "https://console.cloud.google.com/apis/credentials",
+                  },
+                  {
+                    label: "Google OAuth setup",
+                    href: "https://developers.google.com/identity/protocols/oauth2/web-server",
+                  },
+                  {
+                    label: "Vercel environment variables",
+                    href: "https://vercel.com/docs/environment-variables",
+                  },
+                ]}
+              />
             )}
             {status.configured && !status.connected && (
-              <div className="calendar-connect-card">
-                <div>
-                  <strong>Connect your Google account</strong>
-                  <p>
-                    The workspace creates and manages only its own secondary
-                    calendar. It cannot read or change your other calendars.
-                  </p>
+              <>
+                <div className="calendar-connect-card">
+                  <div>
+                    <strong>Connect your Google account</strong>
+                    <p>
+                      The app manages only its own secondary calendar, not your
+                      other calendars.
+                    </p>
+                  </div>
+                  <a
+                    className="button primary"
+                    href="/api/google-calendar/connect"
+                  >
+                    <CalendarDays size={15} aria-hidden="true" />
+                    Connect Google Calendar
+                  </a>
                 </div>
-                <a
-                  className="button primary"
-                  href="/api/google-calendar/connect"
-                >
-                  <CalendarDays size={15} aria-hidden="true" />
-                  Connect Google Calendar
-                </a>
-              </div>
+                <ConnectionSetupGuide
+                  title="What happens next"
+                  steps={[
+                    "Approve Google’s permission request.",
+                    "Return here to sync your workspace schedule and check for errors.",
+                  ]}
+                />
+              </>
             )}
             {status.connected && (
               <>

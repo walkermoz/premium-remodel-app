@@ -47,6 +47,8 @@ import {
   UNGROUPED_SCOPE_PROJECT_ID,
 } from "@/lib/scope-projects";
 import { useRegionalFormat } from "./regional-format-context";
+import styles from "./scope-default-pricing.module.css";
+import actionStyles from "./scope-editor-actions.module.css";
 
 const statuses: TaskStatus[] = ["To do", "In progress", "Done"];
 
@@ -1928,10 +1930,19 @@ function CompactQuoteEditor({
   onBlur,
   onKeyDown,
 }: Parameters<typeof EditableRow>[0] & { showInternalCosts?: boolean }) {
-  const { money } = useRegionalFormat();
+  const { money, number } = useRegionalFormat();
   const itemName = draft.title || "new item";
   const totalCosts =
     draftNumber(draft.subCost) + draftNumber(draft.materialCost);
+  const defaultPrice = calculatedQuotePrice(
+    {
+      subCost: draftNumber(draft.subCost),
+      materialCost: draftNumber(draft.materialCost),
+    },
+    DEFAULT_SUB_MULTIPLIER,
+    DEFAULT_MATERIAL_MULTIPLIER,
+  );
+  const saleQuantity = draftNumber(draft.quantity);
 
   return (
     <tr
@@ -1996,22 +2007,6 @@ function CompactQuoteEditor({
               </label>
             )}
             <div className="scope-inspector-actions">
-              {saving ? (
-                <span className="scope-row-saving" aria-label="Saving row">
-                  <LoaderCircle size={14} className="spin" />
-                </span>
-              ) : (
-                dirty && (
-                  <button
-                    type="button"
-                    className="icon-button scope-save-row"
-                    onClick={onSave}
-                    aria-label={`Save ${itemName}`}
-                  >
-                    <Check size={14} />
-                  </button>
-                )
-              )}
               <button
                 type="button"
                 className={`icon-button${newRow ? "" : " delete-action"}`}
@@ -2098,21 +2093,10 @@ function CompactQuoteEditor({
                         title={`Sub costs × ${DEFAULT_SUB_MULTIPLIER} + material costs × ${DEFAULT_MATERIAL_MULTIPLIER}`}
                         aria-label={`Apply default pricing for ${itemName}`}
                         onClick={() => {
-                          const estimate = calculatedQuotePrice(
-                            {
-                              subCost: draftNumber(draft.subCost),
-                              materialCost: draftNumber(draft.materialCost),
-                            },
-                            DEFAULT_SUB_MULTIPLIER,
-                            DEFAULT_MATERIAL_MULTIPLIER,
-                          );
                           onChange({
-                            estimate: String(estimate),
+                            estimate: String(defaultPrice),
                             rate: String(
-                              rateFromTotal(
-                                estimate,
-                                draftNumber(draft.quantity),
-                              ),
+                              rateFromTotal(defaultPrice, saleQuantity),
                             ),
                           });
                         }}
@@ -2121,6 +2105,41 @@ function CompactQuoteEditor({
                       </button>
                     )}
                   </div>
+                  {showInternalCosts && (
+                    <div
+                      className={styles.calculation}
+                      role="group"
+                      aria-label={`Default pricing calculation for ${itemName}`}
+                    >
+                      <strong>Default calculation</strong>
+                      <div>
+                        Sub cost {money(draftNumber(draft.subCost))} ×{" "}
+                        {number(DEFAULT_SUB_MULTIPLIER)} + material cost{" "}
+                        {money(draftNumber(draft.materialCost))} ×{" "}
+                        {number(DEFAULT_MATERIAL_MULTIPLIER)} ={" "}
+                        <strong>{money(defaultPrice)}</strong>
+                      </div>
+                      <div>
+                        {saleQuantity > 0 ? (
+                          <>
+                            {rateLabel(draft.unit)}: {money(defaultPrice)} ÷{" "}
+                            {number(saleQuantity, { maximumFractionDigits: 8 })}{" "}
+                            ={" "}
+                            <strong>
+                              {money(
+                                rateFromTotal(defaultPrice, saleQuantity),
+                                {
+                                  maximumFractionDigits: 8,
+                                },
+                              )}
+                            </strong>
+                          </>
+                        ) : (
+                          "Enter a quantity greater than zero to calculate the unit price."
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="scope-inspector-basis-row">
                     <label>
                       <span>{quantityLabel(draft.unit)}</span>
@@ -2216,6 +2235,19 @@ function CompactQuoteEditor({
                 {money(difference)}
               </strong>
             </span>
+          </div>
+          <div className={actionStyles.footer}>
+            <button
+              type="button"
+              className="button primary"
+              disabled={saving || !dirty}
+              onClick={onSave}
+            >
+              {saving && (
+                <LoaderCircle size={16} className="spin" aria-hidden="true" />
+              )}
+              {saving ? "Saving…" : "Save item"}
+            </button>
           </div>
         </div>
       </td>

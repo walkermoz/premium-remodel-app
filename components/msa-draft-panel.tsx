@@ -184,7 +184,7 @@ export default function MsaDraftPanel({
           terms: contractTerms,
           owner: owner.trim(),
           ownerEmail: ownerEmail.trim(),
-          signerName: signer.name,
+          signerName: staffSignature.signedName.trim(),
           signerTitle: signerTitle.trim(),
         })
       : null;
@@ -202,7 +202,7 @@ export default function MsaDraftPanel({
       "Quote",
     ],
     ["Project address", draft.address || "Needs an address", "Quote"],
-    ["Company representative", signer.name, "Signed-in staff"],
+    ["Company representative", staffSignature.signedName, "Signing details"],
     ["Deposit collection", draft.depositCollection, "Agreement template"],
     ["Exhibit G mailing address", draft.cancellationAddress, "Organization"],
     ["Effective date", draft.effectiveDate, "Signing event"],
@@ -333,6 +333,7 @@ export default function MsaDraftPanel({
             owner: owner.trim(),
             ownerEmail: ownerEmail.trim(),
             signerTitle: signerTitle.trim(),
+            signedName: staffSignature.signedName.trim(),
             signatureMethod: staffSignature.signatureMethod,
             signatureStrokes: staffSignature.signatureStrokes,
             retry: project.msaAgreement?.status === "prepared",
@@ -816,7 +817,19 @@ export default function MsaDraftPanel({
               </label>
               <label>
                 Signing staff member
-                <input value={signer.name} readOnly />
+                <input
+                  value={staffSignature.signedName}
+                  minLength={2}
+                  maxLength={200}
+                  disabled={sending}
+                  onChange={(event) => {
+                    setStaffSignature({
+                      ...staffSignature,
+                      signedName: event.target.value,
+                    });
+                    setSendError("");
+                  }}
+                />
               </label>
               <label>
                 Staff title (optional)
@@ -836,7 +849,6 @@ export default function MsaDraftPanel({
               }}
               disabled={sending}
               nameLabel="Company representative print name"
-              nameReadOnly
             />
             <button
               type="button"

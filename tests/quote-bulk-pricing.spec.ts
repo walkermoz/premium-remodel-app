@@ -66,7 +66,7 @@ test("select all applies cost-based pricing and saves quote prices", async ({
         name: new RegExp(`Material cost:.*for ${title}`),
       })
       .fill(materialCost);
-    await row.getByRole("button", { name: `Save ${title}` }).click();
+    await row.getByRole("button", { name: "Save item", exact: true }).click();
     await expect(row).toHaveCount(0);
   }
 
@@ -163,7 +163,7 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
   await expect(row.getByText("Quote price").locator("..")).toContainText(
     "$790",
   );
-  await row.getByRole("button", { name: "Save Site supervision" }).click();
+  await row.getByRole("button", { name: "Save item", exact: true }).click();
 
   await page.getByRole("checkbox", { name: "Select Site supervision" }).check();
   await expect(page.getByText("Selected items price: $790")).toBeVisible();

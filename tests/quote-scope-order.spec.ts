@@ -57,7 +57,7 @@ test("quote rows reorder by dragging and keep their order after reload", async (
     await row
       .getByRole("textbox", { name: "New item", exact: true })
       .fill(title);
-    await row.getByRole("button", { name: `Save ${title}` }).click();
+    await row.getByRole("button", { name: "Save item", exact: true }).click();
     await expect(row).toHaveCount(0);
   }
 

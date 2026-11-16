@@ -28,6 +28,8 @@ const inputSchema = z.object({
   owner: z.string().optional(),
   ownerEmail: z.email().max(320),
   signerTitle: z.string().optional(),
+  signedName: staffMsaInput.shape.signedName,
+  signatureMethod: staffMsaInput.shape.signatureMethod.optional(),
   signatureStrokes: signatureStrokesSchema.optional(),
   retry: z.boolean().optional(),
   confirmedHistoricalScope: z.boolean().optional(),

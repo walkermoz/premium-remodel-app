@@ -374,7 +374,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await newRow
     .getByLabel("Material cost: Total cost for Garage framing", { exact: true })
     .fill("750.15");
-  await newRow.getByRole("button", { name: "Save Garage framing" }).click();
+  await newRow.getByRole("button", { name: "Save item", exact: true }).click();
   await expect(newRow).toHaveCount(0);
   await page.getByRole("button", { name: "Edit Garage framing" }).click();
   const savedRow = page.locator(".scope-table tbody tr").filter({
@@ -507,7 +507,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await expect(row.getByText("Price per hour", { exact: true })).toBeVisible();
   await row.getByLabel("Total hours for Labor").fill("2.5");
   await row.getByLabel("Price per hour for Labor").fill("80");
-  await row.getByRole("button", { name: "Save Labor" }).click();
+  await row.getByRole("button", { name: "Save item", exact: true }).click();
   await expect(row).toHaveCount(0);
   await expect(page.locator(".scope-table tfoot")).toContainText("$200");
   await page.reload();
@@ -524,7 +524,7 @@ test("per-unit quote rates calculate and persist the line total", async ({
   await expect(
     jobs.locator(".scope-inspector-totals > span:first-child strong"),
   ).toHaveText("$300.00");
-  await jobs.getByRole("button", { name: "Save Permit packages" }).click();
+  await jobs.getByRole("button", { name: "Save item", exact: true }).click();
   await page.reload();
   await page.getByRole("button", { name: "Edit Permit packages" }).click();
   await expect(
@@ -653,7 +653,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   expect(Math.abs(subRate!.y - materialRate!.y)).toBeLessThanOrEqual(2);
   expect(customerQuantity!.y).toBeGreaterThan(subRate!.y);
   expect(customerRate!.y).toBeGreaterThan(customerQuantity!.y);
-  await row.getByRole("button", { name: "Save Tile installation" }).click();
+  await row.getByRole("button", { name: "Save item", exact: true }).click();
 
   const summary = page.getByRole("button", { name: "Edit Tile installation" });
   await expect(summary.getByText("Quote price", { exact: true })).toBeVisible();
@@ -713,7 +713,7 @@ test("default project divider stays hidden without losing quote rows", async ({
     .getByRole("textbox", { name: "New item", exact: true })
     .fill("Demo work");
   await row.getByLabel("Price per job for Demo work").fill("250");
-  await row.getByRole("button", { name: "Save Demo work" }).click();
+  await row.getByRole("button", { name: "Save item", exact: true }).click();
   await expect(page.locator(".scope-section-row")).toHaveCount(0);
   await expect(page.getByText("Project #1", { exact: true })).toHaveCount(0);
 
@@ -723,7 +723,9 @@ test("default project divider stays hidden without losing quote rows", async ({
     .getByRole("textbox", { name: "New item", exact: true })
     .fill("Finish work");
   await secondRow.getByLabel("Price per job for Finish work").fill("50");
-  await secondRow.getByRole("button", { name: "Save Finish work" }).click();
+  await secondRow
+    .getByRole("button", { name: "Save item", exact: true })
+    .click();
   await expect(page.locator(".scope-section-row")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Edit Demo work" }),

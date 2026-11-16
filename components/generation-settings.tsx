@@ -6,6 +6,7 @@ import {
   generationSettingsEvent,
   useGenerationConfig,
 } from "./use-generation-config";
+import ConnectionSetupGuide from "./connection-setup-guide";
 
 export default function GenerationSettings({
   demo,
@@ -21,7 +22,7 @@ export default function GenerationSettings({
   const [saveError, setSaveError] = useState("");
   const model = selection ?? config?.defaultModel ?? "";
   return (
-    <div className="settings-section">
+    <div id="connection-openrouter" className="settings-section">
       <div className="settings-title">
         <WandSparkles size={22} />
         <div>
@@ -105,15 +106,30 @@ export default function GenerationSettings({
               ))}
             </select>
           </label>
-          {config && (
-            <p className="generation-note">
-              {demo
-                ? "Image generation is available in your company workspace."
-                : config.configured
-                  ? "OpenRouter connected. Generation uses the company’s OpenRouter credits."
-                  : "OpenRouter is not connected yet."}
-            </p>
-          )}
+          {config &&
+            (demo || config.configured ? (
+              <p className="generation-note">
+                {demo
+                  ? "Image generation is available in your company workspace."
+                  : "OpenRouter connected. Generation uses the platform’s OpenRouter credits."}
+              </p>
+            ) : (
+              <ConnectionSetupGuide
+                title="Waiting for AI provider setup"
+                platform
+                steps={[
+                  "The ServiceBuddy platform administrator creates an OpenRouter API key.",
+                  "Add the key to the app’s server configuration. It is not entered in a business workspace.",
+                  "Once connected, choose the default image model here and try a preview in Generate.",
+                ]}
+                resources={[
+                  {
+                    label: "Create an OpenRouter key",
+                    href: "https://openrouter.ai/settings/keys",
+                  },
+                ]}
+              />
+            ))}
           {admin ? (
             <button
               className="button primary"

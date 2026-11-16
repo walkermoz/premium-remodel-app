@@ -1048,10 +1048,6 @@ export default async function ClientQuotePage({
                     ))}
                   </div>
                 ))}
-                <div className={styles.scopeTotal}>
-                  <span>Total project investment</span>
-                  <strong>{money(total, business)}</strong>
-                </div>
               </section>
 
               {!!quote.quotePhotos?.length && (

@@ -72,7 +72,7 @@ export default function MsaSigningPanel({
           terms: quote.msaContractTerms!,
           owner: quote.client.trim(),
           ownerEmail: quote.clientEmail?.trim() || "",
-          signerName,
+          signerName: staffSignature.signedName.trim(),
           signerTitle,
         })
       : null;
@@ -90,6 +90,7 @@ export default function MsaSigningPanel({
             owner: quote.client.trim(),
             ownerEmail: quote.clientEmail?.trim() || "",
             signerTitle: signerTitle.trim(),
+            signedName: staffSignature.signedName.trim(),
             signatureMethod: staffSignature.signatureMethod,
             signatureStrokes: staffSignature.signatureStrokes,
           }),
@@ -386,7 +387,19 @@ export default function MsaSigningPanel({
         </label>
         <label>
           Signing staff member
-          <input value={signerName} readOnly />
+          <input
+            value={staffSignature.signedName}
+            minLength={2}
+            maxLength={200}
+            disabled={sending}
+            onChange={(event) => {
+              setStaffSignature({
+                ...staffSignature,
+                signedName: event.target.value,
+              });
+              setError("");
+            }}
+          />
         </label>
         <label>
           Staff title (optional)
@@ -406,7 +419,6 @@ export default function MsaSigningPanel({
         }}
         disabled={sending}
         nameLabel="Company representative print name"
-        nameReadOnly
       />
       {error && <p className="alert">{error}</p>}
       <div className="workflow-completion-actions">

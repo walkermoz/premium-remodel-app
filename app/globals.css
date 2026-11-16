@@ -15255,6 +15255,66 @@ small {
 }
 
 /* Google review analytics */
+.settings-section[id] {
+  scroll-margin-top: 24px;
+}
+.connection-setup-guide {
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--line);
+}
+.connection-setup-guide-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.connection-setup-guide-heading strong {
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 12px;
+}
+.connection-setup-guide-heading span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.connection-setup-guide ol {
+  display: grid;
+  gap: 7px;
+  margin: 11px 0 0;
+  padding-left: 19px;
+  color: var(--theme-text, var(--ink));
+  font-size: 11px;
+  line-height: 1.55;
+}
+.connection-setup-guide li::marker {
+  color: var(--blue);
+  font-weight: 700;
+}
+.connection-setup-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+.connection-setup-resources a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.connection-setup-resources a:hover {
+  text-decoration: underline;
+}
+.connection-field-help {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.45;
+}
 .google-business-settings-actions {
   display: flex;
   gap: 9px;
@@ -15330,6 +15390,12 @@ small {
 }
 .analytics-connect .analytics-setup-note {
   margin: 18px 0 0;
+}
+.analytics-setup-note a {
+  color: var(--blue);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .analytics-location-controls {
   display: flex;

@@ -16,6 +16,11 @@ type Status = {
     OrganizationConnectionCapability
   >;
   mail: { configured: boolean; connected: boolean; email: string | null };
+  googleReviews: {
+    configured: boolean;
+    connected: boolean;
+    locationTitle: string | null;
+  };
   phone: { connected: boolean };
   websiteLeads: {
     connected: boolean;
@@ -115,6 +120,15 @@ export default function BusinessOnboarding({
   const [smsSending, setSmsSending] = useState(false);
   const [smsResult, setSmsResult] = useState("");
   const [smsError, setSmsError] = useState(false);
+
+  function openConnection(section: Section, targetId: string) {
+    onNavigate(section);
+    window.setTimeout(() => {
+      document
+        .getElementById(targetId)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
 
   useEffect(() => {
     if (demo) return;
@@ -280,7 +294,13 @@ export default function BusinessOnboarding({
           <Step
             number="03"
             title="Connect mailbox"
-            state={status?.mail.connected ? "connected" : "todo"}
+            state={
+              status?.mail.connected
+                ? "connected"
+                : status && !status.mail.configured
+                  ? "blocked"
+                  : "todo"
+            }
             detail={
               status?.mail.connected
                 ? `Email sends from ${status.mail.email}.`
@@ -291,10 +311,38 @@ export default function BusinessOnboarding({
             action={
               status?.mail.connected ? "View connection" : "Connect Gmail"
             }
-            onAction={() => onNavigate("connections")}
+            onAction={() =>
+              openConnection("connections", "connection-google-mail")
+            }
           />
           <Step
             number="04"
+            title="Connect Google reviews"
+            state={
+              status?.googleReviews.connected
+                ? "connected"
+                : status && !status.googleReviews.configured
+                  ? "blocked"
+                  : "optional"
+            }
+            detail={
+              status?.googleReviews.connected
+                ? `Reviews are connected${status.googleReviews.locationTitle ? ` for ${status.googleReviews.locationTitle}` : "; choose a location in Analytics"}.`
+                : status && !status.googleReviews.configured
+                  ? "Optional. The platform needs one-time Google Business Profile API setup; your business does not need API keys."
+                  : "Optional. Connect the Google account that manages your verified business listing."
+            }
+            action={
+              status?.googleReviews.connected
+                ? "View connection"
+                : "Connect reviews"
+            }
+            onAction={() =>
+              openConnection("connections", "connection-google-business")
+            }
+          />
+          <Step
+            number="05"
             title="Connect lead form"
             state={status?.websiteLeads.connected ? "ready" : "blocked"}
             detail={
@@ -308,7 +356,7 @@ export default function BusinessOnboarding({
             onAction={() => window.location.assign("/?view=Automation")}
           />
           <Step
-            number="05"
+            number="06"
             title="Connect texting"
             state={status?.phone.connected ? "connected" : "optional"}
             detail={
@@ -317,10 +365,10 @@ export default function BusinessOnboarding({
                 : "Optional. Add your company Twilio account when you want to send texts."
             }
             action={status?.phone.connected ? "Check phone" : "Connect phone"}
-            onAction={() => onNavigate("connections")}
+            onAction={() => openConnection("connections", "connection-twilio")}
           />
           <Step
-            number="06"
+            number="07"
             title="Choose payments"
             state={
               !status?.modules?.payments.enabled
@@ -351,10 +399,14 @@ export default function BusinessOnboarding({
                 ? "Payment settings"
                 : "Manage modules"
             }
-            onAction={() => onNavigate("business")}
+            onAction={() =>
+              status?.modules?.payments.enabled
+                ? openConnection("connections", "connection-stripe")
+                : onNavigate("business")
+            }
           />
           <Step
-            number="07"
+            number="08"
             title="Choose automations"
             state={
               !status?.modules?.automations.enabled
@@ -382,7 +434,7 @@ export default function BusinessOnboarding({
             }
           />
           <Step
-            number="08"
+            number="09"
             title="Set up agreements"
             state={
               !status?.modules?.agreements.enabled
@@ -406,7 +458,7 @@ export default function BusinessOnboarding({
             onAction={() => onNavigate("business")}
           />
           <Step
-            number="09"
+            number="10"
             title="Connect personal calendars"
             state={connectionStepState(status?.connections.google_calendar)}
             detail={
@@ -414,10 +466,12 @@ export default function BusinessOnboarding({
               "Optional. Each member can connect a private Google Calendar copy; the built-in schedule always remains available."
             }
             action="Calendar settings"
-            onAction={() => onNavigate("account")}
+            onAction={() =>
+              openConnection("account", "connection-google-calendar")
+            }
           />
           <Step
-            number="10"
+            number="11"
             title="Configure AI tools"
             state={connectionStepState(
               status?.connections.openrouter_generation,
@@ -427,10 +481,12 @@ export default function BusinessOnboarding({
               "Optional. Configure an image provider before generating renovation previews."
             }
             action="Generation settings"
-            onAction={() => onNavigate("workspace")}
+            onAction={() =>
+              openConnection("workspace", "connection-openrouter")
+            }
           />
           <Step
-            number="11"
+            number="12"
             title="Connect team notifications"
             state={connectionStepState(status?.connections.team_notifications)}
             detail={
@@ -441,7 +497,7 @@ export default function BusinessOnboarding({
             onAction={() => onNavigate("connections")}
           />
           <Step
-            number="12"
+            number="13"
             title="Add workflow secrets"
             state={connectionStepState(status?.connections.workflow_secrets)}
             detail={
@@ -449,7 +505,7 @@ export default function BusinessOnboarding({
               "Optional. Store protected webhook URLs and headers for workflow HTTPS requests."
             }
             action="Manage secrets"
-            onAction={() => onNavigate("connections")}
+            onAction={() => openConnection("connections", "connection-secrets")}
           />
         </ol>
       )}

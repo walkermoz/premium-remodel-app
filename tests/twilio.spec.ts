@@ -17,8 +17,10 @@ test("Twilio demo does not request live company credentials", async ({
     name: "Phone & texting",
     exact: true,
   });
-  await expect(section).toContainText("available in your company workspace");
-  await expect(section).toContainText("not enabled yet");
+  await expect(section).toContainText("Find your Twilio credentials");
+  await expect(
+    section.getByRole("link", { name: "Open Twilio Console" }),
+  ).toHaveAttribute("href", "https://console.twilio.com/");
   expect(requests).toBe(0);
 });
 

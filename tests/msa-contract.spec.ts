@@ -83,6 +83,39 @@ test("prepares a frozen MSA from the accepted quote and editable milestones", ()
   expect(msaGeneralTerms.length).toBeGreaterThan(100);
 });
 
+test("uses the edited representative name while retaining the authenticated staff account", () => {
+  const staffId = "22222222-2222-4222-8222-222222222222";
+  const agreement = prepareMsa(
+    base,
+    [],
+    staffMsaInput.parse({
+      owner: "Taylor Customer",
+      ownerEmail: "taylor@example.com",
+      signedName: "  Matthew Magner  ",
+      signatureMethod: "typed",
+      signatureStrokes: strokes,
+    }),
+    { id: staffId, name: "matt" },
+    at,
+  );
+  expect(agreement.staffSignature.name).toBe("Matthew Magner");
+  expect(agreement.staffSignature.signatureMethod).toBe("typed");
+  expect(agreement.staffUserId).toBe(staffId);
+});
+
+test("rejects empty or oversized representative names", () => {
+  const input = {
+    owner: "Taylor Customer",
+    ownerEmail: "taylor@example.com",
+    signatureStrokes: strokes,
+  };
+  for (const signedName of ["", "  ", "A", "A".repeat(201)]) {
+    expect(staffMsaInput.safeParse({ ...input, signedName }).success).toBe(
+      false,
+    );
+  }
+});
+
 test("staff title is optional when preparing an MSA", () => {
   const agreement = prepareMsa(
     base,

@@ -2268,8 +2268,7 @@
 }
 
 .scopeHeader,
-.sectionHeader,
-.scopeTotal {
+.sectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2306,8 +2305,8 @@
 }
 
 .item {
-  min-height: 36px;
-  padding: 8px 14px 4px;
+  min-height: 56px;
+  padding: 14px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
@@ -2320,34 +2319,23 @@
 }
 
 .item strong {
+  display: block;
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .item p {
-  margin: 2px 0 0;
+  margin: 5px 0 0;
   color: var(--muted);
   font-size: 10px;
-  line-height: 1.3;
+  line-height: 1.5;
   white-space: pre-line;
 }
 
 .item > span {
   padding-top: 1px;
   font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.scopeTotal {
-  min-height: 36px;
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.scopeTotal strong {
-  font-size: 16px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -3057,14 +3045,6 @@
 
   .item > span {
     font-size: 11px;
-  }
-
-  .scopeTotal {
-    font-size: 11px;
-  }
-
-  .scopeTotal strong {
-    font-size: 14px;
   }
 
   .acceptanceDetails {

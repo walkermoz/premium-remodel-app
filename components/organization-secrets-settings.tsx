@@ -3,6 +3,7 @@
 import { KeyRound, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRegionalFormat } from "./regional-format-context";
+import ConnectionSetupGuide from "./connection-setup-guide";
 
 type SecretSummary = {
   id: string;
@@ -130,7 +131,10 @@ export default function OrganizationSecretsSettings({
   }
 
   return (
-    <div className="settings-section organization-secrets-settings">
+    <div
+      id="connection-secrets"
+      className="settings-section organization-secrets-settings"
+    >
       <div className="settings-title">
         <KeyRound size={22} />
         <div>
@@ -142,6 +146,20 @@ export default function OrganizationSecretsSettings({
         </div>
       </div>
       <div className="settings-details">
+        <ConnectionSetupGuide
+          title="Add a provider credential"
+          steps={[
+            "Create a key or webhook URL in the provider’s own dashboard.",
+            "Give it a clear name here and paste the value once. We encrypt it for this organization.",
+            "Select that secret in a workflow HTTPS action; rotate it here if the provider changes it.",
+          ]}
+          resources={[
+            {
+              label: "Create a Discord webhook",
+              href: "https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks",
+            },
+          ]}
+        />
         <div className="settings-inline-heading">
           <div>
             <strong>Organization vault</strong>

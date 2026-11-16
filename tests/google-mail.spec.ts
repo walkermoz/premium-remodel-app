@@ -13,9 +13,8 @@ test("sample settings never attempt a company Gmail connection", async ({
     .getByRole("button", { name: /Connections/ })
     .click();
   const section = page.getByRole("region", { name: "Company email" });
-  await expect(section).toContainText(
-    "Company email is available in your signed-in workspace.",
-  );
+  await expect(section).toContainText("Connect in three steps");
+  await expect(section).toContainText("send-only Gmail access");
   expect(requests).toBe(0);
 });
 

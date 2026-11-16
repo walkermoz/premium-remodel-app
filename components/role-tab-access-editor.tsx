@@ -19,6 +19,7 @@ import {
 } from "@/lib/business-config-schema";
 import { workspaceGroups, type WorkspaceGroup } from "@/lib/types";
 import { workspaceObjects } from "@/lib/workspace-objects";
+import { productVisibility } from "@/lib/product-visibility";
 
 const roleLabels: Record<WorkspaceGroup, string> = {
   owner: "Owner",
@@ -55,13 +56,24 @@ export default function RoleTabAccessEditor({
   const [addOpen, setAddOpen] = useState(false);
   const [dragged, setDragged] = useState<NavigationPage | null>(null);
   const [dragOver, setDragOver] = useState<NavigationPage | null>(null);
-  const pages = roleNavigation[selectedRole];
+  const configuredPages = roleNavigation[selectedRole];
+  const pages = configuredPages.filter(
+    (page) => productVisibility.analytics || page !== "Analytics",
+  );
   const supportedPages =
-    selectedRole === "doorknocker" ? doorKnockerPages : navigationPages;
+    (selectedRole === "doorknocker" ? doorKnockerPages : navigationPages).filter(
+      (page) => productVisibility.analytics || page !== "Analytics",
+    );
   const availablePages = supportedPages.filter((page) => !pages.includes(page));
 
   function updateRole(nextPages: NavigationPage[]) {
-    onChange({ ...roleNavigation, [selectedRole]: nextPages });
+    const mergedPages = [...nextPages];
+    configuredPages.forEach((page, index) => {
+      if (page === "Analytics" && !productVisibility.analytics) {
+        mergedPages.splice(Math.min(index, mergedPages.length), 0, page);
+      }
+    });
+    onChange({ ...roleNavigation, [selectedRole]: mergedPages });
   }
 
   function addPage(page: NavigationPage) {

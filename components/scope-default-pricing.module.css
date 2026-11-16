@@ -1,0 +1,18 @@
+.calculation {
+  display: grid;
+  gap: 4px;
+  max-width: 520px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--blue) 5%, var(--surface));
+  color: var(--theme-text-muted, #8796a2);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.calculation strong {
+  color: var(--ink);
+  font-weight: 600;
+}

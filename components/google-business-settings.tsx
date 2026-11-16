@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MessageSquareText, Unplug } from "lucide-react";
 import type { GoogleBusinessStatus } from "@/lib/google-business-types";
+import ConnectionSetupGuide from "./connection-setup-guide";
 
 export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
   const [status, setStatus] = useState<GoogleBusinessStatus | null>(null);
@@ -71,6 +72,7 @@ export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
 
   return (
     <section
+      id="connection-google-business"
       className="settings-section"
       aria-labelledby="google-business-heading"
     >
@@ -85,10 +87,14 @@ export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
       </div>
       <div className="settings-form google-calendar-settings">
         {demo ? (
-          <p className="generation-note">
-            Connect a verified Google Business Profile in your signed-in
-            workspace.
-          </p>
+          <ConnectionSetupGuide
+            title="Connect in three steps"
+            steps={[
+              "Choose the Google account that manages this business’s verified listing.",
+              "Approve Google Business Profile access.",
+              "Select the location in Analytics to see and reply to reviews.",
+            ]}
+          />
         ) : (
           <>
             {error && (
@@ -105,29 +111,59 @@ export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
               <p className="generation-note">Checking Google reviews…</p>
             )}
             {status && !status.configured && (
-              <p className="generation-note">
-                Google reviews need one-time platform setup and Google Business
-                Profile API approval. Your business does not need to provide
-                Google application keys.
-              </p>
+              <ConnectionSetupGuide
+                title="Waiting for platform setup"
+                platform
+                steps={[
+                  "The ServiceBuddy platform administrator requests Google Business Profile API access and enables the required APIs.",
+                  "Create an OAuth web client with this redirect URI: https://servicebuddy-ui.vercel.app/api/google-business/callback.",
+                  "Set GOOGLE_BUSINESS_CLIENT_ID, GOOGLE_BUSINESS_CLIENT_SECRET, and GOOGLE_TOKEN_ENCRYPTION_KEY in the production app, then redeploy. Each business can then connect its own listing with Google sign-in.",
+                ]}
+                resources={[
+                  {
+                    label: "Open Google Cloud Console",
+                    href: "https://console.cloud.google.com/apis/credentials",
+                  },
+                  {
+                    label: "Request Google API access",
+                    href: "https://developers.google.com/my-business/content/prereqs",
+                  },
+                  {
+                    label: "Google setup guide",
+                    href: "https://developers.google.com/my-business/content/basic-setup",
+                  },
+                  {
+                    label: "Vercel environment variables",
+                    href: "https://vercel.com/docs/environment-variables",
+                  },
+                ]}
+              />
             )}
             {status?.configured && !status.connected && (
-              <div className="calendar-connect-card">
-                <div>
-                  <strong>Connect a business listing</strong>
-                  <p>
-                    Sign in with a Google account that owns or manages the
-                    verified location. Google will ask for Business Profile
-                    management access.
-                  </p>
+              <>
+                <div className="calendar-connect-card">
+                  <div>
+                    <strong>Connect a business listing</strong>
+                    <p>
+                      Sign in with a Google account that owns or manages the
+                      verified location.
+                    </p>
+                  </div>
+                  <a
+                    className="button primary"
+                    href="/api/google-business/connect"
+                  >
+                    Connect Google
+                  </a>
                 </div>
-                <a
-                  className="button primary"
-                  href="/api/google-business/connect"
-                >
-                  Connect Google
-                </a>
-              </div>
+                <ConnectionSetupGuide
+                  title="What happens next"
+                  steps={[
+                    "Approve Business Profile management access in Google.",
+                    "Choose the location in Analytics. New reviews appear there and authorized staff can reply.",
+                  ]}
+                />
+              </>
             )}
             {status?.connected && (
               <div className="calendar-connect-card">

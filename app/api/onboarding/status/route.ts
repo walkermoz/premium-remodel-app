@@ -1,6 +1,7 @@
 import { apiError, requireUser } from "@/lib/auth";
 import { getBusinessConfig } from "@/lib/business-config";
 import { googleMailStatus } from "@/lib/google-mail";
+import { googleBusinessStatus } from "@/lib/google-business";
 import { isOriginalOrganization } from "@/lib/original-organization";
 import { organizationStripeEnabled } from "@/lib/stripe-payments";
 import { stripeConnectStatus } from "@/lib/stripe-connect";
@@ -19,6 +20,7 @@ export async function GET() {
     const [
       config,
       mail,
+      googleReviews,
       businessCreationAllowed,
       inboundHooks,
       stripeReady,
@@ -29,6 +31,7 @@ export async function GET() {
     ] = await Promise.all([
       getBusinessConfig(user),
       googleMailStatus(user),
+      googleBusinessStatus(user.organizationId, true),
       canCreateBusiness(user),
       supabaseAdmin()
         .from("remodel_workflow_inbound_webhooks")
@@ -64,6 +67,11 @@ export async function GET() {
             connectionRegistry.capabilities.google_mail,
           ),
           email: mail.email,
+        },
+        googleReviews: {
+          configured: googleReviews.configured,
+          connected: googleReviews.connected,
+          locationTitle: googleReviews.locationTitle,
         },
         phone: {
           connected: connectionIsReady(

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Phone, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
 import type { TwilioConnection } from "@/lib/twilio-types";
 import { useRegionalFormat } from "./regional-format-context";
+import ConnectionSetupGuide from "./connection-setup-guide";
 
 export default function TwilioSettings({
   demo,
@@ -115,7 +116,11 @@ export default function TwilioSettings({
   }
 
   return (
-    <section className="settings-section" aria-labelledby="twilio-heading">
+    <section
+      id="connection-twilio"
+      className="settings-section"
+      aria-labelledby="twilio-heading"
+    >
       <div className="settings-title">
         <Phone size={22} aria-hidden="true" />
         <div>
@@ -128,9 +133,20 @@ export default function TwilioSettings({
       </div>
       <div className="settings-form twilio-settings" aria-busy={loading}>
         {demo ? (
-          <p className="generation-note">
-            Twilio connection details are available in your company workspace.
-          </p>
+          <ConnectionSetupGuide
+            title="Find your Twilio credentials"
+            steps={[
+              "Open your company’s Twilio Console.",
+              "Copy the Account SID and reveal the Auth Token in Account Info.",
+              "Paste both here. We verify the account before saving it to this business.",
+            ]}
+            resources={[
+              {
+                label: "Open Twilio Console",
+                href: "https://console.twilio.com/",
+              },
+            ]}
+          />
         ) : (
           <>
             {loading && (
@@ -149,9 +165,14 @@ export default function TwilioSettings({
               </div>
             )}
             {connection?.managedByPlatform && !connection.configured && (
-              <p className="generation-note">
-                The platform-managed phone account is not configured yet.
-              </p>
+              <ConnectionSetupGuide
+                title="Waiting for platform setup"
+                platform
+                steps={[
+                  "The ServiceBuddy platform administrator needs to finish the shared phone configuration.",
+                  "Your company can use the workspace without texting until that connection is ready.",
+                ]}
+              />
             )}
             {connection &&
               !connection.configured &&
@@ -162,12 +183,25 @@ export default function TwilioSettings({
                       Twilio is not connected. Connect your company phone
                       account
                     </strong>
-                    <p className="generation-note">
-                      Enter the Account SID and Auth Token from your Twilio
-                      console. We verify the account before saving it for this
-                      business.
-                    </p>
                   </div>
+                  <ConnectionSetupGuide
+                    title="Find the two values"
+                    steps={[
+                      "Open Twilio Console and select the account you want this business to use.",
+                      "Copy the Account SID from Account Info, then reveal and copy its Auth Token.",
+                      "Paste them below and choose Connect Twilio. We verify the account before saving it.",
+                    ]}
+                    resources={[
+                      {
+                        label: "Open Twilio Console",
+                        href: "https://console.twilio.com/",
+                      },
+                      {
+                        label: "Where to find the Auth Token",
+                        href: "https://help.twilio.com/articles/223136027-Auth-Tokens-and-How-to-Change-Them",
+                      },
+                    ]}
+                  />
                   <label>
                     Account SID
                     <input
@@ -178,6 +212,9 @@ export default function TwilioSettings({
                       required
                       pattern="AC[0-9a-fA-F]{32}"
                     />
+                    <span className="connection-field-help">
+                      Starts with AC and has 34 characters.
+                    </span>
                   </label>
                   <label>
                     Auth Token
@@ -189,6 +226,10 @@ export default function TwilioSettings({
                       required
                       pattern="[0-9a-fA-F]{32}"
                     />
+                    <span className="connection-field-help">
+                      The hidden 32-character token in Twilio Account Info. Keep
+                      it private.
+                    </span>
                   </label>
                   <button className="button primary" disabled={busy}>
                     {busy ? "Verifying…" : "Connect Twilio"}

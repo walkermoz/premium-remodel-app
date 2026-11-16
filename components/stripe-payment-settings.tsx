@@ -2,6 +2,7 @@
 
 import { CreditCard, RefreshCw, Unplug } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import ConnectionSetupGuide from "./connection-setup-guide";
 
 type StripeConnection = {
   id?: string;
@@ -24,18 +25,21 @@ export default function StripePaymentSettings({ demo }: { demo: boolean }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    if (demo) return;
-    const response = await fetch("/api/stripe/connect", {
-      cache: "no-store",
-      signal,
-    });
-    const body = await response.json();
-    if (!response.ok)
-      throw new Error(body.error || "Could not check the Stripe connection.");
-    setConfigured(body.platformConfigured === true);
-    setConnection(body.connection || null);
-  }, [demo]);
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      if (demo) return;
+      const response = await fetch("/api/stripe/connect", {
+        cache: "no-store",
+        signal,
+      });
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not check the Stripe connection.");
+      setConfigured(body.platformConfigured === true);
+      setConnection(body.connection || null);
+    },
+    [demo],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -71,7 +75,9 @@ export default function StripePaymentSettings({ demo }: { demo: boolean }) {
       window.location.assign(body.url);
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not start Stripe setup.",
+        cause instanceof Error
+          ? cause.message
+          : "Could not start Stripe setup.",
       );
       setBusy(false);
     }
@@ -126,7 +132,11 @@ export default function StripePaymentSettings({ demo }: { demo: boolean }) {
   }
 
   return (
-    <section className="settings-section" aria-labelledby="stripe-heading">
+    <section
+      id="connection-stripe"
+      className="settings-section"
+      aria-labelledby="stripe-heading"
+    >
       <div className="settings-title">
         <CreditCard size={22} aria-hidden="true" />
         <div>
@@ -139,9 +149,14 @@ export default function StripePaymentSettings({ demo }: { demo: boolean }) {
       </div>
       <div className="settings-form">
         {demo ? (
-          <p className="generation-note">
-            Stripe connections are available in a real workspace.
-          </p>
+          <ConnectionSetupGuide
+            title="Connect with Stripe"
+            steps={[
+              "Sign in to Stripe or create an account for this business.",
+              "Complete Stripe’s business and payout verification.",
+              "Return here to check whether payments and payouts are ready.",
+            ]}
+          />
         ) : loading ? (
           <p className="generation-note" role="status">
             Checking Stripe…
@@ -219,12 +234,45 @@ export default function StripePaymentSettings({ demo }: { demo: boolean }) {
             >
               {busy ? "Opening Stripe…" : "Connect Stripe"}
             </button>
+            <ConnectionSetupGuide
+              title="What happens next"
+              steps={[
+                "Stripe opens a secure sign-in and onboarding flow. Choose or create the account that will receive this business’s payments.",
+                "Complete any business identity and payout details Stripe requests.",
+                "Return here to check account readiness before sending payment links.",
+              ]}
+              resources={[
+                {
+                  label: "Stripe account setup help",
+                  href: "https://support.stripe.com/",
+                },
+              ]}
+            />
           </div>
         ) : (
-          <p className="generation-note">
-            Stripe Connect needs one-time ServiceBuddy platform setup. The
-            business does not need to supply API keys.
-          </p>
+          <ConnectionSetupGuide
+            title="Waiting for platform setup"
+            platform
+            steps={[
+              "The ServiceBuddy platform administrator enables Stripe Connect with callback URL https://servicebuddy-ui.vercel.app/api/stripe/connect/callback and webhook URL https://servicebuddy-ui.vercel.app/api/stripe/webhook.",
+              "Set STRIPE_CONNECT_CLIENT_ID, STRIPE_PLATFORM_SECRET_KEY, and STRIPE_CONNECT_WEBHOOK_SECRET in the app’s production environment, then redeploy.",
+              "Once available, this business signs in to Stripe here. No Stripe API keys need to be pasted into this workspace.",
+            ]}
+            resources={[
+              {
+                label: "Open Stripe Dashboard",
+                href: "https://dashboard.stripe.com/settings/connect",
+              },
+              {
+                label: "Stripe Connect setup",
+                href: "https://docs.stripe.com/connect",
+              },
+              {
+                label: "Vercel environment variables",
+                href: "https://vercel.com/docs/environment-variables",
+              },
+            ]}
+          />
         )}
         {notice && <div className="success-note">{notice}</div>}
         {error && (

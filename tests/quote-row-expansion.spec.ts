@@ -49,15 +49,13 @@ test("quote item stays open while building and only retracts on its toggle", asy
   await newRow
     .getByRole("textbox", { name: "New item", exact: true })
     .fill("Kitchen cabinets");
-  await page
-    .getByRole("heading", { name: "Items, costs & pricing" })
-    .click();
+  await page.getByRole("heading", { name: "Items, costs & pricing" }).click();
   await expect(newRow).toBeVisible();
   await expect(
     newRow.getByRole("textbox", { name: "New item", exact: true }),
   ).toHaveValue("Kitchen cabinets");
   await newRow.getByLabel("Price per job for Kitchen cabinets").fill("1200");
-  await newRow.getByRole("button", { name: "Save Kitchen cabinets" }).click();
+  await newRow.getByRole("button", { name: "Save item", exact: true }).click();
   await expect(newRow).toHaveCount(0);
 
   const toggle = page.getByRole("button", { name: "Edit Kitchen cabinets" });
@@ -65,9 +63,7 @@ test("quote item stays open while building and only retracts on its toggle", asy
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   const editor = page.locator(".scope-inspector-row:not(.scope-new-row)");
   await editor.getByLabel("Price per job for Kitchen cabinets").fill("1300");
-  await page
-    .getByRole("heading", { name: "Items, costs & pricing" })
-    .click();
+  await page.getByRole("heading", { name: "Items, costs & pricing" }).click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(editor).toBeVisible();
   await toggle.click();

@@ -16,6 +16,7 @@ export const msaGeneralTerms = source.blocks;
 export const staffMsaInput = z.object({
   owner: z.string().trim().min(2).max(150),
   ownerEmail: z.email().max(320),
+  signedName: z.string().trim().min(2).max(200).optional(),
   signerTitle: z.string().trim().max(100).default(""),
   signatureMethod: signatureMethodSchema.default("drawn"),
   signatureStrokes: signatureStrokesSchema,
@@ -178,7 +179,7 @@ export function prepareMsa(
       .digest("hex"),
     staffUserId: signer.id,
     staffSignature: {
-      name: signer.name,
+      name: input.signedName?.trim() || signer.name,
       title: input.signerTitle,
       signedAt: at,
       signatureMethod: input.signatureMethod || "drawn",

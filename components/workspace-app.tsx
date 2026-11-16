@@ -118,6 +118,7 @@ import AutomationPanel from "./automation-panel";
 import AnalyticsPanel from "./analytics-panel";
 import { workspaceObjects } from "@/lib/workspace-objects";
 import { RegionalFormatProvider } from "./regional-format-context";
+import { productVisibility } from "@/lib/product-visibility";
 
 const tradeContactObject = workspaceObjects.tradeContact;
 type Page =
@@ -175,6 +176,13 @@ export default function WorkspaceApp({
     [config.regional.locale, config.regional.timezone],
   );
   const locationSharing = useLocationSharing(user, demo);
+  const canOpenPage = useCallback(
+    (next: Page) => {
+      if (next === "Analytics" && !productVisibility.analytics) return false;
+      return canOpenWorkspaceTab(config, user.group, next);
+    },
+    [config, user.group],
+  );
   const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
   const workspaceRef = useRef(workspace);
   const [loaded, setLoaded] = useState(false);
@@ -183,10 +191,10 @@ export default function WorkspaceApp({
   );
   const [loadError, setLoadError] = useState("");
   const [page, setPage] = useState<Page>(
-    canOpenWorkspaceTab(config, user.group, "Overview")
+    canOpenPage("Overview")
       ? "Overview"
       : (config.roleNavigation[user.group].find((tab) =>
-          canOpenWorkspaceTab(config, user.group, tab),
+          canOpenPage(tab),
         ) as Page | undefined) || "Settings",
   );
   const [projectId, setProjectId] = useState("");
@@ -329,10 +337,10 @@ export default function WorkspaceApp({
           config.roleNavigation[user.group].includes(
             nextPage as NavigationPage,
           )) &&
-          canOpenWorkspaceTab(config, user.group, nextPage as Page)
+          canOpenPage(nextPage as Page)
           ? (nextPage as Page)
           : (config.roleNavigation[user.group].find((tab) =>
-              canOpenWorkspaceTab(config, user.group, tab),
+              canOpenPage(tab),
             ) as Page | undefined) || "Settings",
       );
       setProjectId(
@@ -374,14 +382,14 @@ export default function WorkspaceApp({
       window.removeEventListener("popstate", readLocation);
       window.removeEventListener("keydown", keydown);
     };
-  }, [user.group, config]);
+  }, [user.group, config, canOpenPage]);
   function navigate(
     next: Page,
     id = "",
     tab: ProjectTab = "Overview",
     layout: UpcomingView = "Calendar",
   ) {
-    if (!canOpenWorkspaceTab(config, user.group, next)) return;
+    if (!canOpenPage(next)) return;
     setPage(next);
     setProjectId(id);
     setRecordId("");
@@ -1301,7 +1309,7 @@ export default function WorkspaceApp({
           { name: "Generate", icon: WandSparkles },
         ];
   const menus = baseMenus
-    .filter((item) => canOpenWorkspaceTab(config, user.group, item.name))
+    .filter((item) => canOpenPage(item.name))
     .sort(
       (a, b) =>
         config.roleNavigation[user.group].indexOf(a.name as NavigationPage) -
@@ -1784,7 +1792,7 @@ export default function WorkspaceApp({
                   }
                 />
               )}
-              {page === "Analytics" && (
+              {productVisibility.analytics && page === "Analytics" && (
                 <AnalyticsPanel
                   demo={demo}
                   canManage={

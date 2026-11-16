@@ -131,7 +131,7 @@ export default function SettingsPanel({
                   [
                     "connections",
                     "Connections",
-                    "Email, phone & developer access",
+                    "Email, reviews, phone & payments",
                   ],
                 ] as const)
               : []),
@@ -226,9 +226,9 @@ export default function SettingsPanel({
             <span className="eyebrow">SET UP YOUR BUSINESS</span>
             <h2>Connect the tools your company uses.</h2>
             <p>
-              Each business keeps its own mailbox and phone account. An
-              administrator can connect them here; teammates do not need access
-              to the credentials.
+              Choose Connect when a provider supports sign-in. For manual
+              connections, follow the steps and provider links beside the
+              fields. Connections and credentials stay with this business.
             </p>
           </div>
           <GoogleMailSettings demo={demo} />
