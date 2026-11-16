@@ -49,6 +49,8 @@ export default function ProjectPayments({
   const [copied, setCopied] = useState(false);
   const [checkoutReady, setCheckoutReady] = useState(false);
   const [stripeReason, setStripeReason] = useState("");
+  const [checkoutCheckFailed, setCheckoutCheckFailed] = useState(false);
+  const [checkoutCheckAttempt, setCheckoutCheckAttempt] = useState(0);
   useEffect(() => {
     if (!canCreateCardLink || !stripeConnectionReady) return;
     const controller = new AbortController();
@@ -56,18 +58,32 @@ export default function ProjectPayments({
       cache: "no-store",
       signal: controller.signal,
     })
-      .then((response) => (response.ok ? response.json() : { enabled: false }))
+      .then(async (response) => {
+        const config = await response.json();
+        if (!response.ok)
+          throw new Error(config.error || "Could not check card payments.");
+        return config;
+      })
       .then((config) => {
         if (!controller.signal.aborted) {
           setCheckoutReady(config.enabled === true);
           setStripeReason(config.reason || "");
+          setCheckoutCheckFailed(false);
         }
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setCheckoutReady(false);
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setCheckoutReady(false);
+          setCheckoutCheckFailed(true);
+          setStripeReason(
+            error instanceof Error
+              ? error.message
+              : "Could not check card payments.",
+          );
+        }
       });
     return () => controller.abort();
-  }, [canCreateCardLink, stripeConnectionReady]);
+  }, [canCreateCardLink, stripeConnectionReady, checkoutCheckAttempt]);
   const stripeReady = stripeConnectionReady && checkoutReady;
   const finances = projectFinances(
     project,
@@ -157,8 +173,24 @@ export default function ProjectPayments({
         />
       )}
       {canCreateCardLink && stripeReason && (
-        <p className="payment-balance-note" role="status">
+        <p
+          className="payment-balance-note"
+          role={checkoutCheckFailed ? "alert" : "status"}
+        >
           {stripeReason}
+          {checkoutCheckFailed && (
+            <button
+              type="button"
+              className="button secondary small-button"
+              onClick={() => {
+                setStripeReason("Checking card payments…");
+                setCheckoutCheckFailed(false);
+                setCheckoutCheckAttempt((attempt) => attempt + 1);
+              }}
+            >
+              Retry card payment check
+            </button>
+          )}
         </p>
       )}
       {paymentDialog && (
