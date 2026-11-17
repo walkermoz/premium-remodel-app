@@ -60,12 +60,22 @@ export type WorkflowRuntimeExecutor = (input: {
   output?: Record<string, unknown>;
 }>;
 
-export class WorkflowConfigurationError extends Error {
-  readonly code = "CONFIGURATION_REQUIRED";
+export class WorkflowActionError extends Error {
   readonly retryable = false;
 
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly output: Record<string, unknown> = {},
+    readonly code = "ACTION_FAILED",
+  ) {
     super(message);
+    this.name = "WorkflowActionError";
+  }
+}
+
+export class WorkflowConfigurationError extends WorkflowActionError {
+  constructor(message: string, output: Record<string, unknown> = {}) {
+    super(message, output, "CONFIGURATION_REQUIRED");
     this.name = "WorkflowConfigurationError";
   }
 }
@@ -77,6 +87,7 @@ export class WorkflowNodeExecutionError extends Error {
   readonly idempotencyKey: string;
   readonly errorCode: string;
   readonly retryable: boolean;
+  readonly output: Record<string, unknown>;
 
   constructor(input: {
     node: WorkflowNode;
@@ -96,8 +107,12 @@ export class WorkflowNodeExecutionError extends Error {
     this.state = structuredClone(input.state);
     this.steps = structuredClone(input.steps);
     this.idempotencyKey = input.idempotencyKey;
+    this.output =
+      input.cause instanceof WorkflowActionError
+        ? structuredClone(input.cause.output)
+        : {};
     this.errorCode =
-      input.cause instanceof WorkflowConfigurationError
+      input.cause instanceof WorkflowActionError
         ? input.cause.code
         : "ACTION_FAILED";
     this.retryable =
