@@ -449,6 +449,8 @@ const triggerNames: Record<string, string> = {
   "trigger.quoteDeclined": "Quote declined",
   "trigger.quoteSigned": "Quote signed",
   "trigger.depositReceived": "Deposit received",
+  "trigger.invoiceCreated": "Invoice created",
+  "trigger.invoicePaymentReceived": "Invoice payment received",
   "trigger.projectCreated": "Project created",
   "trigger.projectStatusChanged": "Project status changed",
   "trigger.itemCreated": "Item created",

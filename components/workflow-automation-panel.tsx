@@ -153,6 +153,8 @@ const triggerEventByType: Record<string, WorkflowEvent["type"]> = {
   "trigger.quoteDeclined": "quote.declined",
   "trigger.quoteSigned": "quote.signed",
   "trigger.depositReceived": "payment.deposit.received",
+  "trigger.invoiceCreated": "invoice.created",
+  "trigger.invoicePaymentReceived": "invoice.payment.received",
   "trigger.projectCreated": "project.created",
   "trigger.projectStatusChanged": "project.status.changed",
   "trigger.itemCreated": "item.created",
@@ -1113,14 +1115,18 @@ function sampleEvent(detail: WorkflowDetail): WorkflowEvent {
     "workflow.manual") as WorkflowEvent["type"];
   const website = type === "website.form.submitted";
   const inboundSms = type === "sms.inbound.received";
+  const invoice = type === "invoice.created";
   return {
     id: crypto.randomUUID(),
     schemaVersion: 1,
     type,
     organizationId: "00000000-0000-4000-8000-000000000099",
     actor:
-      website || inboundSms
-        ? { type: "contact", name: website ? "Taylor Reed" : "SMS Contact" }
+      website || inboundSms || invoice
+        ? {
+            type: "contact",
+            name: website || invoice ? "Taylor Reed" : "SMS Contact",
+          }
         : { type: "user", name: "Workflow tester" },
     objectType: website
       ? "lead"
@@ -1131,7 +1137,17 @@ function sampleEvent(detail: WorkflowDetail): WorkflowEvent {
     occurredAt: new Date().toISOString(),
     correlationId: crypto.randomUUID(),
     idempotencyKey: crypto.randomUUID(),
-    payload: website
+    payload: invoice
+      ? {
+          invoiceNumber: "INV-1042",
+          customerName: "Taylor Reed",
+          email: "taylor@example.com",
+          phone: "+19195550123",
+          amountDue: "$4,250.00",
+          amountDueCents: 425_000,
+          invoiceUrl: "https://example.com/client/invoice",
+        }
+      : website
       ? {
           firstName: "Taylor",
           lastName: "Reed",
@@ -1234,7 +1250,10 @@ export default function WorkflowAutomationPanel({
   const [createObject, setCreateObject] =
     useState<WorkflowObjectType>("contact");
   const [createTemplate, setCreateTemplate] = useState<
-    "blank" | "lead-follow-up" | "project-item-handoff"
+    | "blank"
+    | "lead-follow-up"
+    | "project-item-handoff"
+    | "invoice-payment-reminders"
   >("blank");
   const [undoStack, setUndoStack] = useState<WorkflowDefinition[]>([]);
   const [redoStack, setRedoStack] = useState<WorkflowDefinition[]>([]);
@@ -1661,6 +1680,11 @@ export default function WorkflowAutomationPanel({
       "event.payload.status",
       "event.payload.stage",
       "event.payload.disposition",
+      "event.payload.invoiceNumber",
+      "event.payload.customerName",
+      "event.payload.amountDue",
+      "event.payload.amountDueCents",
+      "event.payload.invoiceUrl",
       "event.payload.smsAppointmentOptIn",
       "event.payload.smsMarketingOptIn",
       "organization.id",
@@ -6783,12 +6807,17 @@ export default function WorkflowAutomationPanel({
                   if (template === "lead-follow-up") setCreateObject("lead");
                   if (template === "project-item-handoff")
                     setCreateObject("project");
+                  if (template === "invoice-payment-reminders")
+                    setCreateObject("invoice");
                 }}
               >
                 <option value="blank">Blank workflow</option>
                 <option value="lead-follow-up">Lead follow-up template</option>
                 <option value="project-item-handoff">
                   Project Item handoff template
+                </option>
+                <option value="invoice-payment-reminders">
+                  Invoice payment reminders template
                 </option>
               </select>
             </label>
@@ -6811,6 +6840,7 @@ export default function WorkflowAutomationPanel({
                     "communication",
                     "appointment",
                     "payment",
+                    "invoice",
                   ] as WorkflowObjectType[]
                 ).map((item) => (
                   <option key={item} value={item}>

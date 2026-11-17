@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { clientContractInvoice } from "@/lib/client-invoice";
+import {
+  clientContractInvoice,
+  invoiceFollowUp,
+} from "@/lib/client-invoice";
 import type { MsaAgreement } from "@/lib/types";
 
 const agreement = {
@@ -38,4 +41,29 @@ test("payments reduce the invoice and deposit balances", () => {
 
 test("an unsigned agreement does not create an invoice", () => {
   expect(clientContractInvoice({ ...agreement, status: "sent" }, 0)).toBeNull();
+});
+
+test("invoice follow-up becomes a reminder and then overdue", () => {
+  const invoice = clientContractInvoice(agreement, 0)!;
+  expect(
+    invoiceFollowUp(invoice, "2026-11-01T12:00:00.000Z", "2026-11-02T12:00:00.000Z"),
+  ).toMatchObject({ state: "due", label: "Deposit due" });
+  expect(
+    invoiceFollowUp(invoice, "2026-11-01T12:00:00.000Z", "2026-11-05T12:00:00.000Z"),
+  ).toMatchObject({ state: "reminder", label: "Friendly reminder" });
+  expect(
+    invoiceFollowUp(invoice, "2026-11-01T12:00:00.000Z", "2026-11-08T12:00:00.000Z"),
+  ).toMatchObject({
+    state: "overdue",
+    label: "Payment follow-up needed",
+  });
+});
+
+test("recorded payments stop deposit follow-up", () => {
+  const depositRecorded = clientContractInvoice(agreement, 987_500)!;
+  const paid = clientContractInvoice(agreement, 1_975_000)!;
+  expect(invoiceFollowUp(depositRecorded, undefined)).toMatchObject({
+    state: "deposit-recorded",
+  });
+  expect(invoiceFollowUp(paid, undefined)).toMatchObject({ state: "paid" });
 });

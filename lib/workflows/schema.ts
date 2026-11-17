@@ -12,6 +12,7 @@ export const workflowObjectTypes = [
   "communication",
   "appointment",
   "payment",
+  "invoice",
   "user",
   "event",
 ] as const;
@@ -32,6 +33,8 @@ export const workflowEventTypes = [
   "quote.declined",
   "quote.signed",
   "payment.deposit.received",
+  "invoice.created",
+  "invoice.payment.received",
   "project.created",
   "project.status.changed",
   "item.created",
@@ -47,7 +50,7 @@ export const workflowEventTypeSchema = z.enum(workflowEventTypes);
 export type WorkflowEventType = z.infer<typeof workflowEventTypeSchema>;
 
 const contextRootPattern =
-  /^(trigger|event|organization|contact|lead|quote|project|item|actor|outputs)(?:\.[A-Za-z_][A-Za-z0-9_-]*)+$/;
+  /^(trigger|event|organization|contact|lead|quote|project|item|invoice|actor|outputs)(?:\.[A-Za-z_][A-Za-z0-9_-]*)+$/;
 
 export const workflowReferenceSchema = z.object({
   kind: z.literal("reference"),
@@ -366,6 +369,7 @@ export type WorkflowContext = {
   quote?: Record<string, unknown>;
   project?: Record<string, unknown>;
   item?: Record<string, unknown>;
+  invoice?: Record<string, unknown>;
   actor?: Record<string, unknown>;
   outputs?: Record<string, Record<string, unknown>>;
 };
