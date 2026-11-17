@@ -42,6 +42,7 @@ export function preserveProjectHistory(
     "importedFrom",
     "importedSources",
     "importedAt",
+    "jobCostBudgetSnapshot",
   ] as const) {
     if (
       current &&

@@ -18,6 +18,7 @@ import { publishedQuoteFlowVersion } from "./quote-flow-templates";
 import { supabaseAdmin } from "./supabase/server";
 import type { Activity, Quote } from "./types";
 import { enqueueWorkflowEvent } from "./workflows/events";
+import { captureJobCostBudgetSnapshot } from "./job-cost-budget";
 
 type FlowInstanceRow = {
   id: string;
@@ -1587,6 +1588,13 @@ export async function convertQuoteFlowToProject(
     ...(record.data.data as Record<string, unknown>),
     status: "Planning",
     completedDate: "",
+    jobCostBudgetSnapshot:
+      (record.data.data as Record<string, unknown>).jobCostBudgetSnapshot ||
+      (await captureJobCostBudgetSnapshot(
+        user.organizationId,
+        row.quote_id,
+        now,
+      )),
     updatedAt: now,
   };
   const converted = await supabaseAdmin().rpc("remodel_complete_quote_flow", {

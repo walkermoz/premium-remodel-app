@@ -14,6 +14,7 @@ export const workflowObjectTypes = [
   "payment",
   "user",
   "event",
+  "actual_cost",
 ] as const;
 
 export const workflowObjectTypeSchema = z.enum(workflowObjectTypes);
@@ -37,6 +38,9 @@ export const workflowEventTypes = [
   "item.created",
   "item.assigned",
   "item.completed",
+  "project.cost.recorded",
+  "project.cost.updated",
+  "project.cost.over_budget",
   "sms.inbound.received",
   "schedule.reached",
   "workflow.manual",

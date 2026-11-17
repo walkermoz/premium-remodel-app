@@ -15,6 +15,7 @@ const recordTabs: Record<EntityKind, NavigationPage[]> = {
   alert: ["Settings"],
   contact: ["Contacts", "Leads", "Quotes", "Door knocking", "Automation"],
   lead: ["Overview", "Leads", "Quotes", "Door knocking", "Automation"],
+  actual_cost: ["Projects"],
   door_visit: ["Door knocking"],
 };
 const recordEditTabs: Record<EntityKind, NavigationPage[]> = {
@@ -29,6 +30,7 @@ const recordEditTabs: Record<EntityKind, NavigationPage[]> = {
   alert: ["Settings"],
   contact: ["Contacts", "Leads", "Quotes"],
   lead: ["Leads"],
+  actual_cost: ["Projects"],
   door_visit: ["Door knocking"],
 };
 
@@ -86,6 +88,7 @@ export function filterWorkspaceForTabs(
     ["contact", "contacts"],
     ["lead", "leads"],
     ["door_visit", "doorVisits"],
+    ["actual_cost", "actualCosts"],
   ];
   for (const [kind, key] of collections) {
     if (!canAccessWorkspaceRecord(config, group, kind))

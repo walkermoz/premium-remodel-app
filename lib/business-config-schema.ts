@@ -51,6 +51,7 @@ export const organizationCapabilities = [
   "quotes.manage",
   "generation.manage",
   "locations.view",
+  "job_costs.manage",
 ] as const;
 
 export const organizationPaymentProviderIds = ["manual", "stripe"] as const;
@@ -157,6 +158,10 @@ export const organizationCapabilityLabels: Record<
     label: "Team locations",
     description:
       "View current location-sharing positions for the organization.",
+  },
+  "job_costs.manage": {
+    label: "Job costs",
+    description: "Record actual project costs and review budget variance.",
   },
 };
 

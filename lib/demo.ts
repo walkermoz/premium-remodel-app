@@ -7,6 +7,7 @@ import type {
   Contact,
   Lead,
   DoorVisit,
+  ActualCost,
 } from "./types";
 function day(offset: number) {
   const d = new Date();
@@ -357,6 +358,36 @@ export function demoWorkspace(): Workspace {
       canvasserName: "Alex Morgan",
     },
   ];
+  const actualCosts: ActualCost[] = [
+    {
+      ...base,
+      id: "cost-demo-1",
+      projectId: "p1",
+      scopeItemId: "s1",
+      category: "Materials",
+      description: "Flooring delivery",
+      vendor: "Triangle Flooring Supply",
+      amount: 3380,
+      incurredAt: day(-4),
+      notes: "Includes delivery fee.",
+      recordedById: "demo",
+      recordedByName: "Alex Morgan",
+    },
+    {
+      ...base,
+      id: "cost-demo-2",
+      projectId: "p1",
+      scopeItemId: "s4",
+      category: "Subcontractor",
+      description: "Cabinet installation draw",
+      vendor: "Wilson General Contracting",
+      amount: 7900,
+      incurredAt: day(-2),
+      notes: "First progress draw.",
+      recordedById: "demo",
+      recordedByName: "Alex Morgan",
+    },
+  ];
   return {
     projects,
     tasks,
@@ -367,6 +398,7 @@ export function demoWorkspace(): Workspace {
     contacts,
     leads,
     doorVisits,
+    actualCosts,
     comments: [
       {
         ...base,
