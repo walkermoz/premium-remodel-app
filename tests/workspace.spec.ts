@@ -53,7 +53,7 @@ cloudTest(
     await page.getByRole("button", { name: "Planning", exact: true }).click();
     await page.getByRole("heading", { name: "Real test kitchen" }).click();
     await expect(
-      page.getByRole("heading", { name: "Project brief" }),
+      page.getByText("Flooring, countertops, and electrical.", { exact: true }),
     ).toBeVisible();
     for (const item of [
       {
@@ -310,6 +310,7 @@ cloudTest(
       ).status(),
     ).toBe(400);
     // Invite another user, and prove their separate session sees the same company records.
+    await page.getByRole("button", { name: "Open navigation" }).click();
     await page.getByRole("button", { name: "Team", exact: true }).click();
     await page.getByRole("button", { name: "Invite teammate" }).click();
     dialog = page.getByRole("dialog");
