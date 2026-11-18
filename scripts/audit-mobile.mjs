@@ -10,6 +10,10 @@ const knownAdvisories = new Set([
   // Expo SDK 57's build-time glob tooling has no compatible patched release.
   "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4",
   "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+  // Withdrawn upstream on 2026-11-18 (see the advisory and picomatch#235).
+  // Expo/Metro consume repository-owned build globs; mobile app code does not
+  // accept user-supplied glob patterns. No patched picomatch release exists.
+  "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
 ]);
 
 const onWindows = process.platform === "win32";
