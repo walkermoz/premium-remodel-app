@@ -7,7 +7,7 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   );
   await page.reload();
 
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   await page.getByLabel("Quote name").fill("Workflow kitchen quote");
   await page.getByLabel("Contact name").fill("Taylor Reed");
   await page.getByLabel("Email").fill("taylor@example.com");

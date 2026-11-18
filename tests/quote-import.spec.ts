@@ -43,7 +43,7 @@ cloudTest(
     await page.getByLabel("Work email").fill(company.email);
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await page.getByRole("button", { name: "Quotes", exact: true }).click();
+    await page.getByRole("button", { name: "Jobs", exact: true }).click();
     await page.getByRole("button", { name: "Import PDFs" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.locator('input[type="file"]').setInputFiles([

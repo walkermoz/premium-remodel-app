@@ -43,6 +43,7 @@ import {
   Newspaper,
 } from "lucide-react";
 import { demoWorkspace } from "@/lib/demo";
+import { jobWorkspaceDemo } from "@/lib/demo-job-workspace";
 import { quoteProjectHandoffDemoWorkspace } from "@/lib/demo-quote-handoff";
 import { contractorServices } from "@/lib/contractor-services";
 import { contactPhotoUrl } from "@/lib/contact-photo";
@@ -68,10 +69,7 @@ import {
   type DoorVisit,
 } from "@/lib/types";
 import { overdue, projectReference } from "@/lib/utils";
-import {
-  scopeTotal,
-  preserveScopeCosts,
-} from "@/lib/project-finances";
+import { scopeTotal, preserveScopeCosts } from "@/lib/project-finances";
 import { nextQuoteNumber, preserveProjectHistory } from "@/lib/quotes";
 import {
   leadDisposition,
@@ -79,7 +77,8 @@ import {
   quotePrefillFromLead,
   withDispositionChange,
 } from "@/lib/leads";
-import QuotesPanel, { QuoteDetail } from "./quotes-panel";
+import { QuoteDetail } from "./quotes-panel";
+import JobsPanel from "./jobs-panel";
 import { schemas } from "@/lib/schemas";
 import {
   buildManualLeadRecords,
@@ -149,8 +148,12 @@ export default function WorkspaceApp({
   user: User;
   config: BusinessConfig;
   demo?: boolean;
-  demoScenario?: "quote-project-handoff";
+  demoScenario?: "quote-project-handoff" | "job-workspace";
 }) {
+  const sampleStorageKey =
+    demoScenario === "job-workspace"
+      ? "premium-remodel-job-workspace-v1"
+      : demoKey;
   const money = useCallback(
     (value: number) =>
       new Intl.NumberFormat(config.regional.locale, {
@@ -193,9 +196,8 @@ export default function WorkspaceApp({
   const [page, setPage] = useState<Page>(
     canOpenPage("Overview")
       ? "Overview"
-      : (config.roleNavigation[user.group].find((tab) =>
-          canOpenPage(tab),
-        ) as Page | undefined) || "Settings",
+      : (config.roleNavigation[user.group].find((tab) => canOpenPage(tab)) as
+          Page | undefined) || "Settings",
   );
   const [projectId, setProjectId] = useState("");
   const [recordId, setRecordId] = useState("");
@@ -246,11 +248,12 @@ export default function WorkspaceApp({
   }, [toast]);
   const commit = useCallback(
     (next: Workspace, persist = false) => {
-      if (demo && persist) localStorage.setItem(demoKey, JSON.stringify(next));
+      if (demo && persist)
+        localStorage.setItem(sampleStorageKey, JSON.stringify(next));
       workspaceRef.current = next;
       setWorkspace(next);
     },
-    [demo],
+    [demo, sampleStorageKey],
   );
   const refresh = useCallback(async () => {
     const version = syncVersion.current;
@@ -262,7 +265,7 @@ export default function WorkspaceApp({
           setLoaded(true);
           return;
         }
-        const stored = localStorage.getItem(demoKey);
+        const stored = localStorage.getItem(sampleStorageKey);
         if (stored) {
           const parsed = JSON.parse(stored);
           if (!Array.isArray(parsed.projects) || !Array.isArray(parsed.tasks))
@@ -287,7 +290,12 @@ export default function WorkspaceApp({
                 ? [...savedContractors, sampleContractor]
                 : savedContractors,
           });
-        } else commit(demoWorkspace());
+        } else
+          commit(
+            demoScenario === "job-workspace"
+              ? jobWorkspaceDemo()
+              : demoWorkspace(),
+          );
       } else {
         const response = await fetch("/api/workspace", { cache: "no-store" });
         if (response.status === 401) {
@@ -308,7 +316,7 @@ export default function WorkspaceApp({
           : "Could not load the workspace. Please try again.",
       );
     }
-  }, [demo, demoScenario, commit]);
+  }, [demo, demoScenario, commit, sampleStorageKey]);
   useEffect(() => {
     const timer = setTimeout(() => void refresh(), 0);
     const updateDay = () =>
@@ -350,7 +358,9 @@ export default function WorkspaceApp({
           : "",
       );
       setRecordId(
-        nextPage === "Contacts" || nextPage === "Leads" || nextPage === "Upcoming"
+        nextPage === "Contacts" ||
+          nextPage === "Leads" ||
+          nextPage === "Upcoming"
           ? params.get("record") || ""
           : "",
       );
@@ -399,6 +409,7 @@ export default function WorkspaceApp({
     setSearch("");
     setFilter("In progress");
     const params = new URLSearchParams({ view: next });
+    if (demo && demoScenario) params.set("scenario", demoScenario);
     if (demo && user.group === "doorknocker") params.set("as", "doorknocker");
     if (id) params.set("project", id);
     if (id && tab !== "Overview") params.set("tab", tab);
@@ -1219,10 +1230,12 @@ export default function WorkspaceApp({
     if (kind === "scope") void removeRecord({ kind, entity });
     else setDeleting({ kind, entity });
   };
-  const selected = workspace.projects.find((p) => p.id === projectId);
-  const selectedQuote = (workspace.quotes || []).find(
-    (quote) => quote.id === projectId,
-  );
+  const selected = canOpenPage("Projects")
+    ? workspace.projects.find((p) => p.id === projectId)
+    : undefined;
+  const selectedQuote = canOpenPage("Quotes")
+    ? (workspace.quotes || []).find((quote) => quote.id === projectId)
+    : undefined;
   const openTasks = workspace.tasks.filter((t) => t.status !== "Done");
   const lateTasks = openTasks.filter((t) => overdue(t.dueDate, t.status));
   const activeProjects = workspace.projects.filter(
@@ -1309,7 +1322,11 @@ export default function WorkspaceApp({
           { name: "Generate", icon: WandSparkles },
         ];
   const menus = baseMenus
-    .filter((item) => canOpenPage(item.name))
+    .filter(
+      (item) =>
+        canOpenPage(item.name) &&
+        !(item.name === "Quotes" && canOpenPage("Projects")),
+    )
     .sort(
       (a, b) =>
         config.roleNavigation[user.group].indexOf(a.name as NavigationPage) -
@@ -1424,1056 +1441,1098 @@ export default function WorkspaceApp({
     );
   }
   const visiblePageName =
-    page === "Contractors" ? tradeContactObject.pluralTitle : page;
+    page === "Contractors"
+      ? tradeContactObject.pluralTitle
+      : ["Projects", "Quotes"].includes(page)
+        ? "Jobs"
+        : page;
   return (
     <RegionalFormatProvider value={config.regional}>
-    <div className="app-shell">
-      {sidebar && (
-        <button
-          className="sidebar-backdrop"
-          onClick={() => setSidebar(false)}
-          aria-label="Close navigation"
-        />
-      )}
-      <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
-        <Link href={demo ? "/demo" : "/"} className="brand">
-          {config.profile.logoUrl ? (
-            <>
-              <img
-                className={
-                  config.profile.logoDarkUrl ? "brand-logo-default" : undefined
-                }
-                src={config.profile.logoUrl}
-                alt={config.profile.name}
-              />
-              {config.profile.logoDarkUrl && (
+      <div
+        className={`app-shell ${selected || selectedQuote ? "job-workspace-active" : ""}`}
+      >
+        {sidebar && (
+          <button
+            className="sidebar-backdrop"
+            onClick={() => setSidebar(false)}
+            aria-label="Close navigation"
+          />
+        )}
+        <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
+          <Link href={demo ? "/demo" : "/"} className="brand">
+            {config.profile.logoUrl ? (
+              <>
                 <img
-                  className="brand-logo-dark"
-                  src={config.profile.logoDarkUrl}
+                  className={
+                    config.profile.logoDarkUrl
+                      ? "brand-logo-default"
+                      : undefined
+                  }
+                  src={config.profile.logoUrl}
                   alt={config.profile.name}
                 />
-              )}
-            </>
-          ) : (
-            <strong>{config.profile.name}</strong>
-          )}
-        </Link>
-        <OrganizationSwitcher
-          currentName={config.profile.name}
-          logoMarkUrl={config.profile.logoMarkUrl}
-          demo={demo}
-        />
-        <span className="nav-label">WORKSPACE</span>
-        <nav aria-label="Main navigation">
-          {menus.map((item) => (
-            <button
-              key={item.name}
-              className={`nav-item ${page === item.name || (page === "Activity" && item.name === "Overview") ? "active" : ""}`}
-              onClick={() => navigate(item.name)}
-            >
-              <item.icon size={18} />
-              <span>
-                {item.name === "Contractors"
-                  ? tradeContactObject.pluralTitle
-                  : item.name}
-              </span>
-              {!!item.count && <span className="nav-count">{item.count}</span>}
-            </button>
-          ))}
-        </nav>
-        <span className="nav-label team-label">COMPANY</span>
-        <nav aria-label="Company navigation">
-          {companyMenus.map((item) => (
-            <button
-              key={item.name}
-              className={`nav-item ${page === item.name ? "active" : ""}`}
-              onClick={() => navigate(item.name)}
-            >
-              <item.icon size={18} />
-              {item.name}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          {config.profile.website && (
-            <a
-              className="website-link"
-              href={config.profile.website}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <ExternalLink size={15} />
-              Visit our website
-              <ArrowUpRight size={14} />
-            </a>
-          )}
-          {demo && (
-            <div className="sample-sidebar">
-              <span className="sample-indicator" />
-              You’re in the sample workspace.
-              <Link href="/login">
-                Set up your workspace
-                <ArrowRight size={13} />
-              </Link>
-            </div>
-          )}
-          <div className="profile">
-            <Avatar name={user.name} />
-            <button
-              className="profile-info"
-              onClick={() => navigate("Settings")}
-            >
-              <strong>{user.name}</strong>
-              <span>
-                {user.role === "admin"
-                  ? "Administrator"
-                  : user.group === "doorknocker"
-                    ? "Door knocker"
-                    : "Team member"}
-              </span>
-            </button>
-            <button
-              className="icon-button"
-              aria-label={demo ? "Exit sample workspace" : "Sign out"}
-              onClick={async () => {
-                await locationSharing.stop();
-                if (!demo) {
-                  try {
-                    const r = await fetch("/api/auth", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ action: "logout" }),
-                    });
-                    if (!r.ok)
-                      throw new Error("Could not sign out. Try again.");
-                  } catch (e) {
-                    notify(
-                      e instanceof Error ? e.message : "Could not sign out",
-                      true,
-                    );
-                    return;
-                  }
-                }
-                window.location.href = "/login";
-              }}
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      </aside>
-      <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
-            <button
-              className="mobile-menu icon-button"
-              aria-label="Open navigation"
-              onClick={() => setSidebar(true)}
-            >
-              <Menu size={20} />
-            </button>
-            <span>{config.profile.name}</span>
-            <ChevronRight size={13} />
-            <strong>
-              {selectedQuote
-                ? "Quotes"
-                : projectId
-                  ? "Projects"
-                  : visiblePageName}
-            </strong>
-            {(selected || selectedQuote) && (
-              <>
-                <ChevronRight size={13} />
-                <span className="breadcrumb-project">
-                  {(selected || selectedQuote)?.name}
-                </span>
-              </>
-            )}
-          </div>
-          <div className="topbar-right">
-            {(locationSharing.sharing || locationSharing.pendingStop) && (
-              <button
-                className="icon-button location-indicator"
-                aria-label={
-                  locationSharing.pendingStop
-                    ? "Location sharing stopped; removal pending"
-                    : "Location sharing is on. Open sharing controls"
-                }
-                title={
-                  locationSharing.pendingStop
-                    ? "Location removal pending"
-                    : "Sharing location"
-                }
-                onClick={() => navigate("Team map")}
-              >
-                <LocateFixed size={18} />
-              </button>
-            )}
-            <ThemeToggle />
-            {!projectId &&
-              [
-                "Overview",
-                "Projects",
-                "Quotes",
-                "Leads",
-                "Contractors",
-              ].includes(page) && (
-                <div className="global-search">
-                  <Search size={16} />
-                  <input
-                    ref={searchInput}
-                    aria-label={`Search ${page === "Overview" ? "projects" : visiblePageName.toLowerCase()}`}
-                    placeholder={`Search ${page === "Overview" ? "projects" : visiblePageName.toLowerCase()}…`}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                {config.profile.logoDarkUrl && (
+                  <img
+                    className="brand-logo-dark"
+                    src={config.profile.logoDarkUrl}
+                    alt={config.profile.name}
                   />
-                  {search ? (
-                    <button
-                      className="icon-button"
-                      aria-label="Clear search"
-                      onClick={() => setSearch("")}
-                    >
-                      <X size={13} />
-                    </button>
-                  ) : (
-                    <kbd>⌘ K</kbd>
-                  )}
-                </div>
-              )}
-            <span className="topbar-separator" />
-            <button
-              className="topbar-avatar"
-              aria-label="Account settings"
-              onClick={() => navigate("Settings")}
-            >
-              <Avatar name={user.name} small />
-            </button>
-          </div>
-        </header>
-        <main className="main-content">
-          {loadError && (
-            <div className="alert load-error">
-              <CircleAlert size={17} />
-              {loadError}
-              <button className="text-button" onClick={() => void refresh()}>
-                <RefreshCw size={14} />
-                Retry
+                )}
+              </>
+            ) : (
+              <strong>{config.profile.name}</strong>
+            )}
+          </Link>
+          <OrganizationSwitcher
+            currentName={config.profile.name}
+            logoMarkUrl={config.profile.logoMarkUrl}
+            demo={demo}
+          />
+          <span className="nav-label">WORKSPACE</span>
+          <nav aria-label="Main navigation">
+            {menus.map((item) => (
+              <button
+                key={item.name}
+                className={`nav-item ${page === item.name || (page === "Activity" && item.name === "Overview") ? "active" : ""}`}
+                onClick={() => navigate(item.name)}
+              >
+                <item.icon size={18} />
+                <span>
+                  {item.name === "Contractors"
+                    ? tradeContactObject.pluralTitle
+                    : item.name === "Projects" || item.name === "Quotes"
+                      ? "Jobs"
+                      : item.name}
+                </span>
+                {!!item.count && (
+                  <span className="nav-count">{item.count}</span>
+                )}
               </button>
-            </div>
-          )}
-          {!loaded ? (
-            !loadError && <Loading />
-          ) : selected ? (
-            <ProjectDetail
-              key={selected.id}
-              project={selected}
-              contractToday={contractToday}
-              workspace={workspace}
-              user={user}
-              demo={demo}
-              onBack={() => navigate("Projects")}
-              onEdit={setEditor}
-              onLogActivity={(id) => logActivity(id)}
-              onLogPayment={(id) => logActivity(id, "Payment received")}
-              onSave={async (...args) => {
-                await save(...args);
-              }}
-              onDelete={requestDelete}
-              onUpload={upload}
-              onToggle={toggle}
-              notify={notify}
-              tab={projectTab}
-              onTabChange={changeProjectTab}
-              upcomingView={upcomingView}
-              onUpcomingViewChange={changeUpcomingView}
-            />
-          ) : selectedQuote ? (
-            <QuoteDetail
-              key={selectedQuote.id}
-              quote={selectedQuote}
-              workspace={workspace}
-              user={user}
-              config={config}
-              demo={demo}
-              onBack={() => navigate("Quotes")}
-              onEdit={setEditor}
-              onSave={save}
-              onReorderScope={reorderQuoteScope}
-              onPriceScope={priceQuoteScope}
-              onAccept={accept}
-              onDelete={requestDelete}
-              onUpload={upload}
-              onSent={refresh}
-              onProjectReady={(id) => navigate("Projects", id)}
-            />
-          ) : projectId ? (
-            <Empty
-              title="Project not found"
-              text="This project is no longer available."
-              action={
-                <button
-                  className="button primary"
-                  onClick={() => navigate("Projects")}
-                >
-                  Back to projects
-                </button>
-              }
-            />
-          ) : (
-            <>
-              {page === "Quotes" && (
-                <QuotesPanel
-                  workspace={workspace}
-                  search={search}
-                  onNew={() => setEditor({ kind: "quote" })}
-                  onOpen={(id) => navigate("Quotes", id)}
-                  onImport={importQuotes}
-                  onSaveQuote={(data, quote) => save("quote", data, quote)}
-                  demo={demo}
-                />
-              )}
-              {page === "Price book" && config.features.priceBook && (
-                <PricebookPanel
-                  contractors={workspace.contractors}
-                  demo={demo}
-                  canManage={
-                    user.group === "owner" ||
-                    config.rolePermissions[user.group].includes(
-                      "pricebook.manage",
-                    )
-                  }
-                />
-              )}
-              {page === "Door knocking" && (
-                <DoorKnockingPanel
-                  workspace={workspace}
-                  onSave={saveDoorVisit}
-                />
-              )}
-              {page === "Leads" && (
-                <LeadsPanel
-                  canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
-                  leads={workspace.leads}
-                  contacts={workspace.contacts}
-                  quotes={workspace.quotes || []}
-                  search={search}
-                  demo={demo}
-                  initialLeadId={recordId}
-                  onSaveLead={(data, lead) => save("lead", data, lead)}
-                  onCreateLead={createLead}
-                  onQuote={(lead, contact, quote) => {
-                    if (quote) {
-                      navigate("Quotes", quote.id);
+            ))}
+          </nav>
+          <span className="nav-label team-label">COMPANY</span>
+          <nav aria-label="Company navigation">
+            {companyMenus.map((item) => (
+              <button
+                key={item.name}
+                className={`nav-item ${page === item.name ? "active" : ""}`}
+                onClick={() => navigate(item.name)}
+              >
+                <item.icon size={18} />
+                {item.name}
+              </button>
+            ))}
+          </nav>
+          <div className="sidebar-bottom">
+            {config.profile.website && (
+              <a
+                className="website-link"
+                href={config.profile.website}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink size={15} />
+                Visit our website
+                <ArrowUpRight size={14} />
+              </a>
+            )}
+            {demo && (
+              <div className="sample-sidebar">
+                <span className="sample-indicator" />
+                You’re in the sample workspace.
+                <Link href="/login">
+                  Set up your workspace
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
+            )}
+            <div className="profile">
+              <Avatar name={user.name} />
+              <button
+                className="profile-info"
+                onClick={() => navigate("Settings")}
+              >
+                <strong>{user.name}</strong>
+                <span>
+                  {user.role === "admin"
+                    ? "Administrator"
+                    : user.group === "doorknocker"
+                      ? "Door knocker"
+                      : "Team member"}
+                </span>
+              </button>
+              <button
+                className="icon-button"
+                aria-label={demo ? "Exit sample workspace" : "Sign out"}
+                onClick={async () => {
+                  await locationSharing.stop();
+                  if (!demo) {
+                    try {
+                      const r = await fetch("/api/auth", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "logout" }),
+                      });
+                      if (!r.ok)
+                        throw new Error("Could not sign out. Try again.");
+                    } catch (e) {
+                      notify(
+                        e instanceof Error ? e.message : "Could not sign out",
+                        true,
+                      );
                       return;
                     }
-                    setEditor({
-                      kind: "quote",
-                      initialValues: quotePrefillFromLead(lead, contact),
-                    });
-                  }}
-                />
-              )}
-              {page === "Automation" && (
-                <AutomationPanel
-                  leads={workspace.leads}
-                  demo={demo}
-                  businessName={config.profile.name}
-                  website={config.profile.website}
-                  smsPolicy={{
-                    version: config.compliance.smsPolicyVersion,
-                    privacyUrl: config.compliance.privacyUrl,
-                    termsUrl: config.compliance.termsUrl,
-                  }}
-                  canManage={
-                    user.group === "owner" ||
-                    config.rolePermissions[user.group].includes(
-                      "workflows.manage",
-                    )
                   }
-                />
-              )}
-              {productVisibility.analytics && page === "Analytics" && (
-                <AnalyticsPanel
-                  demo={demo}
-                  canManage={
-                    user.group === "owner" ||
-                    config.rolePermissions[user.group].includes(
-                      "connections.manage",
-                    )
-                  }
-                />
-              )}
-              {page === "Media" && (
-                <MediaPanel
-                  demo={demo}
-                  businessName={config.profile.name}
-                  website={config.profile.website}
-                  serviceArea={config.regional.serviceArea}
-                />
-              )}
-              {page === "Contacts" && (
-                <CustomerContactsPanel
-                  contacts={workspace.contacts}
-                  leads={workspace.leads}
-                  quotes={workspace.quotes || []}
-                  search={search}
-                  demo={demo}
-                  businessName={config.profile.name}
-                  initialContactId={recordId}
-                  canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
-                  onAdd={() => setEditor({ kind: "contact" })}
-                  onEdit={(contact) =>
-                    setEditor({ kind: "contact", entity: contact })
-                  }
-                  onQuote={(contact, lead) =>
-                    setEditor({
-                      kind: "quote",
-                      initialValues: lead
-                        ? quotePrefillFromLead(lead, contact)
-                        : {
-                            client: contact.name,
-                            clientEmail: contact.email,
-                            clientPhone: contact.phone,
-                            address: [contact.address, contact.zip]
-                              .filter(Boolean)
-                              .join(", "),
-                            contactId: contact.id,
-                          },
-                    })
-                  }
-                />
-              )}
-              {(page === "Overview" || page === "Projects") && (
+                  window.location.href = "/login";
+                }}
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </aside>
+        <div className="main-shell">
+          <header className="topbar">
+            <div className="breadcrumb">
+              <button
+                className="mobile-menu icon-button"
+                aria-label="Open navigation"
+                onClick={() => setSidebar(true)}
+              >
+                <Menu size={20} />
+              </button>
+              <span>{config.profile.name}</span>
+              <ChevronRight size={13} />
+              <strong>
+                {selectedQuote ? "Jobs" : projectId ? "Jobs" : visiblePageName}
+              </strong>
+              {(selected || selectedQuote) && (
                 <>
-                  {page === "Overview" && (
-                    <OverviewAlerts
-                      alerts={workspace.alerts || []}
-                      user={user}
-                      onRemove={
-                        user.group === "owner" ||
-                        config.rolePermissions[user.group].includes("alerts.manage")
-                          ? (alert) => requestDelete("alert", alert)
-                          : undefined
-                      }
+                  <ChevronRight size={13} />
+                  <span className="breadcrumb-project">
+                    {(selected || selectedQuote)?.name}
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="topbar-right">
+              {(locationSharing.sharing || locationSharing.pendingStop) && (
+                <button
+                  className="icon-button location-indicator"
+                  aria-label={
+                    locationSharing.pendingStop
+                      ? "Location sharing stopped; removal pending"
+                      : "Location sharing is on. Open sharing controls"
+                  }
+                  title={
+                    locationSharing.pendingStop
+                      ? "Location removal pending"
+                      : "Sharing location"
+                  }
+                  onClick={() => navigate("Team map")}
+                >
+                  <LocateFixed size={18} />
+                </button>
+              )}
+              <ThemeToggle />
+              {!projectId &&
+                [
+                  "Overview",
+                  "Projects",
+                  "Quotes",
+                  "Leads",
+                  "Contractors",
+                ].includes(page) && (
+                  <div className="global-search">
+                    <Search size={16} />
+                    <input
+                      ref={searchInput}
+                      aria-label={`Search ${page === "Overview" ? "projects" : visiblePageName.toLowerCase()}`}
+                      placeholder={`Search ${page === "Overview" ? "projects" : visiblePageName.toLowerCase()}…`}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
                     />
-                  )}
-                  <div className="page-heading">
-                    <div>
-                      <span className="eyebrow">
-                        {page === "Overview"
-                          ? "LET’S GET TO WORK"
-                          : "THE BIG PICTURE"}
-                      </span>
-                      <h1>
-                        {page === "Overview" ? "Project overview" : "Projects"}
-                        <span className="heading-dot">.</span>
-                      </h1>
-                      <p>
-                        Track your jobs, coordinate your team, and keep work
-                        moving.
-                      </p>
-                    </div>
-                    {canOpenWorkspaceTab(config, user.group, "Projects") && (
+                    {search ? (
                       <button
-                        className="button primary"
-                        onClick={() => setEditor({ kind: "project" })}
+                        className="icon-button"
+                        aria-label="Clear search"
+                        onClick={() => setSearch("")}
                       >
-                        <Plus size={17} />
-                        New project
+                        <X size={13} />
                       </button>
+                    ) : (
+                      <kbd>⌘ K</kbd>
                     )}
                   </div>
-                  {page === "Overview" && (
-                    <div className="summary-strip">
-                      <button
-                        onClick={() => {
-                          setFilter("In progress");
-                        }}
-                      >
-                        <div>
-                          <span>Active projects</span>
-                          <FolderKanban size={17} />
-                        </div>
-                        <strong>
-                          {activeProjects.length.toString().padStart(2, "0")}
-                        </strong>
-                        <small>
-                          <span className="status-dot" />
-                          {
-                            workspace.projects.filter(
-                              (p) => p.status === "Planning",
-                            ).length
-                          }{" "}
-                          in planning
-                        </small>
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigate("Upcoming");
-                        }}
-                      >
-                        <div>
-                          <span>Open work</span>
-                          <ListTodo size={18} />
-                        </div>
-                        <strong>
-                          {openTasks.length.toString().padStart(2, "0")}
-                        </strong>
-                        <small>Across all your projects</small>
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigate("Upcoming");
-                        }}
-                      >
-                        <div>
-                          <span>Needs attention</span>
-                          <Clock3 size={17} />
-                        </div>
-                        <strong>
-                          {lateTasks.length.toString().padStart(2, "0")}
-                        </strong>
-                        <small
-                          className={lateTasks.length ? "attention-text" : ""}
-                        >
-                          {lateTasks.length
-                            ? `${lateTasks.length} overdue items`
-                            : "Everything is on track"}
-                          <ArrowUpRight size={12} />
-                        </small>
-                      </button>
-                      <button onClick={() => setFilter("In progress")}>
-                        <div>
-                          <span>Active scope value</span>
-                          <CircleDollarSign size={18} />
-                        </div>
-                        <strong className="money-stat">
-                          {money(
-                            activeProjects.reduce(
-                              (sum, p) =>
-                                sum + scopeTotal(workspace.scope, p.id),
-                              0,
-                            ),
-                          )}
-                        </strong>
-                        <small>Total for projects in progress</small>
-                      </button>
-                    </div>
-                  )}
-                  {page === "Overview" && (
-                    <RecentActivity
-                      workspace={workspace}
-                      onProject={(id) => navigate("Projects", id, "Activity")}
-                      onShowMore={() => navigate("Activity")}
-                    />
-                  )}
-                  <div className="projects-section-heading">
-                    <div>
-                      <h2>
-                        Your projects{" "}
-                        <span className="count-pill">
-                          {visibleProjects.length}
+                )}
+              <span className="topbar-separator" />
+              <button
+                className="topbar-avatar"
+                aria-label="Account settings"
+                onClick={() => navigate("Settings")}
+              >
+                <Avatar name={user.name} small />
+              </button>
+            </div>
+          </header>
+          <main className="main-content">
+            {loadError && (
+              <div className="alert load-error">
+                <CircleAlert size={17} />
+                {loadError}
+                <button className="text-button" onClick={() => void refresh()}>
+                  <RefreshCw size={14} />
+                  Retry
+                </button>
+              </div>
+            )}
+            {!loaded ? (
+              !loadError && <Loading />
+            ) : selected ? (
+              <ProjectDetail
+                key={selected.id}
+                project={selected}
+                contractToday={contractToday}
+                workspace={workspace}
+                user={user}
+                demo={demo}
+                onBack={() => navigate("Projects")}
+                onOpenRecord={(kind, id) =>
+                  navigate(kind === "quote" ? "Quotes" : "Projects", id)
+                }
+                onEdit={setEditor}
+                onLogActivity={(id) => logActivity(id)}
+                onLogPayment={(id) => logActivity(id, "Payment received")}
+                onSave={async (...args) => {
+                  await save(...args);
+                }}
+                onDelete={requestDelete}
+                onUpload={upload}
+                onToggle={toggle}
+                notify={notify}
+                tab={projectTab}
+                onTabChange={changeProjectTab}
+                upcomingView={upcomingView}
+                onUpcomingViewChange={changeUpcomingView}
+              />
+            ) : selectedQuote ? (
+              <QuoteDetail
+                key={selectedQuote.id}
+                quote={selectedQuote}
+                workspace={workspace}
+                user={user}
+                config={config}
+                demo={demo}
+                onBack={() =>
+                  navigate(canOpenPage("Projects") ? "Projects" : "Quotes")
+                }
+                onOpenRecord={(kind, id) =>
+                  navigate(kind === "quote" ? "Quotes" : "Projects", id)
+                }
+                onEdit={setEditor}
+                onSave={save}
+                onReorderScope={reorderQuoteScope}
+                onPriceScope={priceQuoteScope}
+                onAccept={accept}
+                onDelete={requestDelete}
+                onUpload={upload}
+                onSent={refresh}
+                onProjectReady={(id) => navigate("Projects", id)}
+              />
+            ) : projectId ? (
+              <Empty
+                title="Project not found"
+                text="This project is no longer available."
+                action={
+                  <button
+                    className="button primary"
+                    onClick={() => navigate("Projects")}
+                  >
+                    Back to projects
+                  </button>
+                }
+              />
+            ) : (
+              <>
+                {(page === "Projects" || page === "Quotes") && (
+                  <JobsPanel
+                    workspace={workspace}
+                    search={search}
+                    estimatesOnly={page === "Quotes"}
+                    canProjects={canOpenPage("Projects")}
+                    canQuotes={canOpenPage("Quotes")}
+                    onNewProject={() => setEditor({ kind: "project" })}
+                    onNewQuote={() => setEditor({ kind: "quote" })}
+                    onOpen={(kind, id) =>
+                      navigate(kind === "quote" ? "Quotes" : "Projects", id)
+                    }
+                    onImport={importQuotes}
+                    onSaveQuote={(data, quote) => save("quote", data, quote)}
+                    demo={demo}
+                  />
+                )}
+                {page === "Price book" && config.features.priceBook && (
+                  <PricebookPanel
+                    contractors={workspace.contractors}
+                    demo={demo}
+                    canManage={
+                      user.group === "owner" ||
+                      config.rolePermissions[user.group].includes(
+                        "pricebook.manage",
+                      )
+                    }
+                  />
+                )}
+                {page === "Door knocking" && (
+                  <DoorKnockingPanel
+                    workspace={workspace}
+                    onSave={saveDoorVisit}
+                  />
+                )}
+                {page === "Leads" && (
+                  <LeadsPanel
+                    canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
+                    leads={workspace.leads}
+                    contacts={workspace.contacts}
+                    quotes={workspace.quotes || []}
+                    search={search}
+                    demo={demo}
+                    initialLeadId={recordId}
+                    onSaveLead={(data, lead) => save("lead", data, lead)}
+                    onCreateLead={createLead}
+                    onQuote={(lead, contact, quote) => {
+                      if (quote) {
+                        navigate("Quotes", quote.id);
+                        return;
+                      }
+                      setEditor({
+                        kind: "quote",
+                        initialValues: quotePrefillFromLead(lead, contact),
+                      });
+                    }}
+                  />
+                )}
+                {page === "Automation" && (
+                  <AutomationPanel
+                    leads={workspace.leads}
+                    demo={demo}
+                    businessName={config.profile.name}
+                    website={config.profile.website}
+                    smsPolicy={{
+                      version: config.compliance.smsPolicyVersion,
+                      privacyUrl: config.compliance.privacyUrl,
+                      termsUrl: config.compliance.termsUrl,
+                    }}
+                    canManage={
+                      user.group === "owner" ||
+                      config.rolePermissions[user.group].includes(
+                        "workflows.manage",
+                      )
+                    }
+                  />
+                )}
+                {productVisibility.analytics && page === "Analytics" && (
+                  <AnalyticsPanel
+                    demo={demo}
+                    canManage={
+                      user.group === "owner" ||
+                      config.rolePermissions[user.group].includes(
+                        "connections.manage",
+                      )
+                    }
+                  />
+                )}
+                {page === "Media" && (
+                  <MediaPanel
+                    demo={demo}
+                    businessName={config.profile.name}
+                    website={config.profile.website}
+                    serviceArea={config.regional.serviceArea}
+                  />
+                )}
+                {page === "Contacts" && (
+                  <CustomerContactsPanel
+                    contacts={workspace.contacts}
+                    leads={workspace.leads}
+                    quotes={workspace.quotes || []}
+                    search={search}
+                    demo={demo}
+                    businessName={config.profile.name}
+                    initialContactId={recordId}
+                    canQuote={canOpenWorkspaceTab(config, user.group, "Quotes")}
+                    onAdd={() => setEditor({ kind: "contact" })}
+                    onEdit={(contact) =>
+                      setEditor({ kind: "contact", entity: contact })
+                    }
+                    onQuote={(contact, lead) =>
+                      setEditor({
+                        kind: "quote",
+                        initialValues: lead
+                          ? quotePrefillFromLead(lead, contact)
+                          : {
+                              client: contact.name,
+                              clientEmail: contact.email,
+                              clientPhone: contact.phone,
+                              address: [contact.address, contact.zip]
+                                .filter(Boolean)
+                                .join(", "),
+                              contactId: contact.id,
+                            },
+                      })
+                    }
+                  />
+                )}
+                {page === "Overview" && (
+                  <>
+                    {page === "Overview" && (
+                      <OverviewAlerts
+                        alerts={workspace.alerts || []}
+                        user={user}
+                        onRemove={
+                          user.group === "owner" ||
+                          config.rolePermissions[user.group].includes(
+                            "alerts.manage",
+                          )
+                            ? (alert) => requestDelete("alert", alert)
+                            : undefined
+                        }
+                      />
+                    )}
+                    <div className="page-heading">
+                      <div>
+                        <span className="eyebrow">
+                          {page === "Overview"
+                            ? "LET’S GET TO WORK"
+                            : "THE BIG PICTURE"}
                         </span>
-                      </h2>
-                      {demo && (
-                        <span className="sample-data-label">SAMPLE DATA</span>
+                        <h1>
+                          {page === "Overview"
+                            ? "Project overview"
+                            : "Projects"}
+                          <span className="heading-dot">.</span>
+                        </h1>
+                        <p>
+                          Track your jobs, coordinate your team, and keep work
+                          moving.
+                        </p>
+                      </div>
+                      {canOpenWorkspaceTab(config, user.group, "Projects") && (
+                        <button
+                          className="button primary"
+                          onClick={() => setEditor({ kind: "project" })}
+                        >
+                          <Plus size={17} />
+                          New project
+                        </button>
                       )}
                     </div>
-                    <div className="view-options">
-                      <button
-                        aria-label="Grid view"
-                        aria-pressed={view === "grid"}
-                        className={view === "grid" ? "active" : ""}
-                        onClick={() => setView("grid")}
-                      >
-                        <Grid2X2 size={17} />
-                      </button>
-                      <button
-                        aria-label="List view"
-                        aria-pressed={view === "list"}
-                        className={view === "list" ? "active" : ""}
-                        onClick={() => setView("list")}
-                      >
-                        <List size={18} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="project-toolbar">
-                    <div className="filter-tabs">
-                      {(
-                        [
-                          "In progress",
-                          "Planning",
-                          "On hold",
-                          "Completed",
-                        ] as const
-                      ).map((f) => (
+                    {page === "Overview" && (
+                      <div className="summary-strip">
                         <button
-                          key={f}
-                          className={filter === f ? "active" : ""}
-                          aria-pressed={filter === f}
-                          onClick={() => setFilter(f)}
-                        >
-                          {f}
-                          {filter === f && (
-                            <span>
-                              {
-                                workspace.projects.filter((p) => p.status === f)
-                                  .length
-                              }
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    <label className="sort-select">
-                      <SlidersHorizontal size={14} />
-                      <select
-                        aria-label="Sort projects"
-                        value={sort}
-                        onChange={(e) => setSort(e.target.value)}
-                      >
-                        {["Recently updated", "Name A–Z", "Scope value"].map(
-                          (s) => (
-                            <option key={s}>{s}</option>
-                          ),
-                        )}
-                      </select>
-                    </label>
-                  </div>
-                  {visibleProjects.length ? (
-                    <div
-                      className={`project-grid ${view === "list" ? "list-view" : ""}`}
-                    >
-                      {visibleProjects.map(projectCard)}
-                    </div>
-                  ) : (
-                    <Empty
-                      title={
-                        !workspace.projects.length
-                          ? "Your next project starts here"
-                          : search
-                            ? "No matching projects"
-                            : filter === "In progress"
-                              ? "No projects in progress"
-                              : `No ${filter.toLowerCase()} projects`
-                      }
-                      text={
-                        !workspace.projects.length
-                          ? "Add a job, then build out the scope, costs, and next steps."
-                          : search
-                            ? "Try a different search or project status."
-                            : "Choose another status to see its projects."
-                      }
-                      action={
-                        !workspace.projects.length &&
-                        canOpenWorkspaceTab(config, user.group, "Projects") ? (
-                          <button
-                            className="button primary"
-                            onClick={() => setEditor({ kind: "project" })}
-                          >
-                            <Plus size={16} />
-                            Create first project
-                          </button>
-                        ) : search ? (
-                          <button
-                            className="button primary"
-                            onClick={() => setSearch("")}
-                          >
-                            Clear search
-                          </button>
-                        ) : undefined
-                      }
-                    />
-                  )}
-                  <div className="workspace-footer">
-                    <span>
-                      <span className="live-dot" />
-                      {demo
-                        ? "Sample changes are saved in this browser"
-                        : "Shared with your company · refreshes every 30 seconds"}
-                    </span>
-                    <span>Made for the way you work.</span>
-                  </div>
-                </>
-              )}
-              {page === "Upcoming" && (
-                <>
-                  <div className="page-heading">
-                    <div>
-                      <span className="eyebrow">THE SCHEDULE</span>
-                      <h1>
-                        Upcoming<span className="heading-dot">.</span>
-                      </h1>
-                      <p>
-                        Items, inspections, deliveries, and visits across your
-                        company.
-                      </p>
-                    </div>
-                  </div>
-                  <UpcomingPanel
-                    workspace={workspace}
-                    initialItemId={recordId}
-                    view={upcomingView}
-                    onViewChange={changeUpcomingView}
-                    onEditTask={(task) =>
-                      setEditor({ kind: "task", entity: task })
-                    }
-                    onEditProject={(project) =>
-                      setEditor({ kind: "project", entity: project })
-                    }
-                    onOpenProject={(id) =>
-                      navigate("Projects", id, "Upcoming", upcomingView)
-                    }
-                    onOpenLead={(id) => {
-                      const lead = workspace.leads.find(
-                        (item) => item.id === id,
-                      );
-                      navigate("Leads");
-                      setSearch(lead?.name || "");
-                    }}
-                    onAddWork={(dueDate, projectId, workType) =>
-                      setEditor({ kind: "task", projectId, dueDate, workType })
-                    }
-                    onToggleTask={toggle}
-                    onDeleteTask={(task) => requestDelete("task", task)}
-                  />
-                </>
-              )}
-              {page === "Contractors" && (
-                <>
-                  <div className="page-heading">
-                    <div>
-                      <span className="eyebrow">
-                        THE PEOPLE BEHIND THE WORK
-                      </span>
-                      <h1>
-                        {tradeContactObject.pluralTitle}
-                        <span className="heading-dot">.</span>
-                      </h1>
-                      <p>
-                        Your trusted trades, contact details, and current
-                        assignments.
-                      </p>
-                    </div>
-                    <button
-                      className="button primary"
-                      onClick={() => setEditor({ kind: "contractor" })}
-                    >
-                      <Plus size={17} />
-                      {tradeContactObject.actions.add}
-                    </button>
-                  </div>
-                  <div className="section-intro">
-                    <HardHat size={19} />
-                    <h2>{tradeContactObject.pluralTitle}</h2>
-                    <span className="count-pill">
-                      {workspace.contractors.length}
-                    </span>
-                  </div>
-                  <div className="contractor-toolbar">
-                    <label>
-                      Service
-                      <select
-                        aria-label="Filter contacts by service"
-                        value={serviceFilter}
-                        onChange={(event) =>
-                          setServiceFilter(event.target.value)
-                        }
-                      >
-                        <option value="all">All services</option>
-                        {services.map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <span className="contractor-result-count" role="status">
-                      {visibleContractors.length} of{" "}
-                      {workspace.contractors.length} {tradeContactObject.plural}
-                    </span>
-                  </div>
-                  <div className="contractor-list">
-                    {visibleContractors.map((c) => {
-                      const assignedTasks = workspace.tasks.filter(
-                        (task) => task.contractorId === c.id,
-                      );
-                      return (
-                        <article className="contractor-row" key={c.id}>
-                          <Avatar name={c.name} photoUrl={contactPhotoUrl(c)} />
-                          <div className="contractor-info">
-                            <h3>{c.name}</h3>
-                            <p>{c.company || "Independent contractor"}</p>
-                            <div className="contractor-service-tags">
-                              {contractorServices(c.trade).map((service) => (
-                                <span className="trade-label" key={service}>
-                                  {service || "Service not specified"}
-                                </span>
-                              ))}
-                            </div>
-                            {c.notes && (
-                              <p className="contractor-note">{c.notes}</p>
-                            )}
-                          </div>
-                          <div className="contractor-contact">
-                            {c.email && (
-                              <a href={`mailto:${c.email}`}>
-                                <Mail size={14} />
-                                {c.email}
-                              </a>
-                            )}
-                            {c.phone && (
-                              <span className="contractor-phone">
-                                {c.phone}
-                              </span>
-                            )}
-                            {/\d/.test(c.phone) ? (
-                              <a
-                                className="button secondary contractor-call"
-                                href={`tel:${c.phone.replace(/[^+\d]/g, "")}`}
-                                aria-label={`Call ${c.name}`}
-                                title={`Call ${c.phone}`}
-                              >
-                                <Phone size={15} />
-                                Call
-                              </a>
-                            ) : (
-                              <span className="contractor-phone">
-                                No phone number added
-                              </span>
-                            )}
-                          </div>
-                          <div className="contractor-assignments">
-                            <span>
-                              {assignedTasks.length} assigned{" "}
-                              {assignedTasks.length === 1 ? "item" : "items"}
-                            </span>
-                            {assignedTasks.slice(0, 3).map((task) => (
-                              <div
-                                className="contractor-assignment"
-                                key={task.id}
-                              >
-                                <button
-                                  className="text-button"
-                                  onClick={() =>
-                                    setEditor({ kind: "task", entity: task })
-                                  }
-                                >
-                                  {task.title}
-                                  <ArrowUpRight size={12} />
-                                </button>
-                                <small>
-                                  {
-                                    workspace.projects.find(
-                                      (p) => p.id === task.projectId,
-                                    )?.name
-                                  }
-                                </small>
-                              </div>
-                            ))}
-                            {assignedTasks.length > 3 && (
-                              <small>+ {assignedTasks.length - 3} more</small>
-                            )}
-                          </div>
-                          <button
-                            className="icon-button"
-                            aria-label={`Edit ${c.name}`}
-                            onClick={() =>
-                              setEditor({ kind: "contractor", entity: c })
-                            }
-                          >
-                            <Pencil size={16} />
-                          </button>
-                        </article>
-                      );
-                    })}
-                  </div>
-                  {!visibleContractors.length && (
-                    <Empty
-                      title={
-                        workspace.contractors.length
-                          ? `No matching ${tradeContactObject.plural}`
-                          : `No ${tradeContactObject.plural} yet`
-                      }
-                      text={
-                        workspace.contractors.length
-                          ? "Try a different service or search to find a trade contact."
-                          : "Add your go-to trades and assign them to jobs."
-                      }
-                      action={
-                        <button
-                          className="button secondary"
                           onClick={() => {
-                            if (workspace.contractors.length) {
-                              setServiceFilter("all");
-                              setSearch("");
-                            } else setEditor({ kind: "contractor" });
+                            setFilter("In progress");
                           }}
                         >
-                          {workspace.contractors.length ? (
-                            "Clear filters"
-                          ) : (
-                            <>
-                              <Plus size={16} />
-                              {tradeContactObject.actions.add}
-                            </>
-                          )}
+                          <div>
+                            <span>Active projects</span>
+                            <FolderKanban size={17} />
+                          </div>
+                          <strong>
+                            {activeProjects.length.toString().padStart(2, "0")}
+                          </strong>
+                          <small>
+                            <span className="status-dot" />
+                            {
+                              workspace.projects.filter(
+                                (p) => p.status === "Planning",
+                              ).length
+                            }{" "}
+                            in planning
+                          </small>
                         </button>
+                        <button
+                          onClick={() => {
+                            navigate("Upcoming");
+                          }}
+                        >
+                          <div>
+                            <span>Open work</span>
+                            <ListTodo size={18} />
+                          </div>
+                          <strong>
+                            {openTasks.length.toString().padStart(2, "0")}
+                          </strong>
+                          <small>Across all your projects</small>
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigate("Upcoming");
+                          }}
+                        >
+                          <div>
+                            <span>Needs attention</span>
+                            <Clock3 size={17} />
+                          </div>
+                          <strong>
+                            {lateTasks.length.toString().padStart(2, "0")}
+                          </strong>
+                          <small
+                            className={lateTasks.length ? "attention-text" : ""}
+                          >
+                            {lateTasks.length
+                              ? `${lateTasks.length} overdue items`
+                              : "Everything is on track"}
+                            <ArrowUpRight size={12} />
+                          </small>
+                        </button>
+                        <button onClick={() => setFilter("In progress")}>
+                          <div>
+                            <span>Active scope value</span>
+                            <CircleDollarSign size={18} />
+                          </div>
+                          <strong className="money-stat">
+                            {money(
+                              activeProjects.reduce(
+                                (sum, p) =>
+                                  sum + scopeTotal(workspace.scope, p.id),
+                                0,
+                              ),
+                            )}
+                          </strong>
+                          <small>Total for projects in progress</small>
+                        </button>
+                      </div>
+                    )}
+                    {page === "Overview" && (
+                      <RecentActivity
+                        workspace={workspace}
+                        onProject={(id) => navigate("Projects", id, "Activity")}
+                        onShowMore={() => navigate("Activity")}
+                      />
+                    )}
+                    <div className="projects-section-heading">
+                      <div>
+                        <h2>
+                          Your projects{" "}
+                          <span className="count-pill">
+                            {visibleProjects.length}
+                          </span>
+                        </h2>
+                        {demo && (
+                          <span className="sample-data-label">SAMPLE DATA</span>
+                        )}
+                      </div>
+                      <div className="view-options">
+                        <button
+                          aria-label="Grid view"
+                          aria-pressed={view === "grid"}
+                          className={view === "grid" ? "active" : ""}
+                          onClick={() => setView("grid")}
+                        >
+                          <Grid2X2 size={17} />
+                        </button>
+                        <button
+                          aria-label="List view"
+                          aria-pressed={view === "list"}
+                          className={view === "list" ? "active" : ""}
+                          onClick={() => setView("list")}
+                        >
+                          <List size={18} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="project-toolbar">
+                      <div className="filter-tabs">
+                        {(
+                          [
+                            "In progress",
+                            "Planning",
+                            "On hold",
+                            "Completed",
+                          ] as const
+                        ).map((f) => (
+                          <button
+                            key={f}
+                            className={filter === f ? "active" : ""}
+                            aria-pressed={filter === f}
+                            onClick={() => setFilter(f)}
+                          >
+                            {f}
+                            {filter === f && (
+                              <span>
+                                {
+                                  workspace.projects.filter(
+                                    (p) => p.status === f,
+                                  ).length
+                                }
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="sort-select">
+                        <SlidersHorizontal size={14} />
+                        <select
+                          aria-label="Sort projects"
+                          value={sort}
+                          onChange={(e) => setSort(e.target.value)}
+                        >
+                          {["Recently updated", "Name A–Z", "Scope value"].map(
+                            (s) => (
+                              <option key={s}>{s}</option>
+                            ),
+                          )}
+                        </select>
+                      </label>
+                    </div>
+                    {visibleProjects.length ? (
+                      <div
+                        className={`project-grid ${view === "list" ? "list-view" : ""}`}
+                      >
+                        {visibleProjects.map(projectCard)}
+                      </div>
+                    ) : (
+                      <Empty
+                        title={
+                          !workspace.projects.length
+                            ? "Your next project starts here"
+                            : search
+                              ? "No matching projects"
+                              : filter === "In progress"
+                                ? "No projects in progress"
+                                : `No ${filter.toLowerCase()} projects`
+                        }
+                        text={
+                          !workspace.projects.length
+                            ? "Add a job, then build out the scope, costs, and next steps."
+                            : search
+                              ? "Try a different search or project status."
+                              : "Choose another status to see its projects."
+                        }
+                        action={
+                          !workspace.projects.length &&
+                          canOpenWorkspaceTab(
+                            config,
+                            user.group,
+                            "Projects",
+                          ) ? (
+                            <button
+                              className="button primary"
+                              onClick={() => setEditor({ kind: "project" })}
+                            >
+                              <Plus size={16} />
+                              Create first project
+                            </button>
+                          ) : search ? (
+                            <button
+                              className="button primary"
+                              onClick={() => setSearch("")}
+                            >
+                              Clear search
+                            </button>
+                          ) : undefined
+                        }
+                      />
+                    )}
+                    <div className="workspace-footer">
+                      <span>
+                        <span className="live-dot" />
+                        {demo
+                          ? "Sample changes are saved in this browser"
+                          : "Shared with your company · refreshes every 30 seconds"}
+                      </span>
+                      <span>Made for the way you work.</span>
+                    </div>
+                  </>
+                )}
+                {page === "Upcoming" && (
+                  <>
+                    <div className="page-heading">
+                      <div>
+                        <span className="eyebrow">THE SCHEDULE</span>
+                        <h1>
+                          Upcoming<span className="heading-dot">.</span>
+                        </h1>
+                        <p>
+                          Items, inspections, deliveries, and visits across your
+                          company.
+                        </p>
+                      </div>
+                    </div>
+                    <UpcomingPanel
+                      workspace={workspace}
+                      initialItemId={recordId}
+                      view={upcomingView}
+                      onViewChange={changeUpcomingView}
+                      onEditTask={(task) =>
+                        setEditor({ kind: "task", entity: task })
                       }
+                      onEditProject={(project) =>
+                        setEditor({ kind: "project", entity: project })
+                      }
+                      onOpenProject={(id) =>
+                        navigate("Projects", id, "Upcoming", upcomingView)
+                      }
+                      onOpenLead={(id) => {
+                        const lead = workspace.leads.find(
+                          (item) => item.id === id,
+                        );
+                        navigate("Leads");
+                        setSearch(lead?.name || "");
+                      }}
+                      onAddWork={(dueDate, projectId, workType) =>
+                        setEditor({
+                          kind: "task",
+                          projectId,
+                          dueDate,
+                          workType,
+                        })
+                      }
+                      onToggleTask={toggle}
+                      onDeleteTask={(task) => requestDelete("task", task)}
                     />
-                  )}
-                  <p className="footnote">
-                    {tradeContactObject.pluralTitle} do not automatically
-                    receive app access. Invite employees from the Team page.
-                  </p>
-                </>
-              )}
-              {page === "Team" && (
-                <TeamPanel
-                  user={user}
-                  demo={demo}
-                  notify={notify}
-                  twilioEnabled={config.features.twilio}
-                  businessName={config.profile.name}
-                  canManageTeam={
-                    user.group === "owner" ||
-                    config.rolePermissions[user.group].includes("team.manage")
-                  }
-                />
-              )}
-              {page === "Team map" && (
-                <TeamMapPanel
-                  user={user}
-                  demo={demo}
-                  sharing={locationSharing}
-                  onInstall={() => navigate("Settings")}
-                />
-              )}
-              {page === "Settings" && (
-                <SettingsPanel
-                  user={user}
-                  config={config}
-                  demo={demo}
-                  alerts={workspace.alerts || []}
-                  onSaveAlert={(data, alert) => save("alert", data, alert)}
-                  onRemoveAlert={(alert) => requestDelete("alert", alert)}
-                />
-              )}
-              {page === "Activity" && (
-                <>
-                  <button
-                    className="back-link"
-                    onClick={() => navigate("Overview")}
-                  >
-                    <ArrowLeft size={15} />
-                    Back to overview
-                  </button>
-                  <JobActivity
-                    workspace={workspace}
+                  </>
+                )}
+                {page === "Contractors" && (
+                  <>
+                    <div className="page-heading">
+                      <div>
+                        <span className="eyebrow">
+                          THE PEOPLE BEHIND THE WORK
+                        </span>
+                        <h1>
+                          {tradeContactObject.pluralTitle}
+                          <span className="heading-dot">.</span>
+                        </h1>
+                        <p>
+                          Your trusted trades, contact details, and current
+                          assignments.
+                        </p>
+                      </div>
+                      <button
+                        className="button primary"
+                        onClick={() => setEditor({ kind: "contractor" })}
+                      >
+                        <Plus size={17} />
+                        {tradeContactObject.actions.add}
+                      </button>
+                    </div>
+                    <div className="section-intro">
+                      <HardHat size={19} />
+                      <h2>{tradeContactObject.pluralTitle}</h2>
+                      <span className="count-pill">
+                        {workspace.contractors.length}
+                      </span>
+                    </div>
+                    <div className="contractor-toolbar">
+                      <label>
+                        Service
+                        <select
+                          aria-label="Filter contacts by service"
+                          value={serviceFilter}
+                          onChange={(event) =>
+                            setServiceFilter(event.target.value)
+                          }
+                        >
+                          <option value="all">All services</option>
+                          {services.map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <span className="contractor-result-count" role="status">
+                        {visibleContractors.length} of{" "}
+                        {workspace.contractors.length}{" "}
+                        {tradeContactObject.plural}
+                      </span>
+                    </div>
+                    <div className="contractor-list">
+                      {visibleContractors.map((c) => {
+                        const assignedTasks = workspace.tasks.filter(
+                          (task) => task.contractorId === c.id,
+                        );
+                        return (
+                          <article className="contractor-row" key={c.id}>
+                            <Avatar
+                              name={c.name}
+                              photoUrl={contactPhotoUrl(c)}
+                            />
+                            <div className="contractor-info">
+                              <h3>{c.name}</h3>
+                              <p>{c.company || "Independent contractor"}</p>
+                              <div className="contractor-service-tags">
+                                {contractorServices(c.trade).map((service) => (
+                                  <span className="trade-label" key={service}>
+                                    {service || "Service not specified"}
+                                  </span>
+                                ))}
+                              </div>
+                              {c.notes && (
+                                <p className="contractor-note">{c.notes}</p>
+                              )}
+                            </div>
+                            <div className="contractor-contact">
+                              {c.email && (
+                                <a href={`mailto:${c.email}`}>
+                                  <Mail size={14} />
+                                  {c.email}
+                                </a>
+                              )}
+                              {c.phone && (
+                                <span className="contractor-phone">
+                                  {c.phone}
+                                </span>
+                              )}
+                              {/\d/.test(c.phone) ? (
+                                <a
+                                  className="button secondary contractor-call"
+                                  href={`tel:${c.phone.replace(/[^+\d]/g, "")}`}
+                                  aria-label={`Call ${c.name}`}
+                                  title={`Call ${c.phone}`}
+                                >
+                                  <Phone size={15} />
+                                  Call
+                                </a>
+                              ) : (
+                                <span className="contractor-phone">
+                                  No phone number added
+                                </span>
+                              )}
+                            </div>
+                            <div className="contractor-assignments">
+                              <span>
+                                {assignedTasks.length} assigned{" "}
+                                {assignedTasks.length === 1 ? "item" : "items"}
+                              </span>
+                              {assignedTasks.slice(0, 3).map((task) => (
+                                <div
+                                  className="contractor-assignment"
+                                  key={task.id}
+                                >
+                                  <button
+                                    className="text-button"
+                                    onClick={() =>
+                                      setEditor({ kind: "task", entity: task })
+                                    }
+                                  >
+                                    {task.title}
+                                    <ArrowUpRight size={12} />
+                                  </button>
+                                  <small>
+                                    {
+                                      workspace.projects.find(
+                                        (p) => p.id === task.projectId,
+                                      )?.name
+                                    }
+                                  </small>
+                                </div>
+                              ))}
+                              {assignedTasks.length > 3 && (
+                                <small>+ {assignedTasks.length - 3} more</small>
+                              )}
+                            </div>
+                            <button
+                              className="icon-button"
+                              aria-label={`Edit ${c.name}`}
+                              onClick={() =>
+                                setEditor({ kind: "contractor", entity: c })
+                              }
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                    {!visibleContractors.length && (
+                      <Empty
+                        title={
+                          workspace.contractors.length
+                            ? `No matching ${tradeContactObject.plural}`
+                            : `No ${tradeContactObject.plural} yet`
+                        }
+                        text={
+                          workspace.contractors.length
+                            ? "Try a different service or search to find a trade contact."
+                            : "Add your go-to trades and assign them to jobs."
+                        }
+                        action={
+                          <button
+                            className="button secondary"
+                            onClick={() => {
+                              if (workspace.contractors.length) {
+                                setServiceFilter("all");
+                                setSearch("");
+                              } else setEditor({ kind: "contractor" });
+                            }}
+                          >
+                            {workspace.contractors.length ? (
+                              "Clear filters"
+                            ) : (
+                              <>
+                                <Plus size={16} />
+                                {tradeContactObject.actions.add}
+                              </>
+                            )}
+                          </button>
+                        }
+                      />
+                    )}
+                    <p className="footnote">
+                      {tradeContactObject.pluralTitle} do not automatically
+                      receive app access. Invite employees from the Team page.
+                    </p>
+                  </>
+                )}
+                {page === "Team" && (
+                  <TeamPanel
                     user={user}
                     demo={demo}
-                    onLog={(id = "") => logActivity(id)}
-                    onDelete={requestDelete}
-                    onProject={(id) => navigate("Projects", id, "Activity")}
-                    onTask={(task) => setEditor({ kind: "task", entity: task })}
+                    notify={notify}
+                    twilioEnabled={config.features.twilio}
+                    businessName={config.profile.name}
+                    canManageTeam={
+                      user.group === "owner" ||
+                      config.rolePermissions[user.group].includes("team.manage")
+                    }
                   />
-                </>
-              )}
-            </>
-          )}
-          {loaded && (
-            <div hidden={page !== "Generate" || Boolean(projectId)}>
-              <GeneratePanel
-                demo={demo}
-                active={page === "Generate" && !projectId}
-              />
+                )}
+                {page === "Team map" && (
+                  <TeamMapPanel
+                    user={user}
+                    demo={demo}
+                    sharing={locationSharing}
+                    onInstall={() => navigate("Settings")}
+                  />
+                )}
+                {page === "Settings" && (
+                  <SettingsPanel
+                    user={user}
+                    config={config}
+                    demo={demo}
+                    alerts={workspace.alerts || []}
+                    onSaveAlert={(data, alert) => save("alert", data, alert)}
+                    onRemoveAlert={(alert) => requestDelete("alert", alert)}
+                  />
+                )}
+                {page === "Activity" && (
+                  <>
+                    <button
+                      className="back-link"
+                      onClick={() => navigate("Overview")}
+                    >
+                      <ArrowLeft size={15} />
+                      Back to overview
+                    </button>
+                    <JobActivity
+                      workspace={workspace}
+                      user={user}
+                      demo={demo}
+                      onLog={(id = "") => logActivity(id)}
+                      onDelete={requestDelete}
+                      onProject={(id) => navigate("Projects", id, "Activity")}
+                      onTask={(task) =>
+                        setEditor({ kind: "task", entity: task })
+                      }
+                    />
+                  </>
+                )}
+              </>
+            )}
+            {loaded && (
+              <div hidden={page !== "Generate" || Boolean(projectId)}>
+                <GeneratePanel
+                  demo={demo}
+                  active={page === "Generate" && !projectId}
+                />
+              </div>
+            )}
+          </main>
+        </div>
+        {editor && (
+          <EntityForm
+            key={`${editor.kind}-${editor.entity?.id || editor.initialValues?.leadId || "new"}`}
+            editor={editor}
+            workspace={workspace}
+            demo={demo}
+            onSave={save}
+            onContactPhotoChanged={(contact) => {
+              syncVersion.current++;
+              const current = workspaceRef.current;
+              commit({
+                ...current,
+                contractors: current.contractors.map((item) =>
+                  item.id === contact.id ? contact : item,
+                ),
+              });
+              setEditor((currentEditor) =>
+                currentEditor?.kind === "contractor" &&
+                currentEditor.entity?.id === contact.id
+                  ? { ...currentEditor, entity: contact }
+                  : currentEditor,
+              );
+            }}
+            onClose={() => setEditor(null)}
+          />
+        )}
+        {deleting && (
+          <Modal
+            title={`Delete this ${deleting.kind === "attachment" ? "file" : deleting.kind === "comment" ? "note" : deleting.kind === "activity" ? "activity" : deleting.kind === "alert" ? "alert" : "item"}?`}
+            subtitle="This removes it for everyone in your workspace and cannot be undone."
+            onClose={() => {
+              if (!deleteBusy) setDeleting(null);
+            }}
+          >
+            <div className="modal-footer">
+              <button
+                className="button secondary"
+                disabled={deleteBusy}
+                onClick={() => setDeleting(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="button danger"
+                disabled={deleteBusy}
+                onClick={() => void remove()}
+              >
+                {deleteBusy ? "Deleting…" : "Delete"}
+              </button>
             </div>
-          )}
-        </main>
-      </div>
-      {editor && (
-        <EntityForm
-          key={`${editor.kind}-${editor.entity?.id || editor.initialValues?.leadId || "new"}`}
-          editor={editor}
-          workspace={workspace}
-          demo={demo}
-          onSave={save}
-          onContactPhotoChanged={(contact) => {
-            syncVersion.current++;
-            const current = workspaceRef.current;
-            commit({
-              ...current,
-              contractors: current.contractors.map((item) =>
-                item.id === contact.id ? contact : item,
-              ),
-            });
-            setEditor((currentEditor) =>
-              currentEditor?.kind === "contractor" &&
-              currentEditor.entity?.id === contact.id
-                ? { ...currentEditor, entity: contact }
-                : currentEditor,
-            );
-          }}
-          onClose={() => setEditor(null)}
-        />
-      )}
-      {deleting && (
-        <Modal
-          title={`Delete this ${deleting.kind === "attachment" ? "file" : deleting.kind === "comment" ? "note" : deleting.kind === "activity" ? "activity" : deleting.kind === "alert" ? "alert" : "item"}?`}
-          subtitle="This removes it for everyone in your workspace and cannot be undone."
-          onClose={() => {
-            if (!deleteBusy) setDeleting(null);
-          }}
-        >
-          <div className="modal-footer">
+          </Modal>
+        )}
+        {toast && (
+          <div
+            className={`toast ${toast.error ? "toast-error" : ""}`}
+            role={toast.error ? "alert" : "status"}
+          >
+            {toast.error ? <CircleAlert size={18} /> : <Check size={18} />}
+            <span>{toast.message}</span>
             <button
-              className="button secondary"
-              disabled={deleteBusy}
-              onClick={() => setDeleting(null)}
+              onClick={() => setToast(null)}
+              aria-label="Dismiss notification"
             >
-              Cancel
-            </button>
-            <button
-              className="button danger"
-              disabled={deleteBusy}
-              onClick={() => void remove()}
-            >
-              {deleteBusy ? "Deleting…" : "Delete"}
+              <X size={16} />
             </button>
           </div>
-        </Modal>
-      )}
-      {toast && (
-        <div
-          className={`toast ${toast.error ? "toast-error" : ""}`}
-          role={toast.error ? "alert" : "status"}
-        >
-          {toast.error ? <CircleAlert size={18} /> : <Check size={18} />}
-          <span>{toast.message}</span>
-          <button
-            onClick={() => setToast(null)}
-            aria-label="Dismiss notification"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
-      {activityProject !== null && (
-        <ActivityLogForm
-          workspace={workspace}
-          user={user}
-          demo={demo}
-          projectId={activityProject}
-          initialType={activityType}
-          onClose={() => setActivityProject(null)}
-          onUpload={upload}
-          onSave={async (data, requestId) => {
-            await save("activity", data, undefined, requestId);
-          }}
-        />
-      )}
-    </div>
+        )}
+        {activityProject !== null && (
+          <ActivityLogForm
+            workspace={workspace}
+            user={user}
+            demo={demo}
+            projectId={activityProject}
+            initialType={activityType}
+            onClose={() => setActivityProject(null)}
+            onUpload={upload}
+            onSave={async (data, requestId) => {
+              await save("activity", data, undefined, requestId);
+            }}
+          />
+        )}
+      </div>
     </RegionalFormatProvider>
   );
 }

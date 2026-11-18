@@ -45,8 +45,8 @@ test("a price-book assembly can be reused as an editable quote project in the de
   await editor.getByLabel("Contractor").selectOption("c5");
   await editor.getByRole("button", { name: "Save assembly" }).click();
   await expect(editor).toBeHidden();
-  await page.getByRole("button", { name: "Quotes", exact: true }).click();
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "Jobs", exact: true }).click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const quoteEditor = page.getByRole("dialog", { name: "New quote" });
   await quoteEditor.getByLabel("Quote name").fill("Assembly test quote");
   await quoteEditor.getByLabel("Contact name").fill("Sample Client");

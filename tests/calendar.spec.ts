@@ -129,10 +129,11 @@ test("workspace calendar combines projects, filters work, and navigates dates", 
     .first()
     .click();
   await expect(page).toHaveURL(/project=p1&tab=Upcoming&layout=Calendar/);
-  await expect(page.getByRole("tab", { name: /^Upcoming/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Schedule$/i }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("region", { name: "Project calendar", exact: true }),
   ).not.toContainText("Bathroom tile");
@@ -194,10 +195,11 @@ test("project calendar creates dated tasks, moves deadlines, and preserves the t
     .getByRole("button", { name: "Reopen Deliver cabinets", exact: true })
     .click();
   await page.reload();
-  await expect(page.getByRole("tab", { name: /^Upcoming/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Schedule$/i }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(grid.locator('[data-date="2026-09-13"]')).toContainText(
     "Deliver cabinets",
   );
@@ -207,12 +209,16 @@ test("project calendar creates dated tasks, moves deadlines, and preserves the t
     .click();
   await expect(dialog.getByLabel("Due date")).toHaveValue("");
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Job$/i })
+    .click();
   await page.goBack();
-  await expect(page.getByRole("tab", { name: /^Upcoming/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Schedule$/i }),
+  ).toHaveAttribute("aria-current", "page");
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await expect

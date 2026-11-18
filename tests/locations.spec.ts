@@ -99,7 +99,7 @@ test("sample map supports selection, persistent sharing controls, stop and mobil
   await expect(
     page.getByRole("heading", { name: "Your location sharing is on" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await page.getByRole("button", { name: "Jobs", exact: true }).click();
   await page
     .getByRole("button", {
       name: "Location sharing is on. Open sharing controls",

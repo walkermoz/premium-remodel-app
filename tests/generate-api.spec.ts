@@ -122,7 +122,7 @@ cloudTest(
     await expect(
       page.getByRole("button", { name: "Generating preview…" }),
     ).toBeDisabled();
-    await page.getByRole("button", { name: "Projects", exact: true }).click();
+    await page.getByRole("button", { name: "Jobs", exact: true }).click();
     release!();
     await page.getByRole("button", { name: "Generate", exact: true }).click();
     await expect(

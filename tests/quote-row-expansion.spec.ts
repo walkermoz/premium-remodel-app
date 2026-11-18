@@ -4,7 +4,7 @@ test("quote actions offer an assembly, a price-book item, or a custom row", asyn
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Quote action options");
   await quote.getByLabel("Contact name").fill("Test Customer");
@@ -37,7 +37,7 @@ test("quote item stays open while building and only retracts on its toggle", asy
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Scope row persistence");
   await quote.getByLabel("Contact name").fill("Test Customer");

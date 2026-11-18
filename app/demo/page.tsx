@@ -14,7 +14,9 @@ export default async function Demo({
   const demoScenario =
     params.scenario === "quote-project-handoff"
       ? "quote-project-handoff"
-      : undefined;
+      : params.scenario === "job-workspace"
+        ? "job-workspace"
+        : undefined;
   return (
     <BusinessProvider config={config}>
       <WorkspaceApp

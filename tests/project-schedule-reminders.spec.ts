@@ -93,7 +93,7 @@ test("project editor enables texts without a setting on each item", async ({
       );
   }, sample);
   await page.goto("/demo?view=Projects&project=p1&tab=Upcoming");
-  await page.getByRole("button", { name: "Edit project", exact: true }).click();
+  await page.getByRole("button", { name: "Edit job", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog
     .getByRole("combobox", { name: "Text homeowner" })

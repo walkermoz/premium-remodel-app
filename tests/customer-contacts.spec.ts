@@ -56,9 +56,9 @@ test("contacts are separate from trades and fill new quotes", async ({
   await expect(
     page.getByRole("heading", { name: "Morgan Lane" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Quotes", exact: true }).click();
+  await page.getByRole("button", { name: "Jobs", exact: true }).click();
   await page
-    .getByRole("button", { name: /New quote/i })
+    .getByRole("button", { name: /New estimate/i })
     .first()
     .click();
   const newQuote = page.getByRole("dialog", { name: "New quote" });
@@ -97,7 +97,7 @@ test("a new quote creates one contact and uses it for the quote", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
 
   await expect(quote.getByLabel("Find or add a contact")).toHaveValue(

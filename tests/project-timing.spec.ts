@@ -121,7 +121,7 @@ test("a job starts its counter, updates across midnight, freezes, and resumes af
   await page.clock.setSystemTime(new Date("2026-09-14T16:00:00Z"));
   await page.reload();
   await expect(clock).toContainText("2 days total");
-  await page.getByRole("button", { name: "Edit project brief" }).click();
+  await page.getByRole("button", { name: "Edit job details" }).click();
   await expect(page.getByLabel("Actual completion date")).toHaveValue(
     "2026-09-10",
   );
