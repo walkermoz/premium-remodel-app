@@ -81,7 +81,7 @@ export async function POST(
       .from("remodel_records")
       .select("data")
       .eq("organization_id", source.organizationId)
-      .eq("project_id", project.id)
+      .or(`project_id.eq.${project.id},data->>invoiceJobId.eq.${project.id}`)
       .eq("kind", "activity")
       .limit(1000);
     if (paymentError) throw paymentError;

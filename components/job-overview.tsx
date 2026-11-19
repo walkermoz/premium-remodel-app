@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { contractClock } from "@/lib/project-timing";
 import type { Project, Quote, Workspace } from "@/lib/types";
-import { nextJobTask, type JobSection } from "@/lib/job-workspace";
+import { nextJobVisit, type JobSection } from "@/lib/job-workspace";
 import { workToday } from "@/lib/work";
 import { useRegionalFormat } from "./regional-format-context";
 import { JobSectionLink } from "./job-workspace-shell";
@@ -30,7 +30,10 @@ export default function JobOverview({
   const regional = useRegionalFormat();
   const tasks = workspace.tasks.filter((t) => t.projectId === record.id);
   const today = workToday(new Date(), regional.timezone);
-  const next = kind === "project" ? nextJobTask(tasks, today) : undefined;
+  const next =
+    kind === "project"
+      ? nextJobVisit(record as Project, tasks, today)
+      : undefined;
   const notes = workspace.comments.filter((c) => c.projectId === record.id);
   const formatTime = (time?: string) =>
     time
@@ -129,9 +132,15 @@ export default function JobOverview({
             detail={
               kind === "quote"
                 ? "Build, price, and present this estimate"
-                : "Review the approved scope and pricing"
+                : "Compare, recommend, and present estimate options"
             }
-            value={record.quoteNumber ? `#${record.quoteNumber}` : "Open"}
+            value={
+              kind === "project"
+                ? (workspace.quotes || []).filter(
+                    (quote) => quote.jobId === record.id && !quote.junkedAt,
+                  ).length
+                : "Open"
+            }
             onClick={() => onSection("Estimates")}
           />
           <JobSectionLink

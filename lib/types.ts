@@ -107,6 +107,10 @@ export interface MsaAgreement {
   depositCheckout?: { sessionId: string; url: string; expiresAt: string };
 }
 export interface Project extends Base {
+  /** Legacy project records represent standalone jobs unless explicitly a project container. */
+  recordType?: "job" | "project";
+  parentProjectId?: string;
+  job?: import("./job-operations").JobOperations;
   name: string;
   address: string;
   client: string;
@@ -156,6 +160,9 @@ export const quoteStatuses = [
 export type QuoteStatus = (typeof quoteStatuses)[number];
 export type QuotePriceDisplay = "itemized" | "project" | "total";
 export interface Quote extends Omit<Project, "status"> {
+  jobId?: string;
+  recommended?: boolean;
+  bookedJobId?: string;
   status: QuoteStatus;
   /** How this quote's scope prices appear in the portal and PDF. */
   priceDisplay?: QuotePriceDisplay;
@@ -212,6 +219,7 @@ export interface Contractor extends Base {
   photoUpdatedAt?: string;
 }
 export interface ScopeItem extends Base {
+  sourceEstimateId?: string;
   projectId: string;
   /** Keeps related work together within a multi-project quote. */
   sectionId?: string;
@@ -265,6 +273,8 @@ export const activityTypes = [
 ] as const;
 export type ActivityType = (typeof activityTypes)[number] | "Work completed";
 export interface Activity extends Base {
+  /** A deposit remains on its original estimate and is also credited to this booked job. */
+  invoiceJobId?: string;
   projectId: string;
   activityType: ActivityType;
   actorId: string;

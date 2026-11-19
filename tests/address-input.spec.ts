@@ -178,7 +178,7 @@ test("keyboard selection fills and saves an address without submitting the form 
     .getByRole("button", { name: /New (?:project|job)/, exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Project name").fill("Address selection project");
+  await dialog.getByLabel(/^(?:Job|Project) name$/).fill("Address selection project");
   const input = dialog.getByRole("combobox", { name: "Job address" });
   await input.fill("301");
   await page.clock.fastForward(500);
@@ -201,7 +201,7 @@ test("keyboard selection fills and saves an address without submitting the form 
   await expect(input).toHaveAttribute("aria-expanded", "false");
   await expect(input).toBeFocused();
   await dialog
-    .getByRole("button", { name: "Create project", exact: true })
+    .getByRole("button", { name: /Create (?:job|project)/, exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
   const saved = await page.evaluate(() =>
@@ -240,7 +240,7 @@ test("mobile selection, escape, and unavailable suggestions preserve manual entr
     .getByRole("button", { name: /New (?:project|job)/, exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Project name").fill("Manual address project");
+  await dialog.getByLabel(/^(?:Job|Project) name$/).fill("Manual address project");
   const input = page.getByLabel("Job address");
   await input.fill("301 Hills");
   await expect(
@@ -272,7 +272,7 @@ test("mobile selection, escape, and unavailable suggestions preserve manual entr
     ),
   ).toBeVisible();
   await dialog
-    .getByRole("button", { name: "Create project", exact: true })
+    .getByRole("button", { name: /Create (?:job|project)/, exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
   const saved = await page.evaluate(() =>

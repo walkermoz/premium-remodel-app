@@ -955,3 +955,124 @@
   font-size: 11px;
   font-weight: 600;
 }
+.operationalForm {
+  display: grid;
+  gap: 22px;
+  margin: 28px 0;
+}
+.operationalForm label {
+  display: grid;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.operationalForm :global(.checkbox-label) {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  font-weight: 400;
+}
+.operationalForm :global(.checkbox-label) input {
+  flex: 0 0 16px;
+  margin-top: 3px;
+}
+.operationalForm textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.formColumns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.estimateOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 26px 0;
+}
+.option {
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.option header {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.option h3 {
+  font-size: 19px;
+  margin: 24px 0 9px;
+}
+.option p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.optionPrice {
+  display: block;
+  font-size: 29px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  margin: 20px 0 6px;
+}
+.option footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 22px;
+}
+.option :global(.checkbox-label) { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+.option input[type="checkbox"], .operationalForm input[type="checkbox"] { width: 16px; height: 16px; min-height: 16px; padding: 0; flex: 0 0 16px; accent-color: var(--blue); }
+.sectionLink strong small { margin-left: 9px; color: var(--blue); font-size: 10px; }
+.presentation {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 28px;
+}
+.presentation article {
+  padding: 10px 0;
+}
+.presentation p,
+.presentation li {
+  line-height: 1.7;
+  font-size: 13px;
+}
+.estimateEditor {
+  padding: 32px;
+  max-width: 1500px;
+  margin: auto;
+}
+.estimateEditor h1 {
+  font-size: 25px;
+  margin: 12px 0;
+}
+.linkEstimate {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  font-size: 11px;
+  color: var(--muted);
+}
+.linkEstimate select {
+  width: 100%;
+}
+@media (max-width: 760px) {
+  .formColumns,
+  .estimateOptions {
+    grid-template-columns: 1fr;
+  }
+  .estimateEditor {
+    padding: 22px 18px;
+  }
+  .option {
+    padding: 22px 18px;
+  }
+}

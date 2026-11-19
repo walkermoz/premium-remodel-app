@@ -88,6 +88,7 @@ test("general overhead is a hidden daily price component", async ({ page }) => {
   await editor.getByRole("button", { name: "Cancel" }).click();
 
   await page.getByRole("button", { name: "Jobs", exact: true }).click();
+  await page.getByRole("button", { name: "Unassigned estimates", exact: true }).click();
   await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Overhead example");
@@ -146,6 +147,7 @@ test("tile price book asks which contractor and snapshots the selected rate on a
   await expect(inspector).toContainText("$20.00 per sq ft");
 
   await page.getByRole("button", { name: "Jobs", exact: true }).click();
+  await page.getByRole("button", { name: "Unassigned estimates", exact: true }).click();
   await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Tile contractor comparison");

@@ -38,7 +38,7 @@ cloudTest(
     await page.getByRole("button", { name: "Jobs", exact: true }).click();
     await page.getByRole("button", { name: /New (?:project|job)/ }).click();
     dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Project name").fill("Real test kitchen");
+    await dialog.getByLabel(/^(?:Job|Project) name$/).fill("Real test kitchen");
     await dialog.getByLabel("Job address").fill("100 Test Lane, Raleigh, NC");
     await dialog.getByLabel("Client name").fill("Test Client");
     await expect(dialog.getByLabel("Contract price ($)")).toHaveCount(0);
@@ -48,7 +48,7 @@ cloudTest(
       .getByLabel("Full scope of work")
       .fill("Flooring, countertops, and electrical.");
     await expect(dialog.getByLabel("Assigned trade contact")).toHaveCount(0);
-    await dialog.getByRole("button", { name: "Create project" }).click();
+    await dialog.getByRole("button", { name: /Create (?:job|project)/ }).click();
     await expect(dialog).not.toBeVisible();
     await page.getByRole("button", { name: "Planning", exact: true }).click();
     await page.getByRole("heading", { name: "Real test kitchen" }).click();
@@ -486,7 +486,7 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
   await page.getByRole("heading", { name: "Oakwood kitchen remodel" }).click();
   await page.getByRole("button", { name: "Edit job", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Project name").fill("My sample kitchen");
+  await dialog.getByLabel(/^(?:Job|Project) name$/).fill("My sample kitchen");
   await dialog.getByRole("button", { name: "Save changes" }).click();
   await expect(dialog).not.toBeVisible();
   await page.reload();

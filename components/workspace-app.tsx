@@ -79,6 +79,14 @@ import {
 } from "@/lib/leads";
 import { QuoteDetail } from "./quotes-panel";
 import JobsPanel from "./jobs-panel";
+import JobProjectContainer from "./job-project-container";
+import {
+  applyJobAction,
+  initialJobOperations,
+  jobOperations,
+  estimateBookingIssue,
+} from "@/lib/job-operations";
+import type { JobOperationInput } from "./job-operational-panels";
 import { schemas } from "@/lib/schemas";
 import {
   buildManualLeadRecords,
@@ -152,7 +160,7 @@ export default function WorkspaceApp({
 }) {
   const sampleStorageKey =
     demoScenario === "job-workspace"
-      ? "premium-remodel-job-workspace-v1"
+      ? "premium-remodel-job-workspace-v2"
       : demoKey;
   const money = useCallback(
     (value: number) =>
@@ -451,8 +459,27 @@ export default function WorkspaceApp({
       let entity: Entity;
       let relatedActivity: Activity | null = null;
       if (demo) {
+        if (
+          kind === "project" &&
+          data.status === "Completed" &&
+          (existing as Project | undefined)?.status !== "Completed" &&
+          (existing as Project | undefined)?.recordType !== "project"
+        )
+          throw new Error("Complete this job from Closeout.");
+
         if (kind === "project")
           data = projectDates(data, existing as Project | undefined);
+        if (kind === "scope" || kind === "task") {
+          const parent = workspaceRef.current.projects.find(
+            (project) => project.id === data.projectId,
+          );
+          if (parent?.status === "Completed")
+            throw new Error(
+              "Reopen the job before changing its work or invoice items.",
+            );
+          if (kind === "scope" && parent?.job?.invoice.status === "Finalized")
+            throw new Error("Reopen the invoice before changing its items.");
+        }
         if (kind === "scope")
           data = preserveScopeCosts(data, existing as ScopeItem | undefined);
         if (kind !== "attachment") {
@@ -487,6 +514,14 @@ export default function WorkspaceApp({
           );
           if (!parsed.success) throw new Error(parsed.error.issues[0].message);
           data = parsed.data;
+          if (
+            kind === "project" &&
+            !existing &&
+            data.recordType !== "project"
+          ) {
+            data.recordType = "job";
+            data.job = initialJobOperations();
+          }
           if (legacyLead) {
             data.contactId = legacyLead.contactId;
             if (legacyLead.canvasserId)
@@ -586,6 +621,11 @@ export default function WorkspaceApp({
           }
         }
         if (kind === "activity") {
+          const estimate = workspaceRef.current.quotes?.find(
+            (quote) => quote.id === data.projectId,
+          );
+          if (estimate?.bookedJobId && data.activityType === "Payment received")
+            data.invoiceJobId = estimate.bookedJobId;
           const actor = demoActivityMembers(user).find(
             (member) => member.id === data.actorId,
           );
@@ -963,7 +1003,143 @@ export default function WorkspaceApp({
     );
     navigate("Quotes", importedQuotes[0].id);
   }
+  async function operateJob(id: string, action: JobOperationInput) {
+    const current = workspaceRef.current;
+    const job = current.projects.find((project) => project.id === id);
+    if (!job) throw new Error("Job not found.");
+    if (!demo) {
+      const response = await fetch(
+        `/api/jobs/${encodeURIComponent(id)}/actions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...action, updatedAt: job.updatedAt }),
+        },
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      await refresh();
+      return;
+    }
+    const now = new Date().toISOString();
+    if (action.action === "book-estimate") {
+      const quote = current.quotes?.find(
+        (quote) => quote.id === action.quoteId && quote.jobId === id,
+      );
+      if (!quote) throw new Error("Estimate not found on this job.");
+      if (quote.bookedJobId === id) return;
+      const issue = estimateBookingIssue(quote, current);
+      if (issue) throw new Error(issue);
+      if (
+        job.status === "Completed" ||
+        jobOperations(job).invoice.status !== "Draft"
+      )
+        throw new Error("Reopen the invoice before booking work.");
+      commit(
+        {
+          ...current,
+          projects: current.projects.map((project) =>
+            project.id === id
+              ? {
+                  ...project,
+                  updatedAt: now,
+                  job: {
+                    ...jobOperations(project),
+                    history: [
+                      {
+                        at: now,
+                        by: user.name,
+                        detail: `Booked estimate #${quote.quoteNumber}`,
+                      },
+                      ...jobOperations(project).history,
+                    ],
+                  },
+                }
+              : project,
+          ),
+          quotes: current.quotes?.map((item) =>
+            item.id === quote.id
+              ? { ...item, bookedJobId: id, updatedAt: now }
+              : item,
+          ),
+          scope: [
+            ...current.scope,
+            ...current.scope
+              .filter((item) => item.projectId === quote.id)
+              .map((item) => ({
+                ...item,
+                id: crypto.randomUUID(),
+                projectId: id,
+                sourceEstimateId: quote.id,
+                createdAt: now,
+                updatedAt: now,
+              })),
+          ],
+          activities: (current.activities || []).map((activity) =>
+            activity.projectId === quote.id &&
+            activity.activityType === "Payment received"
+              ? { ...activity, invoiceJobId: id }
+              : activity,
+          ),
+        },
+        true,
+      );
+    } else {
+      const updated = applyJobAction(
+        job,
+        current,
+        action,
+        user,
+        now,
+        crypto.randomUUID(),
+        config.regional.timezone,
+      );
+      commit(
+        {
+          ...current,
+          projects: current.projects.map((project) =>
+            project.id === id ? updated : project,
+          ),
+        },
+        true,
+      );
+    }
+  }
+  async function createJobEstimate(job: Project) {
+    try {
+      const estimate = await save("quote", {
+        name: `${job.category || "Remodeling"} option`,
+        jobId: job.id,
+        client: job.client,
+        address: job.address,
+        clientEmail: job.clientEmail || "",
+        clientPhone: job.clientPhone || "",
+        ...(job.contactId ? { contactId: job.contactId } : {}),
+        startDate: "",
+        endDate: "",
+        description: "",
+        category: job.category,
+        cover: "",
+        status: "Draft",
+        priceDisplay: "total",
+      });
+      navigate("Quotes", estimate.id);
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Could not add estimate.",
+        true,
+      );
+    }
+  }
   async function accept(quote: Quote) {
+    if (quote.jobId) {
+      await operateJob(quote.jobId, {
+        action: "book-estimate",
+        quoteId: quote.id,
+      });
+      navigate("Projects", quote.jobId, "Invoice");
+      return;
+    }
     if (pending.current.has(quote.id))
       throw new Error("A save is already in progress.");
     pending.current.add(quote.id);
@@ -1239,11 +1415,12 @@ export default function WorkspaceApp({
   const openTasks = workspace.tasks.filter((t) => t.status !== "Done");
   const lateTasks = openTasks.filter((t) => overdue(t.dueDate, t.status));
   const activeProjects = workspace.projects.filter(
-    (p) => p.status === "In progress",
+    (p) => p.recordType !== "project" && p.status === "In progress",
   );
   const visibleProjects = workspace.projects
     .filter(
       (p) =>
+        p.recordType !== "project" &&
         p.status === filter &&
         `${p.name} ${p.address} ${p.client} ${p.category}`
           .toLowerCase()
@@ -1688,6 +1865,27 @@ export default function WorkspaceApp({
             )}
             {!loaded ? (
               !loadError && <Loading />
+            ) : selected?.recordType === "project" ? (
+              <JobProjectContainer
+                project={selected}
+                workspace={workspace}
+                onBack={() => navigate("Projects")}
+                onOpen={(id) => navigate("Projects", id)}
+                onNewJob={() =>
+                  setEditor({
+                    kind: "project",
+                    initialValues: {
+                      parentProjectId: selected.id,
+                      client: selected.client,
+                      address: selected.address,
+                      ...(selected.contactId
+                        ? { contactId: selected.contactId }
+                        : {}),
+                    },
+                  })
+                }
+                onEdit={() => setEditor({ kind: "project", entity: selected })}
+              />
             ) : selected ? (
               <ProjectDetail
                 key={selected.id}
@@ -1697,6 +1895,8 @@ export default function WorkspaceApp({
                 user={user}
                 demo={demo}
                 onBack={() => navigate("Projects")}
+                onJobAction={(action) => operateJob(selected.id, action)}
+                onNewEstimate={() => void createJobEstimate(selected)}
                 onOpenRecord={(kind, id) =>
                   navigate(kind === "quote" ? "Quotes" : "Projects", id)
                 }
@@ -1724,7 +1924,9 @@ export default function WorkspaceApp({
                 config={config}
                 demo={demo}
                 onBack={() =>
-                  navigate(canOpenPage("Projects") ? "Projects" : "Quotes")
+                  selectedQuote.jobId && canOpenPage("Projects")
+                    ? navigate("Projects", selectedQuote.jobId, "Estimates")
+                    : navigate("Quotes")
                 }
                 onOpenRecord={(kind, id) =>
                   navigate(kind === "quote" ? "Quotes" : "Projects", id)
@@ -1737,7 +1939,13 @@ export default function WorkspaceApp({
                 onDelete={requestDelete}
                 onUpload={upload}
                 onSent={refresh}
-                onProjectReady={(id) => navigate("Projects", id)}
+                onProjectReady={(id) =>
+                  navigate(
+                    "Projects",
+                    id,
+                    selectedQuote.jobId ? "Invoice" : "Overview",
+                  )
+                }
               />
             ) : projectId ? (
               <Empty
@@ -1762,6 +1970,12 @@ export default function WorkspaceApp({
                     canProjects={canOpenPage("Projects")}
                     canQuotes={canOpenPage("Quotes")}
                     onNewProject={() => setEditor({ kind: "project" })}
+                    onNewContainer={() =>
+                      setEditor({
+                        kind: "project",
+                        initialValues: { recordType: "project" },
+                      })
+                    }
                     onNewQuote={() => setEditor({ kind: "quote" })}
                     onOpen={(kind, id) =>
                       navigate(kind === "quote" ? "Quotes" : "Projects", id)
@@ -1922,7 +2136,7 @@ export default function WorkspaceApp({
                           onClick={() => setEditor({ kind: "project" })}
                         >
                           <Plus size={17} />
-                          New project
+                          New job
                         </button>
                       )}
                     </div>
@@ -1934,7 +2148,7 @@ export default function WorkspaceApp({
                           }}
                         >
                           <div>
-                            <span>Active projects</span>
+                            <span>Active jobs</span>
                             <FolderKanban size={17} />
                           </div>
                           <strong>
@@ -1962,7 +2176,7 @@ export default function WorkspaceApp({
                           <strong>
                             {openTasks.length.toString().padStart(2, "0")}
                           </strong>
-                          <small>Across all your projects</small>
+                          <small>Across all your jobs</small>
                         </button>
                         <button
                           onClick={() => {
@@ -1999,7 +2213,7 @@ export default function WorkspaceApp({
                               ),
                             )}
                           </strong>
-                          <small>Total for projects in progress</small>
+                          <small>Total for jobs in progress</small>
                         </button>
                       </div>
                     )}
@@ -2013,7 +2227,7 @@ export default function WorkspaceApp({
                     <div className="projects-section-heading">
                       <div>
                         <h2>
-                          Your projects{" "}
+                          Your jobs{" "}
                           <span className="count-pill">
                             {visibleProjects.length}
                           </span>

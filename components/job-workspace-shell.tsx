@@ -16,7 +16,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { Project, Quote, Workspace } from "@/lib/types";
-import { nextJobTask, type JobSection } from "@/lib/job-workspace";
+import { nextJobVisit, type JobSection } from "@/lib/job-workspace";
 import { workToday } from "@/lib/work";
 import { useRegionalFormat } from "./regional-format-context";
 import styles from "./job-workspace.module.css";
@@ -57,7 +57,10 @@ export default function JobWorkspaceShell({
     (task) => task.projectId === record.id && task.status !== "Done",
   );
   const today = workToday(new Date(), regional.timezone);
-  const next = kind === "project" ? nextJobTask(tasks, today) : undefined;
+  const next =
+    kind === "project"
+      ? nextJobVisit(record as Project, tasks, today)
+      : undefined;
   return (
     <div className={styles.workspace}>
       <nav className={styles.rail} aria-label="Job navigation">

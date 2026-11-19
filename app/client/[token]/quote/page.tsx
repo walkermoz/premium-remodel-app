@@ -99,7 +99,7 @@ async function receivedPaymentCents(organizationId: string, projectId: string) {
     .from("remodel_records")
     .select("data")
     .eq("organization_id", organizationId)
-    .eq("project_id", projectId)
+    .or(`project_id.eq.${projectId},data->>invoiceJobId.eq.${projectId}`)
     .eq("kind", "activity")
     .limit(1000);
   if (error) throw error;

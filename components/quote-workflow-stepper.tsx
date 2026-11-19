@@ -17,6 +17,7 @@ export default function QuoteWorkflowStepper({
   configuredStages,
   completionByStageId,
   onSelect,
+  jobEstimate = false,
 }: {
   active: string;
   quoteReady: boolean;
@@ -28,6 +29,7 @@ export default function QuoteWorkflowStepper({
   configuredStages?: QuoteFlowStage[];
   completionByStageId?: Record<string, boolean>;
   onSelect: (step: string) => void;
+  jobEstimate?: boolean;
 }) {
   const legacySteps: Array<{
     id: string;
@@ -62,8 +64,10 @@ export default function QuoteWorkflowStepper({
     },
     {
       id: "project",
-      title: "Create project",
-      detail: "Carry accepted items into Planning",
+      title: jobEstimate ? "Book work" : "Create project",
+      detail: jobEstimate
+        ? "Add signed scope to the job invoice"
+        : "Carry accepted items into Planning",
       complete: false,
       disabled: !projectReady,
     },
@@ -92,16 +96,21 @@ export default function QuoteWorkflowStepper({
         return {
           id: stage.id,
           title:
-            stage.type === "signature_collection"
-              ? "Company signatures"
+            stage.type === "project_conversion" && jobEstimate
+              ? "Book work"
+              : stage.type === "signature_collection"
+                ? "Company signatures"
+                : premiumCompletion
+                  ? "Customer signatures"
+                  : stage.title,
+          detail:
+            stage.type === "project_conversion" && jobEstimate
+              ? "Add signed scope to the job invoice"
               : premiumCompletion
-                ? "Customer signatures"
-                : stage.title,
-          detail: premiumCompletion
-            ? "Share the packet and collect customer signatures"
-            : stage.type === "signature_collection"
-              ? "Review and add required company signatures"
-              : stage.description,
+                ? "Share the packet and collect customer signatures"
+                : stage.type === "signature_collection"
+                  ? "Review and add required company signatures"
+                  : stage.description,
           complete: completionByStageId?.[stage.id] ?? completeForStage(stage),
           disabled: stage.type === "project_conversion" && !projectReady,
         };
@@ -112,7 +121,7 @@ export default function QuoteWorkflowStepper({
     <nav className="quote-workflow-stepper" aria-label="Quote workflow">
       <header>
         <span>Quote workflow</span>
-        <strong>One record from estimate to project</strong>
+        <strong>{jobEstimate ? "Authorize and book this estimate" : "One record from estimate to project"}</strong>
       </header>
       <ol>
         {steps.map((step, index) => (

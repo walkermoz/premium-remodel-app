@@ -148,7 +148,10 @@ export function EntityForm({
     wasAddingContractor.current = addingContractor;
   }, [addingContractor]);
   const names = {
-    project: workspaceObjects.project.singular,
+    project:
+      projectValues.recordType === "project"
+        ? workspaceObjects.project.singular
+        : "job",
     quote: workspaceObjects.quote.singular,
     task: workspaceObjects.item.singular,
     contractor: workspaceObjects.tradeContact.singular,
@@ -218,6 +221,8 @@ export function EntityForm({
       new FormData(event.currentTarget),
     );
     if (kind === "project") {
+      data.recordType = projectValues.recordType || "job";
+      if (!entity && data.parentProjectId === "") delete data.parentProjectId;
       data.smsScheduleEnabled = smsScheduleEnabled;
       data.smsScheduleTime = smsScheduleTime;
       if (contactId && contactId !== "__new__") data.contactId = contactId;
@@ -467,7 +472,9 @@ export function EntityForm({
                 </div>
               ) : (
                 <label>
-                  Project name
+                  {projectValues.recordType === "project"
+                    ? "Project name"
+                    : "Job name"}
                   <input
                     name="name"
                     defaultValue={projectValues.name}
@@ -651,6 +658,27 @@ export function EntityForm({
               )}
               {kind === "project" && (
                 <label>
+                  Project (optional)
+                  <select
+                    name="parentProjectId"
+                    defaultValue={projectValues.parentProjectId || ""}
+                    disabled={
+                      Boolean(entity) || projectValues.recordType === "project"
+                    }
+                  >
+                    <option value="">Standalone job</option>
+                    {workspace.projects
+                      .filter((item) => item.recordType === "project")
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              {kind === "project" && (
+                <label>
                   Status
                   <select
                     name="status"
@@ -659,7 +687,16 @@ export function EntityForm({
                   >
                     {["Planning", "In progress", "On hold", "Completed"].map(
                       (status) => (
-                        <option key={status}>{status}</option>
+                        <option
+                          key={status}
+                          disabled={
+                            status === "Completed" &&
+                            projectValues.status !== "Completed" &&
+                            projectValues.recordType !== "project"
+                          }
+                        >
+                          {status}
+                        </option>
                       ),
                     )}
                   </select>

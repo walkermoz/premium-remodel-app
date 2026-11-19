@@ -1,13 +1,6 @@
 "use client";
 import { useState } from "react";
-import {
-  Pencil,
-  Plus,
-  Download,
-  ArrowUpRight,
-  TriangleAlert,
-  Share2,
-} from "lucide-react";
+import { Pencil, Plus, Download, ArrowUpRight, Share2 } from "lucide-react";
 import type {
   Attachment,
   Entity,
@@ -32,10 +25,17 @@ import { contractClock } from "@/lib/project-timing";
 import ClientLinkDialog from "./client-link-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
 import { useRegionalFormat } from "./regional-format-context";
-import JobWorkspaceShell, { JobSectionLink } from "./job-workspace-shell";
+import JobWorkspaceShell from "./job-workspace-shell";
 import JobOverview from "./job-overview";
 import JobHistory from "./job-history";
-import JobCloseout from "./job-closeout";
+import {
+  JobAppointments,
+  JobEstimates,
+  JobForms,
+  JobInvoice,
+  JobOperationalCloseout,
+  type JobOperationInput,
+} from "./job-operational-panels";
 import type { JobSection } from "@/lib/job-workspace";
 import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import { useBusinessConfig } from "./business-context";
@@ -64,6 +64,8 @@ export default function ProjectDetail({
   demo,
   onBack,
   onOpenRecord,
+  onJobAction,
+  onNewEstimate,
   onEdit,
   onLogActivity,
   onLogPayment,
@@ -83,6 +85,8 @@ export default function ProjectDetail({
   user: User;
   demo: boolean;
   onBack: () => void;
+  onJobAction: (action: JobOperationInput) => Promise<void>;
+  onNewEstimate: () => void;
   onOpenRecord?: (kind: "quote" | "project", id: string) => void;
   onEdit: (editor: Editor) => void;
   onLogActivity: (projectId: string) => void;
@@ -110,6 +114,7 @@ export default function ProjectDetail({
           style: "percent",
           maximumFractionDigits: 1,
         });
+  const [agreementOpen, setAgreementOpen] = useState(false);
   const [quoteLinkOpen, setQuoteLinkOpen] = useState(false);
   const clock = contractClock(project, contractToday, (value) =>
     regional.date(value),
@@ -121,19 +126,12 @@ export default function ProjectDetail({
   const finances = projectFinances(project, items, workspace.activities);
   const {
     total: estimated,
-    costs,
     subCosts,
     materialCosts,
     margin,
     legacyDifference,
   } = finances;
-  const contractPercentage = percent(finances.marginPercent);
-  const done = tasks.filter((t) => t.status === "Done").length;
-  const progress = tasks.length
-    ? Math.round((done / tasks.length) * 100)
-    : project.status === "Completed"
-      ? 100
-      : 0;
+
   const addScope = () => onEdit({ kind: "scope", projectId: project.id });
   const addTask = () => onEdit({ kind: "task", projectId: project.id });
   function exportSheet() {
@@ -329,11 +327,13 @@ export default function ProjectDetail({
             className={`inline-status status-${project.status.toLowerCase().replaceAll(" ", "-")}`}
             value={project.status}
             onChange={(event) =>
-              void onSave(
-                "project",
-                { ...project, status: event.target.value },
-                project,
-              ).catch((error) => notify(error.message, true))
+              event.target.value === "Completed"
+                ? setTab("Closeout")
+                : void onSave(
+                    "project",
+                    { ...project, status: event.target.value },
+                    project,
+                  ).catch((error) => notify(error.message, true))
             }
           >
             {["Planning", "In progress", "On hold", "Completed"].map(
@@ -407,6 +407,25 @@ export default function ProjectDetail({
           )}
         />
       )}
+      {(tab === "History" || tab === "Activity") &&
+        Boolean(project.job?.history.length) && (
+          <section className={jobStyles.summarySection}>
+            <h2>Job workflow history</h2>
+            {project.job!.history.map((event, index) => (
+              <article
+                className={jobStyles.timelineRow}
+                key={`${event.at}-${index}`}
+              >
+                <div>
+                  <small>
+                    {regional.date(event.at)} · {event.by}
+                  </small>
+                  <p>{event.detail}</p>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
       <div className="detail-tab-content" role="tabpanel" aria-label={tab}>
         <div hidden={tab !== "Notes"}>
           <ProjectNotes
@@ -428,204 +447,51 @@ export default function ProjectDetail({
         </div>
 
         {tab === "Estimates" && (
-          <section>
-            <header className={jobStyles.sectionHeading}>
-              <div>
-                <h2>Approved estimate</h2>
-                <p>
-                  {project.quoteAcceptedAt
-                    ? `Accepted ${regional.date(project.quoteAcceptedAt)}. The signed scope remains the contract record.`
-                    : "This job was created directly. Its current scope is shown below."}
-                </p>
-              </div>
-              <button
-                className="button secondary small-button"
-                onClick={() => setTab("Scope & costs")}
-              >
-                Open scope & costs
-              </button>
-            </header>
-            <div className={jobStyles.readonlyScope}>
-              {(
-                project.acceptedQuoteScope ||
-                items.map((item) => ({
-                  title: item.title,
-                  details: item.details,
-                  amount: item.estimate,
-                }))
-              )
-                .filter(
-                  (item) =>
-                    !("customerVisible" in item) ||
-                    item.customerVisible !== false,
-                )
-                .map((item, index) => (
-                  <div key={`${index}-${item.title}`}>
-                    <span>
-                      <strong>{item.title}</strong>
-                      {item.details && <p>{item.details}</p>}
-                    </span>
-                    <b>{regional.money(item.amount)}</b>
-                  </div>
-                ))}
-            </div>
-            {!items.length && !project.acceptedQuoteScope?.length && (
-              <p className={jobStyles.emptyLine}>
-                No scope items have been added yet.
-              </p>
-            )}
-          </section>
-        )}
-        {tab === "Invoice" && (
-          <section>
-            <header className={jobStyles.invoiceToolbar}>
-              <h2>Invoice & payments</h2>
-              <div>
-                <button
-                  className="button secondary"
-                  onClick={() => setTab("Contracts")}
-                >
-                  Review signatures
-                </button>
-                <button
-                  className="button primary"
-                  onClick={() => onLogPayment(project.id)}
-                >
-                  Record payment
-                </button>
-                <button
-                  className="button secondary"
-                  onClick={() => setTab("Closeout")}
-                >
-                  Closeout
-                </button>
-              </div>
-            </header>
-            <ProjectPayments
-              project={project}
-              workspace={workspace}
-              demo={demo}
-              onLog={() => onLogPayment(project.id)}
-              canCreateCardLink={user.role === "admin" && !demo}
-            />
-            <JobSectionLink
-              title="Signatures & agreements"
-              detail={
-                project.msaAgreement?.status === "signed"
-                  ? "Agreement signed"
-                  : "Review the agreement status"
-              }
-              value={project.msaAgreement?.status || "Not recorded"}
-              onClick={() => setTab("Contracts")}
-            />
-            <JobSectionLink
-              title="Work items"
-              detail={`${done} of ${tasks.length} complete`}
-              value={`${progress}%`}
-              onClick={() => setTab("Upcoming")}
-            />
-            <JobSectionLink
-              title="Work summary"
-              detail={project.description || "Add a work summary"}
-              onClick={() => onEdit({ kind: "project", entity: project })}
-            />
-            <div className="detail-metrics scope-metrics">
-              <div>
-                <span>Scope total · project price</span>
-                <strong>{regional.money(estimated)}</strong>
-                <small>{items.length} items</small>
-                {legacyDifference !== 0 && (
-                  <p className="scope-price-warning">
-                    <TriangleAlert size={14} aria-hidden="true" />
-                    <span>
-                      Scope is {regional.money(Math.abs(legacyDifference))}{" "}
-                      {legacyDifference > 0 ? "above" : "below"} the previous
-                      contract amount of{" "}
-                      {regional.money(project.contractPrice!)}.
-                    </span>
-                  </p>
-                )}
-              </div>
-              <div>
-                <span>Budgeted costs</span>
-                <strong>{regional.money(costs)}</strong>
-                <small>Subcontractors · {regional.money(subCosts)}</small>
-                <small>Materials · {regional.money(materialCosts)}</small>
-              </div>
-              <div>
-                <span>Scope less costs</span>
-                <div className="metric-value-row">
-                  <strong className={margin < 0 ? "is-overdue" : ""}>
-                    {regional.money(margin)}
-                  </strong>
-                  <span
-                    className={`metric-percentage ${margin < 0 ? "is-negative" : ""}`}
-                    title={
-                      estimated > 0
-                        ? "Percentage of scope total remaining after subcontractor and material costs, before other project expenses"
-                        : "Add scope pricing to calculate the percentage"
-                    }
-                    aria-label={
-                      estimated > 0
-                        ? `${contractPercentage} of scope total, before other project expenses`
-                        : "Percentage unavailable until scope pricing is added"
-                    }
-                  >
-                    {contractPercentage}
-                  </span>
-                </div>
-                <small>Before other project expenses</small>
-              </div>
-            </div>
-
-            <div className="section-heading">
-              <h2>Items & totals</h2>
-              <button
-                className="button secondary small-button"
-                onClick={addScope}
-              >
-                <Plus size={15} /> Add item
-              </button>
-            </div>
-            {scopeTable}
-          </section>
-        )}
-        {tab === "Closeout" && (
-          <JobCloseout
+          <JobEstimates
             project={project}
             workspace={workspace}
+            onNew={onNewEstimate}
+            onOpen={(id) => onOpenRecord?.("quote", id)}
+            onSave={async (quote, data) => onSave("quote", data, quote)}
+            onAction={onJobAction}
+            canEdit={Boolean(
+              project.status !== "Completed" &&
+              config &&
+              canOpenWorkspaceTab(config, user.group, "Quotes"),
+            )}
+          />
+        )}
+        {tab === "Invoice" && (
+          <JobInvoice
+            key={`${project.id}:${project.job?.invoice.status}`}
+            project={project}
+            workspace={workspace}
+            onAction={onJobAction}
             onSection={selectJobSection}
-            onEdit={() => onEdit({ kind: "project", entity: project })}
-            onComplete={() =>
-              onSave("project", { ...project, status: "Completed" }, project)
-            }
+            onEditItems={() => setTab("Scope & costs")}
+            onPayment={onLogPayment}
+            onEstimate={(id) => onOpenRecord?.("quote", id)}
+            demo={demo}
+            admin={user.role === "admin"}
+          />
+        )}
+        {tab === "Closeout" && (
+          <JobOperationalCloseout
+            project={project}
+            workspace={workspace}
+            onAction={onJobAction}
+            onSection={selectJobSection}
           />
         )}
         {tab === "Contracts" && (
-          <section className={jobStyles.summarySection}>
-            <header className={jobStyles.sectionHeading}>
-              <div>
-                <h2>Forms & agreements</h2>
-                <p>
-                  Review the agreement and supporting documents for this job.
-                </p>
-              </div>
-              <button
-                className="button secondary small-button"
-                onClick={() => setTab("Photos & files")}
-              >
-                <Plus size={15} /> Add document
-              </button>
-            </header>
-            <JobSectionLink
-              title="Supporting documents"
-              detail="Photos, uploaded forms, and project files"
-              value={files.length}
-              onClick={() => setTab("Photos & files")}
-            />
-          </section>
+          <JobForms
+            project={project}
+            onAction={onJobAction}
+            onAgreement={() => setAgreementOpen(!agreementOpen)}
+          />
         )}
         {tab === "Contracts" &&
+          agreementOpen &&
           (project.quoteAcceptedAt ? (
             <MsaDraftPanel
               key={`${project.id}:${JSON.stringify(project.msaPaymentSchedule)}:${project.msaPermitResponsibility || ""}:${JSON.stringify(project.msaContractTerms)}`}
@@ -652,6 +518,7 @@ export default function ProjectDetail({
           ))}
         {tab === "Upcoming" && (
           <>
+            <JobAppointments project={project} onAction={onJobAction} />
             {project.smsScheduleEnabled && (
               <p className="muted">
                 Homeowner texts ·{" "}
@@ -682,6 +549,35 @@ export default function ProjectDetail({
         )}
         {tab === "Scope & costs" && (
           <>
+            <button className="back-link" onClick={() => setTab("Invoice")}>
+              ← Back to invoice
+            </button>
+            <ProjectPayments
+              project={project}
+              workspace={workspace}
+              demo={demo}
+              onLog={() => onLogPayment(project.id)}
+              canCreateCardLink={user.role === "admin" && !demo}
+            />
+            <div className="detail-metrics scope-metrics">
+              <div>
+                <span>Invoice total</span>
+                <strong>{regional.money(estimated)}</strong>
+              </div>
+              <div>
+                <span>Budgeted costs</span>
+                <strong>{regional.money(finances.costs)}</strong>
+                <small>Subcontractors · {regional.money(subCosts)}</small>
+                <small>Materials · {regional.money(materialCosts)}</small>
+              </div>
+              <div>
+                <span>Scope less costs</span>
+                <strong>{regional.money(margin)}</strong>
+                <span className="metric-percentage">
+                  {percent(finances.marginPercent)}
+                </span>
+              </div>
+            </div>
             <div className="section-heading">
               <div>
                 <h2>Scope & cost breakdown</h2>

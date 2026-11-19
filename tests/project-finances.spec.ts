@@ -191,6 +191,9 @@ test("material costs edit, persist, total and export on existing scope items", a
     { ...emptyWorkspace, projects: [project], scope: [scope] },
   );
   await page.goto("/demo?view=Projects&project=p1&tab=Invoice");
+  await page
+    .getByRole("button", { name: "Edit invoice items", exact: true })
+    .click();
   const table = page.locator(".scope-table");
   await expect(
     table.getByRole("columnheader", { name: "Material cost", exact: true }),
@@ -263,6 +266,9 @@ test("material costs edit, persist, total and export on existing scope items", a
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  await page
+    .getByRole("button", { name: "Edit invoice items", exact: true })
+    .click();
   await table
     .getByRole("button", { name: "Edit Flooring", exact: true })
     .click();
@@ -287,7 +293,7 @@ test("project overview logs checks and updates the balance, preserving the price
   await expect(page.locator(".scope-price-warning")).toContainText(
     "$400.00 below the previous contract amount of $1,000.00",
   );
-  await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
+  await expect(page.getByText("Invoice total", { exact: true })).toBeVisible();
   await payments.getByRole("button", { name: "Log payment" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Activity type")).toHaveValue(
@@ -309,7 +315,9 @@ test("project overview logs checks and updates the balance, preserving the price
   await expect(payments).toContainText("Check from Scott");
   await page.getByRole("button", { name: "Edit job", exact: true }).click();
   await expect(dialog.locator('[name="contractPrice"]')).toHaveCount(0);
-  await dialog.getByLabel("Project name").fill("Payment test updated");
+  await dialog
+    .getByLabel(/^(?:Job|Project) name$/)
+    .fill("Payment test updated");
   await dialog.getByRole("button", { name: "Save changes" }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.locator(".scope-price-warning")).toContainText(
@@ -407,7 +415,9 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   ).toHaveCount(0);
   await page.getByLabel("Quote status").selectOption("Sent");
   await expect(page.getByLabel("Quote status")).toHaveValue("Sent");
-  await page.getByRole("button", { name: "All jobs", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Back to estimates", exact: true })
+    .click();
   await expect(
     page.locator('[data-testid="job-card"][data-kind="quote"]'),
   ).toContainText("$5,100.15");
@@ -435,7 +445,9 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
     .getByRole("button", { name: /Quote & pricing/ })
     .click();
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
-  await page.getByRole("button", { name: "All jobs", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Back to estimates", exact: true })
+    .click();
   await expect(
     page.locator('[data-testid="job-card"][data-kind="quote"]'),
   ).toContainText("Jason’s garage quote");

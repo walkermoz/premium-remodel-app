@@ -57,6 +57,7 @@ test("contacts are separate from trades and fill new quotes", async ({
     page.getByRole("heading", { name: "Morgan Lane" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Jobs", exact: true }).click();
+  await page.getByRole("button", { name: "Unassigned estimates", exact: true }).click();
   await page
     .getByRole("button", { name: /New estimate/i })
     .first()

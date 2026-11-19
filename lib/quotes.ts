@@ -22,6 +22,11 @@ export function preserveProjectHistory(
 ) {
   const result = { ...data };
   for (const key of [
+    "job",
+    "recordType",
+    "parentProjectId",
+    "jobId",
+    "bookedJobId",
     "contractPrice",
     "acceptedQuoteScope",
     "msaAgreement",

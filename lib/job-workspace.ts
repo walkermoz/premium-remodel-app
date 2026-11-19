@@ -13,18 +13,14 @@ export type JobSection =
 export type JobRecord =
   { kind: "project"; record: Project } | { kind: "quote"; record: Quote };
 
-export function jobRecords(
-  workspace: Workspace,
-  includeJunk = false,
-): JobRecord[] {
+export function jobRecords(workspace: Workspace): JobRecord[] {
   return [
-    ...workspace.projects.map((record): JobRecord => ({
-      kind: "project",
-      record,
-    })),
-    ...(workspace.quotes || [])
-      .filter((record) => includeJunk || !record.junkedAt)
-      .map((record): JobRecord => ({ kind: "quote", record })),
+    ...workspace.projects
+      .filter((record) => record.recordType !== "project")
+      .map((record): JobRecord => ({
+        kind: "project",
+        record,
+      })),
   ].sort((a, b) => b.record.updatedAt.localeCompare(a.record.updatedAt));
 }
 
@@ -37,6 +33,26 @@ export function nextJobTask(tasks: Task[], today: string) {
         (a.startTime || "").localeCompare(b.startTime || ""),
     );
   return open.find((task) => task.dueDate >= today) || open[0];
+}
+export function nextJobVisit(project: Project, tasks: Task[], today: string) {
+  const appointments: Task[] = (project.job?.appointments || [])
+    .filter((appointment) => appointment.status !== "Canceled")
+    .map((appointment) => ({
+      id: appointment.id,
+      projectId: project.id,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      title: appointment.title,
+      description: "",
+      contractorId: "",
+      dueDate: appointment.date,
+      startTime: appointment.start,
+      endTime: appointment.end,
+      workType: "Contractor visit",
+      priority: "Medium",
+      status: appointment.status === "Done" ? "Done" : "To do",
+    }));
+  return nextJobTask(appointments, today) || nextJobTask(tasks, today);
 }
 
 const normalized = (value?: string) => value?.trim().toLowerCase() || "";

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Check,
   Copy,
@@ -50,13 +50,52 @@ import {
   resolveQuotePriceDisplay,
 } from "@/lib/quote-price-display";
 import { useRegionalFormat } from "./regional-format-context";
-import JobWorkspaceShell from "./job-workspace-shell";
-import JobOverview from "./job-overview";
-import JobHistory from "./job-history";
 import ProjectNotes from "./project-notes";
-import type { JobSection } from "@/lib/job-workspace";
-import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import jobStyles from "./job-workspace.module.css";
+function EstimateDetailShell({
+  record,
+  onBack,
+  actions,
+  children,
+}: {
+  record: Quote;
+  onBack: () => void;
+  actions: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={jobStyles.estimateEditor}>
+      <button
+        className="back-link"
+        aria-label="Back to estimates"
+        onClick={onBack}
+      >
+        ← Back to estimates
+      </button>
+      <header className={jobStyles.sectionHeading}>
+        <div>
+          <small>ESTIMATE #{record.quoteNumber}</small>
+          <h1>{record.name}</h1>
+          <p>
+            {record.client} · {record.address}
+          </p>
+        </div>
+        {actions}
+      </header>
+      <div data-testid="job-customer" className={jobStyles.customerStrip}>
+        <strong>{record.client}</strong>
+        <span>{record.address}</span>
+        {record.clientPhone && (
+          <a href={`tel:${record.clientPhone}`}>{record.clientPhone}</a>
+        )}
+        {record.clientEmail && (
+          <a href={`mailto:${record.clientEmail}`}>{record.clientEmail}</a>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
 import AgreementPacketPanel from "./agreement-packet-panel";
 import DocumentSigningPanel from "./document-signing-panel";
 import SigningPacketSummary from "./signing-packet-summary";
@@ -418,7 +457,6 @@ export function QuoteDetail({
   config,
   demo,
   onBack,
-  onOpenRecord,
   onEdit,
   onSave,
   onReorderScope,
@@ -461,7 +499,6 @@ export function QuoteDetail({
   onProjectReady: (id: string) => void;
 }) {
   const regional = useRegionalFormat();
-  const [jobView, setJobView] = useState<JobSection | "workflow">("workflow");
   const { capability: mailCapability, loading: mailConnectionLoading } =
     useOrganizationConnection("google_mail", demo);
   const mailReady = connectionIsReady(mailCapability);
@@ -500,6 +537,11 @@ export function QuoteDetail({
     .slice(0, 2);
   const signedScope =
     quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
+  const jobClosed = Boolean(
+    quote.jobId &&
+    workspace.projects.find((project) => project.id === quote.jobId)?.status ===
+      "Completed",
+  );
   const signedMsa = quote.msaAgreement?.status === "signed";
   const signingPacket = premiumQuoteSigningPacket(quote, {
     organizationName: config.profile.name,
@@ -1035,6 +1077,10 @@ export function QuoteDetail({
     setFlowValueBusy(blockId);
     setError("");
     try {
+      if (quote.jobId) {
+        await onAccept(quote);
+        return;
+      }
       const response = await fetch(
         `/api/quote-flow-instances/${flowInstance.id}`,
         {
@@ -1404,51 +1450,16 @@ export function QuoteDetail({
       />
     ) : null;
   const agreementPanel = agreementDetailsPanel;
-  const stepSections: Record<QuoteWorkflowStep, JobSection> = {
-    quote: "Estimates",
-    agreement: "Forms",
-    company: "Forms",
-    customer: "Forms",
-    deposit: "Invoice",
-    project: "Closeout",
-  };
-  const jobSection =
-    jobView === "workflow"
-      ? stepSections[activeLegacyStep || workflowStep] || "Estimates"
-      : jobView;
-  function selectJobSection(section: JobSection) {
-    if (["Job", "History", "Notes", "Photos & files"].includes(section)) {
-      setJobView(section);
-      return;
-    }
-    setJobView("workflow");
-    const step: QuoteWorkflowStep =
-      section === "Forms"
-        ? "agreement"
-        : section === "Invoice"
-          ? "deposit"
-          : section === "Closeout"
-            ? "project"
-            : "quote";
-    const configured = configuredStages.find(
-      (stage) => legacyStepForStage(stage) === step,
-    );
-    selectWorkflowStage(configured?.id || step);
-  }
   return (
-    <JobWorkspaceShell
+    <EstimateDetailShell
       record={quote}
-      kind="quote"
-      workspace={workspace}
-      section={jobSection}
-      onSection={selectJobSection}
       onBack={onBack}
       actions={
         <div className={jobStyles.recordActions}>
           <select
             aria-label="Quote status"
             value={quote.status}
-            disabled={busy || signedScope}
+            disabled={busy || signedScope || jobClosed}
             onChange={(event) =>
               void change(() =>
                 onSave(
@@ -1473,7 +1484,7 @@ export function QuoteDetail({
             <Download size={15} />
             {signedScope ? "Download signed quote" : "Download PDF"}
           </a>
-          {!signedScope && (
+          {!signedScope && !jobClosed && (
             <button
               className="button primary small-button"
               disabled={busy}
@@ -1485,75 +1496,7 @@ export function QuoteDetail({
         </div>
       }
     >
-      {jobView === "Job" && (
-        <JobOverview
-          record={quote}
-          kind="quote"
-          workspace={workspace}
-          onSection={selectJobSection}
-          onEdit={
-            signedScope
-              ? undefined
-              : () => onEdit({ kind: "quote", entity: quote })
-          }
-        />
-      )}
-      {jobView === "History" && (
-        <JobHistory
-          record={quote}
-          workspace={workspace}
-          onOpen={onOpenRecord}
-          canProjects={canOpenWorkspaceTab(config, user.group, "Projects")}
-          canQuotes={canOpenWorkspaceTab(config, user.group, "Quotes")}
-        />
-      )}
-      <div hidden={jobView !== "Notes"}>
-        <ProjectNotes
-          comments={workspace.comments.filter(
-            (note) => note.projectId === quote.id,
-          )}
-          files={files}
-          user={user}
-          demo={demo}
-          onUpload={(file) => onUpload(file, quote.id)}
-          onPost={async (body, attachmentIds, requestId) => {
-            await onSave(
-              "comment",
-              {
-                projectId: quote.id,
-                body,
-                attachmentIds,
-              },
-              undefined,
-              requestId,
-            );
-          }}
-          onDelete={(note) => onDelete("comment", note)}
-        />
-      </div>
-      {jobView === "Photos & files" && (
-        <section>
-          <header className={jobStyles.sectionHeading}>
-            <div>
-              <h2>Photos & files</h2>
-              <p>
-                Job photos and documents stay with this record as it moves into
-                Planning.
-              </p>
-            </div>
-          </header>
-          <FilesPanel
-            files={files}
-            admin={user.role === "admin"}
-            demo={demo}
-            onUpload={async (file) => {
-              await onUpload(file, quote.id);
-            }}
-            onDelete={(file) => onDelete("attachment", file)}
-          />
-        </section>
-      )}
-      <div className="quote-detail" hidden={jobView !== "workflow"}>
+      <div className="quote-detail">
         {error && (
           <div className="alert" role="alert">
             {error}
@@ -1720,6 +1663,7 @@ export function QuoteDetail({
         )}
         {!handoffDemo && (
           <QuoteWorkflowStepper
+            jobEstimate={Boolean(quote.jobId)}
             active={configuredStageId || workflowStep}
             quoteReady={quoteDetailsReady}
             agreementReady={!requiresAgreement || agreementDetailsReady}
@@ -1736,7 +1680,16 @@ export function QuoteDetail({
         )}
         {!handoffDemo && (
           <QuoteNextAction
-            action={workflowNextAction}
+            action={
+              quote.jobId && workflowNextAction.id === "create_project"
+                ? {
+                    ...workflowNextAction,
+                    title: quote.bookedJobId ? "Work booked" : "Book sold work",
+                    detail:
+                      "Keep the signed estimate and add its accepted scope to the job invoice.",
+                  }
+                : workflowNextAction
+            }
             primary={
               ["complete_quote", "add_delivery_contact"].includes(
                 workflowState.nextAction.id,
@@ -1795,7 +1748,9 @@ export function QuoteDetail({
                   onClick={goToNextActionStage}
                 >
                   {workflowState.nextAction.id === "create_project"
-                    ? "Review and create project"
+                    ? quote.jobId
+                      ? "Review and book work"
+                      : "Review and create project"
                     : workflowState.nextAction.id === "collect_payment"
                       ? "Review deposit"
                       : workflowState.nextAction.id === "company_approval"
@@ -2199,8 +2154,12 @@ export function QuoteDetail({
                         }
                       >
                         {flowValueBusy === block.id
-                          ? "Creating project…"
-                          : "Create project"}
+                          ? quote.jobId
+                            ? "Booking work…"
+                            : "Creating project…"
+                          : quote.jobId
+                            ? "Book work to job"
+                            : "Create project"}
                       </button>
                     );
                   if (block.type === "deposit_collection")
@@ -2324,7 +2283,7 @@ export function QuoteDetail({
                     quote,
                     config.quotePreferences.showCustomerLineItemPrices,
                   )}
-                  disabled={busy || signedScope}
+                  disabled={busy || signedScope || jobClosed}
                   onChange={(event) =>
                     void change(async () => {
                       await onSave(
@@ -2365,8 +2324,11 @@ export function QuoteDetail({
                 </button>
               )}
             </div>
-            {signedScope ? (
-              <table className="scope-table" aria-label="Signed quote scope">
+            {signedScope || jobClosed ? (
+              <table
+                className="scope-table"
+                aria-label={signedScope ? "Signed quote scope" : "Quote scope"}
+              >
                 <thead>
                   <tr>
                     <th>Item</th>
@@ -2716,10 +2678,11 @@ export function QuoteDetail({
               <span className="project-handoff-eyebrow">
                 Step {configuredStepNumber("project", 6)}
               </span>
-              <h2>Create project</h2>
+              <h2>{quote.jobId ? "Book sold work" : "Create project"}</h2>
               <p>
-                The completed quote, required documents, payments, customer,
-                files, and items will move together into Projects.
+                {quote.jobId
+                  ? "Copy the signed scope onto this job's invoice and credit its deposit. The estimate and signature links remain intact."
+                  : "The completed quote, required documents, payments, customer, files, and items will move together into Projects."}
               </p>
             </header>
             <div className="workflow-project-review">
@@ -2765,9 +2728,20 @@ export function QuoteDetail({
                 type="button"
                 className="button primary"
                 disabled={busy || !readyForProjects}
-                onClick={() => void change(() => onAccept(quote))}
+                onClick={() =>
+                  quote.bookedJobId
+                    ? onProjectReady(quote.bookedJobId)
+                    : void change(() => onAccept(quote))
+                }
               >
-                <Check size={16} /> {busy ? "Creating…" : "Create project"}
+                <Check size={16} />{" "}
+                {busy
+                  ? "Saving…"
+                  : quote.bookedJobId
+                    ? "Open job invoice"
+                    : quote.jobId
+                      ? "Book to job invoice"
+                      : "Create project"}
               </button>
             </footer>
           </section>
@@ -2813,6 +2787,31 @@ export function QuoteDetail({
           <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
         )}
       </div>
-    </JobWorkspaceShell>
+      <details>
+        <summary>Estimate notes</summary>
+        <ProjectNotes
+          comments={workspace.comments.filter(
+            (note) => note.projectId === quote.id,
+          )}
+          files={files}
+          user={user}
+          demo={demo}
+          onUpload={(file) => onUpload(file, quote.id)}
+          onPost={async (body, attachmentIds, requestId) => {
+            await onSave(
+              "comment",
+              {
+                projectId: quote.id,
+                body,
+                attachmentIds,
+              },
+              undefined,
+              requestId,
+            );
+          }}
+          onDelete={(note) => onDelete("comment", note)}
+        />
+      </details>
+    </EstimateDetailShell>
   );
 }

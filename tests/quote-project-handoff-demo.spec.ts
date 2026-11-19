@@ -98,7 +98,7 @@ test("quote to project demo shows the full handoff flow", async ({ page }) => {
   const review = page.getByRole("form", {
     name: "Create project from quote",
   });
-  await expect(review.getByLabel("Project name")).toHaveValue(
+  await expect(review.getByLabel(/^(?:Job|Project) name$/)).toHaveValue(
     "Willowbrook kitchen remodel",
   );
   await expect(review).toContainText("Taylor Reed");

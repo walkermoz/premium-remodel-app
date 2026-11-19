@@ -44,29 +44,8 @@ cloudTest(
     project = await started.json();
     expect(project.startDate).toBe(workToday());
     const finished = await patch({ ...project, status: "Completed" });
-    expect(finished.status()).toBe(200);
-    project = await finished.json();
-    expect(project.completedDate).toBe(workToday());
-    expect(project.endDate).toBe("");
-    const bad = await patch({ ...project, completedDate: "2024-01-01" });
-    expect(bad.status()).toBe(400);
-    const legacy = { ...project, name: "Edited by an older browser" };
-    delete legacy.completedDate;
-    const edited = await patch(legacy);
-    expect(edited.status()).toBe(200);
-    project = await edited.json();
-    expect(project.completedDate).toBe(workToday());
-    const read = await (await request.get("/api/workspace")).json();
-    expect(read.projects[0]).toMatchObject({
-      id: project.id,
-      completedDate: workToday(),
-      startDate: workToday(),
-    });
-    const reopened = await patch({ ...project, status: "In progress" });
-    expect(reopened.status()).toBe(200);
-    expect(await reopened.json()).toMatchObject({
-      completedDate: "",
-      startDate: workToday(),
-    });
+    expect(finished.status()).toBe(409);
+    expect(await finished.text()).toContain("Closeout");
+    // Completion is covered by the job-operations RPC integration test.
   },
 );

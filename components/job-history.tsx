@@ -28,7 +28,12 @@ export default function JobHistory({
   showEvents?: boolean;
 }) {
   const regional = useRegionalFormat();
-  const related = jobRecords(workspace).filter(
+  const related = [
+    ...jobRecords(workspace),
+    ...(workspace.quotes || [])
+      .filter((quote) => !quote.junkedAt)
+      .map((record) => ({ kind: "quote" as const, record })),
+  ].filter(
     (entry) =>
       (entry.kind === "quote" ? canQuotes : canProjects) &&
       sameJobCustomer(record, entry.record),

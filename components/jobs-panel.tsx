@@ -12,7 +12,8 @@ import {
   Grid2X2,
   List,
 } from "lucide-react";
-import { jobRecords, nextJobTask, type JobRecord } from "@/lib/job-workspace";
+import { jobRecords, nextJobVisit, type JobRecord } from "@/lib/job-workspace";
+import { sameJobCustomer } from "@/lib/job-workspace";
 import { workToday } from "@/lib/work";
 import { scopeTotal } from "@/lib/project-finances";
 import type { Quote, Workspace } from "@/lib/types";
@@ -30,6 +31,7 @@ export default function JobsPanel({
   demo,
   onOpen,
   onNewProject,
+  onNewContainer,
   onNewQuote,
   onImport,
   onSaveQuote,
@@ -42,6 +44,7 @@ export default function JobsPanel({
   demo: boolean;
   onOpen: (kind: "project" | "quote", id: string) => void;
   onNewProject: () => void;
+  onNewContainer: () => void;
   onNewQuote: () => void;
   onSaveQuote: (
     data: Record<string, unknown>,
@@ -60,9 +63,21 @@ export default function JobsPanel({
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
-  const records = jobRecords(workspace, true).filter(({ kind }) =>
-    kind === "project" ? canProjects : canQuotes,
+  const estimatesLabel = canProjects ? "Unassigned estimates" : "Estimates";
+  const [mode, setMode] = useState(
+    estimatesOnly ? estimatesLabel : "Jobs",
   );
+  const records: JobRecord[] = (
+    mode === "Projects"
+      ? workspace.projects
+          .filter((record) => record.recordType === "project")
+          .map((record) => ({ kind: "project" as const, record }))
+      : mode === estimatesLabel
+        ? (workspace.quotes || [])
+            .filter((record) => !record.jobId || !canProjects)
+            .map((record) => ({ kind: "quote" as const, record }))
+        : jobRecords(workspace)
+  ).filter(({ kind }) => (kind === "project" ? canProjects : canQuotes));
   const matches = ({ kind, record }: JobRecord, f: string) => {
     const junk = kind === "quote" && Boolean(record.junkedAt);
     if (f === "Junk") return junk;
@@ -86,11 +101,17 @@ export default function JobsPanel({
       <header className={styles.listHeader}>
         <div>
           <span className={styles.eyebrow}>WORKSPACE</span>
-          <h1>All jobs</h1>
-          <p>Estimates, scheduled work, and completed jobs.</p>
+          <h1>{mode === "Jobs" ? "All jobs" : mode}</h1>
+          <p>
+            {mode === "Jobs"
+              ? "Jobs and appointments. Estimate options and invoices stay inside each job."
+              : mode === "Projects"
+                ? "Longer projects group related jobs and visits."
+                : "Legacy and imported estimates that have not been linked to a job."}
+          </p>
         </div>
         <div>
-          {canQuotes && (
+          {canQuotes && mode === estimatesLabel && (
             <>
               <button
                 className="button secondary"
@@ -104,21 +125,48 @@ export default function JobsPanel({
               </button>
             </>
           )}
-          {canProjects && (
-            <button className="button secondary" onClick={onNewProject}>
-              <Plus size={16} /> New job
+          {canProjects && mode !== estimatesLabel && (
+            <button
+              className="button primary"
+              onClick={mode === "Projects" ? onNewContainer : onNewProject}
+            >
+              <Plus size={16} />{" "}
+              {mode === "Projects" ? "New project" : "New job"}
             </button>
           )}
         </div>
       </header>
+      <div
+        className={styles.filters}
+        role="group"
+        aria-label="Workspace records"
+      >
+        {[
+          ...(canProjects ? ["Jobs", "Projects"] : []),
+          ...(canQuotes ? [estimatesLabel] : []),
+        ].map((item) => (
+          <button
+            key={item}
+            aria-pressed={mode === item}
+            onClick={() => {
+              setMode(item);
+              setFilter("All jobs");
+            }}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
       <div className={styles.filters} role="group" aria-label="Filter jobs">
         {[
           "All jobs",
-          ...(canQuotes ? ["Estimating"] : []),
-          ...(canProjects
+          ...(canQuotes && mode === estimatesLabel
+            ? ["Estimating"]
+            : []),
+          ...(canProjects && mode !== estimatesLabel
             ? ["Planning", "In progress", "On hold", "Completed"]
             : []),
-          ...(canQuotes ? ["Junk"] : []),
+          ...(canQuotes && mode === estimatesLabel ? ["Junk"] : []),
         ].map((f) => (
           <button
             key={f}
@@ -162,7 +210,11 @@ export default function JobsPanel({
           );
           const next =
             kind === "project"
-              ? nextJobTask(tasks, workToday(new Date(), regional.timezone))
+              ? nextJobVisit(
+                  record as import("@/lib/types").Project,
+                  tasks,
+                  workToday(new Date(), regional.timezone),
+                )
               : undefined;
           return (
             <article
@@ -229,6 +281,54 @@ export default function JobsPanel({
                   Open job <ArrowUpRight size={14} />
                 </button>
                 {kind === "quote" && (
+                  <label className={styles.linkEstimate}>
+                    Link to job
+                    <select
+                      aria-label={`Link ${record.name} to job`}
+                      disabled={
+                        savingId === record.id || record.status === "Accepted"
+                      }
+                      value=""
+                      onChange={async (event) => {
+                        const job = workspace.projects.find(
+                          (job) => job.id === event.target.value,
+                        );
+                        if (!job) return;
+                        setSavingId(record.id);
+                        setError("");
+                        try {
+                          await onSaveQuote(
+                            { ...record, jobId: job.id },
+                            record,
+                          );
+                        } catch (error) {
+                          setError(
+                            error instanceof Error
+                              ? error.message
+                              : "Could not link estimate.",
+                          );
+                        } finally {
+                          setSavingId("");
+                        }
+                      }}
+                    >
+                      <option value="">Choose matching job</option>
+                      {workspace.projects
+                        .filter(
+                          (job) =>
+                            job.recordType !== "project" &&
+                            job.status !== "Completed" &&
+                            sameJobCustomer(job, record),
+                        )
+                        .map((job) => (
+                          <option key={job.id} value={job.id}>
+                            {job.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                )}
+                {kind === "quote" && (
                   <button
                     className="icon-button"
                     disabled={savingId === record.id}
@@ -280,7 +380,7 @@ export default function JobsPanel({
           <p>
             Choose another status or search by customer, address, or job number.
           </p>
-          {canQuotes && (
+          {canQuotes && mode === estimatesLabel && (
             <button className="button primary" onClick={onNewQuote}>
               New estimate
             </button>
