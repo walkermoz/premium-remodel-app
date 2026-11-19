@@ -970,6 +970,7 @@
 .operationalForm :global(.checkbox-label) {
   display: flex;
   align-items: start;
+  flex-direction: row;
   gap: 10px;
   font-weight: 400;
 }
@@ -1029,9 +1030,28 @@
   gap: 9px;
   margin-top: 22px;
 }
-.option :global(.checkbox-label) { display: flex; align-items: center; gap: 9px; font-size: 12px; }
-.option input[type="checkbox"], .operationalForm input[type="checkbox"] { width: 16px; height: 16px; min-height: 16px; padding: 0; flex: 0 0 16px; accent-color: var(--blue); }
-.sectionLink strong small { margin-left: 9px; color: var(--blue); font-size: 10px; }
+.option :global(.checkbox-label) {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+}
+.option input[type="checkbox"],
+.operationalForm input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+  flex: 0 0 16px;
+  accent-color: var(--blue);
+}
+.sectionLink strong small {
+  margin-left: 9px;
+  color: var(--blue);
+  font-size: 10px;
+}
 .presentation {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
