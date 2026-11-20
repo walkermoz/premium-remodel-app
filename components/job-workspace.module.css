@@ -1098,12 +1098,28 @@
 }
 
 .printableInvoice {
+  padding: 24px;
   color: var(--text);
   background: var(--surface);
   line-height: 1.6;
 }
 .printableInvoice h1 {
   font-size: 24px;
+  margin: 18px 0 8px;
+}
+.printableInvoice header {
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.printableInvoice h2 {
+  margin: 0 0 8px;
+}
+.printableInvoice h3 {
+  margin: 20px 0 6px;
+}
+.printableInvoice p {
+  margin: 6px 0;
 }
 
 .historyRecord > span {
