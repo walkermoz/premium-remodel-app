@@ -35,10 +35,10 @@ cloudTest(
       .fill("flooring@example.com");
     await dialog.getByRole("button", { name: "Create trade contact" }).click();
     await expect(dialog).not.toBeVisible();
-    await page.getByRole("button", { name: "Projects", exact: true }).click();
-    await page.getByRole("button", { name: "New project" }).click();
+    await page.getByRole("button", { name: "Jobs", exact: true }).click();
+    await page.getByRole("button", { name: /New (?:project|job)/ }).click();
     dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Project name").fill("Real test kitchen");
+    await dialog.getByLabel(/^(?:Job|Project) name$/).fill("Real test kitchen");
     await dialog.getByLabel("Job address").fill("100 Test Lane, Raleigh, NC");
     await dialog.getByLabel("Client name").fill("Test Client");
     await expect(dialog.getByLabel("Contract price ($)")).toHaveCount(0);
@@ -48,12 +48,12 @@ cloudTest(
       .getByLabel("Full scope of work")
       .fill("Flooring, countertops, and electrical.");
     await expect(dialog.getByLabel("Assigned trade contact")).toHaveCount(0);
-    await dialog.getByRole("button", { name: "Create project" }).click();
+    await dialog.getByRole("button", { name: /Create (?:job|project)/ }).click();
     await expect(dialog).not.toBeVisible();
     await page.getByRole("button", { name: "Planning", exact: true }).click();
     await page.getByRole("heading", { name: "Real test kitchen" }).click();
     await expect(
-      page.getByRole("heading", { name: "Project brief" }),
+      page.getByText("Flooring, countertops, and electrical.", { exact: true }),
     ).toBeVisible();
     for (const item of [
       {
@@ -114,7 +114,10 @@ cloudTest(
     await expect(page.locator("tfoot")).toContainText("$17,000");
     await expect(page.locator("tfoot")).toContainText("$11,000");
     await expect(page.locator("tfoot")).toContainText("$6,000");
-    await page.getByRole("tab", { name: /^Notes/ }).click();
+    await page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Notes$/i })
+      .click();
     const jobNotes = page.getByRole("region", { name: "Job notes" });
     await jobNotes
       .getByLabel("New job note")
@@ -129,7 +132,10 @@ cloudTest(
     await expect(jobNotes.getByRole("article")).toContainText(
       "Client prefers warm white grout.",
     );
-    await page.getByRole("tab", { name: /^Upcoming/ }).click();
+    await page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Schedule$/i })
+      .click();
     await page.getByRole("button", { name: "List", exact: true }).click();
     await page
       .getByRole("button", { name: "Add item", exact: true })
@@ -155,7 +161,10 @@ cloudTest(
     await expect(
       page.getByRole("button", { name: "Reopen Install new flooring" }),
     ).toBeVisible();
-    await page.getByRole("tab", { name: /^Activity/ }).click();
+    await page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^History$/i })
+      .click();
     await page
       .getByRole("button", { name: "Log activity", exact: true })
       .click();
@@ -171,7 +180,10 @@ cloudTest(
     await expect(
       page.getByText("Flooring is complete. Ready for countertops."),
     ).toBeVisible();
-    await page.getByRole("tab", { name: /^Photos & files/ }).click();
+    await page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Photos \& files$/i })
+      .click();
     await page
       .getByRole("tabpanel", { name: /^Photos & files/ })
       .locator('.files-panel input[type="file"]')
@@ -217,9 +229,14 @@ cloudTest(
       page.getByRole("heading", { name: "Real test kitchen" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("tab", { name: /^Photos & files/ }),
-    ).toHaveAttribute("aria-selected", "true");
-    await page.getByRole("tab", { name: "Overview", exact: true }).click();
+      page
+        .getByRole("navigation", { name: "Job navigation" })
+        .getByRole("button", { name: /^Photos \& files$/i }),
+    ).toHaveAttribute("aria-current", "page");
+    await page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Job$/i })
+      .click();
     await expect(page.locator("tfoot")).toContainText("$11,000");
     // Stale updates must not overwrite another teammate's work.
     const update = await page.request.patch("/api/workspace", {
@@ -293,6 +310,7 @@ cloudTest(
       ).status(),
     ).toBe(400);
     // Invite another user, and prove their separate session sees the same company records.
+    await page.getByRole("button", { name: "Open navigation" }).click();
     await page.getByRole("button", { name: "Team", exact: true }).click();
     await page.getByRole("button", { name: "Invite teammate" }).click();
     dialog = page.getByRole("dialog");
@@ -320,7 +338,10 @@ cloudTest(
     await member
       .getByRole("heading", { name: "Kitchen updated by teammate" })
       .click();
-    await member.getByRole("tab", { name: /^Notes/ }).click();
+    await member
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Notes$/i })
+      .click();
     const sharedNotes = member.getByRole("region", { name: "Job notes" });
     await expect(sharedNotes).toContainText("Client prefers warm white grout.");
     await expect(
@@ -446,25 +467,26 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/demo?view=Projects");
-  await expect(page.locator(".project-card")).toHaveCount(3);
-  await expect(
-    page.getByRole("button", { name: /^In progress/ }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("job-card")).toHaveCount(6);
+  await expect(page.getByRole("button", { name: /^All jobs/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await page.getByRole("button", { name: "Planning", exact: true }).click();
-  await expect(page.locator(".project-card")).toHaveCount(1);
+  await expect(page.getByTestId("job-card")).toHaveCount(1);
   await page.getByRole("button", { name: /^Planning/ }).click();
-  await expect(page.locator(".project-card")).toHaveCount(1);
+  await expect(page.getByTestId("job-card")).toHaveCount(1);
   await page.getByRole("button", { name: /^In progress/ }).click();
-  await expect(page.locator(".project-card")).toHaveCount(3);
-  await page.getByRole("textbox", { name: "Search projects" }).fill("oakwood");
-  await expect(page.locator(".project-card")).toHaveCount(1);
+  await expect(page.getByTestId("job-card")).toHaveCount(3);
+  await page.getByRole("textbox", { name: "Search jobs" }).fill("oakwood");
+  await expect(page.getByTestId("job-card")).toHaveCount(1);
   await page.getByRole("button", { name: "Clear search" }).click();
   await page.getByRole("button", { name: "List view" }).click();
   await expect(page.locator(".list-view")).toBeVisible();
   await page.getByRole("heading", { name: "Oakwood kitchen remodel" }).click();
-  await page.getByRole("button", { name: "Edit project", exact: true }).click();
+  await page.getByRole("button", { name: "Edit job", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Project name").fill("My sample kitchen");
+  await dialog.getByLabel(/^(?:Job|Project) name$/).fill("My sample kitchen");
   await dialog.getByRole("button", { name: "Save changes" }).click();
   await expect(dialog).not.toBeVisible();
   await page.reload();
@@ -479,13 +501,16 @@ test("sample workspace filters, persists edits, and fits mobile screens", async 
       )
       .toBe(true);
     for (const name of [
-      /^Upcoming/,
-      /^Scope & costs/,
-      /^Contracts/,
-      /^Photos & files/,
-      /^Activity/,
+      "Schedule",
+      "Invoice",
+      "Forms",
+      "Photos & files",
+      "History",
     ]) {
-      await page.getByRole("tab", { name }).click();
+      await page
+        .getByRole("navigation", { name: "Job navigation" })
+        .getByRole("button", { name, exact: true })
+        .click();
       await expect
         .poll(() =>
           page.evaluate(

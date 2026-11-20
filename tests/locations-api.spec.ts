@@ -399,7 +399,7 @@ cloudTest(
     await expect(
       page.getByRole("region", { name: "Your location sharing" }),
     ).toContainText("Updated just now");
-    await page.getByRole("button", { name: "Projects", exact: true }).click();
+    await page.getByRole("button", { name: "Jobs", exact: true }).click();
     await page
       .getByRole("button", {
         name: "Location sharing is on. Open sharing controls",

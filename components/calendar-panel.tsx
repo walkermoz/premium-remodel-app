@@ -26,6 +26,7 @@ export default function CalendarPanel({
   onEditProject,
   onOpenProject,
   onOpenLead,
+  onOpenAppointment,
   entries: allEntries,
   selectedDay,
   onSelectDay,
@@ -37,6 +38,7 @@ export default function CalendarPanel({
   onEditProject: (project: Project) => void;
   onOpenProject?: (id: string) => void;
   onOpenLead?: (id: string) => void;
+  onOpenAppointment?: (jobId: string, appointmentId: string) => void;
   entries: CalendarEntry[];
   selectedDay: string;
   onSelectDay: (day: string) => void;
@@ -78,6 +80,11 @@ export default function CalendarPanel({
     onSelectDay(next === currentDay.slice(0, 7) ? currentDay : `${next}-01`);
   }
   function openEntry(entry: CalendarEntry) {
+    if (entry.jobAppointment && entry.project) {
+      onOpenAppointment?.(entry.project.id, entry.jobAppointment.id);
+      return;
+    }
+    if (entry.task && entry.project?.status === "Completed") return;
     if (entry.lead) onOpenLead?.(entry.lead.id);
     else if (entry.task) onEditTask(entry.task);
     else if (entry.project) onEditProject(entry.project);
@@ -140,6 +147,11 @@ export default function CalendarPanel({
             {` · ${entryTiming(entry)}`}
             {entry.completed ? " · Completed" : late ? " · Overdue" : ""}
           </span>
+          {entry.jobAppointment && (
+            <span className="calendar-entry-meta">
+              {entry.jobAppointment.technician} · {entry.jobAppointment.status}
+            </span>
+          )}
           {contractor && (
             <span className="calendar-entry-meta">{contractor.name}</span>
           )}
@@ -157,7 +169,7 @@ export default function CalendarPanel({
             <span className="calendar-entry-meta">{entry.contact.address}</span>
           )}
         </div>
-        {entry.task && (
+        {entry.task && entry.project?.status !== "Completed" && (
           <button
             className={`task-check ${entry.completed ? "checked" : ""}`}
             onClick={() => onToggleTask(entry.task!)}

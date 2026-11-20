@@ -16,6 +16,7 @@ import {
   updateRecord,
 } from "@/lib/repository";
 import { schemas } from "@/lib/schemas";
+import { initialJobOperations } from "@/lib/job-operations";
 import type {
   EntityKind,
   Contractor,
@@ -179,6 +180,16 @@ async function save(request: Request, editing: boolean) {
         409,
         "The signed quote is locked. MSA terms can be edited in the agreement section.",
       );
+    if (
+      kind === "project" &&
+      body.data?.status === "Completed" &&
+      (current as Project | null)?.status !== "Completed" &&
+      (current as Project | null)?.recordType !== "project"
+    )
+      throw new HttpError(
+        409,
+        "Complete this job from Closeout after reviewing its invoice, forms, and appointments.",
+      );
     if (kind === "scope") {
       const parentId = String(
         (body.data as { projectId?: unknown } | undefined)?.projectId ||
@@ -223,6 +234,37 @@ async function save(request: Request, editing: boolean) {
     if (!parsed.success)
       throw new HttpError(400, parsed.error.issues[0].message);
     let data = parsed.data as Record<string, unknown>;
+    if (kind === "project" && !current && data.recordType !== "project") {
+      data.recordType = "job";
+      data.job = initialJobOperations();
+    }
+    if (kind === "project" && data.parentProjectId && !current) {
+      const parent = (await findRecord(
+        user,
+        String(data.parentProjectId),
+        "project",
+      )) as Project | null;
+      if (!parent || parent.recordType !== "project")
+        throw new HttpError(400, "Choose a project in this organization.");
+    }
+    if (kind === "quote" && data.jobId) {
+      const job = (await findRecord(
+        user,
+        String(data.jobId),
+        "project",
+      )) as Project | null;
+      if (!job || job.recordType === "project" || job.status === "Completed")
+        throw new HttpError(400, "Choose an open job in this organization.");
+      if (
+        data.contactId !== job.contactId ||
+        data.client !== job.client ||
+        data.address !== job.address
+      )
+        throw new HttpError(
+          400,
+          "The estimate must use its job's customer and service location.",
+        );
+    }
     if (
       kind === "contact" &&
       !editing &&
@@ -511,11 +553,30 @@ async function save(request: Request, editing: boolean) {
       data.projectId &&
       !(await findRecord(user, String(data.projectId), "project")) &&
       !(
-        kind === "scope" &&
+        ["scope", "comment", "activity"].includes(kind) &&
         (await findRecord(user, String(data.projectId), "quote"))
       )
     )
       throw new HttpError(404, "Project not found.");
+    if (kind === "activity" && data.activityType === "Payment received") {
+      const estimate = (await findRecord(
+        user,
+        String(data.projectId),
+        "quote",
+      )) as Quote | null;
+      if (estimate) {
+        if (
+          !canEditWorkspaceRecord(businessConfig, user.group, "quote") ||
+          estimate.status !== "Accepted" ||
+          estimate.msaAgreement?.status !== "signed"
+        )
+          throw new HttpError(
+            409,
+            "A signed estimate and agreement are required before recording its deposit.",
+          );
+        if (estimate.bookedJobId) data.invoiceJobId = estimate.bookedJobId;
+      }
+    }
     if (
       data.contractorId &&
       !(await findRecord(user, String(data.contractorId), "contractor"))

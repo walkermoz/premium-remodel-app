@@ -116,10 +116,11 @@ test("log payments and deliveries, attach receipts, filter and show project paym
     .selectOption("Payment received");
   await expect(page.locator(".job-activity-entry")).toHaveCount(1);
   await page.locator(".job-activity-context .text-button").click();
-  await expect(page.getByRole("tab", { name: /^Activity/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^History$/i }),
+  ).toHaveAttribute("aria-current", "page");
   const totals = page.getByLabel("Logged project payments");
   await expect(totals).toContainText("$3,000.15");
   await expect(totals).toContainText("$2,000.00");
@@ -142,7 +143,10 @@ test("log payments and deliveries, attach receipts, filter and show project paym
     .click();
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(totals).toContainText("$0.00");
-  await page.getByRole("tab", { name: /^Photos & files/ }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Photos \& files$/i })
+    .click();
   await expect(page.getByText("check-receipt.txt")).toBeVisible();
 });
 
@@ -192,8 +196,9 @@ test("completed work logs once per completion and retains history when reopened"
     .selectOption("Work completed");
   await expect(page.locator(".job-activity-entry")).toHaveCount(1);
   await page.goto("/demo?view=Projects&project=p1&tab=Updates");
-  await expect(page.getByRole("tab", { name: /^Activity/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^History$/i }),
+  ).toHaveAttribute("aria-current", "page");
 });

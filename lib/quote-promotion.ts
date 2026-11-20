@@ -24,6 +24,9 @@ export async function promotePaidQuote(
   if (row.kind !== "quote") throw new Error("Quote is unavailable.");
 
   const quote = row.data as Quote;
+  // Job estimates remain estimates after sale. Booking copies their immutable
+  // accepted scope onto the job invoice without replacing this record or links.
+  if (quote.jobId) return null;
   const agreement = quote.msaAgreement;
   const acceptance = quoteAcceptanceSchema.safeParse(quote.quoteAcceptance);
   if (
@@ -110,7 +113,9 @@ export async function promotePaidQuote(
     } catch (workflowError) {
       console.error(
         "Could not enqueue the project-created workflow event",
-        workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
+        workflowError instanceof Error
+          ? workflowError.name
+          : "WorkflowEventError",
       );
     }
     return project;

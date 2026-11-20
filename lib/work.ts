@@ -27,6 +27,8 @@ export function workTime(task: Task) {
     : "";
 }
 export function entryTiming(entry: CalendarEntry) {
+  if (entry.jobAppointment)
+    return `${timeLabel(entry.jobAppointment.start)}–${timeLabel(entry.jobAppointment.end)}`;
   if (entry.lead) {
     const start = entry.lead.quoteStartTime || "";
     const end = entry.lead.quoteEndTime || "";
@@ -46,11 +48,13 @@ export function entryTiming(entry: CalendarEntry) {
   );
 }
 export function entryType(entry: CalendarEntry) {
-  return entry.lead
-    ? "Consultation"
-    : entry.task
-      ? workType(entry.task)
-      : "Milestone";
+  return entry.jobAppointment
+    ? "Contractor visit"
+    : entry.lead
+      ? "Consultation"
+      : entry.task
+        ? workType(entry.task)
+        : "Milestone";
 }
 export function groupUpcoming(entries: CalendarEntry[], today: string) {
   const end = calendarDate(today);

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { contractClock, projectDates } from "../lib/project-timing";
 import { demoWorkspace } from "../lib/demo";
 import { emptyWorkspace, type Project } from "../lib/types";
+import { jobOperations, invoiceDocument } from "../lib/job-operations";
 import { schemas } from "../lib/schemas";
 
 test("contract days handle first days, DST, holds, completion, and legacy records", () => {
@@ -72,12 +73,35 @@ test("a job starts its counter, updates across midnight, freezes, and resumes af
   page,
 }) => {
   const sample = demoWorkspace();
-  const project = {
+  const project: Project = {
     ...sample.projects[3],
     name: "Contract clock kitchen",
     startDate: "",
     endDate: "",
     status: "Planning" as const,
+  };
+  project.job = jobOperations(project);
+  project.job.appointments = [
+    {
+      id: "clock-visit",
+      start: "09:00",
+      end: "10:00",
+      title: "Completed visit",
+      date: "2026-09-09",
+      technician: "Staff",
+      status: "Done",
+    },
+  ];
+  project.job.invoice = {
+    ...project.job.invoice,
+    summary: "Completed work",
+    status: "Finalized",
+  };
+  project.job.invoice.acknowledgement = {
+    name: project.client,
+    at: "2026-09-09T12:00:00Z",
+    capturedBy: "Staff",
+    document: invoiceDocument(project, []),
   };
   await page.clock.install({ time: new Date("2026-09-09T16:00:00Z") });
   await page.addInitScript(
@@ -113,6 +137,14 @@ test("a job starts its counter, updates across midnight, freezes, and resumes af
   await page
     .getByLabel("Project status", { exact: true })
     .selectOption("Completed");
+  await page.getByRole("button", { name: "Complete job", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Confirm job completion", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: "Job", exact: true })
+    .click();
   await expect(clock).toContainText("2 days total");
   await expect(page.getByLabel("Project status", { exact: true })).toHaveCSS(
     "background-color",
@@ -121,7 +153,7 @@ test("a job starts its counter, updates across midnight, freezes, and resumes af
   await page.clock.setSystemTime(new Date("2026-09-14T16:00:00Z"));
   await page.reload();
   await expect(clock).toContainText("2 days total");
-  await page.getByRole("button", { name: "Edit project brief" }).click();
+  await page.getByRole("button", { name: "Edit job details" }).click();
   await expect(page.getByLabel("Actual completion date")).toHaveValue(
     "2026-09-10",
   );

@@ -44,7 +44,7 @@ test("quote rows reorder by dragging and keep their order after reload", async (
 }) => {
   await page.setViewportSize({ width: 1600, height: 2200 });
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Drag row example");
   await quote.getByLabel("Contact name").fill("Test Customer");

@@ -40,6 +40,10 @@ export default function ActivityLogForm({
   onUpload: (file: File, projectId: string) => Promise<Attachment>;
   onSave: (data: Record<string, unknown>, requestId: string) => Promise<void>;
 }) {
+  const records = [
+    ...workspace.projects.filter((project) => project.recordType !== "project"),
+    ...(workspace.quotes || []).filter((quote) => quote.status === "Accepted"),
+  ];
   const [projectId, setProjectId] = useState(initialProject);
   const [type, setType] = useState<(typeof activityTypes)[number]>(initialType);
   const [actorId, setActorId] = useState(user.id);
@@ -48,7 +52,7 @@ export default function ActivityLogForm({
   );
   const [teamError, setTeamError] = useState("");
   const [party, setParty] = useState(
-    workspace.projects.find((p) => p.id === initialProject)?.client || "",
+    records.find((p) => p.id === initialProject)?.client || "",
   );
   const [contractorId, setContractorId] = useState("");
   const [when, setWhen] = useState(() => localDateTime());
@@ -169,13 +173,12 @@ export default function ActivityLogForm({
                 onChange={(e) => {
                   setProjectId(e.target.value);
                   setParty(
-                    workspace.projects.find((p) => p.id === e.target.value)
-                      ?.client || "",
+                    records.find((p) => p.id === e.target.value)?.client || "",
                   );
                 }}
               >
                 <option value="">Choose a project</option>
-                {workspace.projects.map((p) => (
+                {records.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
@@ -193,8 +196,7 @@ export default function ActivityLogForm({
                   setParty(
                     next === "Subcontractor paid"
                       ? ""
-                      : workspace.projects.find((p) => p.id === projectId)
-                          ?.client || "",
+                      : records.find((p) => p.id === projectId)?.client || "",
                   );
                 }}
               >

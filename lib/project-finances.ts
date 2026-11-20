@@ -55,6 +55,7 @@ export function preserveScopeCosts(
 ) {
   return {
     ...input,
+    sourceEstimateId: current?.sourceEstimateId,
     sectionId:
       input.sectionId === undefined ? current?.sectionId : input.sectionId,
     sectionName:
@@ -109,7 +110,7 @@ export function projectFinances(
   const payments = activities
     .filter(
       (item) =>
-        item.projectId === project.id &&
+        (item.projectId === project.id || item.invoiceJobId === project.id) &&
         item.activityType === "Payment received",
     )
     .sort(

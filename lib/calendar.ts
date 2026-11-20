@@ -1,5 +1,7 @@
 import type { Contact, Lead, Project, Task, Workspace } from "./types";
 
+import type { JobAppointment } from "./job-operations";
+
 export type CalendarKind = "task" | "start" | "finish" | "appointment";
 export interface CalendarEntry {
   id: string;
@@ -8,6 +10,7 @@ export interface CalendarEntry {
   kind: CalendarKind;
   project?: Project;
   task?: Task;
+  jobAppointment?: JobAppointment;
   lead?: Lead;
   contact?: Contact;
   completed: boolean;
@@ -56,6 +59,23 @@ export function calendarEntries(
   for (const project of projects.values()) {
     const completed = project.status === "Completed";
     if (completed && !showCompleted) continue;
+    for (const appointment of project.job?.appointments || []) {
+      if (
+        appointment.status === "Canceled" ||
+        !validCalendarDate(appointment.date) ||
+        (appointment.status === "Done" && !showCompleted)
+      )
+        continue;
+      entries.push({
+        id: `visit:${project.id}:${appointment.id}`,
+        date: appointment.date,
+        title: appointment.title,
+        kind: "appointment",
+        project,
+        jobAppointment: appointment,
+        completed: appointment.status === "Done",
+      });
+    }
     for (const [kind, date, title] of [
       ["start", project.startDate, "Project starts"],
       ["finish", project.endDate, "Target completion"],
@@ -110,8 +130,16 @@ export function calendarEntries(
   return entries.sort(
     (a, b) =>
       (a.date || "9999").localeCompare(b.date || "9999") ||
-      (a.task?.startTime || a.lead?.quoteStartTime || "99:99").localeCompare(
-        b.task?.startTime || b.lead?.quoteStartTime || "99:99",
+      (
+        a.jobAppointment?.start ||
+        a.task?.startTime ||
+        a.lead?.quoteStartTime ||
+        "99:99"
+      ).localeCompare(
+        b.jobAppointment?.start ||
+          b.task?.startTime ||
+          b.lead?.quoteStartTime ||
+          "99:99",
       ) ||
       a.title.localeCompare(b.title) ||
       a.id.localeCompare(b.id),

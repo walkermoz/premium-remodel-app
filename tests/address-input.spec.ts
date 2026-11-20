@@ -94,7 +94,9 @@ test("Cary address appears from a partial street without unrelated national resu
     await route.fulfill({ json: result });
   });
   await page.goto("/demo");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page
+    .getByRole("button", { name: /New (?:project|job)/, exact: true })
+    .click();
   const input = page.getByLabel("Job address");
   await input.fill("1214 Willow");
   const options = page
@@ -125,7 +127,9 @@ test("county HTTP and API errors fall back to nationwide suggestions", async ({
   });
   await page.route(endpoint, (route) => route.fulfill({ json: result }));
   await page.goto("/demo");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page
+    .getByRole("button", { name: /New (?:project|job)/, exact: true })
+    .click();
   const input = page.getByLabel("Job address");
   for (const query of ["301 Hills", "301 Hillsborough"]) {
     await input.fill(query);
@@ -170,9 +174,11 @@ test("keyboard selection fills and saves an address without submitting the form 
   });
   await page.clock.install();
   await page.goto("/demo");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page
+    .getByRole("button", { name: /New (?:project|job)/, exact: true })
+    .click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Project name").fill("Address selection project");
+  await dialog.getByLabel(/^(?:Job|Project) name$/).fill("Address selection project");
   const input = dialog.getByRole("combobox", { name: "Job address" });
   await input.fill("301");
   await page.clock.fastForward(500);
@@ -195,7 +201,7 @@ test("keyboard selection fills and saves an address without submitting the form 
   await expect(input).toHaveAttribute("aria-expanded", "false");
   await expect(input).toBeFocused();
   await dialog
-    .getByRole("button", { name: "Create project", exact: true })
+    .getByRole("button", { name: /Create (?:job|project)/, exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
   const saved = await page.evaluate(() =>
@@ -211,7 +217,7 @@ test("keyboard selection fills and saves an address without submitting the form 
   await page
     .getByRole("heading", { name: "Address selection project" })
     .click();
-  await page.getByRole("button", { name: "Edit project", exact: true }).click();
+  await page.getByRole("button", { name: "Edit job", exact: true }).click();
   await expect(page.getByLabel("Job address")).toHaveValue(fullAddress);
   await page.clock.fastForward(600);
   expect(searches).toBe(1);
@@ -230,9 +236,11 @@ test("mobile selection, escape, and unavailable suggestions preserve manual entr
     );
   });
   await page.goto("/demo");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page
+    .getByRole("button", { name: /New (?:project|job)/, exact: true })
+    .click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Project name").fill("Manual address project");
+  await dialog.getByLabel(/^(?:Job|Project) name$/).fill("Manual address project");
   const input = page.getByLabel("Job address");
   await input.fill("301 Hills");
   await expect(
@@ -264,7 +272,7 @@ test("mobile selection, escape, and unavailable suggestions preserve manual entr
     ),
   ).toBeVisible();
   await dialog
-    .getByRole("button", { name: "Create project", exact: true })
+    .getByRole("button", { name: /Create (?:job|project)/, exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
   const saved = await page.evaluate(() =>
@@ -294,7 +302,9 @@ test("late searches cannot replace new results or overwrite typed addresses", as
     } else await route.fulfill({ json: result });
   });
   await page.goto("/demo");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page
+    .getByRole("button", { name: /New (?:project|job)/, exact: true })
+    .click();
   const input = page.getByLabel("Job address");
   const request = page.waitForRequest((url) =>
     url.url().includes("q=Old+address"),

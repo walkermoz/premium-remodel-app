@@ -190,7 +190,10 @@ test("material costs edit, persist, total and export on existing scope items", a
     },
     { ...emptyWorkspace, projects: [project], scope: [scope] },
   );
-  await page.goto("/demo?view=Projects&project=p1");
+  await page.goto("/demo?view=Projects&project=p1&tab=Invoice");
+  await page
+    .getByRole("button", { name: "Edit invoice items", exact: true })
+    .click();
   const table = page.locator(".scope-table");
   await expect(
     table.getByRole("columnheader", { name: "Material cost", exact: true }),
@@ -254,12 +257,18 @@ test("material costs edit, persist, total and export on existing scope items", a
   );
   expect(csv).toContain('"TOTAL","","","","","600","200","150.25","249.75"');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("tab", { name: /Scope & costs/ }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Invoice$/i })
+    .click();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  await page
+    .getByRole("button", { name: "Edit invoice items", exact: true })
+    .click();
   await table
     .getByRole("button", { name: "Edit Flooring", exact: true })
     .click();
@@ -278,13 +287,13 @@ test("project overview logs checks and updates the balance, preserving the price
       localStorage.setItem("premium-remodel-sample-v1", JSON.stringify(data)),
     { ...emptyWorkspace, projects: [project], scope: [scope] },
   );
-  await page.goto("/demo?view=Projects&project=p1");
+  await page.goto("/demo?view=Projects&project=p1&tab=Invoice");
   const payments = page.getByRole("region", { name: "Checks & payments" });
   await expect(payments).toContainText("$600");
   await expect(page.locator(".scope-price-warning")).toContainText(
     "$400.00 below the previous contract amount of $1,000.00",
   );
-  await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
+  await expect(page.getByText("Invoice total", { exact: true })).toBeVisible();
   await payments.getByRole("button", { name: "Log payment" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Activity type")).toHaveValue(
@@ -304,9 +313,11 @@ test("project overview logs checks and updates the balance, preserving the price
     "$450.0075%",
   );
   await expect(payments).toContainText("Check from Scott");
-  await page.getByRole("button", { name: "Edit project", exact: true }).click();
+  await page.getByRole("button", { name: "Edit job", exact: true }).click();
   await expect(dialog.locator('[name="contractPrice"]')).toHaveCount(0);
-  await dialog.getByLabel("Project name").fill("Payment test updated");
+  await dialog
+    .getByLabel(/^(?:Job|Project) name$/)
+    .fill("Payment test updated");
   await dialog.getByRole("button", { name: "Save changes" }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.locator(".scope-price-warning")).toContainText(
@@ -325,7 +336,7 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Quote number")).toHaveCount(0);
   await expect(dialog.getByLabel("Revised date")).toHaveCount(0);
@@ -339,17 +350,17 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   await expect(
     page.getByRole("heading", { name: "Jason’s garage quote", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".quote-header-contact")).toContainText("Jason");
+  await expect(page.getByTestId("job-customer")).toContainText("Jason");
   await expect(
-    page.locator('.quote-header-contact a[href="mailto:jason@example.com"]'),
+    page.locator(
+      '[data-testid="job-customer"] a[href="mailto:jason@example.com"]',
+    ),
   ).toBeVisible();
   await expect(
-    page.locator('.quote-header-contact a[href="tel:9195550100"]'),
+    page.locator('[data-testid="job-customer"] a[href="tel:9195550100"]'),
   ).toBeVisible();
   await expect(page.locator(".quote-overview .quote-contact")).toHaveCount(0);
-  await expect(
-    page.locator(".quote-header-actions").getByLabel("Quote status"),
-  ).toBeVisible();
+  await expect(page.getByLabel("Quote status")).toBeVisible();
   await expect(page.getByText("Quote status", { exact: true })).toHaveCount(0);
   await expect(page.locator(".quote-detail .badge-category")).toHaveCount(0);
   await expect(
@@ -404,10 +415,14 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
   ).toHaveCount(0);
   await page.getByLabel("Quote status").selectOption("Sent");
   await expect(page.getByLabel("Quote status")).toHaveValue("Sent");
-  await page.getByRole("button", { name: "All quotes", exact: true }).click();
-  await expect(page.locator(".quote-summary")).toContainText("$5,100.15");
   await page
-    .getByRole("button", { name: /Jason’s garage quote Jason/ })
+    .getByRole("button", { name: "Back to estimates", exact: true })
+    .click();
+  await expect(
+    page.locator('[data-testid="job-card"][data-kind="quote"]'),
+  ).toContainText("$5,100.15");
+  await page
+    .getByRole("button", { name: /Jason’s garage quote · Jason/ })
     .click();
   const quoteId = new URL(page.url()).searchParams.get("project");
   await expect(page.getByRole("button", { name: "Accept quote" })).toHaveCount(
@@ -430,38 +445,42 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
     .getByRole("button", { name: /Quote & pricing/ })
     .click();
   await expect(page.locator(".files-panel")).toContainText("quote.txt");
-  await page.getByRole("button", { name: "Quotes", exact: true }).click();
-  await expect(page.locator(".quote-row")).toContainText(
-    "Jason’s garage quote",
-  );
+  await page
+    .getByRole("button", { name: "Back to estimates", exact: true })
+    .click();
+  await expect(
+    page.locator('[data-testid="job-card"][data-kind="quote"]'),
+  ).toContainText("Jason’s garage quote");
   await page
     .getByRole("button", { name: "Move Jason’s garage quote to junk" })
     .click();
-  await expect(page.locator(".quote-row")).toHaveCount(0);
+  await expect(
+    page.locator('[data-testid="job-card"][data-kind="quote"]'),
+  ).toHaveCount(0);
   await page
-    .locator(".quote-filters")
+    .getByRole("group", { name: "Filter jobs" })
     .getByRole("button", { name: /^Junk/ })
     .click();
-  await expect(page.locator(".quote-row")).toContainText(
-    "Jason’s garage quote",
-  );
+  await expect(
+    page.locator('[data-testid="job-card"][data-kind="quote"]'),
+  ).toContainText("Jason’s garage quote");
   await page
     .getByRole("button", { name: "Restore Jason’s garage quote to quotes" })
     .click();
   await page
-    .locator(".quote-filters")
-    .getByRole("button", { name: /^All quotes/ })
+    .getByRole("group", { name: "Filter jobs" })
+    .getByRole("button", { name: /^All jobs/ })
     .click();
-  await expect(page.locator(".quote-row")).toContainText(
-    "Jason’s garage quote",
-  );
+  await expect(
+    page.locator('[data-testid="job-card"][data-kind="quote"]'),
+  ).toContainText("Jason’s garage quote");
 });
 
 test("per-unit quote rates calculate and persist the line total", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Hourly labor test");
   await dialog.getByLabel("Contact name").fill("Test Homeowner");
@@ -540,7 +559,7 @@ test("quote cost bases save independent quantities and collapse to profit summar
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Cost basis test");
   await dialog.getByLabel("Contact name").fill("Test Homeowner");
@@ -700,7 +719,7 @@ test("default project divider stays hidden without losing quote rows", async ({
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Grouped quote test");
   await dialog.getByLabel("Contact name").fill("Test Homeowner");
