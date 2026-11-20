@@ -250,7 +250,29 @@ export default function ProjectDetail({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     notify("Job master sheet exported");
   }
-  const scopeTable = (
+  const invoiceLocked =
+    project.status === "Completed" ||
+    project.job?.invoice.status === "Finalized";
+  const bookedEstimates = (workspace.quotes || []).filter(
+    (quote) => quote.jobId === project.id && quote.bookedJobId === project.id,
+  );
+  const scopeTable = invoiceLocked ? (
+    <section aria-label="Locked invoice items">
+      <p className="muted">
+        The invoice is locked. Return to Invoice and reopen it before changing
+        items.
+      </p>
+      {items.map((item) => (
+        <div className={jobStyles.reviewRow} key={item.id}>
+          <div>
+            <strong>{item.title}</strong>
+            <p>{item.details}</p>
+          </div>
+          <strong>{regional.money(item.estimate)}</strong>
+        </div>
+      ))}
+    </section>
+  ) : (
     <ScopeTable
       items={items}
       workspace={workspace}
@@ -278,6 +300,7 @@ export default function ProjectDetail({
       }
       workspace={workspace}
       compact={limited}
+      readOnly={project.status === "Completed"}
       onAdd={addTask}
       onEdit={(task) => onEdit({ kind: "task", entity: task })}
       onToggle={onToggle}
@@ -400,32 +423,14 @@ export default function ProjectDetail({
         <JobHistory
           record={project}
           workspace={workspace}
-          showEvents={false}
+          demo={demo}
+          onLog={() => onLogActivity(project.id)}
           onOpen={onOpenRecord}
           canQuotes={Boolean(
             config && canOpenWorkspaceTab(config, user.group, "Quotes"),
           )}
         />
       )}
-      {(tab === "History" || tab === "Activity") &&
-        Boolean(project.job?.history.length) && (
-          <section className={jobStyles.summarySection}>
-            <h2>Job workflow history</h2>
-            {project.job!.history.map((event, index) => (
-              <article
-                className={jobStyles.timelineRow}
-                key={`${event.at}-${index}`}
-              >
-                <div>
-                  <small>
-                    {regional.date(event.at)} · {event.by}
-                  </small>
-                  <p>{event.detail}</p>
-                </div>
-              </article>
-            ))}
-          </section>
-        )}
       <div className="detail-tab-content" role="tabpanel" aria-label={tab}>
         <div hidden={tab !== "Notes"}>
           <ProjectNotes
@@ -454,6 +459,9 @@ export default function ProjectDetail({
             onOpen={(id) => onOpenRecord?.("quote", id)}
             onSave={async (quote, data) => onSave("quote", data, quote)}
             onAction={onJobAction}
+            canOpen={Boolean(
+              config && canOpenWorkspaceTab(config, user.group, "Quotes"),
+            )}
             canEdit={Boolean(
               project.status !== "Completed" &&
               config &&
@@ -490,42 +498,78 @@ export default function ProjectDetail({
             onAgreement={() => setAgreementOpen(!agreementOpen)}
           />
         )}
-        {tab === "Contracts" &&
-          agreementOpen &&
-          (project.quoteAcceptedAt ? (
-            <MsaDraftPanel
-              key={`${project.id}:${JSON.stringify(project.msaPaymentSchedule)}:${project.msaPermitResponsibility || ""}:${JSON.stringify(project.msaContractTerms)}`}
-              project={project}
-              items={items}
-              signer={user}
-              demo={demo}
-              onSaveTerms={(terms) =>
-                onSave("project", { ...project, ...terms }, project)
-              }
-            />
-          ) : (
-            <section className="content-section" aria-label="Contracts">
-              <div className="section-heading">
-                <div>
-                  <h2>Master services agreement</h2>
-                  <p>
-                    Agreements and signed contract documents will appear here
-                    after the quote is accepted.
-                  </p>
+        {tab === "Contracts" && agreementOpen && (
+          <>
+            {bookedEstimates.length > 0 && (
+              <section aria-label="Booked agreements">
+                <h2>Services agreements & signatures</h2>
+                {bookedEstimates.map((quote) => (
+                  <button
+                    className={jobStyles.sectionLink}
+                    key={quote.id}
+                    disabled={
+                      !config ||
+                      !canOpenWorkspaceTab(config, user.group, "Quotes")
+                    }
+                    onClick={() => onOpenRecord?.("quote", quote.id)}
+                  >
+                    <span>
+                      <strong>
+                        Estimate #{quote.quoteNumber} · {quote.name}
+                      </strong>
+                      <small>
+                        {quote.msaAgreement?.status === "signed"
+                          ? "Signed services agreement"
+                          : "Review services agreement"}
+                      </small>
+                    </span>
+                    <ArrowUpRight size={16} />
+                  </button>
+                ))}
+              </section>
+            )}
+            {project.quoteAcceptedAt && (
+              <MsaDraftPanel
+                key={`${project.id}:${JSON.stringify(project.msaPaymentSchedule)}:${project.msaPermitResponsibility || ""}:${JSON.stringify(project.msaContractTerms)}`}
+                project={project}
+                items={items}
+                signer={user}
+                demo={demo}
+                onSaveTerms={(terms) =>
+                  onSave("project", { ...project, ...terms }, project)
+                }
+              />
+            )}
+            {!bookedEstimates.length && !project.quoteAcceptedAt && (
+              <section className="content-section" aria-label="Contracts">
+                <div className="section-heading">
+                  <div>
+                    <h2>Master services agreement</h2>
+                    <p>
+                      Agreements and signed contract documents will appear here
+                      after the quote is accepted.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </section>
-          ))}
+              </section>
+            )}
+          </>
+        )}
         {tab === "Upcoming" && (
           <>
             <JobAppointments project={project} onAction={onJobAction} />
             {project.smsScheduleEnabled && (
               <p className="muted">
-                Homeowner texts ·{" "}
+                Homeowner texts for scheduled work items ·{" "}
                 {timeLabel(project.smsScheduleTime || "09:00")}
               </p>
             )}
             <UpcomingPanel
+              onOpenAppointment={() =>
+                document
+                  .querySelector('[aria-label="Job appointments"]')
+                  ?.scrollIntoView({ block: "start", behavior: "smooth" })
+              }
               workspace={workspace}
               projectId={project.id}
               view={upcomingView}
@@ -583,7 +627,11 @@ export default function ProjectDetail({
                 <h2>Scope & cost breakdown</h2>
                 <p>Amounts are totals for each item, not unit prices.</p>
               </div>
-              <button className="button primary" onClick={addScope}>
+              <button
+                className="button primary"
+                onClick={addScope}
+                disabled={invoiceLocked}
+              >
                 <Plus size={16} />
                 Add item
               </button>
@@ -626,7 +674,7 @@ export default function ProjectDetail({
             />
           </>
         )}
-        {(tab === "Activity" || tab === "History") && (
+        {tab === "Activity" && (
           <JobActivity
             workspace={workspace}
             user={user}

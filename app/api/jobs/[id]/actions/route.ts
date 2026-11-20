@@ -1,4 +1,7 @@
 import { getBusinessConfig } from "@/lib/business-config";
+import { after } from "next/server";
+import { appOrigin } from "@/lib/auth";
+import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { randomUUID } from "node:crypto";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { findRecord, getWorkspace } from "@/lib/repository";
@@ -98,6 +101,26 @@ export async function POST(
           "Job operations require the PR's database migration before this environment can save changes.",
         );
       throw new HttpError(409, error.message);
+    }
+    if (
+      [
+        "add-appointment",
+        "reschedule-appointment",
+        "cancel-appointment",
+        "appointment",
+        "complete",
+      ].includes(body.action)
+    ) {
+      const origin = appOrigin(request);
+      after(() =>
+        syncOrganizationGoogleCalendars(user.organizationId, origin).catch(
+          (error) =>
+            console.error(
+              "Job calendar sync failed",
+              error instanceof Error ? error.name : "CalendarSyncError",
+            ),
+        ),
+      );
     }
     return Response.json(data);
   } catch (error) {

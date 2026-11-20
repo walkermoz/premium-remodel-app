@@ -259,6 +259,26 @@ test("booking preserves estimate identity, copies billable scope once and credit
         sold.id,
       ]),
     ).rejects.toThrow("retain their identity");
+    const otherId = "99999999-9999-4999-8999-999999999999";
+    const conflicting = { ...job, id: otherId, job: jobOperations(job) };
+    conflicting.job.appointments[0] = {
+      ...conflicting.job.appointments[0],
+      id: "other-visit",
+      date: "2026-12-01",
+      start: "09:00",
+      end: "11:00",
+    };
+    await insert("project", conflicting);
+    const overlap = { ...job, job: jobOperations(job) };
+    overlap.job.appointments[0] = {
+      ...overlap.job.appointments[0],
+      date: "2026-12-01",
+      start: "10:00",
+      end: "12:00",
+    };
+    await expect(call(org, version, false, overlap)).rejects.toThrow(
+      "overlapping appointment",
+    );
     const first = await call(org, version);
     const updated = first.rows[0].result;
     expect(

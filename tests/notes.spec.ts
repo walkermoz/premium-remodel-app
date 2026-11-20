@@ -64,8 +64,15 @@ test("job notes keep drafts, save across reloads, appear in activity and stay wi
     .getByRole("navigation", { name: "Job navigation" })
     .getByRole("button", { name: /^History$/i })
     .click();
+  await page
+    .getByRole("group", { name: "History category" })
+    .getByRole("button", { name: "Job activity", exact: true })
+    .click();
   await expect(
-    page.locator(".job-activity-entry").filter({ hasText: body }),
+    page
+      .getByRole("region", { name: "Current job audit trail" })
+      .getByRole("article")
+      .filter({ hasText: body }),
   ).toHaveCount(1);
   await page.goto("/demo?view=Projects&project=p2&tab=Notes");
   await expect(notes).toBeVisible();

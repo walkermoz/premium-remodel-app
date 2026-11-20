@@ -52,7 +52,7 @@ export function nextJobVisit(project: Project, tasks: Task[], today: string) {
       priority: "Medium",
       status: appointment.status === "Done" ? "Done" : "To do",
     }));
-  return nextJobTask(appointments, today) || nextJobTask(tasks, today);
+  return nextJobTask([...appointments, ...tasks], today);
 }
 
 const normalized = (value?: string) => value?.trim().toLowerCase() || "";

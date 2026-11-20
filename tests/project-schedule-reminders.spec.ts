@@ -106,7 +106,9 @@ test("project editor enables texts without a setting on each item", async ({
     .getByRole("button", { name: "Save changes", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByText("Homeowner texts · 9:00 AM")).toBeVisible();
+  await expect(
+    page.getByText("Homeowner texts for scheduled work items · 9:00 AM"),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await dialog.getByLabel("Item title").fill("Morning shower prep");

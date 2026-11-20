@@ -10,6 +10,7 @@ import {
   Presentation,
 } from "lucide-react";
 import { Modal } from "./ui";
+import { useBusinessConfig } from "./business-context";
 import {
   jobOperations,
   closeoutIssues,
@@ -78,6 +79,9 @@ export function JobForms({
     useState<keyof typeof formTemplates>("arrival");
   const [required, setRequired] = useState(false);
   const forms = jobOperations(project).forms;
+  const addingLocked =
+    project.status === "Completed" ||
+    Boolean(jobOperations(project).invoice.acknowledgement);
   const form = forms.find((item) => item.id === selected);
   return (
     <section aria-label="Job forms">
@@ -89,12 +93,20 @@ export function JobForms({
         <button
           className="button primary"
           onClick={() => setAdding(true)}
-          disabled={project.status === "Completed"}
+          disabled={addingLocked}
+          title={
+            addingLocked
+              ? "Reopen the job or invoice before adding forms"
+              : undefined
+          }
         >
           <Plus size={16} /> Add form
         </button>
       </header>
       <Failure message={operation.error} />
+      {addingLocked && project.status !== "Completed" && (
+        <p className="muted">Reopen the invoice before adding another form.</p>
+      )}
       <div className={styles.reviewList}>
         {forms.map((item) => (
           <button
@@ -193,6 +205,7 @@ function JobFormEditor({
   onClose: () => void;
 }) {
   const operation = useOperation(onAction);
+  const regional = useRegionalFormat();
   const [answers, setAnswers] = useState(
     Object.fromEntries(form.questions.map((item) => [item.id, item.answer])),
   );
@@ -236,7 +249,14 @@ function JobFormEditor({
         {form.completedAt && (
           <p>
             Submitted by {form.completedBy} on{" "}
-            {new Date(form.completedAt).toLocaleString()}.
+            {regional.date(form.completedAt, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+            .
           </p>
         )}
         <Failure message={operation.error} />
@@ -278,6 +298,7 @@ export function JobEstimates({
   onSave,
   onAction,
   canEdit,
+  canOpen = true,
 }: {
   project: Project;
   workspace: Workspace;
@@ -286,6 +307,7 @@ export function JobEstimates({
   onSave: (quote: Quote, data: Record<string, unknown>) => Promise<void>;
   onAction: Operate;
   canEdit: boolean;
+  canOpen?: boolean;
 }) {
   const regional = useRegionalFormat();
   const operation = useOperation(onAction);
@@ -295,6 +317,9 @@ export function JobEstimates({
   );
   const [filter, setFilter] = useState("All");
   const [error, setError] = useState("");
+  const presentable = options.filter(
+    (quote) => !["Declined", "Expired"].includes(quote.status),
+  );
   const display = options.filter(
     (quote) =>
       filter === "All" ||
@@ -315,7 +340,7 @@ export function JobEstimates({
         <div className={styles.recordActions}>
           <button
             className="button secondary"
-            disabled={!options.length}
+            disabled={!presentable.length}
             onClick={() => setPresenting(true)}
           >
             <Presentation size={16} /> Present
@@ -343,6 +368,12 @@ export function JobEstimates({
         ))}
       </div>
       <Failure message={operation.error || error} />
+      {!canOpen && (
+        <p className="muted">
+          Your role can review these options. A teammate with estimate editing
+          access must prepare or book the work.
+        </p>
+      )}
       <div className={styles.estimateOptions}>
         {display.map((quote) => (
           <article className={styles.option} key={quote.id}>
@@ -416,6 +447,10 @@ export function JobEstimates({
               )}
               <button
                 className="button secondary"
+                disabled={!canOpen}
+                title={
+                  !canOpen ? "Estimate editing access is required" : undefined
+                }
                 onClick={() => onOpen(quote.id)}
               >
                 <Pencil size={15} />
@@ -468,8 +503,12 @@ export function JobEstimates({
           subtitle={`${project.client} · ${project.address}`}
           onClose={() => setPresenting(false)}
         >
+          <p className="muted">
+            Compare available options here. Return the device to staff to
+            prepare the selected estimate and its signing packet.
+          </p>
           <div className={styles.presentation}>
-            {options.map((quote) => (
+            {presentable.map((quote) => (
               <article key={quote.id}>
                 <small>
                   {quote.recommended
@@ -497,12 +536,13 @@ export function JobEstimates({
                 </ul>
                 <button
                   className="button primary"
+                  disabled={!canOpen}
                   onClick={() => {
                     setPresenting(false);
                     onOpen(quote.id);
                   }}
                 >
-                  Review & authorize this option
+                  Prepare this estimate
                 </button>
               </article>
             ))}
@@ -535,6 +575,8 @@ export function JobInvoice({
   admin: boolean;
 }) {
   const regional = useRegionalFormat();
+  const business = useBusinessConfig();
+  const [printing, setPrinting] = useState(false);
   const operation = useOperation(onAction);
   const invoice = jobOperations(project).invoice;
   const [summary, setSummary] = useState(invoice.summary);
@@ -594,6 +636,12 @@ export function JobInvoice({
           </p>
         </div>
         <div>
+          <button
+            className="button secondary"
+            onClick={() => setPrinting(true)}
+          >
+            Print / save PDF
+          </button>
           <button
             className="button primary"
             onClick={() => onPayment(project.id)}
@@ -766,7 +814,13 @@ export function JobInvoice({
             <button
               type="button"
               className="button primary"
-              disabled={operation.busy || !summary.trim()}
+              disabled={
+                operation.busy ||
+                !summary.trim() ||
+                (terms === "On account" &&
+                  finances.remaining > 0 &&
+                  !notes.trim())
+              }
               onClick={async () => {
                 if (await save()) await operation.run({ action: "finalize" });
               }}
@@ -816,6 +870,119 @@ export function JobInvoice({
           <b>{regional.money(finances.total)}</b>
         </div>
       </div>
+      {printing && (
+        <Modal title="Customer invoice" onClose={() => setPrinting(false)}>
+          <div
+            className={styles.printableInvoice}
+            data-testid="customer-invoice-document"
+          >
+            <header>
+              <h2>{business?.profile.name || "ServiceBuddy"}</h2>
+              <p>{business?.profile.phone}</p>
+            </header>
+            <h1>
+              Invoice #
+              {project.quoteNumber || project.id.slice(0, 8).toUpperCase()}
+            </h1>
+            <p>
+              {invoice.status} · {project.name}
+            </p>
+            <h3>Bill to</h3>
+            <p>
+              {project.client}
+              <br />
+              {project.address}
+            </p>
+            <h3>Work performed</h3>
+            <p style={{ whiteSpace: "pre-wrap" }}>
+              {invoice.summary || "Work summary has not been finalized."}
+            </p>
+            {workspace.scope
+              .filter(
+                (item) =>
+                  item.projectId === project.id &&
+                  item.customerVisible !== false,
+              )
+              .map((item) => (
+                <div className={styles.reviewRow} key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.details}</p>
+                  </div>
+                  <strong>{regional.money(item.estimate)}</strong>
+                </div>
+              ))}
+            <div className={styles.reviewRow}>
+              <strong>Invoice total</strong>
+              <strong>{regional.money(finances.total)}</strong>
+            </div>
+            <p>
+              Payments received: {regional.money(finances.collected)}
+              <br />
+              Balance due: {regional.money(finances.remaining)}
+              {finances.credit > 0 && (
+                <>
+                  <br />
+                  Customer credit: {regional.money(finances.credit)}
+                </>
+              )}
+            </p>
+            {finances.payments.map((payment) => (
+              <p key={payment.id}>
+                {regional.date(payment.occurredAt)} · {payment.paymentMethod} ·{" "}
+                {regional.money(payment.amount || 0)}
+              </p>
+            ))}
+            <p>
+              Payment terms: {invoice.paymentTerms}
+              <br />
+              {invoice.paymentNotes}
+            </p>
+            {authorizationCurrent && (
+              <p>
+                Work authorized by {invoice.authorization!.name} ·{" "}
+                {regional.date(invoice.authorization!.at)}
+              </p>
+            )}
+            {acknowledgementCurrent && (
+              <p>
+                Invoice acknowledged by {invoice.acknowledgement!.name} ·{" "}
+                {regional.date(invoice.acknowledgement!.at)}
+              </p>
+            )}
+          </div>
+          <button
+            className="button primary"
+            onClick={() => {
+              const documentNode = document.querySelector(
+                '[data-testid="customer-invoice-document"]',
+              );
+              const printWindow = window.open(
+                "",
+                "_blank",
+                "width=900,height=900",
+              );
+              if (!printWindow || !documentNode) return;
+              printWindow.opener = null;
+              printWindow.document.title = `Invoice ${project.quoteNumber || project.id.slice(0, 8)}`;
+              const sheet = printWindow.document.createElement("style");
+              sheet.textContent = `body { font-family: Arial, sans-serif; color: #172d3c; margin: 32px; line-height: 1.5; } h1 {font-size:24px} .${styles.reviewRow} { display:flex; justify-content:space-between; gap:24px; padding:14px 0; border-bottom:1px solid #ddd; break-inside:avoid; } p { white-space:pre-wrap } @page {margin:16mm}`;
+              printWindow.document.head.appendChild(sheet);
+              printWindow.document.body.appendChild(
+                documentNode.cloneNode(true),
+              );
+              printWindow.addEventListener(
+                "afterprint",
+                () => printWindow.close(),
+                { once: true },
+              );
+              printWindow.print();
+            }}
+          >
+            Print or save as PDF
+          </button>
+        </Modal>
+      )}
       {signing && (
         <Modal
           title={
@@ -928,6 +1095,7 @@ export function JobAppointments({
   const regional = useRegionalFormat();
   const operation = useOperation(onAction);
   const [adding, setAdding] = useState(false);
+  const [rescheduling, setRescheduling] = useState("");
   const [draft, setDraft] = useState({
     title: "",
     date: "",
@@ -951,7 +1119,18 @@ export function JobAppointments({
         <button
           className="button primary"
           disabled={project.status === "Completed"}
-          onClick={() => setAdding(true)}
+          onClick={() => {
+            setRescheduling("");
+            setReason("");
+            setDraft({
+              title: "",
+              date: "",
+              start: "09:00",
+              end: "10:00",
+              technician: "",
+            });
+            setAdding(true);
+          }}
         >
           <CalendarDays size={16} /> Add appointment
         </button>
@@ -971,6 +1150,27 @@ export function JobAppointments({
             )}
           </div>
           <div className={styles.recordActions}>
+            {appointment.status === "Scheduled" &&
+              project.status !== "Completed" && (
+                <button
+                  className="button secondary"
+                  disabled={operation.busy}
+                  onClick={() => {
+                    setRescheduling(appointment.id);
+                    setDraft({
+                      title: appointment.title,
+                      date: appointment.date,
+                      start: appointment.start,
+                      end: appointment.end,
+                      technician: appointment.technician,
+                    });
+                    setReason("");
+                    setAdding(true);
+                  }}
+                >
+                  Reschedule appointment
+                </button>
+              )}
             {["Scheduled", "Dispatched", "Paused"].includes(
               appointment.status,
             ) && (
@@ -1087,12 +1287,28 @@ export function JobAppointments({
         </Modal>
       )}
       {adding && (
-        <Modal title="Book appointment" onClose={() => setAdding(false)}>
+        <Modal
+          title={rescheduling ? "Reschedule appointment" : "Book appointment"}
+          onClose={() => setAdding(false)}
+        >
           <form
             className={styles.operationalForm}
             onSubmit={async (event) => {
               event.preventDefault();
-              if (await operation.run({ action: "add-appointment", ...draft }))
+              if (
+                await operation.run(
+                  rescheduling
+                    ? {
+                        action: "reschedule-appointment",
+                        appointmentId: rescheduling,
+                        date: draft.date,
+                        start: draft.start,
+                        end: draft.end,
+                        reason,
+                      }
+                    : { action: "add-appointment", ...draft },
+                )
+              )
                 setAdding(false);
             }}
           >
@@ -1100,6 +1316,7 @@ export function JobAppointments({
               Appointment title
               <input
                 required
+                readOnly={Boolean(rescheduling)}
                 value={draft.title}
                 onChange={(event) =>
                   setDraft({ ...draft, title: event.target.value })
@@ -1145,15 +1362,27 @@ export function JobAppointments({
               Assigned technician / crew
               <input
                 required
+                readOnly={Boolean(rescheduling)}
                 value={draft.technician}
                 onChange={(event) =>
                   setDraft({ ...draft, technician: event.target.value })
                 }
               />
             </label>
+            {rescheduling && (
+              <label>
+                Reason for rescheduling
+                <textarea
+                  required
+                  minLength={2}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                />
+              </label>
+            )}
             <Failure message={operation.error} />
             <button className="button primary" disabled={operation.busy}>
-              Book appointment
+              {rescheduling ? "Confirm reschedule" : "Book appointment"}
             </button>
           </form>
         </Modal>

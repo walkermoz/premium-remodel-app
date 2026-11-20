@@ -155,8 +155,8 @@ export default function JobOverview({
           <JobSectionLink
             title="Forms & agreements"
             detail={
-              record.msaAgreement?.status === "signed"
-                ? "Agreement signed"
+              kind === "project"
+                ? `${(record as Project).job?.forms.filter((form) => form.required && form.status !== "Complete").length || 0} required forms remaining`
                 : "Review documents and signatures"
             }
             onClick={() => onSection("Forms")}

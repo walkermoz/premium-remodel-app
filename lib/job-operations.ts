@@ -147,6 +147,14 @@ const date = z
 const time = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
 export const jobActionSchema = z.discriminatedUnion("action", [
   z.object({
+    action: z.literal("reschedule-appointment"),
+    appointmentId: z.string().max(80),
+    date,
+    start: time,
+    end: time,
+    reason: text.min(2),
+  }),
+  z.object({
     action: z.literal("cancel-appointment"),
     appointmentId: z.string().max(80),
     reason: text.min(2),
@@ -349,6 +357,34 @@ export function closeoutIssues(project: Project, workspace: Workspace) {
   }
   return issues;
 }
+export function appointmentConflict(
+  project: Project,
+  workspace: Workspace,
+  appointment: Pick<JobAppointment, "date" | "start" | "end" | "technician">,
+  excludingId = "",
+) {
+  const crew = appointment.technician.trim().toLowerCase();
+  for (const job of workspace.projects) {
+    if (job.recordType === "project" || job.status === "Completed") continue;
+    const appointments =
+      job.id === project.id
+        ? jobOperations(project).appointments
+        : jobOperations(job).appointments;
+    const conflict = appointments.find(
+      (other) =>
+        !(job.id === project.id && other.id === excludingId) &&
+        !["Done", "Canceled"].includes(other.status) &&
+        other.date === appointment.date &&
+        other.technician.trim().toLowerCase() === crew &&
+        other.start < appointment.end &&
+        other.end > appointment.start,
+    );
+    if (conflict)
+      return `${appointment.technician} already has ${conflict.title} on ${appointment.date} at ${conflict.start}–${conflict.end}. Choose another time or crew.`;
+  }
+  return "";
+}
+
 export function applyJobAction(
   project: Project,
   workspace: Workspace,
@@ -423,6 +459,15 @@ export function applyJobAction(
       detail = "Updated invoice summary and payment terms";
       break;
     case "finalize":
+      if (
+        operations.invoice.paymentTerms === "On account" &&
+        projectFinances(project, workspace.scope, workspace.activities)
+          .remaining > 0 &&
+        !operations.invoice.paymentNotes.trim()
+      )
+        throw new Error(
+          "Record payment terms for the outstanding balance before finalizing.",
+        );
       if (!operations.invoice.summary.trim())
         throw new Error("Enter the work performed in the invoice summary.");
       operations.invoice.status = "Finalized";
@@ -466,9 +511,36 @@ export function applyJobAction(
       };
       detail = `Invoice acknowledged by ${action.name}`;
       break;
+    case "reschedule-appointment": {
+      const appointment = operations.appointments.find(
+        (item) => item.id === action.appointmentId,
+      );
+      if (!appointment || appointment.status !== "Scheduled")
+        throw new Error(
+          "Only a scheduled visit can be rescheduled. Retain started visits and book a return appointment.",
+        );
+      if (action.end <= action.start)
+        throw new Error("The appointment end must follow its start.");
+      const conflict = appointmentConflict(
+        project,
+        workspace,
+        { ...appointment, ...action },
+        appointment.id,
+      );
+      if (conflict) throw new Error(conflict);
+      detail = `Rescheduled ${appointment.title} from ${appointment.date} ${appointment.start}–${appointment.end} to ${action.date} ${action.start}–${action.end}: ${action.reason}`;
+      appointment.date = action.date;
+      appointment.start = action.start;
+      appointment.end = action.end;
+      break;
+    }
     case "add-appointment":
       if (action.end <= action.start)
         throw new Error("The appointment end must follow its start.");
+      {
+        const conflict = appointmentConflict(project, workspace, action);
+        if (conflict) throw new Error(conflict);
+      }
       if (operations.appointments.length >= 100)
         throw new Error("A job supports up to 100 appointments.");
       operations.appointments.push({

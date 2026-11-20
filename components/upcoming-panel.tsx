@@ -56,6 +56,7 @@ export default function UpcomingPanel({
   onEditProject,
   onOpenProject,
   onOpenLead,
+  onOpenAppointment,
   onAddWork,
   onToggleTask,
   onDeleteTask,
@@ -69,6 +70,7 @@ export default function UpcomingPanel({
   onEditProject: (project: Project) => void;
   onOpenProject?: (id: string) => void;
   onOpenLead?: (id: string) => void;
+  onOpenAppointment?: (jobId: string, appointmentId: string) => void;
   onAddWork: (date?: string, projectId?: string, workType?: WorkType) => void;
   onToggleTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
@@ -85,7 +87,9 @@ export default function UpcomingPanel({
   const openedItemRef = useRef("");
   useEffect(() => {
     if (!initialItemId || openedItemRef.current === initialItemId) return;
-    const task = workspace.tasks.find((candidate) => candidate.id === initialItemId);
+    const task = workspace.tasks.find(
+      (candidate) => candidate.id === initialItemId,
+    );
     if (!task) return;
     openedItemRef.current = initialItemId;
     onEditTask(task);
@@ -103,7 +107,7 @@ export default function UpcomingPanel({
             ? entry.completed
             : !entry.completed)) &&
         (typeFilter === "All types" || entryType(entry) === typeFilter) &&
-        `${entry.title} ${entry.project?.name || ""} ${entry.contact?.address || ""} ${entry.contact?.phone || ""} ${entry.task?.description || ""} ${contractor?.name || ""} ${contractor?.company || ""}`
+        `${entry.title} ${entry.project?.name || ""} ${entry.contact?.address || ""} ${entry.contact?.phone || ""} ${entry.task?.description || ""} ${entry.jobAppointment?.technician || ""} ${contractor?.name || ""} ${contractor?.company || ""}`
           .toLowerCase()
           .includes(query.trim().toLowerCase())
       );
@@ -122,6 +126,10 @@ export default function UpcomingPanel({
     setStatusFilter("Open");
   }
   function openEntry(entry: CalendarEntry) {
+    if (entry.jobAppointment && entry.project) {
+      onOpenAppointment?.(entry.project.id, entry.jobAppointment.id);
+      return;
+    }
     if (entry.lead) onOpenLead?.(entry.lead.id);
     else if (entry.task) onEditTask(entry.task);
     else if (entry.project) onEditProject(entry.project);
@@ -241,6 +249,7 @@ export default function UpcomingPanel({
           onEditProject={onEditProject}
           onOpenProject={onOpenProject}
           onOpenLead={onOpenLead}
+          onOpenAppointment={onOpenAppointment}
           onToggleTask={onToggleTask}
         />
       ) : (
@@ -311,6 +320,9 @@ export default function UpcomingPanel({
                         </div>
                         <button
                           className="upcoming-work-title"
+                          disabled={Boolean(
+                            entry.task && entry.project?.status === "Completed",
+                          )}
                           onClick={() => openEntry(entry)}
                         >
                           {entry.title}
@@ -331,6 +343,12 @@ export default function UpcomingPanel({
                                 Lead · {entry.lead.name}
                               </button>
                             ) : null)}
+                          {entry.jobAppointment && (
+                            <span>
+                              {entry.jobAppointment.technician} ·{" "}
+                              {entry.jobAppointment.status}
+                            </span>
+                          )}
                           {entry.task && (
                             <span>{contractor?.name || "Unassigned"}</span>
                           )}
@@ -340,29 +358,33 @@ export default function UpcomingPanel({
                       <div className="upcoming-row-actions">
                         <button
                           className="icon-button"
-                          aria-label={`Edit ${entry.title}`}
+                          aria-label={`${entry.jobAppointment ? "Open appointment" : "Edit"} ${entry.title}`}
+                          disabled={Boolean(
+                            entry.task && entry.project?.status === "Completed",
+                          )}
                           onClick={() => openEntry(entry)}
                         >
                           <Pencil size={14} />
                         </button>
-                        {entry.task && (
-                          <>
-                            <button
-                              className="icon-button delete-action"
-                              aria-label={`Delete ${entry.title}`}
-                              onClick={() => onDeleteTask(entry.task!)}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                            <button
-                              className={`task-check ${entry.completed ? "checked" : ""}`}
-                              aria-label={`${entry.completed ? "Reopen" : "Complete"} ${entry.title}`}
-                              onClick={() => onToggleTask(entry.task!)}
-                            >
-                              {entry.completed && <Check size={14} />}
-                            </button>
-                          </>
-                        )}
+                        {entry.task &&
+                          entry.project?.status !== "Completed" && (
+                            <>
+                              <button
+                                className="icon-button delete-action"
+                                aria-label={`Delete ${entry.title}`}
+                                onClick={() => onDeleteTask(entry.task!)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                              <button
+                                className={`task-check ${entry.completed ? "checked" : ""}`}
+                                aria-label={`${entry.completed ? "Reopen" : "Complete"} ${entry.title}`}
+                                onClick={() => onToggleTask(entry.task!)}
+                              >
+                                {entry.completed && <Check size={14} />}
+                              </button>
+                            </>
+                          )}
                       </div>
                     </li>
                   );

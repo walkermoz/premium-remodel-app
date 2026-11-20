@@ -48,11 +48,34 @@ create or replace function public.remodel_save_job_operation(target_organization
 returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
 declare job_row public.remodel_records; estimate public.remodel_records; item public.remodel_records; item_id uuid; now_at timestamptz; updated_estimate jsonb; total numeric; paid numeric; billable jsonb; authorization_document jsonb; invoice_document jsonb;
 begin
+  -- Serialize job operations within the organization before locking a job.
+  -- This also closes the cross-job race when two visits are booked for one crew.
+  perform pg_advisory_xact_lock(hashtext(target_organization::text),75);
+  -- Estimate edits lock estimate before job in the association trigger. Use
+  -- that same order for booking to avoid a quote-edit/booking deadlock.
+  if estimate_id is not null then
+    perform 1 from public.remodel_records where id=estimate_id and organization_id=target_organization and kind='quote' for update;
+  end if;
   select * into job_row from public.remodel_records where id=target_job and organization_id=target_organization and kind='project' for update;
   if not found or coalesce(job_row.data->>'recordType','job')='project' then raise exception 'Job unavailable'; end if;
   if job_row.updated_at<>expected_version then raise exception 'The job changed. Refresh before continuing'; end if;
   if next_data->>'id'<>target_job::text or next_data->>'recordType' is distinct from job_row.data->>'recordType' or next_data->>'parentProjectId' is distinct from job_row.data->>'parentProjectId' then raise exception 'Job identity cannot change'; end if;
   if job_row.data->>'status'='Completed' then raise exception 'Reopen the job before making changes'; end if;
+  if next_data#>'{job,appointments}' is distinct from job_row.data#>'{job,appointments}' then
+    if exists (
+      select 1 from jsonb_array_elements(coalesce(next_data#>'{job,appointments}','[]')) a
+      cross join lateral (
+        select target_job job_id,b from jsonb_array_elements(coalesce(next_data#>'{job,appointments}','[]')) b
+        union all
+        select r.id job_id,b from public.remodel_records r cross join lateral jsonb_array_elements(coalesce(r.data#>'{job,appointments}','[]')) b
+        where r.organization_id=target_organization and r.kind='project' and r.id<>target_job and r.data->>'status'<>'Completed'
+      ) other
+      where a->>'status' not in ('Done','Canceled') and other.b->>'status' not in ('Done','Canceled')
+      and (other.job_id<>target_job or a->>'id'<>other.b->>'id')
+      and lower(btrim(a->>'technician'))=lower(btrim(other.b->>'technician')) and a->>'date'=other.b->>'date'
+      and a->>'start'<other.b->>'end' and a->>'end'>other.b->>'start'
+    ) then raise exception 'This crew already has an overlapping appointment. Refresh and choose another time or crew'; end if;
+  end if;
   perform set_config('app.job_action',target_job::text,true);
   now_at:=greatest(clock_timestamp(),job_row.updated_at+interval '1 millisecond');
   if completing then

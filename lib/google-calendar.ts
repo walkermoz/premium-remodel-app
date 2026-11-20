@@ -403,18 +403,28 @@ function googleEventBody(
 ) {
   const projectName = entry.project?.name || "Project";
   const address = entry.contact?.address || entry.project?.address || "";
-  const startTime = entry.task?.startTime || entry.lead?.quoteStartTime || "";
-  const endTime = entry.task?.endTime || entry.lead?.quoteEndTime || "";
+  const startTime =
+    entry.jobAppointment?.start ||
+    entry.task?.startTime ||
+    entry.lead?.quoteStartTime ||
+    "";
+  const endTime =
+    entry.jobAppointment?.end ||
+    entry.task?.endTime ||
+    entry.lead?.quoteEndTime ||
+    "";
   const timed = Boolean(startTime);
   const appUrl = entry.project
     ? `${origin}/?view=Projects&project=${encodeURIComponent(entry.project.id)}&tab=Upcoming`
     : `${origin}/?view=Leads`;
   return {
-    summary: entry.lead
-      ? entry.title
-      : entry.task
-        ? `${projectName} · ${entry.title}`
-        : `${projectName} · ${entry.title}`,
+    summary: entry.jobAppointment
+      ? `${entry.title} · ${entry.project?.name || "Job"}`
+      : entry.lead
+        ? entry.title
+        : entry.task
+          ? `${projectName} · ${entry.title}`
+          : `${projectName} · ${entry.title}`,
     description: [
       "Scheduled in the company workspace",
       `Type: ${entryType(entry)}`,

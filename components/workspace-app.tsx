@@ -2387,6 +2387,9 @@ export default function WorkspaceApp({
                       onOpenProject={(id) =>
                         navigate("Projects", id, "Upcoming", upcomingView)
                       }
+                      onOpenAppointment={(id) =>
+                        navigate("Projects", id, "Upcoming", upcomingView)
+                      }
                       onOpenLead={(id) => {
                         const lead = workspace.leads.find(
                           (item) => item.id === id,
