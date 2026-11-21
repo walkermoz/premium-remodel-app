@@ -1692,7 +1692,8 @@ export async function getPublicQuoteFlowInstance(
             ...block,
             conditions: { mode: "all" as const, rules: [] },
           })),
-      })),
+      }))
+      .filter((stage) => stage.blocks.length > 0),
   };
   const template = await supabaseAdmin()
     .from("remodel_quote_flow_templates")
