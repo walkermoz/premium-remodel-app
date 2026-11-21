@@ -402,7 +402,7 @@ export default function BusinessOnboarding({
             onAction={() =>
               status?.modules?.payments.enabled
                 ? openConnection("connections", "connection-stripe")
-                : onNavigate("business")
+                : onNavigate("business", "modules")
             }
           />
           <Step
@@ -430,7 +430,7 @@ export default function BusinessOnboarding({
             onAction={() =>
               status?.modules?.automations.enabled
                 ? window.location.assign("/?view=Automation")
-                : onNavigate("business")
+                : onNavigate("business", "modules")
             }
           />
           <Step
@@ -455,7 +455,12 @@ export default function BusinessOnboarding({
                 ? "Agreement library"
                 : "Manage modules"
             }
-            onAction={() => onNavigate("business")}
+            onAction={() =>
+              onNavigate(
+                "business",
+                status?.modules?.agreements.enabled ? "agreements" : "modules",
+              )
+            }
           />
           <Step
             number="10"

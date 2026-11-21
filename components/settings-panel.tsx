@@ -155,6 +155,7 @@ export default function SettingsPanel({
   const [selected, setSelected] = useState(defaultId);
   const [visited, setVisited] = useState<string[]>([defaultId]);
   const [search, setSearch] = useState("");
+  const [navigationNotice, setNavigationNotice] = useState("");
   const [businessDirty, setBusinessDirty] = useState(false);
   const dirtyRef = useRef(false);
   const updateBusinessDraft = useCallback((dirty: boolean) => {
@@ -212,7 +213,13 @@ export default function SettingsPanel({
 
   function selectSection(value: string) {
     const id = resolveSettingsSection(value);
-    if (!available.some((entry) => entry.id === id)) return;
+    if (!available.some((entry) => entry.id === id)) {
+      setNavigationNotice(
+        "This section is unavailable for your role or an enabled module. Ask a workspace owner to review access and module setup.",
+      );
+      return;
+    }
+    setNavigationNotice("");
     setSelected(id);
     setVisited((current) =>
       current.includes(id) ? current : [...current, id],
@@ -490,6 +497,11 @@ export default function SettingsPanel({
           )}
         </nav>
         <div className={styles.content}>
+          {navigationNotice && (
+            <p className="alert" role="alert">
+              {navigationNotice}
+            </p>
+          )}
           <header className={styles.header}>
             <div className={styles.breadcrumb}>
               <span>Settings</span>

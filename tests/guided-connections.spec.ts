@@ -19,4 +19,12 @@ test("setup checklist opens the matching connection guidance", async ({
   await expect(
     page.getByRole("region", { name: "Phone & texting" }),
   ).toContainText("Find your Twilio credentials");
+  await openSettingsSection(page, "Setup checklist");
+  await page
+    .getByRole("button", { name: "Manage modules", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Business modules", exact: true }),
+  ).toBeVisible();
 });
