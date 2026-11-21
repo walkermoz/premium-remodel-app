@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { expect, test } from "@playwright/test";
 
 test("owner workspace hides Door knocking and rejects its deep link", async ({
@@ -27,11 +28,7 @@ test("role tab editor supports ordering, removing, and adding tabs", async ({
   page,
 }) => {
   await page.goto("/demo?view=Settings");
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Business/ })
-    .click();
-  await page.getByRole("button", { name: "Tab access by role" }).click();
+  await openSettingsSection(page, "Navigation by role");
   const access = page.getByRole("region", { name: "Tab access by role" });
   await expect(access.getByLabel("Role")).toHaveValue("admin");
   await expect(access).toContainText("LEFT NAVIGATION PREVIEW");

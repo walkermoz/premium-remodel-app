@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { expect, test } from "@playwright/test";
 
 test("setup checklist opens the matching connection guidance", async ({
@@ -13,10 +14,7 @@ test("setup checklist opens the matching connection guidance", async ({
   await expect(reviews).toBeVisible();
   await expect(reviews).toContainText("Connect in three steps");
 
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Get started/ })
-    .click();
+  await openSettingsSection(page, "Setup checklist");
   await page.getByRole("button", { name: "Connect phone" }).click();
   await expect(
     page.getByRole("region", { name: "Phone & texting" }),

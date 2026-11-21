@@ -104,7 +104,7 @@ export default function BusinessOnboarding({
   config: BusinessConfig;
   admin: boolean;
   demo: boolean;
-  onNavigate: (section: Section) => void;
+  onNavigate: (section: Section, targetId?: string) => void;
 }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -122,7 +122,7 @@ export default function BusinessOnboarding({
   const [smsError, setSmsError] = useState(false);
 
   function openConnection(section: Section, targetId: string) {
-    onNavigate(section);
+    onNavigate(section, targetId);
     window.setTimeout(() => {
       document
         .getElementById(targetId)

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { BusinessSettingsTab } from "@/lib/settings-navigation";
 import BrandAssetPreview, {
   type BrandPreviewKind,
 } from "./brand-asset-preview";
@@ -88,11 +89,15 @@ export default function BusinessSettings({
   admin,
   demo,
   capabilities,
+  section,
+  onDraftChange,
 }: {
   initial: BusinessConfig;
   admin: boolean;
   demo: boolean;
   capabilities: OrganizationCapability[];
+  section?: BusinessSettingsTab;
+  onDraftChange?: (dirty: boolean) => void;
 }) {
   const canBrand = capabilities.includes("branding.manage");
   const canBusiness = capabilities.includes("business.manage");
@@ -108,9 +113,18 @@ export default function BusinessSettings({
   const [config, setConfig] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<BusinessTab>(
+  const [localTab, setActiveTab] = useState<BusinessTab>(
     visibleTabs[0]?.id || "details",
   );
+  const activeTab =
+    section && visibleTabs.some((tab) => tab.id === section)
+      ? section
+      : localTab;
+  const dirty = JSON.stringify(config) !== JSON.stringify(initial);
+  useEffect(() => {
+    onDraftChange?.(dirty);
+  }, [dirty, onDraftChange]);
+
   const [previewVersion, setPreviewVersion] = useState(0);
   const [previewAsset, setPreviewAsset] = useState<BrandPreviewKind | null>(
     null,
@@ -260,6 +274,7 @@ export default function BusinessSettings({
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Could not save business settings.");
+      onDraftChange?.(false);
       window.location.reload();
     } catch (cause) {
       setError(
@@ -272,27 +287,32 @@ export default function BusinessSettings({
   }
   return (
     <div className="business-settings-panel">
-      <div className="business-settings-heading">
-        <div>
-          <h2>Business setup</h2>
-          <p>
-            Brand assets, company information, quoting, and workspace access.
-          </p>
-        </div>
-      </div>
-      <nav className="settings-subnav" aria-label="Business settings">
-        {visibleTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            aria-current={activeTab === tab.id ? "page" : undefined}
-            className={activeTab === tab.id ? "active" : ""}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      {!section && (
+        <>
+          <div className="business-settings-heading">
+            <div>
+              <h2>Business setup</h2>
+              <p>
+                Brand assets, company information, quoting, and workspace
+                access.
+              </p>
+            </div>
+          </div>
+          <nav className="settings-subnav" aria-label="Business settings">
+            {visibleTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                aria-current={activeTab === tab.id ? "page" : undefined}
+                className={activeTab === tab.id ? "active" : ""}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </>
+      )}
       <form className="settings-form" onSubmit={save}>
         {activeTab === "brand" && (
           <div className="business-settings-content">

@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { test, expect, password } from "./supabase-fixture";
 
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
@@ -11,10 +12,7 @@ test("Google Calendar sample settings do not contact a live account", async ({
     if (request.url().includes("/api/google-calendar")) requests++;
   });
   await page.goto("/demo?view=Settings");
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /My account/ })
-    .click();
+  await openSettingsSection(page, "My Google Calendar");
   const section = page.getByRole("region", {
     name: "Google Calendar",
     exact: true,
@@ -60,10 +58,7 @@ cloudTest(
     });
 
     await page.goto("/?view=Settings");
-    await page
-      .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /My account/ })
-      .click();
+    await openSettingsSection(page, "My Google Calendar");
     const section = page.getByRole("region", {
       name: "Google Calendar",
       exact: true,
@@ -89,10 +84,7 @@ cloudTest(
       });
     });
     await page.reload();
-    await page
-      .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /My account/ })
-      .click();
+    await openSettingsSection(page, "My Google Calendar");
     await expect(section).toContainText("Connect your Google account");
     await expect(
       section.getByRole("link", { name: "Connect Google Calendar" }),

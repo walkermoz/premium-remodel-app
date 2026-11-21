@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { test, expect, password } from "./supabase-fixture";
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 
@@ -9,10 +10,7 @@ test("Twilio demo does not request live company credentials", async ({
     if (request.url().includes("/api/twilio/")) requests++;
   });
   await page.goto("/demo?view=Settings");
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Connections/ })
-    .click();
+  await openSettingsSection(page, "Phone & texting");
   const section = page.getByRole("region", {
     name: "Phone & texting",
     exact: true,
@@ -73,10 +71,7 @@ cloudTest(
       error: "Twilio messaging is not configured.",
     });
     await page.goto("/?view=Settings");
-    await page
-      .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /Connections/ })
-      .click();
+    await openSettingsSection(page, "Phone & texting");
     const section = page.getByRole("region", {
       name: "Phone & texting",
       exact: true,
@@ -126,16 +121,10 @@ cloudTest(
     await expect(section.locator('input[type="password"]')).toHaveCount(0);
     await section.screenshot({ path: "artifacts/twilio-settings-light.png" });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page
-      .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /Workspace/ })
-      .click();
+    await openSettingsSection(page, "Appearance & device");
     await page.getByLabel("Color theme").selectOption("dark");
     await page.reload();
-    await page
-      .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /Connections/ })
-      .click();
+    await openSettingsSection(page, "Phone & texting");
     await expect(section).toContainText("Connected · Active account");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await section.scrollIntoViewIfNeeded();

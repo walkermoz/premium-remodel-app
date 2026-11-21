@@ -1,13 +1,11 @@
+import { openSettingsSection } from "./settings-helpers";
 import { expect, test } from "@playwright/test";
 
 test("business branding is organized and keeps edits while browsing settings", async ({
   page,
 }) => {
   await page.goto("/demo?view=Settings");
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Business/ })
-    .click();
+  await openSettingsSection(page, "Brand & documents");
   await expect(
     page.getByRole("heading", { name: "Brand assets" }),
   ).toBeVisible();
@@ -21,24 +19,20 @@ test("business branding is organized and keeps edits while browsing settings", a
   ).toBeVisible();
 
   await expect(page.getByLabel("Primary logo URL")).toHaveCount(0);
-  await page.getByRole("button", { name: "Business details" }).click();
+  await page.getByRole("button", { name: "Company details" }).click();
   const name = page.getByLabel("Company name");
   await name.fill("Premium Remodel Preview");
-  await page.getByRole("button", { name: "Brand", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Brand & documents", exact: true })
+    .click();
   await expect(page.getByText("Primary logo", { exact: true })).toBeVisible();
 
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /My account/ })
-    .click();
+  await openSettingsSection(page, "My Google Calendar");
   await expect(
     page.getByRole("heading", { name: "Google Calendar", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Business/ })
-    .click();
-  await page.getByRole("button", { name: "Business details" }).click();
+  await openSettingsSection(page, "Brand & documents");
+  await page.getByRole("button", { name: "Company details" }).click();
   await expect(name).toHaveValue("Premium Remodel Preview");
 });
 
@@ -53,10 +47,7 @@ test("brand previews show asset placement without leaving settings", async ({
   page,
 }) => {
   await page.goto("/demo?view=Settings");
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Business/ })
-    .click();
+  await openSettingsSection(page, "Brand & documents");
 
   await page.getByRole("button", { name: "See in context" }).first().click();
   const preview = page.getByRole("dialog", { name: "Primary logo" });

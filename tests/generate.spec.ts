@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { test, expect } from "@playwright/test";
 import {
   generationProjectTypes,
@@ -57,10 +58,7 @@ test("Generate accepts photos, adapts styles, preserves drafts and saves a sampl
   await page.getByText("Coastal", { exact: true }).click();
   await page.getByLabel("Additional details").fill("White railings");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Workspace/ })
-    .click();
+  await openSettingsSection(page, "AI tools");
   await page
     .getByLabel("Default image model")
     .selectOption("black-forest-labs/flux.2-pro");

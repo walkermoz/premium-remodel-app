@@ -6,33 +6,34 @@ test("business creation is available in workspace setup", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("non-administrators cannot see organization settings", async ({
-  page,
-}) => {
-  await page.goto("/demo?as=doorknocker&view=Settings");
+test("non-administrators only see permitted settings", async ({ page }) => {
+  await page.goto("/demo?as=doorknocker&view=Settings#permissions");
   const categories = page.getByRole("navigation", {
     name: "Settings categories",
   });
-  await expect(
-    categories.getByRole("button", { name: /Get started/ }),
-  ).toHaveCount(0);
-  await expect(
-    categories.getByRole("button", { name: /Business/ }),
-  ).toHaveCount(0);
-  await expect(
-    categories.getByRole("button", { name: /Connections/ }),
-  ).toHaveCount(0);
-  await expect(
-    categories.getByRole("button", { name: /Workspace/ }),
-  ).toBeVisible();
+  for (const name of [
+    "Setup checklist",
+    "Company details",
+    "Connected accounts",
+    "Roles & permissions",
+    "Company alerts",
+    "Developer API access",
+  ]) {
+    await expect(
+      categories.getByRole("button", { name, exact: true }),
+    ).toHaveCount(0);
+  }
   await expect(
     page.getByRole("heading", { name: "Get your business ready" }),
   ).toHaveCount(0);
-  await categories.getByRole("button", { name: /My account/ }).click();
+  await categories
+    .getByRole("button", { name: "Account security", exact: true })
+    .click();
+  await expect(page.getByLabel("Current password")).toBeVisible();
+  await categories
+    .getByRole("button", { name: "My Google Calendar", exact: true })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "Account security" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: /Google Calendar/ }),
+    page.getByRole("region", { name: "Google Calendar", exact: true }),
   ).toBeVisible();
 });
