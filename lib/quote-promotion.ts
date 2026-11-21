@@ -1,4 +1,6 @@
 import "server-only";
+import { getOperatingSettings } from "./operating-settings.server";
+import { operatingProjectHandoff } from "./operating-records";
 
 import { quoteAcceptanceSchema } from "./quote-signature";
 import { msaPaymentRows } from "./msa-contract";
@@ -76,7 +78,10 @@ export async function promotePaidQuote(
     Math.max(Date.now(), Date.parse(row.updated_at) + 1),
   ).toISOString();
   const project: Project = {
-    ...quote,
+    ...(operatingProjectHandoff(
+      await getOperatingSettings(organizationId),
+      quote as unknown as Record<string, unknown>,
+    ) as unknown as Project),
     status: "Planning",
     completedDate: "",
     updatedAt: now,
@@ -110,7 +115,9 @@ export async function promotePaidQuote(
     } catch (workflowError) {
       console.error(
         "Could not enqueue the project-created workflow event",
-        workflowError instanceof Error ? workflowError.name : "WorkflowEventError",
+        workflowError instanceof Error
+          ? workflowError.name
+          : "WorkflowEventError",
       );
     }
     return project;

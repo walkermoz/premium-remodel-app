@@ -1,3 +1,4 @@
+import { requirePortalFeature } from "@/lib/operating-settings.server";
 import { randomUUID } from "node:crypto";
 import { apiError, checkOrigin, HttpError, limitAttempts } from "@/lib/auth";
 import { readClientQuoteSource } from "@/lib/client-quote";
@@ -24,6 +25,7 @@ export async function POST(request: Request, context: Context) {
     )
       throw new HttpError(413, "Choose a file smaller than 4 MB.");
     const source = await readClientQuoteSource(token, { recordView: false });
+    if (source) await requirePortalFeature(source.organizationId, "quotes");
     if (!source) throw new HttpError(404, "Quote unavailable.");
     organizationId = source.organizationId;
     const form = await request.formData();

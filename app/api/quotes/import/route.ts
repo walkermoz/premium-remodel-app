@@ -1,3 +1,4 @@
+import { getOperatingSettings } from "@/lib/operating-settings.server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
       );
     const now = new Date().toISOString();
     const business = await getBusinessConfig(user);
+    const operating = await getOperatingSettings(user.organizationId);
     const records: {
       id: string;
       organization_id: string;
@@ -153,6 +155,7 @@ export async function POST(request: Request) {
       });
       const quote = {
         ...quoteData,
+        invoiceDefaults: structuredClone(operating.invoices),
         quoteNumber: await allocateQuoteNumber(user),
         preparedBy: primary.preparedBy || user.name || business.profile.name,
         id: randomUUID(),

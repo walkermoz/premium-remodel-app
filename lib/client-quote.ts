@@ -1,4 +1,5 @@
 import "server-only";
+import { getOperatingSettings } from "./operating-settings.server";
 
 import { z } from "zod";
 import {
@@ -15,6 +16,10 @@ import {
 } from "./client-project-schedule";
 
 const quoteSchema = z.object({
+  publicCustomFields: z
+    .array(z.object({ id: z.string(), label: z.string(), value: z.string() }))
+    .max(100)
+    .optional(),
   id: z.uuid(),
   name: z.string(),
   client: z.string(),
@@ -327,6 +332,12 @@ export async function readClientQuoteSource(
   const view: ClientQuoteView = {
     quote: {
       ...quoteSchema.parse(snapshot.data.quote),
+      ...(projectPortal
+        ? {
+            publicCustomFields: quoteSchema.parse(record.data)
+              .publicCustomFields,
+          }
+        : {}),
       quoteAcceptedAt: quoteApproved
         ? acceptedAt.data.quoteAcceptedAt
         : undefined,
@@ -354,6 +365,20 @@ export async function readClientQuoteSource(
         : undefined,
   };
 
+  const operating = await getOperatingSettings(link.organization_id);
+  const visibleIds = new Set(
+    operating.customFields
+      .filter(
+        (f) =>
+          !f.archived &&
+          f.clientVisible &&
+          f.targets.includes(projectPortal ? "project" : "quote"),
+      )
+      .map((f) => f.id),
+  );
+  view.quote.publicCustomFields = (view.quote.publicCustomFields || []).filter(
+    (f) => visibleIds.has(f.id),
+  );
   const schedule: ClientScheduleItem[] = approved
     ? await readClientProjectSchedule(link.organization_id, link.project_id)
     : [];

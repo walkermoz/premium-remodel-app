@@ -117,6 +117,8 @@ export function renderQuoteEmail(input: {
 
 /** Transactional acknowledgement for a submitted website lead. */
 export function renderLeadAcknowledgement(input: {
+  subject?: string;
+  message?: string;
   firstName?: string;
   logoSrc?: string;
   business: EmailContent["business"];
@@ -124,9 +126,11 @@ export function renderLeadAcknowledgement(input: {
   const greeting = input.firstName ? `Hi ${input.firstName},` : "Hello,";
   const businessName = input.business.name;
   return renderBusinessEmail({
-    preheader: "We received your remodel request.",
-    title: "We received your remodel request",
-    message: `${greeting}\n\nThanks for reaching out to ${businessName}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n${businessName} Team`,
+    preheader: input.subject || "We received your remodel request.",
+    title: input.subject || "We received your remodel request",
+    message:
+      input.message ??
+      `${greeting}\n\nThanks for reaching out to ${businessName}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n${businessName} Team`,
     logoSrc: input.logoSrc,
     business: input.business,
   });

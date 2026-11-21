@@ -1,4 +1,6 @@
 "use client";
+import { useOperatingSettings } from "./operating-settings-context";
+import { applyOperatingRecord } from "@/lib/operating-records";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -183,6 +185,7 @@ export default function WorkspaceApp({
     },
     [config, user.group],
   );
+  const operating = useOperatingSettings();
   const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
   const workspaceRef = useRef(workspace);
   const [loaded, setLoaded] = useState(false);
@@ -601,6 +604,12 @@ export default function WorkspaceApp({
             };
           else if (previous?.completion) data.completion = previous.completion;
         }
+        const contact = workspaceRef.current.contacts.find(c => c.id === data.contactId);
+        data = applyOperatingRecord(
+          operating.settings, kind, data,
+          existing as unknown as Record<string, unknown> || null,
+          user.name, now, contact?.customValues,
+        );
         entity = {
           ...data,
           ...(kind === "comment"

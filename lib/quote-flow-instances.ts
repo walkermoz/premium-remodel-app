@@ -1,3 +1,6 @@
+import { portalFlowBlockAllowed } from "./portal-visibility";
+import { getOperatingSettings } from "./operating-settings.server";
+import { operatingProjectHandoff } from "./operating-records";
 import "server-only";
 
 import type { WorkspaceUser } from "./auth";
@@ -1417,6 +1420,12 @@ export async function createCustomerQuoteFlowCheckout(
     cancelUrl: string;
   },
 ) {
+  const { portal } = await getOperatingSettings(organizationId);
+  if (!portal.quotes || !portal.payments || !portal.invoices)
+    throw new HttpError(
+      403,
+      "Online payments are not enabled in the customer portal.",
+    );
   const rowResult = await supabaseAdmin()
     .from("remodel_quote_flow_instances")
     .select(instanceColumns)
@@ -1584,7 +1593,10 @@ export async function convertQuoteFlowToProject(
     Math.max(Date.now(), Date.parse(record.data.updated_at) + 1),
   ).toISOString();
   const project: Record<string, unknown> = {
-    ...(record.data.data as Record<string, unknown>),
+    ...operatingProjectHandoff(
+      await getOperatingSettings(user.organizationId),
+      record.data.data as Record<string, unknown>,
+    ),
     status: "Planning",
     completedDate: "",
     updatedAt: now,
@@ -1653,6 +1665,8 @@ export async function getPublicQuoteFlowInstance(
   const definition = quoteFlowDefinitionSchema.parse(
     instance.definition_snapshot,
   );
+  const { portal } = await getOperatingSettings(organizationId);
+  if (!portal.quotes) return null;
   const resolve = await flowRuntimeResolver(instance, definition);
   const customerDefinition: QuoteFlowDefinition = {
     ...definition,
@@ -1670,6 +1684,7 @@ export async function getPublicQuoteFlowInstance(
           .filter(
             (block) =>
               block.enabled &&
+              portalFlowBlockAllowed(portal, stage.type, block.type) &&
               ["customer", "both"].includes(block.audience) &&
               quoteFlowConditionsMatch(block.conditions, resolve),
           )
@@ -1747,6 +1762,17 @@ export async function saveCustomerQuoteFlowValue(
   );
   if (!stage || !block)
     throw new HttpError(404, "Customer flow field not found.");
+  if (
+    !portalFlowBlockAllowed(
+      (await getOperatingSettings(organizationId)).portal,
+      stage.type,
+      block.type,
+    )
+  )
+    throw new HttpError(
+      403,
+      "This section is not enabled in the customer portal.",
+    );
   await assertQuoteFlowSigningOrder(
     instance,
     definition,

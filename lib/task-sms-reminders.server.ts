@@ -1,3 +1,4 @@
+import { getOperatingSettings } from "./operating-settings.server";
 import "server-only";
 import type { Contact, Project, Task } from "./types";
 import { normalizeSmsRecipient } from "./install-link";
@@ -106,6 +107,8 @@ async function processReminder(claim: ClaimedReminder) {
         project,
         recipient,
         business.profile.name,
+        (await getOperatingSettings(claim.organization_id)).messages
+          .scheduleFooter,
       ),
       category: "appointment",
     });

@@ -198,8 +198,9 @@ export const settingsEntries: SettingsEntry[] = [
     group: "Customers",
     label: "Customer portal",
     description:
-      "Find the existing controls for customer documents, branding and project access.",
+      "Choose which schedules, documents, invoices, payments and requests customers can access.",
     questions: [
+      "Which portal sections and schedule times should customers see?",
       "What branding and price detail should customers see?",
       "Which quote or project portal link should you share?",
     ],
@@ -380,6 +381,61 @@ export const settingsEntries: SettingsEntry[] = [
       "Would you like to install the app?",
     ],
     scope: "personal",
+  },
+  {
+    id: "working-hours",
+    group: "Team",
+    label: "Working hours",
+    description: "Weekly availability, holidays and timed booking rules.",
+    questions: [
+      "When is the business open?",
+      "Which dates are exceptions, and should bookings outside hours be blocked?",
+    ],
+    capabilities: ["business.manage"],
+  },
+  {
+    id: "custom-fields",
+    group: "Business",
+    label: "Custom fields",
+    description: "Reusable typed fields on contacts, quotes and projects.",
+    questions: [
+      "Which fields are required, transferred between records or customer-visible?",
+    ],
+    capabilities: ["business.manage"],
+  },
+  {
+    id: "forms",
+    group: "Work",
+    label: "Reusable forms",
+    description:
+      "Project form templates, questions and completion requirements.",
+    questions: [
+      "What should the crew collect, and which forms must be complete before closeout?",
+    ],
+    capabilities: ["business.manage"],
+  },
+  {
+    id: "invoice-defaults",
+    group: "Work",
+    label: "Invoice defaults",
+    description: "Titles, deposit terms and notes for new contract invoices.",
+    questions: [
+      "What deposit percentage and due period should new agreements use?",
+      "What note should the customer see?",
+    ],
+    capabilities: ["business.manage"],
+  },
+  {
+    id: "message-templates",
+    group: "Customers",
+    label: "Message templates",
+    description:
+      "Quote email, lead acknowledgement and schedule text defaults.",
+    questions: [
+      "What should new customer messages say?",
+      "Which supported variables should personalize them?",
+    ],
+    capabilities: ["business.manage"],
   },
 ];
 

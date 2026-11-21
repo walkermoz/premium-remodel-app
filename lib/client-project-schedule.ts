@@ -1,4 +1,6 @@
 import "server-only";
+import { getOperatingSettings } from "./operating-settings.server";
+import { visibleSchedule } from "./portal-visibility";
 
 import { z } from "zod";
 import { supabaseAdmin } from "./supabase/server";
@@ -31,6 +33,8 @@ export async function readClientProjectSchedule(
   organizationId: string,
   projectId: string,
 ) {
+  const { portal } = await getOperatingSettings(organizationId);
+  if (!portal.schedule) return [];
   const result = await supabaseAdmin()
     .from("remodel_records")
     .select("data")
@@ -39,13 +43,16 @@ export async function readClientProjectSchedule(
     .eq("kind", "task")
     .limit(500);
   if (result.error) throw result.error;
-  return result.data
-    .map((row) => clientScheduleItemSchema.safeParse(row.data))
-    .filter((item) => item.success)
-    .map((item) => item.data)
-    .sort((a, b) =>
-      `${a.dueDate} ${a.startTime || ""} ${a.title}`.localeCompare(
-        `${b.dueDate} ${b.startTime || ""} ${b.title}`,
+  return visibleSchedule(
+    result.data
+      .map((row) => clientScheduleItemSchema.safeParse(row.data))
+      .filter((item) => item.success)
+      .map((item) => item.data)
+      .sort((a, b) =>
+        `${a.dueDate} ${a.startTime || ""} ${a.title}`.localeCompare(
+          `${b.dueDate} ${b.startTime || ""} ${b.title}`,
+        ),
       ),
-    );
+    portal,
+  );
 }

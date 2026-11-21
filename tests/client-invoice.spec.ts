@@ -13,6 +13,9 @@ const agreement = {
 
 test("a signed contract creates an invoice from the agreement amount", () => {
   expect(clientContractInvoice(agreement, 0)).toEqual({
+    title: "Contract invoice",
+    customerNote: "",
+    depositDueDate: "",
     totalCents: 1_975_000,
     paidCents: 0,
     balanceCents: 1_975_000,

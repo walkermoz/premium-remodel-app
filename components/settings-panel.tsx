@@ -12,6 +12,7 @@ import {
   resolveSettingsSection,
   settingsEntries,
 } from "@/lib/settings-navigation";
+import OperatingSettingsEditor from "./operating-settings-editor";
 import GenerationSettings from "./generation-settings";
 import { AppearanceSettings } from "./theme-controls";
 import { InstallAppPanel } from "./pwa-install";
@@ -277,8 +278,26 @@ export default function SettingsPanel({
             `Open ${entry.workspace.toLowerCase()}`,
             entry.description,
           )}
-          {id === "schedule" && settingsLink("calendar")}
+          {id === "schedule" && (
+            <>
+              {settingsLink("working-hours")}
+              {settingsLink("calendar")}
+            </>
+          )}
         </>
+      );
+    const operatingSections = {
+      "working-hours": "hours",
+      "custom-fields": "customFields",
+      forms: "forms",
+      "invoice-defaults": "invoices",
+      "message-templates": "messages",
+    } as const;
+    if (id in operatingSections)
+      return (
+        <OperatingSettingsEditor
+          section={operatingSections[id as keyof typeof operatingSections]}
+        />
       );
     switch (id) {
       case "setup":
@@ -364,6 +383,9 @@ export default function SettingsPanel({
       case "portal":
         return (
           <>
+            {capabilities.includes("business.manage") && (
+              <OperatingSettingsEditor section="portal" />
+            )}
             <p className={styles.notice}>
               Manage a customer&apos;s portal link from their quote or project.
               Existing links continue to open the same customer/project context.
@@ -397,6 +419,7 @@ export default function SettingsPanel({
               workflow editor.
             </p>
             <div className={styles.links}>
+              {settingsLink("message-templates")}
               {settingsLink("email")}
               {settingsLink("phone")}
               {settingsLink("compliance")}

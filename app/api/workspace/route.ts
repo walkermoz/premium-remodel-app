@@ -1,3 +1,5 @@
+import { getOperatingSettings } from "@/lib/operating-settings.server";
+import { applyOperatingRecord } from "@/lib/operating-records";
 import {
   apiError,
   appOrigin,
@@ -532,6 +534,31 @@ async function save(request: Request, editing: boolean) {
           ))
       )
         throw new HttpError(400, "Invalid note request identifier.");
+    }
+    if (["contact", "project", "quote", "task", "lead"].includes(kind)) {
+      const operating = await getOperatingSettings(user.organizationId);
+      const contact =
+        (kind === "quote" || kind === "project") && data.contactId
+          ? await findRecord(user, String(data.contactId), "contact")
+          : null;
+      try {
+        data = applyOperatingRecord(
+          operating,
+          kind,
+          data,
+          current as unknown as Record<string, unknown> | null,
+          user.name,
+          new Date().toISOString(),
+          contact && "customValues" in contact
+            ? contact.customValues
+            : undefined,
+        );
+      } catch (error) {
+        throw new HttpError(
+          400,
+          error instanceof Error ? error.message : "Invalid operating fields.",
+        );
+      }
     }
     const responseWithActivity = async (
       entity: Record<string, unknown> | import("@/lib/types").Entity,

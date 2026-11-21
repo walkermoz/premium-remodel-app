@@ -764,16 +764,18 @@ handlers.set("communication.sendEmail", async (input) => {
         contactId,
         channel: "email",
         recipient,
-        subject: "We received your remodel request",
-        body: renderLeadAcknowledgement({
-          firstName,
-          business: {
-            name: businessConfig.profile.name,
-            website: businessConfig.profile.website,
-            email: businessConfig.profile.email,
-            phone: businessConfig.profile.phone,
-          },
-        }).text,
+        subject: sent.subject || "We received your remodel request",
+        body:
+          sent.messageText ||
+          renderLeadAcknowledgement({
+            firstName,
+            business: {
+              name: businessConfig.profile.name,
+              website: businessConfig.profile.website,
+              email: businessConfig.profile.email,
+              phone: businessConfig.profile.phone,
+            },
+          }).text,
         relatedKind: "lead",
         relatedId: leadId,
         ...(sent.googleMessageId ? { providerId: sent.googleMessageId } : {}),

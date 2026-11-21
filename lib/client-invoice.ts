@@ -8,6 +8,9 @@ export type ClientContractInvoice = {
   depositCents: number;
   depositDueCents: number;
   status: "open" | "paid";
+  title: string;
+  customerNote: string;
+  depositDueDate: string;
 };
 
 export function clientContractInvoice(
@@ -22,7 +25,20 @@ export function clientContractInvoice(
     Math.round((msaPaymentRows(agreement)[0]?.amount || 0) * 100),
   );
   const balanceCents = Math.max(0, totalCents - paidCents);
+  const signingDate =
+    agreement.transactionDate ||
+    agreement.customerSignature?.signedAt?.slice(0, 10) ||
+    "";
+  const due = signingDate ? new Date(`${signingDate}T12:00:00Z`) : null;
+  if (due)
+    due.setUTCDate(
+      due.getUTCDate() + (agreement.invoiceDefaults?.dueDays || 0),
+    );
   return {
+    title: agreement.invoiceDefaults?.title || "Contract invoice",
+    customerNote: agreement.invoiceDefaults?.customerNote || "",
+    depositDueDate:
+      due && !isNaN(due.getTime()) ? due.toISOString().slice(0, 10) : "",
     totalCents,
     paidCents,
     balanceCents,

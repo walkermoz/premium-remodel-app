@@ -1,3 +1,8 @@
+import {
+  getOperatingSettings,
+  requirePortalFeature,
+} from "@/lib/operating-settings.server";
+import { readClientQuoteSource } from "@/lib/client-quote";
 import { HttpError, limitAttempts, requestOrigin } from "@/lib/auth";
 import { readClientQuote } from "@/lib/client-quote";
 import {
@@ -31,6 +36,12 @@ export async function GET(
   const { token } = await params;
   if (!parseClientPortalToken(token) || !(await readClientQuote(token)))
     return new Response(null, { status: 404 });
+  const source = await readClientQuoteSource(token);
+  if (
+    source &&
+    !(await getOperatingSettings(source.organizationId)).portal.payments
+  )
+    return new Response(null, { status: 403 });
   return Response.redirect(walletUrl(request, token), 303);
 }
 
@@ -58,6 +69,7 @@ export async function POST(
       .maybeSingle();
     if (error) throw error;
     if (!link) return new Response(null, { status: 404 });
+    await requirePortalFeature(link.organization_id, "payments");
     const business = await getBusinessConfigForOrganization(
       link.organization_id,
     );

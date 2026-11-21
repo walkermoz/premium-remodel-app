@@ -1,3 +1,4 @@
+import { customValuesSchema, recordFormSchema } from "./operating-settings";
 import { z } from "zod";
 import {
   workTypes,
@@ -27,6 +28,8 @@ const date = z
 const amount = z.number().finite().min(0).max(1_000_000_000);
 const taskStatus = z.enum(["To do", "In progress", "Done"]);
 const projectFields = {
+  customValues: customValuesSchema.optional(),
+  recordForms: z.array(recordFormSchema).max(100).optional(),
   name: short.min(1),
   address: short,
   client: short,
@@ -52,6 +55,7 @@ const time = z
   .default("");
 export const schemas = {
   contact: z.object({
+    customValues: customValuesSchema.optional(),
     firstName: short.min(1),
     lastName: short,
     name: short.min(1),

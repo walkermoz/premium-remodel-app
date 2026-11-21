@@ -1,4 +1,11 @@
 "use client";
+import FieldInputs from "./field-inputs";
+import { useOperatingSettings } from "./operating-settings-context";
+import {
+  customFieldsFor,
+  workingHoursIssue,
+  type FieldValue,
+} from "@/lib/operating-settings";
 import { useEffect, useRef, useState } from "react";
 import type {
   Contact,
@@ -72,6 +79,34 @@ export function EntityForm({
     ...editor.initialValues,
     ...project,
   } as Partial<Project | Quote>;
+  const { settings: operating } = useOperatingSettings();
+  const [hoursNotice, setHoursNotice] = useState("");
+  const contactFields = customFieldsFor(operating, "contact");
+  const [contactValues, setContactValues] = useState<
+    Record<string, FieldValue>
+  >({});
+  const customFields =
+    kind === "contact" || kind === "quote" || kind === "project"
+      ? customFieldsFor(operating, kind)
+      : [];
+  const [customValues, setCustomValues] = useState<Record<string, FieldValue>>(
+    () => ({
+      ...(!entity
+        ? Object.fromEntries(
+            customFields
+              .filter((f) => f.transfer)
+              .flatMap((f) => {
+                const v = workspace.contacts.find(
+                  (c) => c.id === projectValues.contactId,
+                )?.customValues?.[f.id];
+                return v === undefined ? [] : [[f.id, v]];
+              }),
+          )
+        : {}),
+      ...((editor.initialValues as Partial<Project>)?.customValues || {}),
+      ...((entity as Project | Contact)?.customValues || {}),
+    }),
+  );
   const customer = entity as Contact | undefined;
   const initialContactId = String(
     (projectValues as Partial<Quote>).contactId ||
@@ -217,6 +252,7 @@ export function EntityForm({
     const data: Record<string, unknown> = Object.fromEntries(
       new FormData(event.currentTarget),
     );
+    if (customFields.length) data.customValues = customValues;
     if (kind === "project") {
       data.smsScheduleEnabled = smsScheduleEnabled;
       data.smsScheduleTime = smsScheduleTime;
@@ -282,6 +318,7 @@ export function EntityForm({
           address: String(data.address || "").trim(),
           zip: "",
           source: "Quote",
+          ...(contactFields.length ? { customValues: contactValues } : {}),
         });
         data.contactId = created.id;
         setContactId(created.id);
@@ -373,6 +410,31 @@ export function EntityForm({
       }}
     >
       <form
+        onChange={(e) => {
+          if (kind !== "task") return;
+          const form = new FormData(e.currentTarget);
+          if (
+            entity &&
+            ["dueDate", "startTime", "endTime"].every(
+              (key) =>
+                String(form.get(key) || "") ===
+                String(
+                  (entity as unknown as Record<string, unknown>)[key] || "",
+                ),
+            )
+          ) {
+            setHoursNotice("");
+            return;
+          }
+          setHoursNotice(
+            workingHoursIssue(
+              operating.hours,
+              String(form.get("dueDate") || ""),
+              String(form.get("startTime") || ""),
+              String(form.get("endTime") || ""),
+            ),
+          );
+        }}
         className="entity-form"
         onSubmit={submit}
         hidden={addingContractor}
@@ -491,6 +553,21 @@ export function EntityForm({
                     allowEmpty={Boolean(entity)}
                     onChange={(id) => {
                       setContactId(id);
+                      if (!entity)
+                        setCustomValues(
+                          Object.fromEntries(
+                            customFields
+                              .filter((f) => f.transfer)
+                              .flatMap((f) => {
+                                const value = workspace.contacts.find(
+                                  (c) => c.id === id,
+                                )?.customValues?.[f.id];
+                                return value === undefined
+                                  ? []
+                                  : [[f.id, value]];
+                              }),
+                          ),
+                        );
                       const selected = workspace.contacts.find(
                         (contact) => contact.id === id,
                       );
@@ -1065,6 +1142,41 @@ export function EntityForm({
                 </select>
               </label>
             </>
+          )}
+          {hoursNotice && (
+            <p role="status">
+              {hoursNotice}
+              {operating.hours.blockOutside
+                ? " Choose an available time before saving."
+                : " This is an advisory; you can still save."}
+            </p>
+          )}
+          {kind === "quote" &&
+            contactId === "__new__" &&
+            contactFields.length > 0 && (
+              <section style={{ gridColumn: "1 / -1" }}>
+                <h3>New contact fields</h3>
+                <FieldInputs
+                  prefix="new-contact"
+                  fields={contactFields}
+                  values={contactValues}
+                  onChange={(id, value) =>
+                    setContactValues((current) => ({ ...current, [id]: value }))
+                  }
+                />
+              </section>
+            )}
+          {customFields.length > 0 && (
+            <section style={{ gridColumn: "1 / -1" }}>
+              <h3>Custom fields</h3>
+              <FieldInputs
+                fields={customFields}
+                values={customValues}
+                onChange={(id, value) =>
+                  setCustomValues((current) => ({ ...current, [id]: value }))
+                }
+              />
+            </section>
           )}
           {error && (
             <div className="alert" role="alert">

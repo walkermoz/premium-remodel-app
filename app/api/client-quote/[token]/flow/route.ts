@@ -1,3 +1,4 @@
+import { requirePortalFeature } from "@/lib/operating-settings.server";
 import { z } from "zod";
 import { apiError, checkOrigin, HttpError, limitAttempts } from "@/lib/auth";
 import { readClientQuoteSource } from "@/lib/client-quote";
@@ -15,6 +16,7 @@ export async function GET(_request: Request, context: Context) {
   try {
     const { token } = await context.params;
     const source = await readClientQuoteSource(token, { recordView: false });
+    if (source) await requirePortalFeature(source.organizationId, "quotes");
     if (!source) throw new HttpError(404, "Quote unavailable.");
     return Response.json(
       {
@@ -36,6 +38,7 @@ export async function PATCH(request: Request, context: Context) {
     const { token } = await context.params;
     await limitAttempts(`client-quote-flow:${token.slice(0, 24)}`, 40);
     const source = await readClientQuoteSource(token, { recordView: false });
+    if (source) await requirePortalFeature(source.organizationId, "quotes");
     if (!source) throw new HttpError(404, "Quote unavailable.");
     const input = z
       .object({
