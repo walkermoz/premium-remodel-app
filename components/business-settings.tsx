@@ -743,7 +743,8 @@ export default function BusinessSettings({
               <div>
                 <strong>Customer communication</strong>
                 <span>
-                  Used in consent records, HELP responses, and notices.
+                  Used in customer notices, consent records and portal support
+                  links. Twilio manages automatic HELP/STOP replies.
                 </span>
               </div>
               <div className="form-grid">

@@ -18,7 +18,9 @@ const retryingLocalFetch: typeof fetch = async (input, init) => {
     } catch (error) {
       lastError = error;
       if (attempt < 2)
-        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 150 * (attempt + 1)),
+        );
     } finally {
       clearTimeout(timeout);
       originalSignal?.removeEventListener("abort", abort);
@@ -64,14 +66,17 @@ export const test = base.extend<{ company: Company }>({
       });
       if (owner.error) throw owner.error;
       ownerId = owner.data.user.id;
-      const profile = await admin.from("profiles").upsert({
-        organization_id: org,
-        auth_user_id: ownerId,
-        full_name: "Workspace Owner",
-        email,
-        role: "owner",
-        active: true,
-      }, { onConflict: "auth_user_id" });
+      const profile = await admin.from("profiles").upsert(
+        {
+          organization_id: org,
+          auth_user_id: ownerId,
+          full_name: "Workspace Owner",
+          email,
+          role: "owner",
+          active: true,
+        },
+        { onConflict: "auth_user_id" },
+      );
       if (profile.error) throw profile.error;
       await runTest({ email, memberEmail, organizationId: org, admin });
     } finally {
@@ -93,8 +98,24 @@ export const test = base.extend<{ company: Company }>({
         ...(profiles.data || []).map((p) => p.auth_user_id),
       ]);
       for (const id of authIds) if (id) await admin.auth.admin.deleteUser(id);
-      const removed = await admin.from("organizations").delete().eq("id", org);
-      if (removed.error) throw removed.error;
+      // A request's after() workflow may finish writing a record after the first
+      // cleanup query. Profiles are already gone, so it cannot keep producing
+      // staff-owned records. Retry only this disposable organization's FK race.
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const cleared = await admin
+          .from("remodel_records")
+          .delete()
+          .eq("organization_id", org);
+        if (cleared.error) throw cleared.error;
+        const removed = await admin
+          .from("organizations")
+          .delete()
+          .eq("id", org);
+        if (!removed.error) break;
+        if (removed.error.code !== "23503" || attempt === 2)
+          throw removed.error;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
     }
   },
 });

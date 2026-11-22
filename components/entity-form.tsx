@@ -554,8 +554,16 @@ export function EntityForm({
                     onChange={(id) => {
                       setContactId(id);
                       if (!entity)
-                        setCustomValues(
-                          Object.fromEntries(
+                        setCustomValues((current) => ({
+                          ...Object.fromEntries(
+                            Object.entries(current).filter(
+                              ([key]) =>
+                                !customFields.some(
+                                  (field) => field.id === key && field.transfer,
+                                ),
+                            ),
+                          ),
+                          ...Object.fromEntries(
                             customFields
                               .filter((f) => f.transfer)
                               .flatMap((f) => {
@@ -567,7 +575,7 @@ export function EntityForm({
                                   : [[f.id, value]];
                               }),
                           ),
-                        );
+                        }));
                       const selected = workspace.contacts.find(
                         (contact) => contact.id === id,
                       );
@@ -1160,9 +1168,21 @@ export function EntityForm({
                   prefix="new-contact"
                   fields={contactFields}
                   values={contactValues}
-                  onChange={(id, value) =>
-                    setContactValues((current) => ({ ...current, [id]: value }))
-                  }
+                  onChange={(id, value) => {
+                    setContactValues((current) => ({
+                      ...current,
+                      [id]: value,
+                    }));
+                    if (
+                      customFields.some(
+                        (field) => field.id === id && field.transfer,
+                      )
+                    )
+                      setCustomValues((current) => ({
+                        ...current,
+                        [id]: value,
+                      }));
+                  }}
                 />
               </section>
             )}
@@ -1171,6 +1191,7 @@ export function EntityForm({
               <h3>Custom fields</h3>
               <FieldInputs
                 fields={customFields}
+                prefix={`${kind}-field`}
                 values={customValues}
                 onChange={(id, value) =>
                   setCustomValues((current) => ({ ...current, [id]: value }))

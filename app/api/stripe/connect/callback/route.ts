@@ -16,6 +16,7 @@ function settingsUrl(request: Request, result: string) {
     view: "Settings",
     stripe: result,
   }).toString();
+  url.hash = "stripe";
   return url;
 }
 
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
   try {
     const user = await requireUser();
     await requireOrganizationCapability(user, "connections.manage");
+    await requireOrganizationCapability(user, "payments.manage");
     const url = new URL(request.url);
     if (url.searchParams.get("error"))
       return Response.redirect(settingsUrl(request, "denied"), 302);

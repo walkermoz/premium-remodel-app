@@ -14,6 +14,7 @@ function settingsUrl(request: Request, result: string) {
     view: "Settings",
     calendar: result,
   }).toString();
+  url.hash = "calendar";
   return url;
 }
 

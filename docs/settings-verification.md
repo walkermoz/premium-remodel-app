@@ -1,0 +1,62 @@
+# PR #76 settings verification
+
+Scope: every destination and control in the modular-settings update, including the existing editors it reorganizes. Verification uses disposable local Supabase organizations, real authentication, PostgreSQL and Storage, plus browser tests at desktop and 390px phone widths. No production settings, customer messages, provider accounts or payments were changed.
+
+## Findings corrected in this update
+
+- Legal business name and compliance help contacts were saved but had no customer-facing reader. Customer email footers and portal contact links now consume them. Display identity and sending email remain separate.
+- Locale accepted malformed values that can throw during date/currency rendering. Saving now validates BCP 47 locale syntax alongside the existing IANA timezone validation.
+- Email/calendar OAuth query cleanup discarded the selected section. Google and Stripe callback redirects now select the correct settings destination; Google email/calendar preserve it after reload.
+- Google reviews offered a link to the intentionally hidden Analytics area. Settings now explains the current visibility limit and retains the connection.
+- Choosing a different contact while drafting a quote erased unrelated custom answers. Only transferred fields are replaced; new-contact answers also populate corresponding required quote fields. Clicking an already-focused contact picker now reopens its choices.
+- Stripe connection endpoints required fewer permissions than the settings screen. Status, connect, refresh, disconnect and callback now also require `payments.manage` and its module gate.
+- The existing contact creation RPC cast a text record version to a timestamp, changing its spelling and violating the database constraint. `202611220001_contact_version_text.sql` preserves the exact version in both JSON and the column, including reused contacts whose empty phone is filled.
+
+## Section-by-section coverage
+
+1. **Setup checklist** — real onboarding/status responses and permission denial; links open matching focused connection editors. This is a checklist, not a second configuration store.
+2. **Company details** — company name, website, email, phone and address-search priority saved through the authenticated browser form and checked after reload. Readers include workspace identity, address suggestions, email and customer documents.
+3. **Brand & documents** — primary logo upload/replace and three optional asset upload/replace/remove operations exercised against local Storage, then read through private routes. Anonymous requests denied. Primary logo offers replacement, not removal. Context previews and draft retention checked in the browser.
+4. **Products & services** — opens the existing price book; item/category, contractor rates and quote application covered by price-book tests. Disabling the module also denies its API.
+5. **Modules** — all seven flags saved off/on. Price book, payments, door knocking, generation, media, automations and agreements have server-side access checks as well as navigation hiding. Data remains stored when disabled.
+6. **Compliance & region** — legal name, SMS program/policy, privacy/terms links, help contacts, check payee/address, timezone, locale and service area saved/reloaded. Country/currency are explicitly read-only US/USD. Consumers traced to consent, customer requests, customer support, check-payment instructions, regional formatting and media briefs. Twilio manages automatic HELP/STOP acknowledgement; editing help contacts does not reconfigure Twilio's carrier replies.
+7. **Manage team** — delegates to the existing team editor. Profile updates, invitations/access roles, tenant boundaries and restricted employees covered by team/access tests. No real invitation was sent during this audit.
+8. **Navigation by role** — role tab visibility/order persists and changes the actual authenticated navigation. Removed tabs also deny direct record writes. Settings remains available for recovery.
+9. **Roles & permissions** — capability values persist, non-authorized saves are denied, and owner recovery permissions remain immutable. Stripe now enforces both relevant capabilities. Signing/flow-specific permissions retain their existing server guards.
+10. **Schedule & availability** — links to Upcoming; task dates/times, assignment and schedule display reuse the existing calendar. Personal Google synchronization is a separate connection. This does not claim staff-capacity or self-booking support.
+11. **Quotes & payments** — all four defaults persist: internal costs, price-book picker, customer item prices and online payment provider. Quote editor/customer PDF rules covered by quote-display and quote workflow tests. Manual payments do not initiate Stripe checkout.
+12. **Agreement templates** — existing library, reusable fields/bindings, signer order, upload validation, publishing/versioning and signing protections retained and covered by agreement tests. This is separate from project reusable forms.
+13. **Quote & agreement flows** — stage/block schema, publishing/defaults, restored versions, customer projection and project handoff covered by flow tests. Hidden portal actions are filtered from the public flow and checked at action endpoints.
+14. **Customer portal** — each section flag saved separately and tested through an existing customer link. Hidden deep links fall back to Contact us; quote PDF/flow/signature, agreement signature and payment actions reject disabled access. Schedule-time values are stripped server-side. Existing signed-link authorization remains intact.
+15. **Requests & booking** — opens Leads; manual lead/contact creation and consultation scheduling covered. Consultation timing uses working-hours validation. Portal requests also enforce the visibility flag and consent requirements.
+16. **Messages & notifications** — directory links to the existing providers and automation tools. Recipient/consent/trigger logic is retained in those editors; this is not a duplicate notification policy.
+17. **Automations** — existing graph author/test/publish/history/retry behavior retained. Disabled module denies management. Real lead capture runs locally with external delivery credentials removed; queued delivery must be observed asynchronously.
+18. **Connected accounts** — organization-scoped status registry and links resolve to the correct provider editor; loading/failure/sample states covered. No secrets are returned in this directory.
+19. **Company email** — authenticated status and disconnected/setup states, role visibility, OAuth return destination and retained draft checked. Real Google consent, mailbox access and email delivery require a connected provider and were not executed.
+20. **Phone & texting** — credential/form validation, administrator access, connection/setup failure recovery and mobile layout covered by Twilio tests. No production Twilio credentials were used, no phone disconnected, and no SMS sent.
+21. **Google reviews** — selected-organization connection isolation and setup/connected display checked. Analytics remains intentionally hidden; linking the account does not enable the dashboard. Live review retrieval/reply was not performed.
+22. **Stripe payments** — role/module restrictions, configured/disconnected status, OAuth return destination and connection UI retained. Live Stripe onboarding, charge/refund and upstream disconnect are outside this verification.
+23. **Company alerts** — actual create/update/remove, expiry and audience enforcement covered at UI/API/database levels. Synthetic records only.
+24. **Workspace history** — actual record-change audit events, filters and administrator-only access verified. Mobile navigation helper now waits for the correct rendered navigation surface.
+25. **AI tools** — default model validation/save/read and model choice in Generate verified. Generated image responses are mocked; no paid generation was requested. Provider configuration status is tested honestly when the local key is absent.
+26. **Workflow secrets** — synthetic secret create/rotate/list/remove persisted locally; lists and audit/export data do not expose plaintext. Runtime uses encrypted organization-scoped credentials.
+27. **Developer API access** — create scoped key, one-time secret, authenticated use and revoked rejection tested; list hides the secret. Existing API tests cover lead permissions and cross-company isolation.
+28. **Organization** — owner-only identity/status, confirmation, delayed deletion request/cancellation and downloadable ZIP export exercised locally. The deletion worker was not run. Exports include operating settings and redact credentials; upload integrity handled by the existing archive implementation.
+29. **Account security** — wrong current password rejected; synthetic user's password changed and successfully used for sign-in. The operator's account/password was untouched.
+30. **My Google Calendar** — personal connection isolation, configured/disconnected status, sample safety, error handling and return-link persistence covered. Live Google synchronization requires provider access and was not performed.
+31. **Appearance & device** — light/dark/system persistence, navigation/draft behavior and phone viewport checked. Browser installation UI remains conditional on a supported PWA installation event; it cannot force installation on unsupported browsers.
+32. **Working hours** — every weekday's open/start/end controls, enabled/advisory/blocking modes and date exceptions validated. Actual task writes reject closed dates/outside hours; unchanged bookings can still be completed after the policy changes. Dates without a time remain allowed.
+33. **Custom fields** — all six types, required/defaults/options, target records, transfer, visibility and archive validation covered. Real contact-to-quote inheritance checked; unrelated quote drafts preserved; public projection excludes private answers. Existing values survive archiving; identifiers/types cannot be destructively repurposed.
+34. **Reusable forms** — template/title/questions, required/autoassign/archive and answer validation covered. Actual project assignments snapshot template content; drafts remain editable; completion stamps authenticated staff/time, locks answers and gates project completion.
+35. **Invoice defaults** — title/deposit percentage/due-days/note saved and consumed on actual new quotes. Subsequent default changes preserve existing quote/issued agreement snapshots. Contract invoice calculations and signed-document history covered. This configures the existing contract invoice model, not a standalone invoicing product.
+36. **Message templates** — all five values persist; variables/subjects validated and actual email/SMS formatters escape/render values. Quote composer consumes the new subject/body, lead acknowledgement consumes its templates, and homeowner schedule texts consume their footer. External delivery itself was not exercised.
+
+## Verification evidence and rollout
+
+Validation completed on 2026-11-22: 341 distinct checks verified with no skipped database fixtures. The final full integration sweep passed 337 of 341; the remaining four passed in a focused rerun after correcting a background-job timing assumption and retrying three local request timeouts. All 14 added settings verification cases passed. Lint, TypeScript, the production build and formatting of changed code passed. These results should not be represented as a single uninterrupted 341/341 run.
+
+The automated evidence is in `tests/settings-verification-api.spec.ts`, `tests/settings-verification.spec.ts`, the operating-settings test files and the existing focused test suites named above. Database-backed runs use `RUN_SUPABASE_TESTS=1` against loopback Supabase; ordinary CI may skip provider/database fixtures when those credentials are absent.
+
+The two new migrations on this PR must be applied by the normal release process: operating-settings storage and the contact text-version correction. A preview with the operating-settings table missing intentionally reports that saving is unavailable; sample mode remains usable. Neither migration was applied to the hosted production database during this audit.
+
+A provider-dependent setting can pass persistence, permissions, UI and error-handling checks without proving a live external delivery. Google OAuth/API access, actual SMS/email delivery, Stripe transactions and PWA installation on a real device retain that distinction.

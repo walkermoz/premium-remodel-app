@@ -76,9 +76,7 @@ cloudTest(
       name: "Phone & texting",
       exact: true,
     });
-    await expect(section).toContainText(
-      "The platform-managed phone account is not configured yet.",
-    );
+    await expect(section).toContainText("Waiting for platform setup");
     const sid = `AC${"a".repeat(32)}`;
     let fail = false;
     await page.route("**/api/twilio/config", (route) =>

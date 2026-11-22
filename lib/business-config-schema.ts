@@ -279,7 +279,19 @@ export const businessConfigSchema = z.object({
   regional: z.object({
     country: z.literal("US").default("US"),
     currency: z.literal("USD").default("USD"),
-    locale: z.string().trim().min(2).max(40).default("en-US"),
+    locale: z
+      .string()
+      .trim()
+      .min(2)
+      .max(40)
+      .refine((value) => {
+        try {
+          return Intl.getCanonicalLocales(value).length === 1;
+        } catch {
+          return false;
+        }
+      }, "Choose a valid locale, such as en-US.")
+      .default("en-US"),
     timezone: z
       .string()
       .trim()

@@ -63,9 +63,7 @@ cloudTest(
       name: "Google Calendar",
       exact: true,
     });
-    await expect(section).toContainText(
-      "Calendar connections are not available yet",
-    );
+    await expect(section).toContainText("Waiting for platform setup");
     await expect(section.locator('input[type="password"]')).toHaveCount(0);
 
     await page.route("**/api/google-calendar", (route) => {
@@ -90,7 +88,7 @@ cloudTest(
       section.getByRole("link", { name: "Connect Google Calendar" }),
     ).toHaveAttribute("href", "/api/google-calendar/connect");
     await expect(section).toContainText(
-      "cannot read or change your other calendars",
+      "manages only its own secondary calendar",
     );
   },
 );

@@ -1,4 +1,5 @@
 import "server-only";
+import { customerEmailBusiness } from "./customer-company-details";
 import { getOperatingSettings } from "./operating-settings.server";
 import { renderMessageTemplate } from "./operating-settings";
 
@@ -119,12 +120,7 @@ export async function sendWebsiteLeadAcknowledgement(
         googleMailAddressForOrganization(input.organizationId),
         getOperatingSettings(input.organizationId),
       ]);
-    const business = {
-      name: businessConfig.profile.name,
-      website: businessConfig.profile.website,
-      email: businessConfig.profile.email || fromEmail || "",
-      phone: businessConfig.profile.phone,
-    };
+    const business = customerEmailBusiness(businessConfig, fromEmail || "");
     if (!fromEmail)
       return {
         status: "not_configured",

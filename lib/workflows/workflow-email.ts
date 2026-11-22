@@ -1,3 +1,4 @@
+import { customerEmailBusiness } from "../customer-company-details";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -60,12 +61,7 @@ export async function sendWorkflowEmail(input: {
       title: subject,
       message: input.body,
       logoSrc: logo ? undefined : "",
-      business: {
-        name: config.profile.name,
-        website: config.profile.website,
-        email: config.profile.email || sender,
-        phone: config.profile.phone,
-      },
+      business: customerEmailBusiness(config, sender),
     });
     const related = `servicebuddy-related-${randomUUID()}`;
     const alternative = `servicebuddy-alternative-${randomUUID()}`;

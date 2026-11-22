@@ -27,7 +27,7 @@ export default function GoogleMailSettings({ demo }: { demo: boolean }) {
       window.history.replaceState(
         null,
         "",
-        `${window.location.pathname}?${params.toString()}`,
+        `${window.location.pathname}?${params.toString()}${window.location.hash}`,
       );
     }
     const noticeTimer = window.setTimeout(() => {

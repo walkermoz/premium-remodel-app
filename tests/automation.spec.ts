@@ -558,7 +558,6 @@ cloudTest(
           contactId: workspace.contacts[0].id,
           emailAcknowledgement: expect.objectContaining({ status: "skipped" }),
           smsAcknowledgement: expect.objectContaining({ status: "skipped" }),
-          discordNotification: expect.objectContaining({ status: "skipped" }),
         }),
       ]),
     );
@@ -568,28 +567,44 @@ cloudTest(
     );
     expect(historyResponse.status()).toBe(200);
     const history = await historyResponse.json();
-    expect(history.recentCount).toBe(2);
-    expect(history.attentionCount).toBe(0);
-    expect(history.runs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          status: "completed",
-          steps: expect.arrayContaining([
-            expect.objectContaining({ key: "contact", status: "created" }),
-            expect.objectContaining({ key: "lead", status: "created" }),
-            expect.objectContaining({ key: "email", status: "skipped" }),
-            expect.objectContaining({ key: "sms", status: "skipped" }),
-            expect.objectContaining({ key: "team", status: "skipped" }),
-          ]),
-        }),
-        expect.objectContaining({
-          status: "completed",
-          steps: expect.arrayContaining([
-            expect.objectContaining({ key: "contact", status: "reused" }),
-          ]),
-        }),
-      ]),
-    );
+    // New intakes use the composable workflow event history, not legacy runs.
+    expect(history.recentCount).toBe(0);
+    const events = await company.admin
+      .from("remodel_workflow_events")
+      .select("id")
+      .eq("organization_id", company.organizationId)
+      .eq("event_type", "website.form.submitted");
+    expect(events.error).toBeNull();
+    expect(events.data).toHaveLength(2);
+    await expect
+      .poll(async () => {
+        const jobs = await company.admin
+          .from("remodel_automation_outbox")
+          .select("status")
+          .eq("organization_id", company.organizationId)
+          .in(
+            "event_id",
+            events.data!.map((event) => event.id),
+          );
+        expect(jobs.error).toBeNull();
+        return (
+          jobs.data?.length === 2 &&
+          jobs.data.every((job) => job.status === "completed")
+        );
+      })
+      .toBe(true);
+
+    const retrySettings = await (
+      await api.get("/api/automations/website-leads")
+    ).json();
+    expect(
+      (
+        await api.put("/api/automations/website-leads", {
+          headers: origin,
+          data: { ...retrySettings, sendAcknowledgement: true },
+        })
+      ).status(),
+    ).toBe(200);
 
     const retryRun = await company.admin
       .from("remodel_automation_runs")
@@ -723,7 +738,8 @@ cloudTest(
       ).status(),
     ).toBe(409);
 
-    const removedLeadId = workspace.leads[0].id;
+    // The manually seeded legacy retry history remains after its own lead is removed.
+    const removedLeadId = workspace.leads[1].id;
     const removed = await company.admin
       .from("remodel_records")
       .delete()

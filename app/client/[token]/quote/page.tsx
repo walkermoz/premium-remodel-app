@@ -1,3 +1,4 @@
+import { customerCompanyDetails } from "@/lib/customer-company-details";
 import { getOperatingSettings } from "@/lib/operating-settings.server";
 import {
   portalViewAllowed,
@@ -266,6 +267,7 @@ async function ClientSectionView({
   portal: PortalVisibility;
 }) {
   const { quote, total } = quoteView;
+  const company = customerCompanyDetails(business);
   const requestUrl = `${quoteUrl}?view=new-request`;
 
   if (section === "msa") {
@@ -424,15 +426,16 @@ async function ClientSectionView({
         <h1>Contact us</h1>
         <div className={styles.contactCard}>
           <h2>Contact details</h2>
+          <p>{company.legalName}</p>
           {contactPhone && (
             <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`}>
               <Phone size={21} aria-hidden="true" /> {contactPhone}
             </a>
           )}
-          {business.profile.email && (
+          {company.supportEmail && (
             <a href={contactHref}>
               <Mail size={21} aria-hidden="true" />{" "}
-              {business.profile.email || "Email us"}
+              {company.supportEmail || "Email us"}
             </a>
           )}
         </div>
@@ -854,12 +857,16 @@ export default async function ClientQuotePage({
           (access.expiresAt - 30 * 24 * 60 * 60) * 1000,
         )
       : [];
-  const contactHref = `mailto:${business.profile.email}?subject=${encodeURIComponent(
+  const company = customerCompanyDetails(business);
+  const contactHref = `mailto:${company.supportEmail}?subject=${encodeURIComponent(
     source.projectPortal
       ? `Question about ${quote.name}`
       : `Question about ${business.profile.name} Quote #${number}`,
   )}`;
-  const contactPhone = quote.preparedByPhone || business.profile.phone;
+  const contactPhone =
+    business.compliance.helpPhone ||
+    quote.preparedByPhone ||
+    company.supportPhone;
   const sectionTotals = new Map<string, number>();
   const sections: Array<{
     key: string;
@@ -958,7 +965,7 @@ export default async function ClientQuotePage({
               <Phone size={15} aria-hidden="true" /> {contactPhone}
             </a>
           )}
-          {business.profile.email && (
+          {company.supportEmail && (
             <a href={contactHref}>
               <Mail size={15} aria-hidden="true" /> Email us
             </a>
@@ -1258,6 +1265,9 @@ export default async function ClientQuotePage({
 
               <footer className={styles.footer}>
                 <span>
+                  {company.legalName !== business.profile.name && (
+                    <>{company.legalName}&nbsp; | &nbsp;</>
+                  )}
                   {business.profile.website
                     ? new URL(business.profile.website).host
                     : business.profile.name}

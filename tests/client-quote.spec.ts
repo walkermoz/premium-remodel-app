@@ -306,7 +306,9 @@ cloudTest(
       const signedPaths = (await signedPage.getOperatorList()).fnArray.filter(
         (operator) => operator === OPS.constructPath,
       ).length;
-      expect(signedPaths).toBeGreaterThan(unsignedPaths);
+      if (record.data!.data.quoteAcceptance.signatureMethod === "drawn")
+        expect(signedPaths).toBeGreaterThan(unsignedPaths);
+      else expect(text).toContain(record.data!.data.quoteAcceptance.signedName);
     } finally {
       await unsignedTask.destroy();
       await signedTask.destroy();
@@ -721,6 +723,8 @@ cloudTest(
 
     await customerPage.setViewportSize({ width: 390, height: 844 });
     await customerPage.goto(projectLink.url);
+    await customerPage.clock.setFixedTime(new Date("2026-11-09T17:00:00Z"));
+    await customerPage.reload();
     const mobileCalendar = customerPage.getByRole("region", {
       name: "Mobile project calendar",
     });
@@ -841,6 +845,7 @@ cloudTest(
     await expect(
       customerPage
         .getByText("Kitchen schedule portal test", { exact: true })
+        .filter({ visible: true })
         .first(),
     ).toBeVisible();
     await client.close();
