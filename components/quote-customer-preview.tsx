@@ -9,6 +9,7 @@ export default function QuoteCustomerPreview({
   quoteId: string;
   onClose: () => void;
 }) {
+  const pdfUrl = `/api/quotes/${encodeURIComponent(quoteId)}/pdf`;
   return (
     <div
       className={styles.backdrop}
@@ -31,14 +32,28 @@ export default function QuoteCustomerPreview({
               from the portal.
             </p>
           </div>
-          <button type="button" className="button secondary" onClick={onClose}>
-            Close
-          </button>
+          <nav className={styles.actions} aria-label="PDF preview actions">
+            <a
+              className="button secondary"
+              href={`${pdfUrl}?view=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open PDF
+            </a>
+            <a className="button secondary" href={pdfUrl}>
+              Download
+            </a>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </nav>
         </header>
-        <iframe
-          title="Customer quote PDF"
-          src={`/api/quotes/${encodeURIComponent(quoteId)}/pdf?view=1`}
-        />
+        <iframe title="Customer quote PDF" src={`${pdfUrl}?view=1`} />
       </div>
     </div>
   );

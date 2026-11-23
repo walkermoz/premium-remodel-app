@@ -29,6 +29,23 @@ const config: NextConfig = {
         ],
       },
       {
+        // Only the authenticated, inline quote preview may be framed by this site.
+        source: "/api/quotes/:id/pdf",
+        has: [{ type: "query", key: "view", value: "1" }],
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "base-uri 'self'; object-src 'none'; frame-ancestors 'self'",
+          },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value:
+              "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-src 'self' https://js.stripe.com https://hooks.stripe.com; base-uri 'self'; object-src 'none'; frame-ancestors 'self'",
+          },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      },
+      {
         source: "/client/:path*",
         headers: [
           { key: "Cache-Control", value: "private, no-store" },
