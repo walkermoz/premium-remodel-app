@@ -364,8 +364,8 @@ test("a sent quote keeps its contact, scope and files in Quotes", async ({
     "Subcontractor cost: Total cost for Garage framing",
     { exact: true },
   );
-  await expect(subcontractorCost).toHaveValue("");
-  await subcontractorCost.press("2");
+  await expect(subcontractorCost).toHaveValue("0");
+  await subcontractorCost.fill("2");
   await expect(subcontractorCost).toHaveValue("2");
   await newRow
     .getByLabel("Price per job for Garage framing", { exact: true })

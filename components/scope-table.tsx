@@ -149,11 +149,6 @@ function draftNumber(value: string) {
   return Number.isFinite(number) && number >= 0 ? number : 0;
 }
 
-function editableMoneyValue(value: string) {
-  const normalized = value.trim();
-  return normalized && Number(normalized) !== 0 ? value : "";
-}
-
 function draftValuesForMath(draft: ScopeDraft) {
   return {
     title: draft.title,
@@ -1710,7 +1705,7 @@ function EditableRow({
                   min="0"
                   max="1000000000"
                   step="any"
-                  value={editableMoneyValue(draft.rate)}
+                  value={draft.rate}
                   disabled={saving}
                   onChange={(event) => {
                     const rate = event.target.value;
@@ -2201,7 +2196,7 @@ function CompactQuoteEditor({
                         min="0"
                         max="1000000000"
                         step="any"
-                        value={editableMoneyValue(draft.rate)}
+                        value={draft.rate}
                         disabled={saving}
                         onChange={(event) => {
                           const rate = event.target.value;
@@ -2358,7 +2353,7 @@ function QuoteCostGroup({
             min="0"
             max="1000000000"
             step={unit === "job" ? "0.01" : "any"}
-            value={editableMoneyValue(unit === "job" ? total : rate)}
+            value={unit === "job" ? total : rate}
             disabled={disabled}
             onChange={(event) => {
               const nextRate = event.target.value;
@@ -2409,7 +2404,7 @@ function MoneyCell({
         min="0"
         max="1000000000"
         step={step}
-        value={editableMoneyValue(value)}
+        value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -2533,7 +2528,7 @@ function CostCell({
               min="0"
               max="1000000000"
               step={unit === "job" ? "0.01" : "any"}
-              value={editableMoneyValue(unit === "job" ? total : rate)}
+              value={unit === "job" ? total : rate}
               disabled={disabled}
               onChange={(event) => {
                 const nextRate = event.target.value;
