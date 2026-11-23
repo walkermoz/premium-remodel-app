@@ -1,0 +1,25 @@
+.hours {
+  margin-top: 28px;
+  border-top: 1px solid #d8e2ec;
+  padding-top: 24px;
+}
+.hours dl {
+  margin: 16px 0 0;
+}
+.hours dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 8px 0;
+}
+.hours dt {
+  font-weight: 600;
+}
+.hours dd {
+  margin: 0;
+}
+.hours small {
+  display: block;
+  margin-top: 4px;
+}

@@ -1,3 +1,5 @@
+import PortalBusinessHours from "@/components/portal-business-hours";
+import type { OperatingSettings } from "@/lib/operating-settings";
 import { customerCompanyDetails } from "@/lib/customer-company-details";
 import { getOperatingSettings } from "@/lib/operating-settings.server";
 import {
@@ -249,6 +251,7 @@ async function ClientSectionView({
   scheduleProjectName,
   projectPortal,
   portal,
+  hours,
 }: {
   section: Exclude<PortalView, "detail">;
   quoteUrl: string;
@@ -265,6 +268,7 @@ async function ClientSectionView({
   scheduleProjectName: string;
   projectPortal: boolean;
   portal: PortalVisibility;
+  hours: OperatingSettings["hours"];
 }) {
   const { quote, total } = quoteView;
   const company = customerCompanyDetails(business);
@@ -438,6 +442,11 @@ async function ClientSectionView({
               {company.supportEmail || "Email us"}
             </a>
           )}
+          <PortalBusinessHours
+            hours={hours}
+            timezone={business.regional.timezone}
+            locale={business.regional.locale}
+          />
         </div>
       </main>
     );
@@ -1295,6 +1304,7 @@ export default async function ClientQuotePage({
             schedule={allProjects ? source.combinedSchedule : source.schedule}
             scheduleProjectName={allProjects ? "All projects" : quote.name}
             portal={portal}
+            hours={operating.hours}
             projectPortal={source.projectPortal}
           />
         )}

@@ -123,7 +123,8 @@ const subject = z
 export const operatingSettingsSchema = z.object({
   hours: z.object({
     enabled: z.boolean(),
-    blockOutside: z.boolean(),
+    /** Legacy storage compatibility only. Hours never restrict actions. */
+    blockOutside: z.boolean().default(false),
     days: z
       .array(daySchema)
       .length(7)
@@ -234,29 +235,6 @@ export function renderMessageTemplate(
     /\{\{\s*([^{}]+?)\s*\}\}/g,
     (_, key: string) => values[key] || "",
   );
-}
-export function workingHoursIssue(
-  hours: OperatingSettings["hours"],
-  dateValue: string,
-  start: string,
-  end: string,
-) {
-  if (!hours.enabled || !dateValue || !start) return "";
-  const exception = hours.exceptions.find((d) => d.date === dateValue);
-  const day = hours.days.find(
-    (d) => d.day === new Date(`${dateValue}T12:00:00Z`).getUTCDay(),
-  );
-  const closed = exception ? exception.closed : !day?.open;
-  if (closed) return "The business is closed on this date.";
-  const opening = exception?.start || day!.start,
-    closing = exception?.end || day!.end;
-  if (
-    start < opening ||
-    start >= closing ||
-    (end && (end > closing || end <= start))
-  )
-    return `This booking is outside working hours (${opening}–${closing}).`;
-  return "";
 }
 export function validateFieldValues(
   fields: FieldDefinition[],

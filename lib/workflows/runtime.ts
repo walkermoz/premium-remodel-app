@@ -129,67 +129,6 @@ function durationMilliseconds(amount: number, unit: string) {
   return amount * multiplier;
 }
 
-function communicationWindowAllows(
-  date: Date,
-  timezone: string,
-  days: number[],
-  start: string,
-  end: string,
-) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
-  const value = Object.fromEntries(
-    parts.map((part) => [part.type, part.value]),
-  );
-  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
-    value.weekday,
-  );
-  const minute = Number(value.hour) * 60 + Number(value.minute);
-  const [startHour, startMinute] = start.split(":").map(Number);
-  const [endHour, endMinute] = end.split(":").map(Number);
-  return (
-    days.includes(day) &&
-    minute >= startHour * 60 + startMinute &&
-    minute < endHour * 60 + endMinute
-  );
-}
-
-function nextCommunicationWindow(definition: WorkflowDefinition, now: Date) {
-  const window = definition.settings.communicationWindow;
-  if (!window.enabled) return null;
-  if (
-    communicationWindowAllows(
-      now,
-      definition.settings.timezone,
-      window.days,
-      window.start,
-      window.end,
-    )
-  )
-    return null;
-  for (let minute = 1; minute <= 8 * 24 * 60; minute += 1) {
-    const candidate = new Date(now.getTime() + minute * 60_000);
-    if (
-      communicationWindowAllows(
-        candidate,
-        definition.settings.timezone,
-        window.days,
-        window.start,
-        window.end,
-      )
-    )
-      return candidate.toISOString();
-  }
-  throw new Error(
-    "No permitted communication window occurs in the next eight days.",
-  );
-}
-
 function waitFromNode(
   node: WorkflowNode,
   state: WorkflowRuntimeState,
@@ -535,27 +474,6 @@ export async function runWorkflowRuntime(input: {
         const next = sorted(node.outgoing)[0];
         if (next) state.queue.unshift({ nodeId: next.to, branch: next.label });
         continue;
-      }
-      const wakeAt = nextCommunicationWindow(definition, now);
-      if (wakeAt) {
-        state.queue.unshift(work);
-        state.visits[node.id] -= 1;
-        const wait: WorkflowRuntimeWait = {
-          nodeId: node.id,
-          mode: "timestamp",
-          wakeAt,
-          continuation: structuredClone(state),
-        };
-        steps.push({
-          nodeId: node.id,
-          nodeType: node.type,
-          name: node.name,
-          attempt: state.executedSteps,
-          status: "waiting",
-          summary: `Waiting for the permitted communication window at ${wakeAt}.`,
-          branch: work.branch,
-        });
-        return { status: "waiting" as const, state, steps, wait };
       }
     }
 

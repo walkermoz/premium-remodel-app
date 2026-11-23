@@ -148,22 +148,13 @@ cloudTest(
       expect(before.contacts).toHaveLength(0);
       expect(before.projects).toHaveLength(0);
 
-      const blockedVisit = await api.post("/api/door-knocking", {
+      const ownVisit = await api.post("/api/door-knocking", {
         headers: { Origin: "http://localhost:3100" },
         data: {
-          ...visit("102 Blocked Test Lane"),
+          ...visit("103 Door Test Lane, Raleigh, NC 27601"),
           quoteStartTime: "23:00",
           quoteEndTime: "23:30",
         },
-      });
-      expect(blockedVisit.status()).toBe(400);
-      expect(
-        (await (await api.get("/api/workspace")).json()).doorVisits,
-      ).toHaveLength(0);
-
-      const ownVisit = await api.post("/api/door-knocking", {
-        headers: { Origin: "http://localhost:3100" },
-        data: visit("103 Door Test Lane, Raleigh, NC 27601"),
       });
       expect(ownVisit.status(), await ownVisit.text()).toBe(201);
       const after = await (await api.get("/api/workspace")).json();

@@ -1,11 +1,7 @@
 "use client";
 import FieldInputs from "./field-inputs";
 import { useOperatingSettings } from "./operating-settings-context";
-import {
-  customFieldsFor,
-  workingHoursIssue,
-  type FieldValue,
-} from "@/lib/operating-settings";
+import { customFieldsFor, type FieldValue } from "@/lib/operating-settings";
 import { useEffect, useRef, useState } from "react";
 import type {
   Contact,
@@ -80,7 +76,6 @@ export function EntityForm({
     ...project,
   } as Partial<Project | Quote>;
   const { settings: operating } = useOperatingSettings();
-  const [hoursNotice, setHoursNotice] = useState("");
   const contactFields = customFieldsFor(operating, "contact");
   const [contactValues, setContactValues] = useState<
     Record<string, FieldValue>
@@ -410,31 +405,6 @@ export function EntityForm({
       }}
     >
       <form
-        onChange={(e) => {
-          if (kind !== "task") return;
-          const form = new FormData(e.currentTarget);
-          if (
-            entity &&
-            ["dueDate", "startTime", "endTime"].every(
-              (key) =>
-                String(form.get(key) || "") ===
-                String(
-                  (entity as unknown as Record<string, unknown>)[key] || "",
-                ),
-            )
-          ) {
-            setHoursNotice("");
-            return;
-          }
-          setHoursNotice(
-            workingHoursIssue(
-              operating.hours,
-              String(form.get("dueDate") || ""),
-              String(form.get("startTime") || ""),
-              String(form.get("endTime") || ""),
-            ),
-          );
-        }}
         className="entity-form"
         onSubmit={submit}
         hidden={addingContractor}
@@ -1150,14 +1120,6 @@ export function EntityForm({
                 </select>
               </label>
             </>
-          )}
-          {hoursNotice && (
-            <p role="status">
-              {hoursNotice}
-              {operating.hours.blockOutside
-                ? " Choose an available time before saving."
-                : " This is an advisory; you can still save."}
-            </p>
           )}
           {kind === "quote" &&
             contactId === "__new__" &&

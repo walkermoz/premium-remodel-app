@@ -471,7 +471,7 @@ cloud(
 );
 
 cloud(
-  "working hours, fields, forms and invoice settings change real records and preserve issued history",
+  "display-only hours leave scheduling unrestricted while fields, forms and invoice settings preserve history",
   async ({ company, page }) => {
     const api = page.request;
     await login(api, company.email);
@@ -582,7 +582,7 @@ cloud(
             data: { kind: "task", data: { ...task, ...times } },
           })
         ).status(),
-      ).toBe(400);
+      ).toBe(201);
     await saveSection(api, "hours", {
       ...defaults.hours,
       enabled: true,
@@ -1074,6 +1074,41 @@ cloud(
     await saveSection(api, "portal", portal);
     const visible = await customer.goto(`${url.pathname}/quote?view=schedule`);
     expect(await visible!.text()).toContain("10:37");
+    const hours = defaultOperatingSettings().hours;
+    await saveSection(api, "hours", {
+      ...hours,
+      enabled: true,
+      days: hours.days.map((day) =>
+        day.day === 1 ? { ...day, start: "09:30" } : day,
+      ),
+      exceptions: [
+        {
+          date: "2030-12-25",
+          closed: true,
+          start: "08:00",
+          end: "17:00",
+          note: "Christmas",
+        },
+      ],
+    });
+    await customer.setViewportSize({ width: 390, height: 844 });
+    await customer.goto(`${url.pathname}/quote?view=contact`);
+    const displayedHours = customer.getByRole("region", {
+      name: "Business hours",
+      exact: true,
+    });
+    await expect(displayedHours).toBeVisible();
+    await expect(displayedHours).toContainText("Monday");
+    await expect(displayedHours).toContainText("9:30");
+    await expect(displayedHours).toContainText("Christmas");
+    expect(
+      await customer.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await saveSection(api, "hours", { ...hours, enabled: false });
+    await customer.reload();
+    await expect(displayedHours).toHaveCount(0);
     await client.close();
   },
 );

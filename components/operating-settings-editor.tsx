@@ -248,20 +248,13 @@ function Editor({ section }: { section: OperatingSection }) {
         <>
           <p className={styles.intro}>
             Business timezone: {config?.regional.timezone || "America/New_York"}
-            . Hours apply to new or rescheduled timed work and consultations.
-            Existing bookings and all-day tasks stay intact.
+            . These hours are displayed in the customer portal only. Automations
+            send at any hour, and scheduling is unrestricted.
           </p>
           <Check
-            label="Enable working hours"
+            label="Show working hours in the customer portal"
             checked={draft.hours.enabled}
             onChange={(enabled) => update("hours", { ...draft.hours, enabled })}
-          />
-          <Check
-            label="Block bookings outside working hours"
-            checked={draft.hours.blockOutside}
-            onChange={(blockOutside) =>
-              update("hours", { ...draft.hours, blockOutside })
-            }
           />
           <div className={styles.list}>
             {draft.hours.days.map((day, index) => (

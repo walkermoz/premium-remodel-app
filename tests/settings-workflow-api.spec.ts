@@ -148,6 +148,20 @@ async function execute(
     .eq("event_id", id)
     .eq("workflow_id", workflowId)
     .single();
+  if (run.data!.status === "waiting") {
+    const step = await admin
+      .from("remodel_workflow_step_runs")
+      .select("error_code,error_detail")
+      .eq("organization_id", org)
+      .eq("node_id", "settings-action")
+      .eq("status", "failed")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    throw new Error(
+      `Local workflow entered retry: ${step.data?.error_code || "unknown"}: ${step.data?.error_detail || "No detail"}`,
+    );
+  }
   return run.data!.status;
 }
 const literal = (value: string) => ({ kind: "literal", value });
@@ -273,7 +287,7 @@ cloud(
 );
 
 cloud(
-  "published scheduling actions enforce company hours instead of silently creating invalid bookings",
+  "published scheduling actions operate at all hours regardless of displayed business hours",
   async ({ company, page }) => {
     const api = page.request;
     await login(api, company.email);
@@ -289,9 +303,37 @@ cloud(
         end: "17:00",
       })),
     });
+    const projectResponse = await api.post("/api/workspace", {
+      headers,
+      data: {
+        kind: "project",
+        data: {
+          name: "After hours project",
+          address: "100 Test Lane",
+          client: "QA",
+          clientEmail: "qa@example.test",
+          clientPhone: "",
+          status: "Planning",
+          startDate: "",
+          endDate: "",
+          completedDate: "",
+          description: "",
+          category: "Kitchen",
+          cover: "",
+        },
+      },
+    });
+    expect(projectResponse.status()).toBe(201);
+    const project = await projectResponse.json();
     const id = await workflow(api, "project", "action.createItem", {
       fields: {
-        title: literal("Blocked after hours"),
+        projectId: literal(project.id),
+        status: literal("To do"),
+        workType: literal("Task"),
+        priority: literal("Medium"),
+        contractorId: literal(""),
+        description: literal("Local verification"),
+        title: literal("After hours work"),
         dueDate: literal("2030-11-26"),
         startTime: literal("23:00"),
         endTime: literal("23:30"),
@@ -304,16 +346,16 @@ cloud(
         company.organizationId,
         id,
         "project",
-        randomUUID(),
+        project.id,
       ),
-    ).toBe("needs_attention");
+    ).toBe("completed");
     const records = await company.admin
       .from("remodel_records")
       .select("id")
       .eq("organization_id", company.organizationId)
       .eq("kind", "task")
-      .eq("data->>title", "Blocked after hours");
-    expect(records.data).toEqual([]);
+      .eq("data->>title", "After hours work");
+    expect(records.data).toHaveLength(1);
   },
 );
 

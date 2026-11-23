@@ -5,7 +5,6 @@ import {
   normalizeRecordForms,
   publicCustomFields,
   validateFieldValues,
-  workingHoursIssue,
   type FieldValue,
   type OperatingSettings,
   type RecordForm,
@@ -42,21 +41,6 @@ function normalizeOperatingRecord(
   } = {},
 ): RecordData {
   const data = { ...input };
-  if (kind === "task" || kind === "lead") {
-    const keys =
-      kind === "task"
-        ? ["dueDate", "startTime", "endTime"]
-        : ["quoteDate", "quoteStartTime", "quoteEndTime"];
-    if (!current || keys.some((k) => (data[k] || "") !== (current[k] || ""))) {
-      const issue = workingHoursIssue(
-        settings.hours,
-        String(data[keys[0]] || ""),
-        String(data[keys[1]] || ""),
-        String(data[keys[2]] || ""),
-      );
-      if (issue && settings.hours.blockOutside) throw new Error(issue);
-    }
-  }
   if (kind === "contact" || kind === "quote" || kind === "project") {
     const fields = customFieldsFor(settings, kind);
     const old = (current?.customValues || {}) as Record<string, FieldValue>;

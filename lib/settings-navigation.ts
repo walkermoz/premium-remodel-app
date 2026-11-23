@@ -386,10 +386,11 @@ export const settingsEntries: SettingsEntry[] = [
     id: "working-hours",
     group: "Team",
     label: "Working hours",
-    description: "Weekly availability, holidays and timed booking rules.",
+    description:
+      "Business hours and holiday information shown in the customer portal.",
     questions: [
       "When is the business open?",
-      "Which dates are exceptions, and should bookings outside hours be blocked?",
+      "Which holiday hours should customers see in the portal?",
     ],
     capabilities: ["business.manage"],
   },

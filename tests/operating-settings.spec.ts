@@ -8,7 +8,6 @@ import {
   operatingSettingsSchema,
   renderMessageTemplate,
   validateOperatingChange,
-  workingHoursIssue,
   type OperatingSettings,
 } from "@/lib/operating-settings";
 import {
@@ -78,75 +77,30 @@ function configured() {
   ];
   return s;
 }
-test("working hours respect holidays and only block new or moved timed bookings", () => {
-  const s = defaultOperatingSettings();
-  s.hours.enabled = true;
-  s.hours.blockOutside = true;
-  s.hours.exceptions = [
-    {
-      date: "2026-11-23",
-      closed: true,
-      start: "08:00",
-      end: "17:00",
-      note: "Holiday",
-    },
-  ];
-  expect(workingHoursIssue(s.hours, "2026-11-24", "09:00", "10:00")).toBe("");
-  expect(workingHoursIssue(s.hours, "2026-11-23", "09:00", "")).toContain(
-    "closed",
-  );
-  expect(workingHoursIssue(s.hours, "2026-11-22", "09:00", "")).toContain(
-    "closed",
-  );
-  const old = {
-    dueDate: "2026-11-23",
-    startTime: "09:00",
-    endTime: "10:00",
-    title: "Old booking",
-  };
-  expect(() => applyOperatingRecord(s, "task", old, null, "Staff", at)).toThrow(
-    "closed",
-  );
-  expect(() =>
-    applyOperatingRecord(
-      s,
-      "task",
-      { ...old, status: "Done" },
-      old,
-      "Staff",
-      at,
-    ),
-  ).not.toThrow();
-  expect(() =>
-    applyOperatingRecord(
-      s,
-      "task",
-      { ...old, startTime: "10:00" },
-      old,
-      "Staff",
-      at,
-    ),
-  ).toThrow("closed");
-  expect(() =>
-    applyOperatingRecord(
-      s,
-      "task",
-      { dueDate: "2026-11-23", startTime: "", endTime: "" },
-      null,
-      "Staff",
-      at,
-    ),
-  ).not.toThrow();
-  expect(() =>
-    applyOperatingRecord(
-      s,
-      "lead",
-      { quoteDate: "2026-11-23", quoteStartTime: "09:00" },
-      null,
-      "Staff",
-      at,
-    ),
-  ).toThrow("closed");
+test("portal hours never block staff or automated bookings, including legacy blocking settings", () => {
+  const settings = defaultOperatingSettings();
+  settings.hours.enabled = true;
+  settings.hours.blockOutside = true;
+  settings.hours.days = settings.hours.days.map((day) => ({
+    ...day,
+    open: false,
+  }));
+  for (const kind of ["task", "lead"]) {
+    const record =
+      kind === "task"
+        ? { dueDate: "2026-11-22", startTime: "23:00", endTime: "23:30" }
+        : {
+            quoteDate: "2026-11-22",
+            quoteStartTime: "23:00",
+            quoteEndTime: "23:30",
+          };
+    expect(() =>
+      applyOperatingRecord(settings, kind, record, null, "Staff", at),
+    ).not.toThrow();
+    expect(() =>
+      applyOperatingRecord(settings, kind, record, record, "Workflow", at),
+    ).not.toThrow();
+  }
 });
 test("custom fields validate types, transfer only opted-in values and publish an explicit whitelist", () => {
   const s = configured();
@@ -532,4 +486,35 @@ test("operating settings endpoints require authenticated membership", async ({
       })
     ).status(),
   ).toBe(401);
+});
+
+test("release migration wakes automatic communication holds and preserves explicit wait nodes", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create table remodel_workflow_versions (id text primary key, organization_id text, graph jsonb);
+      create table remodel_workflow_runs (id text primary key, version_id text, organization_id text);
+      create table remodel_workflow_waits (id text primary key, run_id text, organization_id text, status text, mode text, node_id text, wake_at timestamptz);
+      insert into remodel_workflow_versions values ('v1','org1','{"nodes":[{"id":"email","type":"action.sendEmail"},{"id":"wait","type":"logic.wait"}]}');
+      insert into remodel_workflow_runs values ('r1','v1','org1');
+      insert into remodel_workflow_waits values
+        ('message','r1','org1','waiting','timestamp','email',now() + interval '1 day'),
+        ('intentional','r1','org1','waiting','timestamp','wait',now() + interval '1 day'),
+        ('other-tenant','r1','org2','waiting','timestamp','email',now() + interval '1 day');`);
+    await db.exec(
+      await readFile(
+        "supabase/migrations/202611220003_release_communication_windows.sql",
+        "utf8",
+      ),
+    );
+    const result = await db.query<{ id: string; due: boolean }>(
+      "select id, wake_at <= now() as due from remodel_workflow_waits order by id",
+    );
+    expect(result.rows).toEqual([
+      { id: "intentional", due: false },
+      { id: "message", due: true },
+      { id: "other-tenant", due: false },
+    ]);
+  } finally {
+    await db.close();
+  }
 });

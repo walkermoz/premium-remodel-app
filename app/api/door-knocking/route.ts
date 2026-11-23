@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { OperatingRecordError } from "@/lib/operating-records";
 import { applySystemOperatingRecord } from "@/lib/operating-settings.server";
 import {
   apiError,
@@ -120,21 +119,6 @@ export async function POST(request: Request) {
     await limitAttempts(`door-visit:${user.id}`, 120);
     if (Date.parse(data.visitedAt) < Date.now() - 366 * 24 * 60 * 60_000)
       throw new HttpError(400, "Visit time must be within the last year.");
-    if (data.createLead && data.scheduleQuote) {
-      try {
-        await applySystemOperatingRecord(user.organizationId, "lead", {
-          quoteDate: data.quoteDate,
-          quoteStartTime: data.quoteStartTime,
-          quoteEndTime: data.quoteEndTime,
-        });
-      } catch (error) {
-        if (!(error instanceof OperatingRecordError)) throw error;
-        throw new HttpError(
-          400,
-          error instanceof Error ? error.message : "Invalid consultation time.",
-        );
-      }
-    }
     const contactDefaults = data.createLead
       ? await applySystemOperatingRecord(user.organizationId, "contact", {})
       : {};

@@ -214,6 +214,7 @@ export const workflowSettingsSchema = z.object({
       }
     }, "Choose a valid IANA timezone.")
     .default("America/New_York"),
+  /** Retained to read existing published versions; never gates sends. */
   communicationWindow: z
     .object({
       enabled: z.boolean().default(false),

@@ -7,8 +7,12 @@ test("working hours, invoice, message and portal editors persist separate settin
   page,
 }) => {
   await page.goto("/demo?view=Settings#working-hours");
-  await page.getByLabel("Enable working hours", { exact: true }).check();
-  await page.getByLabel("Block bookings outside working hours").check();
+  await page
+    .getByLabel("Show working hours in the customer portal", { exact: true })
+    .check();
+  await expect(
+    page.getByLabel("Block bookings outside working hours"),
+  ).toHaveCount(0);
   await page.getByLabel("Monday opens").fill("09:30");
   await openSettingsSection(page, "Invoice defaults");
   await page
@@ -149,7 +153,7 @@ test("mobile operating settings keep controls inside the viewport", async ({
     ).toBe(true);
   }
 });
-test("working hours block a new timed booking but allow an existing booking to be completed", async ({
+test("displayed business hours do not prevent rescheduling or completing work", async ({
   page,
 }) => {
   const settings = defaultOperatingSettings();
@@ -180,8 +184,18 @@ test("working hours block a new timed booking but allow an existing booking to b
   await modal
     .getByRole("button", { name: "Save changes", exact: true })
     .click();
-  await expect(modal.getByRole("alert")).toContainText("closed");
-  await modal.locator('input[name="startTime"]').fill("09:00");
+  await expect(modal).not.toBeVisible();
+  const changedTime = await page.evaluate(
+    (id) =>
+      JSON.parse(localStorage.getItem("premium-remodel-sample-v1")!).tasks.find(
+        (task: { id: string }) => task.id === id,
+      ).startTime,
+    w.tasks[0].id,
+  );
+  expect(changedTime).toBe("09:30");
+  await page
+    .getByRole("button", { name: `Edit ${w.tasks[0].title}`, exact: true })
+    .click();
   await modal
     .getByRole("combobox", { name: "Status", exact: true })
     .selectOption("Done");

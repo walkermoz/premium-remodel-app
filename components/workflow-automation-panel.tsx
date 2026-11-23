@@ -6449,102 +6449,10 @@ export default function WorkflowAutomationPanel({
                     }
                   />
                 </label>
-                <label className="workflow-setting-toggle">
-                  <input
-                    type="checkbox"
-                    checked={detail.draft.settings.communicationWindow.enabled}
-                    disabled={!editable}
-                    onChange={(event) =>
-                      updateSettings({
-                        communicationWindow: {
-                          ...detail.draft.settings.communicationWindow,
-                          enabled: event.target.checked,
-                        },
-                      })
-                    }
-                  />
-                  <span>
-                    <strong>Communication window</strong>
-                    <small>Hold messages outside allowed hours.</small>
-                  </span>
-                </label>
-                {detail.draft.settings.communicationWindow.enabled && (
-                  <>
-                    <div className="workflow-setting-pair">
-                      <label className="workflow-field">
-                        <span>Start</span>
-                        <input
-                          type="time"
-                          value={
-                            detail.draft.settings.communicationWindow.start
-                          }
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateSettings({
-                              communicationWindow: {
-                                ...detail.draft.settings.communicationWindow,
-                                start: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="workflow-field">
-                        <span>End</span>
-                        <input
-                          type="time"
-                          value={detail.draft.settings.communicationWindow.end}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateSettings({
-                              communicationWindow: {
-                                ...detail.draft.settings.communicationWindow,
-                                end: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <fieldset
-                      className="workflow-weekdays"
-                      disabled={!editable}
-                    >
-                      <legend>Allowed days</legend>
-                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                        (day, index) => (
-                          <label key={day}>
-                            <input
-                              type="checkbox"
-                              checked={detail.draft.settings.communicationWindow.days.includes(
-                                index,
-                              )}
-                              onChange={(event) => {
-                                const days = event.target.checked
-                                  ? [
-                                      ...detail.draft.settings
-                                        .communicationWindow.days,
-                                      index,
-                                    ]
-                                  : detail.draft.settings.communicationWindow.days.filter(
-                                      (value) => value !== index,
-                                    );
-                                updateSettings({
-                                  communicationWindow: {
-                                    ...detail.draft.settings
-                                      .communicationWindow,
-                                    days: [...new Set(days)].sort(),
-                                  },
-                                });
-                              }}
-                            />
-                            <span>{day}</span>
-                          </label>
-                        ),
-                      )}
-                    </fieldset>
-                  </>
-                )}
+                <p className="workflow-condition-help">
+                  Automations can send at any hour. Business hours are displayed
+                  in the customer portal and do not delay messages.
+                </p>
                 <div className="workflow-inspector-section-title">
                   <span>Sender defaults</span>
                 </div>
