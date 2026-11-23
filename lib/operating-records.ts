@@ -9,11 +9,26 @@ import {
   type FieldValue,
   type OperatingSettings,
   type RecordForm,
+  type InvoiceDefaults,
 } from "./operating-settings";
 
 type RecordData = Record<string, unknown>;
-/** Shared by the authenticated writer and preview so configuration changes exercise the same rules. */
+export class OperatingRecordError extends Error {}
+
+/** Shared by the authenticated writer, workflows and preview. */
 export function applyOperatingRecord(
+  ...args: Parameters<typeof normalizeOperatingRecord>
+) {
+  try {
+    return normalizeOperatingRecord(...args);
+  } catch (error) {
+    throw new OperatingRecordError(
+      error instanceof Error ? error.message : "Invalid operating record.",
+    );
+  }
+}
+
+function normalizeOperatingRecord(
   settings: OperatingSettings,
   kind: string,
   input: RecordData,
@@ -21,6 +36,10 @@ export function applyOperatingRecord(
   actor: string,
   now: string,
   parentValues?: Record<string, FieldValue>,
+  options: {
+    requireCustomFields?: boolean;
+    inheritedInvoiceDefaults?: InvoiceDefaults;
+  } = {},
 ): RecordData {
   const data = { ...input };
   if (kind === "task" || kind === "lead") {
@@ -55,9 +74,10 @@ export function applyOperatingRecord(
     const normalized = validateFieldValues(
       fields,
       values,
-      !current ||
-        ("customValues" in data &&
-          JSON.stringify(data.customValues) !== JSON.stringify(old)),
+      options.requireCustomFields !== false &&
+        (!current ||
+          ("customValues" in data &&
+            JSON.stringify(data.customValues) !== JSON.stringify(old))),
     );
     data.customValues = { ...old, ...normalized };
     data.publicCustomFields = publicCustomFields(
@@ -71,7 +91,9 @@ export function applyOperatingRecord(
         current?.invoiceDefaults ||
         (current
           ? defaultOperatingSettings().invoices
-          : structuredClone(settings.invoices));
+          : structuredClone(
+              options.inheritedInvoiceDefaults || settings.invoices,
+            ));
     }
   }
   if (kind === "project") {

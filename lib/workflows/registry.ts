@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { usesCompanyLeadTemplate } from "./message-templates";
 import {
   workflowConditionSchema,
   workflowEventSchema,
@@ -123,22 +124,34 @@ const connectionFailureBehaviorSchema = z
   .enum(["block", "skip"])
   .default("block");
 
-const sendEmailSchema = z.object({
-  enabled: z.boolean().default(true),
-  connectionFailureBehavior: connectionFailureBehaviorSchema,
-  /** Historical versions only; new workflows use ordinary presentation and tracking config. */
-  templateKey: z.string().trim().max(120).optional(),
-  presentation: z.enum(["plain", "business"]).default("plain"),
-  resultTracking: resultTrackingSchema.optional(),
-  recipient: workflowOperandSchema,
-  subject: z.string().min(1).max(300),
-  body: z.string().min(1).max(50_000),
-  missingValueBehavior: z
-    .enum(["blank", "fallback", "skip", "error"])
-    .default("skip"),
-  fallbackValue: z.string().max(500).optional(),
-  connectionId: z.string().uuid().optional(),
-});
+const sendEmailSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    connectionFailureBehavior: connectionFailureBehaviorSchema,
+    /** Historical versions only; new workflows use ordinary presentation and tracking config. */
+    templateKey: z.string().trim().max(120).optional(),
+    messageTemplate: z.enum(["custom", "leadAcknowledgement"]).optional(),
+    presentation: z.enum(["plain", "business"]).default("plain"),
+    resultTracking: resultTrackingSchema.optional(),
+    recipient: workflowOperandSchema,
+    subject: z.string().max(300).default(""),
+    body: z.string().max(50_000).default(""),
+    missingValueBehavior: z
+      .enum(["blank", "fallback", "skip", "error"])
+      .default("skip"),
+    fallbackValue: z.string().max(500).optional(),
+    connectionId: z.string().uuid().optional(),
+  })
+  .superRefine((config, context) => {
+    if (usesCompanyLeadTemplate(config)) return;
+    for (const key of ["subject", "body"] as const)
+      if (!config[key].trim())
+        context.addIssue({
+          code: "custom",
+          path: [key],
+          message: `Enter an email ${key}.`,
+        });
+  });
 
 const sendSmsSchema = z.object({
   enabled: z.boolean().default(true),

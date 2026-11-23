@@ -4,6 +4,10 @@ import {
   type WorkflowDefinition,
   type WorkflowOperand,
 } from "./schema";
+import {
+  seededLeadEmailSubject,
+  seededLeadEmailBody,
+} from "./message-templates";
 
 const ref = (path: string): WorkflowOperand => ({ kind: "reference", path });
 const literal = (value: string | number | boolean | null): WorkflowOperand => ({
@@ -243,6 +247,7 @@ export function websiteLeadWorkflowSeed(
           name: "Send confirmation email",
           config: {
             enabled: options.sendAcknowledgement ?? true,
+            messageTemplate: "leadAcknowledgement",
             presentation: "business",
             resultTracking: {
               objectType: "lead",
@@ -250,8 +255,8 @@ export function websiteLeadWorkflowSeed(
               field: "emailAcknowledgement",
             },
             recipient: ref("event.payload.email"),
-            subject: "We received your remodel request",
-            body: "Hi {{event.payload.firstName}},\n\nThanks for reaching out to {{organization.name}}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n{{organization.name}} Team",
+            subject: seededLeadEmailSubject,
+            body: seededLeadEmailBody,
             missingValueBehavior: "blank",
           },
           outgoing: [

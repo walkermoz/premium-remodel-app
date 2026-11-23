@@ -845,7 +845,7 @@ cloud(
     );
     await page.goto("/?view=Settings#reviews");
     await expect(
-      page.getByText(/review dashboard is currently hidden/),
+      page.getByText(/^The review dashboard is currently hidden/),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Open Analytics" }),

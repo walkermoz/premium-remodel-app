@@ -1,4 +1,7 @@
-import { requirePortalFeature } from "@/lib/operating-settings.server";
+import {
+  requirePortalFeature,
+  applySystemOperatingRecord,
+} from "@/lib/operating-settings.server";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
@@ -214,6 +217,7 @@ export async function POST(request: Request) {
     const automation = await getWebsiteLeadAutomation(organizationId);
     const now = new Date().toISOString();
     const contact: Contact = {
+      ...(await applySystemOperatingRecord(organizationId, "contact", {})),
       id: randomUUID(),
       firstName,
       lastName,

@@ -14,6 +14,14 @@ import {
   type WorkflowNode,
 } from "./schema";
 import { workflowCanPublish } from "./validate";
+import {
+  defaultOperatingSettings,
+  type OperatingSettings,
+} from "../operating-settings";
+import {
+  renderCompanyLeadTemplate,
+  usesCompanyLeadTemplate,
+} from "./message-templates";
 
 export type WorkflowSimulationStep = {
   sequence: number;
@@ -43,9 +51,23 @@ function sorted(edges: WorkflowEdge[]) {
   );
 }
 
-function previewAction(node: WorkflowNode, context: WorkflowContext) {
+function previewAction(
+  node: WorkflowNode,
+  context: WorkflowContext,
+  messages: OperatingSettings["messages"],
+) {
   const config = node.config;
   if (node.type === "action.sendEmail" || node.type === "action.sendSms") {
+    if (node.type === "action.sendEmail" && usesCompanyLeadTemplate(config))
+      return {
+        recipient: resolveWorkflowOperand(
+          context,
+          config.recipient as Parameters<typeof resolveWorkflowOperand>[1],
+        ),
+        ...renderCompanyLeadTemplate(messages, context),
+        skipped: config.enabled === false,
+        messageTemplate: "leadAcknowledgement",
+      };
     const missing =
       config.missingValueBehavior === "fallback" ||
       config.missingValueBehavior === "skip" ||
@@ -63,10 +85,22 @@ function previewAction(node: WorkflowNode, context: WorkflowContext) {
       context,
       config.recipient as Parameters<typeof resolveWorkflowOperand>[1],
     );
+    const subject =
+      node.type === "action.sendEmail"
+        ? interpolateWorkflowText(String(config.subject || ""), context, {
+            missing,
+            fallback:
+              typeof config.fallbackValue === "string"
+                ? config.fallbackValue
+                : undefined,
+          })
+        : undefined;
     return {
       recipient,
+      ...(subject ? { subject: subject.value } : {}),
       body: body.value,
-      skipped: config.enabled === false || body.skipped,
+      skipped:
+        config.enabled === false || body.skipped || subject?.skipped === true,
       systemPolicy:
         node.type === "action.sendSms"
           ? "SMS consent and DND enforced"
@@ -156,6 +190,7 @@ export function simulateWorkflow(
   definitionInput: unknown,
   event: WorkflowEvent,
   contextInput: WorkflowContext = {},
+  messages: OperatingSettings["messages"] = defaultOperatingSettings().messages,
 ): WorkflowSimulation {
   const validation = workflowCanPublish(definitionInput);
   if (!validation.definition || !validation.valid)
@@ -381,7 +416,7 @@ export function simulateWorkflow(
       return;
     }
 
-    const preview = previewAction(node, context);
+    const preview = previewAction(node, context, messages);
     const skipped = preview.skipped === true;
     append({
       nodeId: node.id,

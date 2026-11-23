@@ -36,6 +36,11 @@ type Company = {
   admin: SupabaseClient;
 };
 export const test = base.extend<{ company: Company }>({
+  // Independent test customers must not share the app's 80-login IP bucket.
+  // Keep real rate limiting enabled; only the synthetic client identity varies.
+  extraHTTPHeaders: async ({}, runWithHeaders) => {
+    await runWithHeaders({ "x-forwarded-for": `playwright-${randomUUID()}` });
+  },
   company: async ({}, runTest) => {
     const org = process.env.SUPABASE_TEST_ORGANIZATION_ID!;
     if (!org) throw new Error("Tests require an isolated organization.");

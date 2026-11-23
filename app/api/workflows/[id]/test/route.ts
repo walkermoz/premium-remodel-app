@@ -4,6 +4,7 @@ import { workflowEventSchema } from "@/lib/workflows/schema";
 import { simulateWorkflow } from "@/lib/workflows/simulator";
 import { getWorkflow } from "@/lib/workflows/store";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { getOperatingSettings } from "@/lib/operating-settings.server";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,12 @@ export async function POST(
     if (input.event.organizationId !== user.organizationId)
       input.event.organizationId = user.organizationId;
     return Response.json(
-      simulateWorkflow(workflow.draft, input.event, input.context),
+      simulateWorkflow(
+        workflow.draft,
+        input.event,
+        input.context,
+        (await getOperatingSettings(user.organizationId)).messages,
+      ),
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

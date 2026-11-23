@@ -10,6 +10,57 @@ import {
 } from "./operating-settings";
 import type { WorkspaceUser } from "./auth";
 import { recordAuditEvent } from "./audit-server";
+import { applyOperatingRecord } from "./operating-records";
+import { invoiceDefaultsSchema, type FieldValue } from "./operating-settings";
+
+/** System capture keeps an incomplete inbound record rather than losing a lead.
+ * Typed defaults, hours, form history and closeout rules still apply. */
+export async function applySystemOperatingRecord(
+  organizationId: string,
+  kind: string,
+  input: Record<string, unknown>,
+  current: Record<string, unknown> | null = null,
+  actor = "System",
+  sourceQuote?: Record<string, unknown>,
+) {
+  const settings = await getOperatingSettings(organizationId);
+  let parent = sourceQuote;
+  if (
+    !parent &&
+    (kind === "quote" || kind === "project") &&
+    typeof input.contactId === "string"
+  ) {
+    const result = await supabaseAdmin()
+      .from("remodel_records")
+      .select("data")
+      .eq("organization_id", organizationId)
+      .eq("kind", "contact")
+      .eq("id", input.contactId)
+      .maybeSingle();
+    if (result.error) throw result.error;
+    parent = result.data?.data;
+  }
+  const inherited = invoiceDefaultsSchema.safeParse(
+    sourceQuote
+      ? sourceQuote.invoiceDefaults || defaultOperatingSettings().invoices
+      : undefined,
+  );
+  return applyOperatingRecord(
+    settings,
+    kind,
+    input,
+    current,
+    actor,
+    new Date().toISOString(),
+    parent?.customValues as Record<string, FieldValue> | undefined,
+    {
+      requireCustomFields: current !== null,
+      ...(inherited.success
+        ? { inheritedInvoiceDefaults: inherited.data }
+        : {}),
+    },
+  );
+}
 
 function missingTable(error: { code?: string } | null) {
   return error?.code === "42P01" || error?.code === "PGRST205";
