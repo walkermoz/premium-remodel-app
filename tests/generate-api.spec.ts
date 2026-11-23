@@ -1,3 +1,4 @@
+import { demoConnectionRegistry } from "@/lib/organization-connections.types";
 import { readFile } from "node:fs/promises";
 import { test, expect, password } from "./supabase-fixture";
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
@@ -18,7 +19,7 @@ cloudTest(
     const initial = await api.get("/api/generate/config");
     expect(initial.status()).toBe(200);
     const config = await initial.json();
-    expect(config.configured).toBe(true);
+    expect(config.configured).toBe(Boolean(process.env.OPENROUTER_API_KEY));
     expect(JSON.stringify(config)).not.toContain("sk-or-");
     expect(
       config.models.some(
@@ -100,6 +101,24 @@ cloudTest(
           json: { error: "The OpenRouter account needs more credits." },
         });
     });
+    // The generation response below is mocked; no paid upstream call is made.
+    await page.route("**/api/generate/config", (route) =>
+      route.fulfill({
+        json: {
+          ...config,
+          configured: true,
+          defaultModel: "black-forest-labs/flux.2-pro",
+        },
+      }),
+    );
+    await page.route("**/api/connections/status", (route) =>
+      route.fulfill({
+        json: {
+          ...demoConnectionRegistry(),
+          organizationId: company.organizationId,
+        },
+      }),
+    );
     await page.goto("/?view=Generate");
     await expect(
       page

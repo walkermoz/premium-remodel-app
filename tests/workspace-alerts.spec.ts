@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { localDateTime } from "../lib/activity";
@@ -10,10 +11,7 @@ test("administrators can post, rotate, target, and remove overview alerts", asyn
   page,
 }) => {
   await page.goto("/demo?view=Settings");
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Workspace/ })
-    .click();
+  await openSettingsSection(page, "Company alerts");
   const settings = page.getByRole("region", {
     name: "Overview alerts",
     exact: true,
@@ -79,11 +77,10 @@ test("administrators can post, rotate, target, and remove overview alerts", asyn
     fullPage: true,
   });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Workspace/ })
-    .click();
+  await openSettingsSection(page, "Company alerts");
+  await openSettingsSection(page, "Appearance & device");
   await page.getByLabel("Color theme").selectOption("dark");
+  await openSettingsSection(page, "Company alerts");
   await page.setViewportSize({ width: 390, height: 844 });
   const durationBoxes = await Promise.all([
     settings.locator(".alert-duration-label").boundingBox(),
@@ -110,10 +107,7 @@ test("administrators can post, rotate, target, and remove overview alerts", asyn
   });
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Workspace/ })
-    .click();
+  await openSettingsSection(page, "Company alerts");
   await settings
     .getByRole("button", {
       name: "Remove alert: Material delivery moved to Friday.",

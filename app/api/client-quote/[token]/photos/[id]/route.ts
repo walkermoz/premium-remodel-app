@@ -1,3 +1,4 @@
+import { getOperatingSettings } from "@/lib/operating-settings.server";
 import { readClientQuoteSource } from "@/lib/client-quote";
 import { readQuotePhoto } from "@/lib/quote-photos";
 
@@ -9,6 +10,11 @@ export async function GET(
 ) {
   const { token, id } = await params;
   const source = await readClientQuoteSource(token, { recordView: false });
+  if (
+    source &&
+    !(await getOperatingSettings(source.organizationId)).portal.quotes
+  )
+    return new Response(null, { status: 403 });
   const photo = source?.view.quote.quotePhotos?.find(
     (item) => item.attachmentId === id,
   );

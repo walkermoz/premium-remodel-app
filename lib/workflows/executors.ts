@@ -1,5 +1,7 @@
 import "server-only";
 
+import { OperatingRecordError } from "../operating-records";
+
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { getBusinessConfigForOrganization } from "../business-config";
@@ -41,6 +43,14 @@ import {
 } from "./workflow-email";
 import { enqueueWorkflowEvent } from "./events";
 import { WorkflowConfigurationError } from "./runtime";
+import {
+  applySystemOperatingRecord,
+  getOperatingSettings,
+} from "../operating-settings.server";
+import {
+  renderCompanyLeadTemplate,
+  usesCompanyLeadTemplate,
+} from "./message-templates";
 
 export type WorkflowExecutorInput = {
   organizationId: string;
@@ -201,10 +211,23 @@ async function recordWebsiteLeadDelivery(
     console.error(`Could not store ${field} on workflow ${kind} ${id}.`);
 }
 
+async function applyWorkflowOperatingRecord(
+  ...args: Parameters<typeof applySystemOperatingRecord>
+) {
+  try {
+    return await applySystemOperatingRecord(...args);
+  } catch (error) {
+    if (error instanceof OperatingRecordError)
+      throw new WorkflowConfigurationError(error.message);
+    throw error;
+  }
+}
+
 async function insertObject(
   input: WorkflowExecutorInput,
   kind: string,
   fields = mappedFields(input.node, input.context),
+  sourceQuote?: Record<string, unknown>,
 ) {
   const now = new Date().toISOString();
   const eventOwnsObject =
@@ -219,7 +242,14 @@ async function insertObject(
   const existing = await storedRecord(input.organizationId, kind, id);
   if (existing) return { record: existing, id, created: false };
   const record = {
-    ...fields,
+    ...(await applyWorkflowOperatingRecord(
+      input.organizationId,
+      kind,
+      fields,
+      null,
+      "Workflow",
+      sourceQuote,
+    )),
     id,
     createdAt: typeof fields.createdAt === "string" ? fields.createdAt : now,
     updatedAt: now,
@@ -444,7 +474,13 @@ handlers.set("contact.findOrCreate", async (input) => {
   const fields = mappedFields(input.node, input.context);
   const now = new Date().toISOString();
   const contact = {
-    ...fields,
+    ...(await applyWorkflowOperatingRecord(
+      input.organizationId,
+      "contact",
+      fields,
+      null,
+      "Workflow",
+    )),
     id: deterministicUuid(input.idempotencyKey),
     createdAt: now,
     updatedAt: now,
@@ -518,7 +554,7 @@ handlers.set("project.createFromQuote", async (input) => {
     status: "Planning",
     ...mappedFields(input.node, input.context),
   };
-  const created = await insertObject(input, "project", fields);
+  const created = await insertObject(input, "project", fields, quote);
   if (created.created || created.id === deterministicUuid(input.idempotencyKey))
     await emitCreatedObjectEvent(input, "project", created.id, created.record);
   return {
@@ -549,7 +585,17 @@ handlers.set("quote.upsert", async (input) => {
     );
     if (current) {
       const updatedAt = new Date().toISOString();
-      const record = { ...current, ...fields, id: configuredId, updatedAt };
+      const record = {
+        ...(await applyWorkflowOperatingRecord(
+          input.organizationId,
+          "quote",
+          { ...current, ...fields },
+          current,
+          "Workflow",
+        )),
+        id: configuredId,
+        updatedAt,
+      };
       const saved = await supabaseAdmin()
         .from("remodel_records")
         .update({ data: record, updated_at: updatedAt })
@@ -597,8 +643,13 @@ async function updateObject(input: WorkflowExecutorInput) {
   if (!current) throw new Error(`${kind} ${id} was not found.`);
   const updatedAt = new Date().toISOString();
   const record = {
-    ...current,
-    ...mappedFields(input.node, input.context),
+    ...(await applyWorkflowOperatingRecord(
+      input.organizationId,
+      kind,
+      { ...current, ...mappedFields(input.node, input.context) },
+      current,
+      "Workflow",
+    )),
     id,
     updatedAt,
   };
@@ -689,22 +740,32 @@ handlers.set("communication.sendEmail", async (input) => {
   );
   const missing = String(input.node.config.missingValueBehavior || "skip") as
     "blank" | "fallback" | "skip" | "error";
-  const subject = interpolateWorkflowText(
-    String(input.node.config.subject || ""),
-    input.context,
-    {
-      missing,
-      fallback: String(input.node.config.fallbackValue || ""),
-    },
-  );
-  const body = interpolateWorkflowText(
-    String(input.node.config.body || ""),
-    input.context,
-    {
-      missing,
-      fallback: String(input.node.config.fallbackValue || ""),
-    },
-  );
+  const companyMessage = usesCompanyLeadTemplate(input.node.config)
+    ? renderCompanyLeadTemplate(
+        (await getOperatingSettings(input.organizationId)).messages,
+        input.context,
+      )
+    : null;
+  const subject = companyMessage
+    ? { value: companyMessage.subject, skipped: false }
+    : interpolateWorkflowText(
+        String(input.node.config.subject || ""),
+        input.context,
+        {
+          missing,
+          fallback: String(input.node.config.fallbackValue || ""),
+        },
+      );
+  const body = companyMessage
+    ? { value: companyMessage.body, skipped: false }
+    : interpolateWorkflowText(
+        String(input.node.config.body || ""),
+        input.context,
+        {
+          missing,
+          fallback: String(input.node.config.fallbackValue || ""),
+        },
+      );
   if (subject.skipped || body.skipped) {
     if (tracksDelivery)
       await recordWebsiteLeadDelivery(input, "emailAcknowledgement", {
@@ -721,7 +782,10 @@ handlers.set("communication.sendEmail", async (input) => {
     typeof input.context.contact?.id === "string"
       ? input.context.contact.id
       : input.event.contactId;
-  if (input.node.config.templateKey === "website-lead-acknowledgement") {
+  if (
+    input.node.config.templateKey === "website-lead-acknowledgement" &&
+    usesCompanyLeadTemplate(input.node.config)
+  ) {
     const sent = await sendWebsiteLeadAcknowledgement({
       organizationId: input.organizationId,
       recipientEmail: recipient,
@@ -764,16 +828,18 @@ handlers.set("communication.sendEmail", async (input) => {
         contactId,
         channel: "email",
         recipient,
-        subject: "We received your remodel request",
-        body: renderLeadAcknowledgement({
-          firstName,
-          business: {
-            name: businessConfig.profile.name,
-            website: businessConfig.profile.website,
-            email: businessConfig.profile.email,
-            phone: businessConfig.profile.phone,
-          },
-        }).text,
+        subject: sent.subject || "We received your remodel request",
+        body:
+          sent.messageText ||
+          renderLeadAcknowledgement({
+            firstName,
+            business: {
+              name: businessConfig.profile.name,
+              website: businessConfig.profile.website,
+              email: businessConfig.profile.email,
+              phone: businessConfig.profile.phone,
+            },
+          }).text,
         relatedKind: "lead",
         relatedId: leadId,
         ...(sent.googleMessageId ? { providerId: sent.googleMessageId } : {}),

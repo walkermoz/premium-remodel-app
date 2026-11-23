@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { test, expect } from "@playwright/test";
 
 test("sample settings never attempt a company Gmail connection", async ({
@@ -8,10 +9,7 @@ test("sample settings never attempt a company Gmail connection", async ({
     if (request.url().includes("/api/google-mail")) requests++;
   });
   await page.goto("/demo?view=Settings");
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Connections/ })
-    .click();
+  await openSettingsSection(page, "Company email");
   const section = page.getByRole("region", { name: "Company email" });
   await expect(section).toContainText("Connect in three steps");
   await expect(section).toContainText("send-only Gmail access");

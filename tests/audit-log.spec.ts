@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { demoWorkspace } from "../lib/demo";
@@ -109,10 +110,7 @@ cloudTest(
     expect(stored.data?.[2].after_data).toBeNull();
 
     await page.goto("/?view=Settings");
-    await page
-      .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /Workspace/ })
-      .click();
+    await openSettingsSection(page, "Workspace history");
     const historySection = page.getByRole("region", {
       name: "Workspace history",
     });
@@ -130,10 +128,7 @@ cloudTest(
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await page
-      .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: /Workspace/ })
-      .click();
+    await openSettingsSection(page, "Workspace history");
     await expect(historySection).toContainText("Workspace Owner");
     await historySection.scrollIntoViewIfNeeded();
     const historyBox = await historySection.boundingBox();

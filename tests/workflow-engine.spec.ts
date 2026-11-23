@@ -899,7 +899,7 @@ test("a failed action exposes a resumable continuation with a stable effect key"
   expect(keys[0]).toBe(failure?.idempotencyKey);
 });
 
-test("communication actions pause durably outside the published sending window", async () => {
+test("communication actions send overnight and on weekends despite legacy sending windows", async () => {
   const definition = websiteLeadWorkflowSeed();
   definition.settings.communicationWindow = {
     enabled: true,
@@ -916,11 +916,16 @@ test("communication actions pause durably outside the published sending window",
       smsAppointmentOptIn: false,
     }),
     execute: async () => ({}),
-    now: new Date("2026-10-31T16:00:00.000Z"),
+    now: new Date("2026-11-01T03:00:00.000Z"),
   });
-  expect(result.status).toBe("waiting");
-  expect(result.steps.at(-1)?.nodeId).toBe("confirmation-email");
-  expect(result.wait?.wakeAt).toBe("2026-11-02T13:00:00.000Z");
+  expect(result.status).toBe("completed");
+  expect(result.wait).toBeUndefined();
+  expect(
+    result.steps.some(
+      (step) =>
+        step.nodeId === "confirmation-email" && step.status === "completed",
+    ),
+  ).toBe(true);
 });
 
 test("scheduled triggers require a bounded one-time or interval schedule", () => {

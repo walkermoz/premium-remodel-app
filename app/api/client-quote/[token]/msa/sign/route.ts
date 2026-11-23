@@ -1,3 +1,4 @@
+import { requirePortalFeature } from "@/lib/operating-settings.server";
 import { apiError, checkOrigin, HttpError, limitAttempts } from "@/lib/auth";
 import { requirePremiumAgreement } from "@/lib/agreements";
 import { readClientQuoteSource } from "@/lib/client-quote";
@@ -33,6 +34,7 @@ export async function POST(
       throw new HttpError(413, "Signature is too large.");
     const input = customerMsaInput.parse(JSON.parse(raw));
     const source = await readClientQuoteSource(token);
+    if (source) await requirePortalFeature(source.organizationId, "agreements");
     if (source) requirePremiumAgreement(source.organizationId);
     if (!source?.view.approved || !source.view.msa)
       throw new HttpError(404, "Agreement is not ready for signature.");

@@ -1,3 +1,11 @@
+import PortalBusinessHours from "@/components/portal-business-hours";
+import type { OperatingSettings } from "@/lib/operating-settings";
+import { customerCompanyDetails } from "@/lib/customer-company-details";
+import { getOperatingSettings } from "@/lib/operating-settings.server";
+import {
+  portalViewAllowed,
+  type PortalVisibility,
+} from "@/lib/portal-visibility";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -80,17 +88,15 @@ function money(value: number, business: BusinessConfig) {
 
 function date(value: string | undefined, business: BusinessConfig) {
   if (!value) return "";
-  const day = value.slice(0, 10);
-  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(day)
-    ? new Date(`${day}T00:00:00Z`)
-    : new Date(value);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const parsed = new Date(dateOnly ? `${value}T00:00:00Z` : value);
   return Number.isNaN(parsed.valueOf())
     ? ""
     : new Intl.DateTimeFormat(business.regional.locale, {
         month: "long",
         day: "numeric",
         year: "numeric",
-        timeZone: business.regional.timezone,
+        timeZone: dateOnly ? "UTC" : business.regional.timezone,
       }).format(parsed);
 }
 
@@ -181,6 +187,7 @@ function ClientNavigation({
   hasMsa,
   hasWallet,
   hasSchedule,
+  portal,
 }: {
   quoteUrl: string;
   view: PortalView;
@@ -188,6 +195,7 @@ function ClientNavigation({
   hasMsa: boolean;
   hasWallet: boolean;
   hasSchedule: boolean;
+  portal: PortalVisibility;
 }) {
   const links = [
     ...(hasSchedule
@@ -206,21 +214,23 @@ function ClientNavigation({
   ] as const;
   return (
     <nav className={className} aria-label="Client navigation">
-      {links.map(({ id, label, icon: Icon }) => (
-        <a
-          key={id}
-          href={`${quoteUrl}?view=${id}`}
-          aria-current={
-            view === id ||
-            (view === "new-request" && id === "requests") ||
-            (view === "detail" && id === "quotes")
-              ? "page"
-              : undefined
-          }
-        >
-          <Icon size={18} aria-hidden="true" /> {label}
-        </a>
-      ))}
+      {links
+        .filter((link) => portalViewAllowed(portal, link.id))
+        .map(({ id, label, icon: Icon }) => (
+          <a
+            key={id}
+            href={`${quoteUrl}?view=${id}`}
+            aria-current={
+              view === id ||
+              (view === "new-request" && id === "requests") ||
+              (view === "detail" && id === "quotes")
+                ? "page"
+                : undefined
+            }
+          >
+            <Icon size={18} aria-hidden="true" /> {label}
+          </a>
+        ))}
     </nav>
   );
 }
@@ -240,6 +250,8 @@ async function ClientSectionView({
   schedule,
   scheduleProjectName,
   projectPortal,
+  portal,
+  hours,
 }: {
   section: Exclude<PortalView, "detail">;
   quoteUrl: string;
@@ -255,8 +267,11 @@ async function ClientSectionView({
   schedule: Array<ClientScheduleItem & { projectName?: string }>;
   scheduleProjectName: string;
   projectPortal: boolean;
+  portal: PortalVisibility;
+  hours: OperatingSettings["hours"];
 }) {
   const { quote, total } = quoteView;
+  const company = customerCompanyDetails(business);
   const requestUrl = `${quoteUrl}?view=new-request`;
 
   if (section === "msa") {
@@ -278,6 +293,7 @@ async function ClientSectionView({
         : agreement;
     let paidCents = 0;
     let cardAvailable =
+      portal.payments &&
       business.features.payments &&
       business.quotePreferences.paymentProvider === "stripe" &&
       (await organizationStripeEnabled(organizationId));
@@ -329,72 +345,78 @@ async function ClientSectionView({
               >
                 <Download size={18} /> Download signed PDF
               </a>
-              <a
-                className={styles.outlineAction}
-                href={`${quoteUrl}?view=invoices`}
-              >
-                <ReceiptText size={18} /> View invoice
-              </a>
+              {portal.invoices && (
+                <a
+                  className={styles.outlineAction}
+                  href={`${quoteUrl}?view=invoices`}
+                >
+                  <ReceiptText size={18} /> View invoice
+                </a>
+              )}
             </div>
-            <h2>Deposit</h2>
-            <p>
-              {dueCents > 0
-                ? `${money(dueCents / 100, business)} remaining toward the ${money(depositCents / 100, business)} deposit.`
-                : "Deposit recorded. Thank you."}{" "}
-              Work begins after the deposit is received.
-            </p>
-            {dueCents > 0 && (
+            {portal.invoices && (
               <>
-                {cardAvailable ? (
-                  <form
-                    method="post"
-                    action={`/api/client-quote/${encodeURIComponent(token)}/msa/deposit`}
-                  >
-                    <input
-                      type="hidden"
-                      name="authenticity"
-                      value={createClientWalletFormToken(token)}
-                    />
-                    <button type="submit" className={styles.outlineAction}>
-                      <CreditCard size={18} /> Pay deposit online
-                    </button>
-                  </form>
-                ) : (
-                  <p>Online card payment is temporarily unavailable.</p>
-                )}
-                {business.compliance.checkPayee && (
+                <h2>Deposit</h2>
+                <p>
+                  {dueCents > 0
+                    ? `${money(dueCents / 100, business)} remaining toward the ${money(depositCents / 100, business)} deposit.`
+                    : "Deposit recorded. Thank you."}{" "}
+                  Work begins after the deposit is received.
+                </p>
+                {dueCents > 0 && (
                   <>
-                    <h3>Pay by check</h3>
-                    <p>
-                      Make the check payable to {business.compliance.checkPayee}
-                      .
-                      {business.compliance.checkMailingAddress
-                        ? " Contact us to arrange delivery, or mail it to " +
-                          business.compliance.checkMailingAddress +
-                          "."
-                        : " Contact us to arrange delivery."}
-                      &nbsp;We will record it when received.
-                    </p>
+                    {cardAvailable ? (
+                      <form
+                        method="post"
+                        action={`/api/client-quote/${encodeURIComponent(token)}/msa/deposit`}
+                      >
+                        <input
+                          type="hidden"
+                          name="authenticity"
+                          value={createClientWalletFormToken(token)}
+                        />
+                        <button type="submit" className={styles.outlineAction}>
+                          <CreditCard size={18} /> Pay deposit online
+                        </button>
+                      </form>
+                    ) : (
+                      <p>Online card payment is temporarily unavailable.</p>
+                    )}
+                    {business.compliance.checkPayee && (
+                      <>
+                        <h3>Pay by check</h3>
+                        <p>
+                          Make the check payable to{" "}
+                          {business.compliance.checkPayee}.
+                          {business.compliance.checkMailingAddress
+                            ? " Contact us to arrange delivery, or mail it to " +
+                              business.compliance.checkMailingAddress +
+                              "."
+                            : " Contact us to arrange delivery."}
+                          &nbsp;We will record it when received.
+                        </p>
+                      </>
+                    )}
                   </>
                 )}
+                {result === "payment-return" && (
+                  <p role="status">
+                    If you completed checkout, your payment may take a moment to
+                    appear. Refresh this page to check.
+                  </p>
+                )}
+                {result === "unavailable" && (
+                  <p role="alert">
+                    Online payment could not be started. Please try again later
+                    or contact us.
+                  </p>
+                )}
+                {result === "expired" && (
+                  <p role="alert">
+                    This payment form expired. Refresh and try again.
+                  </p>
+                )}
               </>
-            )}
-            {result === "payment-return" && (
-              <p role="status">
-                If you completed checkout, your payment may take a moment to
-                appear. Refresh this page to check.
-              </p>
-            )}
-            {result === "unavailable" && (
-              <p role="alert">
-                Online payment could not be started. Please try again later or
-                contact us.
-              </p>
-            )}
-            {result === "expired" && (
-              <p role="alert">
-                This payment form expired. Refresh and try again.
-              </p>
             )}
           </div>
         )}
@@ -408,17 +430,23 @@ async function ClientSectionView({
         <h1>Contact us</h1>
         <div className={styles.contactCard}>
           <h2>Contact details</h2>
+          <p>{company.legalName}</p>
           {contactPhone && (
             <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`}>
               <Phone size={21} aria-hidden="true" /> {contactPhone}
             </a>
           )}
-          {business.profile.email && (
+          {company.supportEmail && (
             <a href={contactHref}>
               <Mail size={21} aria-hidden="true" />{" "}
-              {business.profile.email || "Email us"}
+              {company.supportEmail || "Email us"}
             </a>
           )}
+          <PortalBusinessHours
+            hours={hours}
+            timezone={business.regional.timezone}
+            locale={business.regional.locale}
+          />
         </div>
       </main>
     );
@@ -426,6 +454,19 @@ async function ClientSectionView({
   if (section === "schedule")
     return (
       <main className={`${styles.sectionPage} ${styles.schedulePage}`}>
+        {!!quote.publicCustomFields?.length && (
+          <section className={styles.parties} aria-label="Project details">
+            <div>
+              <h2>{quote.name} details</h2>
+              {quote.publicCustomFields.map((field) => (
+                <p key={field.id}>
+                  <strong>{field.label}: </strong>
+                  {field.value}
+                </p>
+              ))}
+            </div>
+          </section>
+        )}
         <ClientProjectCalendar
           schedule={schedule}
           locale={business.regional.locale}
@@ -500,6 +541,26 @@ async function ClientSectionView({
     return (
       <main className={styles.sectionPage}>
         <h1>Your invoices</h1>
+        {["unavailable", "expired", "rate-limit"].includes(result) && (
+          <p role="alert">
+            {result === "expired"
+              ? "This payment form expired. Refresh and try again."
+              : result === "rate-limit"
+                ? "Too many payment attempts. Please try again later."
+                : "Online payment could not be started. Please try again later or contact us."}
+          </p>
+        )}
+        {result === "payment-return" && (
+          <p role="status">
+            Your payment is being confirmed. Refresh this page to check the
+            latest balance.
+          </p>
+        )}
+        {result === "payment-canceled" && (
+          <p role="status">
+            Payment was canceled. Your invoice remains available below.
+          </p>
+        )}
         <p className={styles.sectionIntro}>
           This invoice was created automatically from your signed agreement.
         </p>
@@ -509,7 +570,7 @@ async function ClientSectionView({
         >
           <header className={styles.invoiceHeader}>
             <div>
-              <span>Contract invoice</span>
+              <span>{invoice.title}</span>
               <h2>{invoiceNumber}</h2>
               <p>
                 {quote.name} · Signed{" "}
@@ -540,15 +601,37 @@ async function ClientSectionView({
             <span>Deposit currently due</span>
             <strong>{money(invoice.depositDueCents / 100, business)}</strong>
           </div>
+          {invoice.depositDueDate && invoice.depositDueCents > 0 && (
+            <p>Deposit due {date(invoice.depositDueDate, business)}</p>
+          )}
+          {invoice.customerNote && (
+            <p style={{ whiteSpace: "pre-wrap" }}>{invoice.customerNote}</p>
+          )}
           <footer className={styles.invoiceActions}>
-            <a className={styles.outlineAction} href={`${quoteUrl}?view=msa`}>
-              <FileText size={18} aria-hidden="true" /> View signed agreement
-            </a>
-            {invoice.depositDueCents > 0 && (
+            {portal.agreements && (
               <a className={styles.outlineAction} href={`${quoteUrl}?view=msa`}>
-                <CreditCard size={18} aria-hidden="true" /> Payment options
+                <FileText size={18} aria-hidden="true" /> View signed agreement
               </a>
             )}
+            {portal.payments &&
+              invoice.depositDueCents > 0 &&
+              business.features.payments &&
+              business.quotePreferences.paymentProvider === "stripe" && (
+                <form
+                  method="post"
+                  action={`/api/client-quote/${encodeURIComponent(token)}/msa/deposit`}
+                >
+                  <input
+                    type="hidden"
+                    name="authenticity"
+                    value={createClientWalletFormToken(token)}
+                  />
+                  <button className={styles.outlineAction} type="submit">
+                    <CreditCard size={18} aria-hidden="true" /> Pay deposit
+                    online
+                  </button>
+                </form>
+              )}
           </footer>
         </section>
       </main>
@@ -717,16 +800,19 @@ export default async function ClientQuotePage({
     notFound();
   }
   const view = source.view;
-  const [business, quoteFlow] = await Promise.all([
+  const [business, quoteFlow, operating] = await Promise.all([
     getBusinessConfigForOrganization(source.organizationId),
     getPublicQuoteFlowInstance(source.organizationId, source.view.quote.id),
+    getOperatingSettings(source.organizationId),
   ]);
+  const portal = operating.portal;
   const customQuoteFlow = source.projectPortal
     ? null
     : quoteFlow?.portalRenderer === "legacy_quote_portal_v1"
       ? null
       : quoteFlow;
   const walletEnabled =
+    portal.payments &&
     business.features.payments &&
     business.quotePreferences.paymentProvider === "stripe" &&
     (await organizationStripeEnabled(source.organizationId));
@@ -743,7 +829,7 @@ export default async function ClientQuotePage({
     requestedAllProjects && source.customerProjects.length > 1;
 
   const rawSection = typeof query.view === "string" ? query.view : "";
-  const section: PortalView = [
+  const requestedSection: PortalView = [
     "schedule",
     "requests",
     "new-request",
@@ -757,6 +843,9 @@ export default async function ClientQuotePage({
     : source.projectPortal
       ? "schedule"
       : "detail";
+  const section: PortalView = portalViewAllowed(portal, requestedSection)
+    ? requestedSection
+    : "contact";
   const { quote, items, total, approved } = view;
   const priceDisplay = resolveQuotePriceDisplay(
     quote,
@@ -777,12 +866,16 @@ export default async function ClientQuotePage({
           (access.expiresAt - 30 * 24 * 60 * 60) * 1000,
         )
       : [];
-  const contactHref = `mailto:${business.profile.email}?subject=${encodeURIComponent(
+  const company = customerCompanyDetails(business);
+  const contactHref = `mailto:${company.supportEmail}?subject=${encodeURIComponent(
     source.projectPortal
       ? `Question about ${quote.name}`
       : `Question about ${business.profile.name} Quote #${number}`,
   )}`;
-  const contactPhone = quote.preparedByPhone || business.profile.phone;
+  const contactPhone =
+    business.compliance.helpPhone ||
+    quote.preparedByPhone ||
+    company.supportPhone;
   const sectionTotals = new Map<string, number>();
   const sections: Array<{
     key: string;
@@ -851,16 +944,26 @@ export default async function ClientQuotePage({
           allProjects={allProjects}
           className={styles.projectSwitcher}
         />
-        <a className={styles.newRequest} href={`${quoteUrl}?view=new-request`}>
-          <Plus size={18} aria-hidden="true" /> New request
-        </a>
+        {portal.requests && (
+          <a
+            className={styles.newRequest}
+            href={`${quoteUrl}?view=new-request`}
+          >
+            <Plus size={18} aria-hidden="true" /> New request
+          </a>
+        )}
         <ClientNavigation
           quoteUrl={quoteUrl}
           view={section}
           className={styles.sidebarNav}
-          hasMsa={business.features.agreements && Boolean(view.msa)}
+          portal={portal}
+          hasMsa={
+            portal.agreements &&
+            business.features.agreements &&
+            Boolean(view.msa)
+          }
           hasWallet={walletEnabled}
-          hasSchedule={approved}
+          hasSchedule={portal.schedule && approved}
         />
         <div className={styles.sidebarContact}>
           <span>
@@ -871,7 +974,7 @@ export default async function ClientQuotePage({
               <Phone size={15} aria-hidden="true" /> {contactPhone}
             </a>
           )}
-          {business.profile.email && (
+          {company.supportEmail && (
             <a href={contactHref}>
               <Mail size={15} aria-hidden="true" /> Email us
             </a>
@@ -890,19 +993,26 @@ export default async function ClientQuotePage({
               allProjects={allProjects}
               className={styles.mobileProjectSwitcher}
             />
-            <a
-              className={styles.mobileNewRequest}
-              href={`${quoteUrl}?view=new-request`}
-            >
-              <Plus size={18} aria-hidden="true" /> New request
-            </a>
+            {portal.requests && (
+              <a
+                className={styles.mobileNewRequest}
+                href={`${quoteUrl}?view=new-request`}
+              >
+                <Plus size={18} aria-hidden="true" /> New request
+              </a>
+            )}
             <ClientNavigation
               quoteUrl={quoteUrl}
               view={section}
               className={styles.mobileNav}
-              hasMsa={business.features.agreements && Boolean(view.msa)}
+              portal={portal}
+              hasMsa={
+                portal.agreements &&
+                business.features.agreements &&
+                Boolean(view.msa)
+              }
               hasWallet={walletEnabled}
-              hasSchedule={approved}
+              hasSchedule={portal.schedule && approved}
             />
           </div>
         </details>
@@ -915,6 +1025,11 @@ export default async function ClientQuotePage({
           <div className={styles.portalBanner}>
             <img src={bannerSrc} alt="" />
           </div>
+        )}
+        {requestedSection !== section && (
+          <p role="status" className={styles.sectionIntro}>
+            That section is currently unavailable. Please contact us for help.
+          </p>
         )}
         {section === "detail" ? (
           <>
@@ -1002,6 +1117,19 @@ export default async function ClientQuotePage({
                 </div>
               </section>
 
+              {!!quote.publicCustomFields?.length && (
+                <section
+                  className={styles.parties}
+                  aria-label="Project details"
+                >
+                  {quote.publicCustomFields.map((field) => (
+                    <div key={field.id}>
+                      <h2>{field.label}</h2>
+                      <p style={{ whiteSpace: "pre-wrap" }}>{field.value}</p>
+                    </div>
+                  ))}
+                </section>
+              )}
               <section
                 className={styles.investment}
                 aria-label="Total project investment"
@@ -1146,6 +1274,9 @@ export default async function ClientQuotePage({
 
               <footer className={styles.footer}>
                 <span>
+                  {company.legalName !== business.profile.name && (
+                    <>{company.legalName}&nbsp; | &nbsp;</>
+                  )}
                   {business.profile.website
                     ? new URL(business.profile.website).host
                     : business.profile.name}
@@ -1172,6 +1303,8 @@ export default async function ClientQuotePage({
             onsite={onsite}
             schedule={allProjects ? source.combinedSchedule : source.schedule}
             scheduleProjectName={allProjects ? "All projects" : quote.name}
+            portal={portal}
+            hours={operating.hours}
             projectPortal={source.projectPortal}
           />
         )}

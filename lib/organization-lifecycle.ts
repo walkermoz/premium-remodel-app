@@ -19,6 +19,7 @@ const exportTables = [
   "remodel_records",
   "remodel_business_config",
   "remodel_settings",
+  "remodel_operating_settings",
   "remodel_pricebook_items",
   "remodel_pricebook_assemblies",
   "remodel_audit_events",

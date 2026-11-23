@@ -1,0 +1,164 @@
+.editor {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.intro {
+  margin: 0;
+  color: var(--theme-text-muted, #718391);
+  line-height: 1.7;
+  font-size: 13px;
+}
+.list {
+  display: grid;
+  gap: 0;
+}
+.row {
+  display: grid;
+  gap: 16px;
+  padding: 22px 0;
+  border: 0;
+  border-bottom: 1px solid var(--theme-border, #d5dfe6);
+  margin: 0;
+  min-width: 0;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.day {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 110px 110px;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--theme-border, #d5dfe6);
+}
+.check {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: flex-start;
+  text-align: left;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.check input {
+  width: 16px !important;
+  height: 16px !important;
+  min-height: 0 !important;
+  flex: none;
+}
+.choices {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.field {
+  border: 0;
+  margin: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--theme-border, #d5dfe6);
+  min-width: 0;
+}
+.field legend {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0;
+}
+.field > div {
+  margin-top: 12px;
+}
+.preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  background: var(--theme-surface-soft, #f1f5f8);
+  padding: 18px;
+  border-radius: 6px;
+  margin: 0;
+}
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--theme-border, #d5dfe6);
+  padding-top: 20px;
+}
+.sectionTitle {
+  margin: 0;
+  font-size: 16px;
+}
+.record {
+  margin: 26px 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--theme-border, #d5dfe6);
+}
+.record h2 {
+  font-size: 18px;
+}
+.record dl {
+  display: grid;
+  gap: 12px;
+}
+.record dt {
+  color: var(--theme-text-muted, #718391);
+  font-size: 12px;
+}
+.record dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .day {
+    grid-template-columns: 1fr 92px 92px;
+    gap: 8px;
+  }
+  .heading {
+    align-items: flex-start;
+  }
+  .choices {
+    gap: 10px;
+  }
+  .row {
+    padding: 18px 0;
+  }
+}
+
+.row legend {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 0;
+}
+.editor > button,
+.row > button {
+  justify-self: start;
+}
+
+.heading > label {
+  min-width: 0;
+  flex: 1;
+}
+@media (max-width: 600px) {
+  .editor :global(.form-grid) {
+    grid-template-columns: 1fr;
+  }
+  .heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .heading > button {
+    align-self: flex-start;
+  }
+}

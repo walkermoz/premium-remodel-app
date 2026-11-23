@@ -102,6 +102,7 @@ export default function CustomerContactPicker({
           value={query}
           placeholder="Search contacts"
           autoComplete="off"
+          onClick={() => setOpen(true)}
           onFocus={(event) => {
             event.currentTarget.select();
             setOpen(true);

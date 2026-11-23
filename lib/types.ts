@@ -1,3 +1,8 @@
+import type {
+  FieldValue,
+  RecordForm,
+  InvoiceDefaults,
+} from "./operating-settings";
 import type { LeadAttribution } from "./lead-attribution";
 
 export type ProjectStatus =
@@ -80,6 +85,7 @@ export interface MsaSignature {
   userAgent?: string;
 }
 export interface MsaAgreement {
+  invoiceDefaults?: InvoiceDefaults;
   version: 1;
   status: "prepared" | "sent" | "signed";
   owner: string;
@@ -107,6 +113,10 @@ export interface MsaAgreement {
   depositCheckout?: { sessionId: string; url: string; expiresAt: string };
 }
 export interface Project extends Base {
+  customValues?: Record<string, FieldValue>;
+  publicCustomFields?: Array<{ id: string; label: string; value: string }>;
+  recordForms?: RecordForm[];
+  invoiceDefaults?: InvoiceDefaults;
   name: string;
   address: string;
   client: string;
@@ -310,6 +320,7 @@ export interface WorkspaceAlert extends Base {
   systemKind?: "workflow_incident";
 }
 export interface Contact extends Base {
+  customValues?: Record<string, FieldValue>;
   firstName: string;
   lastName: string;
   name: string;

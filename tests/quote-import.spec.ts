@@ -43,6 +43,49 @@ cloudTest(
     await page.getByLabel("Work email").fill(company.email);
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Quotes", exact: true }),
+    ).toBeVisible();
+    const operating = await (
+      await page.request.get("/api/operating-settings")
+    ).json();
+    expect(
+      (
+        await page.request.patch("/api/operating-settings", {
+          headers: { Origin: "http://localhost:3100" },
+          data: {
+            section: "customFields",
+            revision: operating.revision,
+            value: [
+              {
+                id: "imported",
+                label: "Import default",
+                type: "text",
+                required: false,
+                defaultValue: "Imported estimate",
+                options: [],
+                targets: ["quote"],
+                transfer: false,
+                clientVisible: false,
+                archived: false,
+              },
+              {
+                id: "office",
+                label: "Office follow-up",
+                type: "text",
+                required: true,
+                defaultValue: null,
+                options: [],
+                targets: ["quote"],
+                transfer: false,
+                clientVisible: false,
+                archived: false,
+              },
+            ],
+          },
+        })
+      ).status(),
+    ).toBe(200);
     await page.getByRole("button", { name: "Quotes", exact: true }).click();
     await page.getByRole("button", { name: "Import PDFs" }).click();
     const dialog = page.getByRole("dialog");
@@ -74,6 +117,11 @@ cloudTest(
     );
     expect(imported).toHaveLength(1);
     expect(imported[0].status).toBe("Draft");
+    expect(imported[0].customValues).toEqual({
+      imported: "Imported estimate",
+      office: null,
+    });
+    expect(imported[0].invoiceDefaults).toEqual(operating.settings.invoices);
     expect(imported[0].importedSources).toHaveLength(2);
     const items = workspace.scope.filter(
       (item: { projectId: string }) => item.projectId === imported[0].id,

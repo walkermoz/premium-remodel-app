@@ -1,3 +1,4 @@
+import { openSettingsSection } from "./settings-helpers";
 import { test, expect } from "@playwright/test";
 import {
   appInstallMessage,
@@ -125,10 +126,7 @@ test("sample map supports selection, persistent sharing controls, stop and mobil
   await page
     .getByRole("button", { name: "Use on your phone", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Settings categories" })
-    .getByRole("button", { name: /Workspace/ })
-    .click();
+  await openSettingsSection(page, "Appearance & device");
   await expect(
     page.getByRole("region", { name: "Install ServiceBuddy" }),
   ).toContainText("Add to Home Screen");

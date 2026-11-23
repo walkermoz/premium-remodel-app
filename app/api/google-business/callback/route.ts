@@ -12,9 +12,10 @@ export const maxDuration = 60;
 function analyticsUrl(request: Request, result: string) {
   const url = new URL(appOrigin(request));
   url.search = new URLSearchParams({
-    view: "Analytics",
+    view: "Settings",
     googleBusiness: result,
   }).toString();
+  url.hash = "reviews";
   return url;
 }
 

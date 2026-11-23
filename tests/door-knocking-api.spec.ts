@@ -1,3 +1,4 @@
+import { defaultOperatingSettings } from "@/lib/operating-settings";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { test, expect, password } from "./supabase-fixture";
@@ -58,6 +59,46 @@ cloudTest(
     });
     expect(ownerVisit.status()).toBe(403);
 
+    async function saveSection(section: string, value: unknown) {
+      const settings = await (
+        await ownerApi.get("/api/operating-settings")
+      ).json();
+      expect(
+        (
+          await ownerApi.patch("/api/operating-settings", {
+            headers: { Origin: "http://localhost:3100" },
+            data: { section, value, revision: settings.revision },
+          })
+        ).status(),
+      ).toBe(200);
+    }
+    await saveSection("customFields", [
+      {
+        id: "capture",
+        label: "Capture default",
+        type: "text",
+        required: false,
+        defaultValue: "Door capture",
+        options: [],
+        targets: ["contact"],
+        transfer: false,
+        clientVisible: false,
+        archived: false,
+      },
+    ]);
+    const hours = defaultOperatingSettings().hours;
+    await saveSection("hours", {
+      ...hours,
+      enabled: true,
+      blockOutside: true,
+      days: hours.days.map((day) => ({
+        ...day,
+        open: true,
+        start: "08:00",
+        end: "17:00",
+      })),
+    });
+
     const suffix = randomUUID();
     const email = `door-${suffix}@premiumremodel.test`;
     const invitation = await ownerApi.put("/api/auth", {
@@ -109,7 +150,11 @@ cloudTest(
 
       const ownVisit = await api.post("/api/door-knocking", {
         headers: { Origin: "http://localhost:3100" },
-        data: visit("103 Door Test Lane, Raleigh, NC 27601"),
+        data: {
+          ...visit("103 Door Test Lane, Raleigh, NC 27601"),
+          quoteStartTime: "23:00",
+          quoteEndTime: "23:30",
+        },
       });
       expect(ownVisit.status(), await ownVisit.text()).toBe(201);
       const after = await (await api.get("/api/workspace")).json();
@@ -117,6 +162,17 @@ cloudTest(
       expect(after.leads).toHaveLength(1);
       expect(after.contacts).toHaveLength(1);
       expect(after.leads[0].canvasserName).toBe("Door Knocker Test");
+      const captured = await company.admin
+        .from("remodel_records")
+        .select("data")
+        .eq("organization_id", company.organizationId)
+        .eq("kind", "contact")
+        .eq("id", after.contacts[0].id)
+        .single();
+      expect(captured.error).toBeNull();
+      expect(captured.data!.data.customValues).toEqual({
+        capture: "Door capture",
+      });
 
       const forbidden = await api.post("/api/workspace", {
         headers: { Origin: "http://localhost:3100" },

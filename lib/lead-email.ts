@@ -1,4 +1,7 @@
 import "server-only";
+import { customerEmailBusiness } from "./customer-company-details";
+import { getOperatingSettings } from "./operating-settings.server";
+import { renderMessageTemplate } from "./operating-settings";
 
 import { randomUUID } from "node:crypto";
 import { HttpError } from "./auth";
@@ -16,6 +19,8 @@ export type LeadEmailResult = {
   attemptedAt: string;
   googleMessageId?: string;
   detail?: string;
+  subject?: string;
+  messageText?: string;
 };
 
 function base64Lines(bytes: Uint8Array) {
@@ -34,6 +39,8 @@ export function leadAcknowledgementRaw(
   options: {
     business: { name: string; website: string; email: string; phone: string };
     fromEmail: string;
+    subject?: string;
+    message?: string;
   },
 ) {
   if (/[\r\n\x00-\x1f\x7f]/.test(recipientEmail))
@@ -42,6 +49,8 @@ export function leadAcknowledgementRaw(
   const alternativeBoundary = `servicebuddy-alternative-${randomUUID()}`;
   const email = renderLeadAcknowledgement({
     firstName,
+    subject: options.subject,
+    message: options.message,
     logoSrc: logo ? undefined : "",
     business: options.business,
   });
@@ -50,7 +59,9 @@ export function leadAcknowledgementRaw(
   const lines = [
     `From: ${businessName} <${fromEmail}>`,
     `To: ${recipientEmail}`,
-    "Subject: We received your remodel request",
+    options.subject
+      ? `Subject: =?UTF-8?B?${Buffer.from(options.subject, "utf8").toString("base64")}?=`
+      : "Subject: We received your remodel request",
     "MIME-Version: 1.0",
     `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
     "",
@@ -101,29 +112,45 @@ export async function sendWebsiteLeadAcknowledgement(
 
   let attemptedSend = false;
   try {
-    const [accessToken, logo, businessConfig, fromEmail] = await Promise.all([
-      gmailAccessTokenForOrganization(input.organizationId, fetcher),
-      getBusinessLogoBytes(input.organizationId),
-      getBusinessConfigForOrganization(input.organizationId),
-      googleMailAddressForOrganization(input.organizationId),
-    ]);
-    const business = {
-      name: businessConfig.profile.name,
-      website: businessConfig.profile.website,
-      email: businessConfig.profile.email || fromEmail || "",
-      phone: businessConfig.profile.phone,
-    };
+    const [accessToken, logo, businessConfig, fromEmail, operating] =
+      await Promise.all([
+        gmailAccessTokenForOrganization(input.organizationId, fetcher),
+        getBusinessLogoBytes(input.organizationId),
+        getBusinessConfigForOrganization(input.organizationId),
+        googleMailAddressForOrganization(input.organizationId),
+        getOperatingSettings(input.organizationId),
+      ]);
+    const business = customerEmailBusiness(businessConfig, fromEmail || "");
     if (!fromEmail)
       return {
         status: "not_configured",
         attemptedAt,
         detail: "Company mailbox is not connected",
       };
+    const values = {
+      firstName: input.firstName || "there",
+      clientName: input.firstName || "there",
+      businessName: business.name,
+      senderName: `${business.name} Team`,
+      quoteName: "",
+      quoteNumber: "",
+    };
+    const subject = renderMessageTemplate(
+      operating.messages.leadSubject,
+      values,
+    );
+    const message = renderMessageTemplate(operating.messages.leadBody, values);
+    const messageText = renderLeadAcknowledgement({
+      firstName: input.firstName,
+      business,
+      subject,
+      message,
+    }).text;
     const raw = leadAcknowledgementRaw(
       input.recipientEmail,
       input.firstName || "",
       logo,
-      { business, fromEmail },
+      { business, fromEmail, subject, message },
     );
     attemptedSend = true;
     const response = await fetcher(
@@ -147,6 +174,8 @@ export async function sendWebsiteLeadAcknowledgement(
     const result = await response.json().catch(() => null);
     return {
       status: "sent",
+      subject,
+      messageText,
       attemptedAt,
       googleMessageId: typeof result?.id === "string" ? result.id : undefined,
     };

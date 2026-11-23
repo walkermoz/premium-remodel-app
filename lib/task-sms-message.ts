@@ -10,6 +10,7 @@ export function homeownerScheduleSmsMessage(
   project: Project,
   recipient: Contact,
   businessName: string,
+  scheduleFooter = "Reply if you have a question.",
 ) {
   if (!tasks.length)
     throw new Error("A schedule text needs at least one item.");
@@ -18,7 +19,7 @@ export function homeownerScheduleSmsMessage(
   )[0];
   const address = compact(project.address || "", 120);
   const greeting = `Hi ${firstName || "there"}, ${compact(businessName, 80)} has `;
-  const footer = "Reply if you have a question.";
+  const footer = compact(scheduleFooter, 160);
   if (tasks.length === 1) {
     const task = tasks[0];
     const time = task.startTime ? ` at ${timeLabel(task.startTime)}` : "";

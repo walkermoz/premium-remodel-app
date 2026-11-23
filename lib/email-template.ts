@@ -4,7 +4,15 @@ type EmailContent = {
   message: string;
   /** CID in delivered mail; a data URI may be used for local previews. */
   logoSrc?: string;
-  business: { name: string; website: string; email: string; phone: string };
+  business: {
+    name: string;
+    website: string;
+    email: string;
+    phone: string;
+    legalName?: string;
+    supportEmail?: string;
+    supportPhone?: string;
+  };
   action?: {
     label: string;
     url: string;
@@ -61,7 +69,24 @@ export function renderBusinessEmail(content: EmailContent) {
       ? `<td class="footer-link" align="right" style="padding-top:16px;font-size:12px;line-height:1.6;white-space:nowrap;"><a href="${escapeEmailHtml(business.website)}" style="${linkStyle}">${escapeEmailHtml(new URL(business.website).host)}</a></td>`
       : "",
   ].join("");
-  const footer = `<tr><td style="background:#ffffff;padding:0 44px 34px;"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;width:100%;border-top:1px solid #d5e0e6;"><tr>${footerLinks}</tr></table></td></tr>`;
+  const supportLinks = [
+    business.supportEmail && business.supportEmail !== business.email
+      ? `<a href="mailto:${escapeEmailHtml(business.supportEmail)}" style="${linkStyle}">${escapeEmailHtml(business.supportEmail)}</a>`
+      : "",
+    business.supportPhone && business.supportPhone !== business.phone
+      ? escapeEmailHtml(business.supportPhone)
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const identity =
+    business.legalName && business.legalName !== business.name
+      ? `<tr><td colspan="3" style="padding-top:12px;font-size:11px;line-height:1.6;color:#617480;">${escapeEmailHtml(business.legalName)}</td></tr>`
+      : "";
+  const support = supportLinks
+    ? `<tr><td colspan="3" style="padding-top:8px;font-size:12px;line-height:1.6;">Support: ${supportLinks}</td></tr>`
+    : "";
+  const footer = `<tr><td style="background:#ffffff;padding:0 44px 34px;"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;width:100%;border-top:1px solid #d5e0e6;"><tr>${footerLinks}</tr>${identity}${support}</table></td></tr>`;
   if (content.action && !/^https?:\/\//i.test(content.action.url))
     throw new Error("Email action must use an HTTP URL.");
   if (
@@ -79,7 +104,7 @@ export function renderBusinessEmail(content: EmailContent) {
   const actionText = content.action
     ? `\n\n${content.action.label}: ${content.action.url}${content.action.note ? `\n${content.action.note}` : ""}${content.action.secondary ? `\n${content.action.secondary.label}: ${content.action.secondary.url}` : ""}`
     : "";
-  const text = `${content.title}\n\n${content.message.trim()}${actionText}\n\n${[business.phone, business.email, business.website].filter(Boolean).join("\n")}`;
+  const text = `${content.title}\n\n${content.message.trim()}${actionText}\n\n${[...new Set([business.legalName, business.phone, business.email, business.website, business.supportEmail, business.supportPhone].filter(Boolean))].join("\n")}`;
   return { html, text };
 }
 
@@ -117,6 +142,8 @@ export function renderQuoteEmail(input: {
 
 /** Transactional acknowledgement for a submitted website lead. */
 export function renderLeadAcknowledgement(input: {
+  subject?: string;
+  message?: string;
   firstName?: string;
   logoSrc?: string;
   business: EmailContent["business"];
@@ -124,9 +151,11 @@ export function renderLeadAcknowledgement(input: {
   const greeting = input.firstName ? `Hi ${input.firstName},` : "Hello,";
   const businessName = input.business.name;
   return renderBusinessEmail({
-    preheader: "We received your remodel request.",
-    title: "We received your remodel request",
-    message: `${greeting}\n\nThanks for reaching out to ${businessName}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n${businessName} Team`,
+    preheader: input.subject || "We received your remodel request.",
+    title: input.subject || "We received your remodel request",
+    message:
+      input.message ??
+      `${greeting}\n\nThanks for reaching out to ${businessName}. We received your remodel request and will review the details before following up about next steps.\n\nIf there is anything else we should know, you can reply directly to this email.\n\nThanks,\n${businessName} Team`,
     logoSrc: input.logoSrc,
     business: input.business,
   });

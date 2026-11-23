@@ -1,3 +1,4 @@
+import { requirePortalFeature } from "@/lib/operating-settings.server";
 import { HttpError, limitAttempts, requestOrigin } from "@/lib/auth";
 import { premiumAgreementEnabled } from "@/lib/agreements";
 import { readClientQuoteSource } from "@/lib/client-quote";
@@ -22,7 +23,7 @@ function portalUrl(request: Request, token: string, result?: string) {
     `/client/${encodeURIComponent(token)}/quote`,
     requestOrigin(request),
   );
-  url.searchParams.set("view", "msa");
+  url.searchParams.set("view", "invoices");
   if (result) url.searchParams.set("result", result);
   return url.toString();
 }
@@ -40,6 +41,7 @@ export async function POST(
       return Response.redirect(portalUrl(request, token, "expired"), 303);
     await limitAttempts(`msa-deposit:${linkId}`, 10);
     const source = await readClientQuoteSource(token);
+    if (source) await requirePortalFeature(source.organizationId, "payments");
     if (source && !premiumAgreementEnabled(source.organizationId))
       return new Response(null, { status: 404 });
     if (!source?.view.approved || source.view.msa?.status !== "signed")
@@ -116,29 +118,32 @@ export async function POST(
       milestoneId: agreement.paymentSchedule[0].id,
     };
     const expires = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      allowed_payment_method_types: ["card"],
-      expires_at: expires,
-      customer_email: agreement.ownerEmail,
-      client_reference_id: linkId,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: dueCents,
-            product_data: {
-              name: `${business.profile.name} deposit — ${agreement.projectName.slice(0, 100)}`,
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        allowed_payment_method_types: ["card"],
+        expires_at: expires,
+        customer_email: agreement.ownerEmail,
+        client_reference_id: linkId,
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              unit_amount: dueCents,
+              product_data: {
+                name: `${business.profile.name} deposit — ${agreement.projectName.slice(0, 100)}`,
+              },
             },
+            quantity: 1,
           },
-          quantity: 1,
-        },
-      ],
-      metadata,
-      payment_intent_data: { metadata },
-      success_url: portalUrl(request, token, "payment-return"),
-      cancel_url: portalUrl(request, token, "payment-canceled"),
-    }, stripeRequestOptions(stripeContext));
+        ],
+        metadata,
+        payment_intent_data: { metadata },
+        success_url: portalUrl(request, token, "payment-return"),
+        cancel_url: portalUrl(request, token, "payment-canceled"),
+      },
+      stripeRequestOptions(stripeContext),
+    );
     if (!session.url) throw new Error("Stripe did not provide a checkout URL.");
     const now = new Date(
       Math.max(Date.now(), Date.parse(row!.updated_at) + 1),
@@ -173,6 +178,8 @@ export async function POST(
     }
     return Response.redirect(session.url, 303);
   } catch (error) {
+    if (error instanceof HttpError && error.status === 403)
+      return Response.json({ error: error.message }, { status: 403 });
     console.error(
       "MSA deposit checkout failed",
       error instanceof Error ? error.name : "UnknownError",

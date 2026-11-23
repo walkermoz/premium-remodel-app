@@ -18,6 +18,7 @@ export async function GET() {
   try {
     const user = await requireUser();
     await requireOrganizationCapability(user, "connections.manage");
+    await requireOrganizationCapability(user, "payments.manage");
     const legacy = stripeConnections().find(
       (connection) => connection.organizationId === user.organizationId,
     );
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireOrganizationCapability(user, "connections.manage");
+    await requireOrganizationCapability(user, "payments.manage");
     const connection = await refreshStripeConnectAccount(user.organizationId);
     return Response.json(
       { platformConfigured: stripeConnectConfigured(), connection },
@@ -64,6 +66,7 @@ export async function PUT(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireOrganizationCapability(user, "connections.manage");
+    await requireOrganizationCapability(user, "payments.manage");
     const { url, cookie } = stripeConnectAuthorization(request, user);
     (await cookies()).set(stripeConnectCookie, cookie, {
       httpOnly: true,
@@ -87,6 +90,7 @@ export async function DELETE(request: Request) {
     checkOrigin(request);
     const user = await requireUser();
     await requireOrganizationCapability(user, "connections.manage");
+    await requireOrganizationCapability(user, "payments.manage");
     const result = await disconnectStripeAccount(user);
     await recordAuditEvent(user, {
       action: "deleted",

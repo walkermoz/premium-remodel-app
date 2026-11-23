@@ -1,3 +1,4 @@
+import { demoConnectionRegistry } from "@/lib/organization-connections.types";
 import sharp from "sharp";
 import { PDFDocument } from "pdf-lib";
 import { test, expect, password } from "./supabase-fixture";
@@ -97,6 +98,14 @@ cloudTest(
         body: image,
       });
     });
+    await page.route("**/api/connections/status", (route) =>
+      route.fulfill({
+        json: {
+          ...demoConnectionRegistry(),
+          organizationId: company.organizationId,
+        },
+      }),
+    );
     await page.goto("/?view=Quotes");
     await page.getByRole("button", { name: /^Photo quote / }).click();
     await page.getByRole("button", { name: /Quote & pricing/ }).click();

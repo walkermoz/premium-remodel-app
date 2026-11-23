@@ -12,3 +12,5 @@ artifacts/
 fade-treasury/
 output/
 tmp/
+supabase/.temp/
+supabase/.branches/

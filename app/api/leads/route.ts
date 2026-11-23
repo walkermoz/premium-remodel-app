@@ -1,3 +1,7 @@
+import {
+  requirePortalFeature,
+  applySystemOperatingRecord,
+} from "@/lib/operating-settings.server";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
@@ -138,6 +142,8 @@ export async function POST(request: Request) {
       : null;
     if (portalToken && !portalSource)
       throw new HttpError(403, "This client portal link is no longer valid.");
+    if (portalSource)
+      await requirePortalFeature(portalSource.organizationId, "requests");
     const organizationId =
       portalSource?.organizationId || process.env.SUPABASE_ORGANIZATION_ID;
     if (!organizationId || !z.uuid().safeParse(organizationId).success)
@@ -211,6 +217,7 @@ export async function POST(request: Request) {
     const automation = await getWebsiteLeadAutomation(organizationId);
     const now = new Date().toISOString();
     const contact: Contact = {
+      ...(await applySystemOperatingRecord(organizationId, "contact", {})),
       id: randomUUID(),
       firstName,
       lastName,

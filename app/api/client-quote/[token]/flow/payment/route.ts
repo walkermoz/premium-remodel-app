@@ -1,3 +1,4 @@
+import { requirePortalFeature } from "@/lib/operating-settings.server";
 import { z } from "zod";
 import {
   apiError,
@@ -18,6 +19,7 @@ export async function POST(request: Request, context: Context) {
     const { token } = await context.params;
     await limitAttempts(`client-flow-payment:${token.slice(0, 24)}`, 15);
     const source = await readClientQuoteSource(token, { recordView: false });
+    if (source) await requirePortalFeature(source.organizationId, "payments");
     if (!source) throw new HttpError(404, "Quote unavailable.");
     const input = z
       .object({

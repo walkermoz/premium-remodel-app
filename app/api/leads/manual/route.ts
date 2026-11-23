@@ -3,6 +3,7 @@ import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { buildManualLeadRecords } from "@/lib/manual-lead";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireWorkspaceTabs } from "@/lib/workspace-tab-access-server";
+import { applySystemOperatingRecord } from "@/lib/operating-settings.server";
 
 export const runtime = "nodejs";
 
@@ -13,12 +14,23 @@ export async function POST(request: Request) {
     await requireWorkspaceTabs(user, "Leads");
     if (user.group === "doorknocker")
       throw new HttpError(403, "Create door-knocking leads from the map.");
-    const { contact, lead } = buildManualLeadRecords(
+    const captured = buildManualLeadRecords(
       await request.json(),
       randomUUID(),
       randomUUID(),
       new Date().toISOString(),
     );
+    const contact = {
+      ...captured.contact,
+      ...(await applySystemOperatingRecord(
+        user.organizationId,
+        "contact",
+        { ...captured.contact },
+        null,
+        user.name,
+      )),
+    };
+    const lead = captured.lead;
     const { error } = await supabaseAdmin()
       .from("remodel_records")
       .insert(

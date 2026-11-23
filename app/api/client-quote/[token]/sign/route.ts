@@ -1,3 +1,4 @@
+import { requirePortalFeature } from "@/lib/operating-settings.server";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
@@ -54,6 +55,7 @@ export async function POST(
       throw new HttpError(413, "Signature is too large.");
     const input = signInput.parse(JSON.parse(raw));
     const source = await readClientQuoteSource(token);
+    if (source) await requirePortalFeature(source.organizationId, "quotes");
     if (!source) throw new HttpError(404, "Quote link not found.");
     if (source.view.approved) {
       if (source.view.acceptance)

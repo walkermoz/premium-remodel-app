@@ -8,7 +8,11 @@ export const maxDuration = 60;
 
 function settingsUrl(request: Request, result: string) {
   const url = new URL(appOrigin(request));
-  url.search = new URLSearchParams({ view: "Settings", mail: result }).toString();
+  url.search = new URLSearchParams({
+    view: "Settings",
+    mail: result,
+  }).toString();
+  url.hash = "email";
   return url;
 }
 

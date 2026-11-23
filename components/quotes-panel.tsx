@@ -1,4 +1,6 @@
 "use client";
+import { useOperatingSettings } from "./operating-settings-context";
+import { renderMessageTemplate } from "@/lib/operating-settings";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -467,8 +469,15 @@ export function QuoteDetail({
   const [portalUrl, setPortalUrl] = useState("");
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalMessage, setPortalMessage] = useState("");
-  const clientFirstName = quote.client.trim().split(/\s+/)[0] || "there";
-  const senderFirstName = user.name.trim().split(/\s+/)[0] || "The team";
+  const { settings: operating } = useOperatingSettings();
+  const messageValues = {
+    firstName: quote.client.trim().split(/\s+/)[0] || "there",
+    clientName: quote.client,
+    businessName: config.profile.name,
+    quoteName: quote.name,
+    quoteNumber: quote.quoteNumber || quote.id.slice(0, 8),
+    senderName: user.name.trim().split(/\s+/)[0] || "The team",
+  };
   const [checkBusy, setCheckBusy] = useState(false);
   const [checkError, setCheckError] = useState("");
   const [checkRequestId, setCheckRequestId] = useState(() =>
@@ -1511,7 +1520,10 @@ export function QuoteDetail({
                 Subject
                 <input
                   name="subject"
-                  defaultValue={`Documents for ${quote.name}`}
+                  defaultValue={renderMessageTemplate(
+                    operating.messages.quoteSubject,
+                    messageValues,
+                  )}
                   required
                   maxLength={180}
                 />
@@ -1520,7 +1532,10 @@ export function QuoteDetail({
                 Message
                 <textarea
                   name="message"
-                  defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. Use the button below to open your private portal and complete the required documents in one guided signing session. Any deposit options will appear after the documents are complete.\n\nIf you have any questions or would like to talk through anything, just reply to this email or give me a call.\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
+                  defaultValue={renderMessageTemplate(
+                    operating.messages.quoteBody,
+                    messageValues,
+                  )}
                   required
                   rows={7}
                   maxLength={5000}

@@ -1,3 +1,4 @@
+import { requirePortalFeature } from "./operating-settings.server";
 import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -342,6 +343,7 @@ async function signerSession(token: string) {
   if (!signer.data)
     throw new HttpError(404, "This agreement link is unavailable.");
   const row = signer.data as unknown as SignerRow;
+  await requirePortalFeature(row.organization_id, "agreements");
   if (
     !row.access_token_expires_at ||
     Date.parse(row.access_token_expires_at) <= Date.now()

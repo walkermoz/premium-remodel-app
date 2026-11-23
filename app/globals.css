@@ -7302,19 +7302,35 @@ small {
   max-width: 1080px;
   padding-bottom: 42px;
 }
-.onboarding-hero {
-  padding: 6px 0 24px;
-}
-.onboarding-hero h2 {
-  margin: 8px 0;
-  font-size: 24px;
-  letter-spacing: -0.035em;
+.onboarding-progress {
+  margin: 0 0 20px;
   color: var(--theme-text-strong, var(--ink));
+  font-size: 14px;
+  font-weight: 600;
 }
-.onboarding-hero p,
+.onboarding-group-title {
+  margin: 0 0 10px;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 13px;
+}
+.onboarding-group {
+  border-bottom: 1px solid var(--line);
+}
+.onboarding-group > summary {
+  padding: 16px 0;
+  color: var(--theme-text-strong, var(--ink));
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.onboarding-group > summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+.onboarding-group-note,
 .onboarding-create p,
 .onboarding-test p {
-  margin: 0;
+  margin: 0 0 12px;
   max-width: 670px;
   color: var(--muted);
   font-size: 12px;
@@ -7328,18 +7344,29 @@ small {
 }
 .onboarding-step {
   display: grid;
-  grid-template-columns: 33px minmax(0, 1fr) auto;
-  gap: 15px;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: center;
-  padding: 17px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
 }
-.onboarding-number {
+.onboarding-marker {
+  display: grid;
+  place-items: center;
   align-self: start;
-  padding-top: 3px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--blue);
+}
+.onboarding-marker.complete {
+  border-color: var(--blue);
+}
+.onboarding-step-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .onboarding-step-heading {
   display: flex;
@@ -7507,7 +7534,9 @@ small {
 }
 @media (max-width: 700px) {
   .onboarding-step {
-    grid-template-columns: 25px minmax(0, 1fr);
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 8px 10px;
+    padding: 12px 0;
   }
   .onboarding-step > .button {
     grid-column: 2;

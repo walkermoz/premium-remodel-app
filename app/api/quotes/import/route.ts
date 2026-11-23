@@ -1,3 +1,5 @@
+import { getOperatingSettings } from "@/lib/operating-settings.server";
+import { applyOperatingRecord } from "@/lib/operating-records";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
       );
     const now = new Date().toISOString();
     const business = await getBusinessConfig(user);
+    const operating = await getOperatingSettings(user.organizationId);
     const records: {
       id: string;
       organization_id: string;
@@ -153,6 +156,16 @@ export async function POST(request: Request) {
       });
       const quote = {
         ...quoteData,
+        ...applyOperatingRecord(
+          operating,
+          "quote",
+          quoteData,
+          null,
+          user.name,
+          now,
+          undefined,
+          { requireCustomFields: false },
+        ),
         quoteNumber: await allocateQuoteNumber(user),
         preparedBy: primary.preparedBy || user.name || business.profile.name,
         id: randomUUID(),

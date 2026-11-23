@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applySystemOperatingRecord } from "@/lib/operating-settings.server";
 import {
   apiError,
   appOrigin,
@@ -103,13 +104,7 @@ export async function POST(request: Request) {
     checkOriginOrBearer(request);
     const user = await requireRequestUser(request);
     const business = await getBusinessConfig(user);
-    if (
-      !canOpenWorkspaceTab(
-        business,
-        user.group,
-        "Door knocking",
-      )
-    )
+    if (!canOpenWorkspaceTab(business, user.group, "Door knocking"))
       throw new HttpError(403, "Door knocking is not available to your role.");
     const data = inputSchema.parse(await request.json());
     if (
@@ -124,11 +119,14 @@ export async function POST(request: Request) {
     await limitAttempts(`door-visit:${user.id}`, 120);
     if (Date.parse(data.visitedAt) < Date.now() - 366 * 24 * 60 * 60_000)
       throw new HttpError(400, "Visit time must be within the last year.");
-    const { data: created, error } = await supabaseAdmin().rpc(
-      "remodel_create_door_visit",
-      {
+    const contactDefaults = data.createLead
+      ? await applySystemOperatingRecord(user.organizationId, "contact", {})
+      : {};
+    const createVisit = (includeDefaults = true) =>
+      supabaseAdmin().rpc("remodel_create_door_visit", {
         p_organization: user.organizationId,
         p_actor: user.id,
+        ...(includeDefaults ? { p_contact_defaults: contactDefaults } : {}),
         p_address: data.address,
         p_latitude: data.latitude,
         p_longitude: data.longitude,
@@ -150,8 +148,19 @@ export async function POST(request: Request) {
           data.createLead && data.scheduleQuote ? data.quoteEndTime : null,
         p_quote_notes:
           data.createLead && data.scheduleQuote ? data.quoteNotes : null,
-      },
-    );
+      });
+    let saved = await createVisit();
+    if (saved.error?.code === "PGRST202") {
+      // Pre-migration previews retain ordinary capture. Never silently drop
+      // configured field defaults when the newer RPC is unavailable.
+      if (Object.keys(contactDefaults.customValues || {}).length)
+        throw new HttpError(
+          503,
+          "Apply the door-visit operating defaults migration before capturing configured fields.",
+        );
+      saved = await createVisit(false);
+    }
+    const { data: created, error } = saved;
     if (error) throw error;
     if (!created?.visit) throw new Error("The saved visit was not returned.");
     if (data.createLead && data.scheduleQuote) {

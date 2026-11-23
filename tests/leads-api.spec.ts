@@ -90,11 +90,14 @@ cloudTest(
     expect(workspace.contacts).toHaveLength(1);
     expect(workspace.leads).toHaveLength(1);
     expect(workspace.leads[0].id).toBe(submissionId);
-    const history = await (
-      await api.get("/api/automations/website-leads/runs")
-    ).json();
-    expect(history.runs).toHaveLength(1);
-    expect(history.runs[0].leadId).toBe(submissionId);
+    const history = await company.admin
+      .from("remodel_workflow_events")
+      .select("id,object_id")
+      .eq("organization_id", company.organizationId)
+      .eq("event_type", "website.form.submitted");
+    expect(history.error).toBeNull();
+    expect(history.data).toHaveLength(1);
+    expect(history.data![0].object_id).toBe(submissionId);
 
     // Editing the shared contact must not turn a harmless form retry into a conflict.
     const editedContact = {
@@ -114,21 +117,25 @@ cloudTest(
     const replay = await request.post("/api/leads", { headers, data: lead });
     expect(replay.status()).toBe(200);
     expect(await replay.json()).toEqual({ received: true, duplicate: true });
-    const updatedLead = (await (await api.get("/api/workspace")).json())
-      .leads[0];
-    expect(
-      (
-        await api.patch("/api/workspace", {
-          headers: { Origin: "http://localhost:3100" },
-          data: {
-            kind: "lead",
-            id: submissionId,
-            updatedAt: updatedLead.updatedAt,
-            data: { ...updatedLead, notes: "Staff follow-up" },
-          },
-        })
-      ).status(),
-    ).toBe(200);
+    // The intake workflow may update this version between the read and save.
+    // A 409 requires a fresh read; never overwrite that concurrent work.
+    await expect
+      .poll(async () => {
+        const updatedLead = (await (await api.get("/api/workspace")).json())
+          .leads[0];
+        return (
+          await api.patch("/api/workspace", {
+            headers: { Origin: "http://localhost:3100" },
+            data: {
+              kind: "lead",
+              id: submissionId,
+              updatedAt: updatedLead.updatedAt,
+              data: { ...updatedLead, notes: "Staff follow-up" },
+            },
+          })
+        ).status();
+      })
+      .toBe(200);
     expect(
       (await request.post("/api/leads", { headers, data: lead })).status(),
     ).toBe(200);
@@ -175,8 +182,9 @@ cloudTest(
       .eq("organization_id", company.organizationId)
       .eq("kind", "lead");
     const runs = await company.admin
-      .from("remodel_automation_runs")
-      .select("id,lead_id")
+      .from("remodel_workflow_events")
+      .select("id,object_id")
+      .eq("event_type", "website.form.submitted")
       .eq("organization_id", company.organizationId);
     expect(contacts.error || leads.error || runs.error).toBeNull();
     expect(contacts.data).toHaveLength(1);
@@ -649,15 +657,6 @@ cloudTest(
       otherSubmittedFields: { preferred_contact_time: "Morning" },
       status: "New",
       source: "Website form",
-      discordNotification: {
-        status: "not_configured",
-        attemptedAt: expect.any(String),
-      },
-      smsAcknowledgement: {
-        status: "skipped",
-        attemptedAt: expect.any(String),
-        detail: "Company texting is not connected",
-      },
     });
 
     const audit = await (await api.get("/api/audit")).json();

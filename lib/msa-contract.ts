@@ -155,6 +155,9 @@ export function prepareMsa(
       "Replace the quoted exclusions or allowance review prompts with the actual accepted terms before sending.",
     );
   const body = {
+    ...(project.invoiceDefaults
+      ? { invoiceDefaults: structuredClone(project.invoiceDefaults) }
+      : {}),
     version: 1 as const,
     owner: input.owner,
     ownerEmail: input.ownerEmail.toLowerCase(),

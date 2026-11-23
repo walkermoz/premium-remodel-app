@@ -1,3 +1,4 @@
+import { customerEmailBusiness } from "./customer-company-details";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -52,7 +53,11 @@ export function quoteEmailRaw(
   filename: string,
   logo: Uint8Array | null,
   portalUrl: string,
-  business: BusinessConfig["profile"],
+  business: BusinessConfig["profile"] & {
+    legalName?: string;
+    supportEmail?: string;
+    supportPhone?: string;
+  },
   fromEmail: string,
   organizationId?: string,
 ) {
@@ -253,7 +258,7 @@ export async function sendQuoteEmail(
       quotePdfFileName(quote, business.profile.name),
       logo,
       portalUrl,
-      business.profile,
+      customerEmailBusiness(business, mail.email),
       mail.email,
       user.organizationId,
     );

@@ -1,3 +1,4 @@
+import { depositSchedule } from "./operating-settings";
 import type {
   AcceptedScopeItem,
   MsaContractTerms,
@@ -71,7 +72,7 @@ export function defaultMsaContractTerms(
 }
 
 export function defaultMsaPaymentSchedule(
-  project: Pick<Project, "category" | "name">,
+  project: Pick<Project, "category" | "name" | "invoiceDefaults">,
 ): MsaPaymentStep[] {
   const kind = `${project.category} ${project.name}`.toLowerCase();
   const finish = kind.includes("kitchen")
@@ -79,7 +80,7 @@ export function defaultMsaPaymentSchedule(
     : kind.includes("bath")
       ? "After waterproofing, tile, and bathroom finishes are installed"
       : "After the primary finishes are installed";
-  return [
+  return depositSchedule(project.invoiceDefaults?.depositPercent ?? 50, [
     {
       id: "deposit",
       milestone: "Deposit after agreement signing and before work begins",
@@ -97,7 +98,7 @@ export function defaultMsaPaymentSchedule(
       milestone: "After final walkthrough and substantial completion",
       percent: 10,
     },
-  ];
+  ]).filter((step) => step.percent > 0);
 }
 
 export function msaPaymentAmounts(price: number, steps: MsaPaymentStep[]) {

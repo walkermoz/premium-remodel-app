@@ -31,16 +31,18 @@ export async function recordWebsiteLeadDeliveries(input: {
         contactId: input.lead.contactId,
         channel: "email",
         recipient: emailRecipient.toLowerCase(),
-        subject: "We received your remodel request",
-        body: renderLeadAcknowledgement({
-          firstName,
-          business: {
-            name: business.profile.name,
-            website: business.profile.website,
-            email: business.profile.email,
-            phone: business.profile.phone,
-          },
-        }).text,
+        subject: input.email.subject || "We received your remodel request",
+        body:
+          input.email.messageText ||
+          renderLeadAcknowledgement({
+            firstName,
+            business: {
+              name: business.profile.name,
+              website: business.profile.website,
+              email: business.profile.email,
+              phone: business.profile.phone,
+            },
+          }).text,
         relatedKind: "lead",
         relatedId: input.lead.id,
         providerId: input.email.googleMessageId,

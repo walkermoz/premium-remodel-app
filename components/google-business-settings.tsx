@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { productVisibility } from "@/lib/product-visibility";
 import { MessageSquareText, Unplug } from "lucide-react";
 import type { GoogleBusinessStatus } from "@/lib/google-business-types";
 import ConnectionSetupGuide from "./connection-setup-guide";
@@ -81,7 +82,9 @@ export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
         <div>
           <h2 id="google-business-heading">Google reviews</h2>
           <p>
-            Show new reviews in Analytics and reply from your business listing.
+            {productVisibility.analytics
+              ? "Show new reviews in Analytics and reply from your business listing."
+              : "Prepare your Google Business Profile connection. The review dashboard is currently hidden."}
           </p>
         </div>
       </div>
@@ -92,7 +95,9 @@ export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
             steps={[
               "Choose the Google account that manages this business’s verified listing.",
               "Approve Google Business Profile access.",
-              "Select the location in Analytics to see and reply to reviews.",
+              productVisibility.analytics
+                ? "Select the location in Analytics to see and reply to reviews."
+                : "Your account will be ready for the review dashboard when it is enabled.",
             ]}
           />
         ) : (
@@ -160,7 +165,9 @@ export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
                   title="What happens next"
                   steps={[
                     "Approve Business Profile management access in Google.",
-                    "Choose the location in Analytics. New reviews appear there and authorized staff can reply.",
+                    productVisibility.analytics
+                      ? "Choose the location in Analytics. New reviews appear there and authorized staff can reply."
+                      : "The review dashboard is hidden. Your account connection can be prepared here.",
                   ]}
                 />
               </>
@@ -169,20 +176,37 @@ export default function GoogleBusinessSettings({ demo }: { demo: boolean }) {
               <div className="calendar-connect-card">
                 <div>
                   <strong>
-                    {status.locationTitle || "Connected — choose a location"}
+                    {status.locationTitle ||
+                      (productVisibility.analytics
+                        ? "Connected — choose a location"
+                        : "Google account connected")}
                   </strong>
                   <p>
-                    {status.email} · Open Analytics to{" "}
-                    {status.locationName
-                      ? "view and reply to reviews"
-                      : "choose the business location"}
-                    .
+                    {status.email}
+                    {productVisibility.analytics && (
+                      <>
+                        {" "}
+                        · Open Analytics to{" "}
+                        {status.locationName
+                          ? "view and reply to reviews"
+                          : "choose the business location"}
+                        .
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className="google-business-settings-actions">
-                  <Link className="button secondary" href="/?view=Analytics">
-                    Open Analytics
-                  </Link>
+                  {productVisibility.analytics && (
+                    <Link className="button secondary" href="/?view=Analytics">
+                      Open Analytics
+                    </Link>
+                  )}
+                  {!productVisibility.analytics && (
+                    <p className="generation-note">
+                      The review dashboard is currently hidden. Your connection
+                      is retained for when Analytics is enabled.
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="button secondary"

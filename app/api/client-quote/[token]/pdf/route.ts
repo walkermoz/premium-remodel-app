@@ -1,3 +1,4 @@
+import { getOperatingSettings } from "@/lib/operating-settings.server";
 import { getBusinessLogoBytes } from "@/lib/business-logo";
 import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import { readClientQuoteSource } from "@/lib/client-quote";
@@ -12,6 +13,13 @@ export async function GET(
 ) {
   const { token } = await params;
   const source = await readClientQuoteSource(token);
+  if (
+    source &&
+    !(await getOperatingSettings(source.organizationId)).portal.quotes
+  )
+    return new Response("This section is not enabled in the customer portal.", {
+      status: 403,
+    });
   if (!source) return new Response("Not found", { status: 404 });
 
   const [logo, business] = await Promise.all([

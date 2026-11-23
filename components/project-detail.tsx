@@ -29,6 +29,8 @@ import type {
   Workspace,
 } from "@/lib/types";
 import { projectFinances, scopeDifference } from "@/lib/project-finances";
+import { useOperatingSettings } from "./operating-settings-context";
+import ProjectFormsPanel from "./project-forms-panel";
 import TaskList from "./task-list";
 import ScopeTable from "./scope-table";
 import FilesPanel from "./files-panel";
@@ -43,8 +45,31 @@ import ClientLinkDialog from "./client-link-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
 import { useRegionalFormat } from "./regional-format-context";
 
+function ProjectCustomFields({ project }: { project: Project }) {
+  const { settings } = useOperatingSettings();
+  return (
+    <dl>
+      {settings.customFields
+        .filter(
+          (f) =>
+            f.targets.includes("project") &&
+            project.customValues?.[f.id] != null,
+        )
+        .map((f) => (
+          <div key={f.id}>
+            <dt>
+              {f.label}
+              {f.archived ? " (archived)" : ""}
+            </dt>
+            <dd>{String(project.customValues![f.id])}</dd>
+          </div>
+        ))}
+    </dl>
+  );
+}
 export const projectTabs = [
   "Overview",
+  "Forms",
   "Upcoming",
   "Scope & costs",
   "Contracts",
@@ -437,6 +462,13 @@ export default function ProjectDetail({
         {[
           { name: "Overview", icon: LayoutDashboard },
           {
+            name: "Forms",
+            icon: ListChecks,
+            count: (project.recordForms || []).filter(
+              (f) => f.status !== "complete",
+            ).length,
+          },
+          {
             name: "Upcoming",
             icon: CalendarDays,
             count: tasks.filter((t) => t.status !== "Done").length,
@@ -491,6 +523,13 @@ export default function ProjectDetail({
             onDelete={(comment) => onDelete("comment", comment)}
           />
         </div>
+        <div hidden={tab !== "Forms"}>
+          <ProjectFormsPanel
+            key={project.id}
+            project={project}
+            onSave={(data) => onSave("project", data, project)}
+          />
+        </div>
         {tab === "Overview" && (
           <>
             <ProjectPayments
@@ -500,6 +539,12 @@ export default function ProjectDetail({
               onLog={() => onLogPayment(project.id)}
               canCreateCardLink={user.role === "admin" && !demo}
             />
+            {Object.keys(project.customValues || {}).length > 0 && (
+              <section className="project-brief">
+                <h2>Custom fields</h2>
+                <ProjectCustomFields project={project} />
+              </section>
+            )}
             <div className="overview-columns">
               <section className="project-brief">
                 <div className="section-heading">

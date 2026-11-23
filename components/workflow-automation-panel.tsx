@@ -1,4 +1,6 @@
 "use client";
+import { useOperatingSettings } from "./operating-settings-context";
+import { usesCompanyLeadTemplate } from "@/lib/workflows/message-templates";
 
 import {
   AlertCircle,
@@ -489,10 +491,7 @@ function nodeIcon(node: WorkflowNode) {
   if (node.type === "logic.wait") return Clock3;
   if (node.type.startsWith("system.")) return ShieldCheck;
   if (node.type === "control.end") return CircleStop;
-  if (
-    node.type === "action.sendSms" ||
-    node.type === "action.sendDirectSms"
-  )
+  if (node.type === "action.sendSms" || node.type === "action.sendDirectSms")
     return MessageSquareText;
   if (node.type === "action.webhook") return Webhook;
   return Workflow;
@@ -1180,6 +1179,7 @@ export default function WorkflowAutomationPanel({
   canManage: boolean;
 }) {
   const { date, dateTime } = useRegionalFormat();
+  const { settings: operating } = useOperatingSettings();
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [detail, setDetail] = useState<WorkflowDetail | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -1571,6 +1571,9 @@ export default function WorkflowAutomationPanel({
     (node) => node.id === selectedNodeId,
   );
   const detailId = detail?.id;
+  const selectedCompanyLeadTemplate =
+    selectedNode?.type === "action.sendEmail" &&
+    usesCompanyLeadTemplate(selectedNode.config);
   const webhookConfigured =
     webhookState.workflowId === detail?.id && webhookState.configured;
   const webhookUrl =
@@ -2246,7 +2249,14 @@ export default function WorkflowAutomationPanel({
         };
         setTestEvent(nextEvent);
         setTestContext(nextContext);
-        setSimulation(simulateWorkflow(detail.draft, nextEvent, nextContext));
+        setSimulation(
+          simulateWorkflow(
+            detail.draft,
+            nextEvent,
+            nextContext,
+            operating.messages,
+          ),
+        );
         return;
       }
 
@@ -2287,7 +2297,14 @@ export default function WorkflowAutomationPanel({
       const nextContext = { ...testContext, [object.objectType]: object.data };
       setTestEvent(nextEvent);
       setTestContext(nextContext);
-      setSimulation(simulateWorkflow(detail.draft, nextEvent, nextContext));
+      setSimulation(
+        simulateWorkflow(
+          detail.draft,
+          nextEvent,
+          nextContext,
+          operating.messages,
+        ),
+      );
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -2301,7 +2318,14 @@ export default function WorkflowAutomationPanel({
 
   function runTest() {
     if (!detail || !testEvent) return;
-    setSimulation(simulateWorkflow(detail.draft, testEvent, testContext));
+    setSimulation(
+      simulateWorkflow(
+        detail.draft,
+        testEvent,
+        testContext,
+        operating.messages,
+      ),
+    );
     setMode("test");
   }
 
@@ -4869,10 +4893,49 @@ export default function WorkflowAutomationPanel({
                     />
                     {selectedNode.type === "action.sendEmail" && (
                       <label className="workflow-field">
+                        <span>Message source</span>
+                        <select
+                          value={
+                            selectedCompanyLeadTemplate
+                              ? "leadAcknowledgement"
+                              : "custom"
+                          }
+                          disabled={!editable}
+                          onChange={(event) =>
+                            updateNode({
+                              config: {
+                                ...selectedNode.config,
+                                messageTemplate: event.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option value="custom">
+                            Custom workflow message
+                          </option>
+                          <option value="leadAcknowledgement">
+                            Company lead acknowledgement
+                          </option>
+                        </select>
+                        {selectedCompanyLeadTemplate && (
+                          <small>
+                            Uses the latest saved lead subject and body in
+                            Message templates. Choose Custom workflow message to
+                            edit text just for this action.
+                          </small>
+                        )}
+                      </label>
+                    )}
+                    {selectedNode.type === "action.sendEmail" && (
+                      <label className="workflow-field">
                         <span>Subject</span>
                         <input
-                          value={String(selectedNode.config.subject || "")}
-                          disabled={!editable}
+                          value={
+                            selectedCompanyLeadTemplate
+                              ? operating.messages.leadSubject
+                              : String(selectedNode.config.subject || "")
+                          }
+                          disabled={!editable || selectedCompanyLeadTemplate}
                           placeholder="You can use {{contact.firstName}}"
                           onChange={(event) =>
                             updateNode({
@@ -4916,8 +4979,12 @@ export default function WorkflowAutomationPanel({
                           : "Message"}
                       </span>
                       <textarea
-                        value={String(selectedNode.config.body || "")}
-                        disabled={!editable}
+                        value={
+                          selectedCompanyLeadTemplate
+                            ? operating.messages.leadBody
+                            : String(selectedNode.config.body || "")
+                        }
+                        disabled={!editable || selectedCompanyLeadTemplate}
                         placeholder="Use {{contact.firstName}} to insert workflow values."
                         onChange={(event) =>
                           updateNode({
@@ -4929,47 +4996,54 @@ export default function WorkflowAutomationPanel({
                         }
                       />
                     </label>
-                    <label className="workflow-field">
-                      <span>If a value is missing</span>
-                      <select
-                        value={String(
-                          selectedNode.config.missingValueBehavior || "skip",
+                    {!selectedCompanyLeadTemplate && (
+                      <>
+                        <label className="workflow-field">
+                          <span>If a value is missing</span>
+                          <select
+                            value={String(
+                              selectedNode.config.missingValueBehavior ||
+                                "skip",
+                            )}
+                            disabled={!editable}
+                            onChange={(event) =>
+                              updateNode({
+                                config: {
+                                  ...selectedNode.config,
+                                  missingValueBehavior: event.target.value,
+                                },
+                              })
+                            }
+                          >
+                            <option value="blank">Leave it blank</option>
+                            <option value="fallback">
+                              Use a fallback value
+                            </option>
+                            <option value="skip">Skip this action</option>
+                            <option value="error">Stop with an error</option>
+                          </select>
+                        </label>
+                        {selectedNode.config.missingValueBehavior ===
+                          "fallback" && (
+                          <label className="workflow-field">
+                            <span>Fallback value</span>
+                            <input
+                              value={String(
+                                selectedNode.config.fallbackValue || "",
+                              )}
+                              disabled={!editable}
+                              onChange={(event) =>
+                                updateNode({
+                                  config: {
+                                    ...selectedNode.config,
+                                    fallbackValue: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
                         )}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          updateNode({
-                            config: {
-                              ...selectedNode.config,
-                              missingValueBehavior: event.target.value,
-                            },
-                          })
-                        }
-                      >
-                        <option value="blank">Leave it blank</option>
-                        <option value="fallback">Use a fallback value</option>
-                        <option value="skip">Skip this action</option>
-                        <option value="error">Stop with an error</option>
-                      </select>
-                    </label>
-                    {selectedNode.config.missingValueBehavior ===
-                      "fallback" && (
-                      <label className="workflow-field">
-                        <span>Fallback value</span>
-                        <input
-                          value={String(
-                            selectedNode.config.fallbackValue || "",
-                          )}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateNode({
-                              config: {
-                                ...selectedNode.config,
-                                fallbackValue: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
+                      </>
                     )}
                     <p className="workflow-condition-help">
                       Preview this action in Test mode before publishing. SMS
@@ -6375,102 +6449,10 @@ export default function WorkflowAutomationPanel({
                     }
                   />
                 </label>
-                <label className="workflow-setting-toggle">
-                  <input
-                    type="checkbox"
-                    checked={detail.draft.settings.communicationWindow.enabled}
-                    disabled={!editable}
-                    onChange={(event) =>
-                      updateSettings({
-                        communicationWindow: {
-                          ...detail.draft.settings.communicationWindow,
-                          enabled: event.target.checked,
-                        },
-                      })
-                    }
-                  />
-                  <span>
-                    <strong>Communication window</strong>
-                    <small>Hold messages outside allowed hours.</small>
-                  </span>
-                </label>
-                {detail.draft.settings.communicationWindow.enabled && (
-                  <>
-                    <div className="workflow-setting-pair">
-                      <label className="workflow-field">
-                        <span>Start</span>
-                        <input
-                          type="time"
-                          value={
-                            detail.draft.settings.communicationWindow.start
-                          }
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateSettings({
-                              communicationWindow: {
-                                ...detail.draft.settings.communicationWindow,
-                                start: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="workflow-field">
-                        <span>End</span>
-                        <input
-                          type="time"
-                          value={detail.draft.settings.communicationWindow.end}
-                          disabled={!editable}
-                          onChange={(event) =>
-                            updateSettings({
-                              communicationWindow: {
-                                ...detail.draft.settings.communicationWindow,
-                                end: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <fieldset
-                      className="workflow-weekdays"
-                      disabled={!editable}
-                    >
-                      <legend>Allowed days</legend>
-                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                        (day, index) => (
-                          <label key={day}>
-                            <input
-                              type="checkbox"
-                              checked={detail.draft.settings.communicationWindow.days.includes(
-                                index,
-                              )}
-                              onChange={(event) => {
-                                const days = event.target.checked
-                                  ? [
-                                      ...detail.draft.settings
-                                        .communicationWindow.days,
-                                      index,
-                                    ]
-                                  : detail.draft.settings.communicationWindow.days.filter(
-                                      (value) => value !== index,
-                                    );
-                                updateSettings({
-                                  communicationWindow: {
-                                    ...detail.draft.settings
-                                      .communicationWindow,
-                                    days: [...new Set(days)].sort(),
-                                  },
-                                });
-                              }}
-                            />
-                            <span>{day}</span>
-                          </label>
-                        ),
-                      )}
-                    </fieldset>
-                  </>
-                )}
+                <p className="workflow-condition-help">
+                  Automations can send at any hour. Business hours are displayed
+                  in the customer portal and do not delay messages.
+                </p>
                 <div className="workflow-inspector-section-title">
                   <span>Sender defaults</span>
                 </div>
