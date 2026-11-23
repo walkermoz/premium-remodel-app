@@ -85,10 +85,11 @@ test("settings search, history and business drafts survive section changes", asy
     page.getByText("Your unsaved business changes are kept", { exact: false }),
   ).toBeVisible();
   await page.goBack();
+  await page.goBack();
   await expect(
     page
       .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: "Brand & documents", exact: true }),
+      .getByRole("button", { name: "Company", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await openSettingsSection(page, "Company details");
   await expect(page.getByLabel("Company name", { exact: true })).toHaveValue(
@@ -99,13 +100,29 @@ test("settings search, history and business drafts survive section changes", asy
   await expect(
     page
       .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: "Phone & texting", exact: true }),
+      .getByRole("button", { name: "Connected accounts", exact: true }),
   ).toBeVisible();
   await expect(
     page
       .getByRole("navigation", { name: "Settings categories" })
-      .getByRole("button", { name: "Company details", exact: true }),
+      .getByRole("button", { name: "Company", exact: true }),
   ).toHaveCount(0);
+  await page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: "Connected accounts", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Phone & texting", exact: true }),
+  ).toBeVisible();
+  await search.fill("permissions");
+  const roles = page
+    .getByRole("navigation", { name: "Settings categories" })
+    .getByRole("button", { name: "Roles & access", exact: true });
+  await expect(roles).toBeVisible();
+  await roles.click();
+  await expect(
+    page.getByLabel("Owner: Business settings", { exact: true }),
+  ).toBeChecked();
   await search.clear();
   await openSettingsSection(page, "Company details");
   // Restore the draft so the test can close without an unload confirmation.
@@ -121,7 +138,7 @@ test("mobile settings keep connection drafts and fit the viewport", async ({
   await page.goto("/demo?view=Settings#phone");
   await expect(
     page.getByLabel("Settings section", { exact: true }),
-  ).toHaveValue("phone");
+  ).toHaveValue("connections");
   await expect(
     page.getByRole("region", { name: "Phone & texting", exact: true }),
   ).toBeVisible();

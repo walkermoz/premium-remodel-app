@@ -23,7 +23,7 @@ type SettingsEntry = {
   capabilities?: OrganizationCapability[];
   module?: keyof BusinessConfig["modules"];
   businessTab?: BusinessSettingsTab;
-  workspace?: NavigationPage;
+  parentId?: string;
   ownerOnly?: boolean;
 };
 
@@ -44,9 +44,9 @@ export const settingsEntries: SettingsEntry[] = [
   {
     id: "company",
     group: "Business",
-    label: "Company details",
+    label: "Company",
     description:
-      "The company identity used throughout your workspace and quotes.",
+      "Company details, branding, legal information and regional preferences.",
     questions: [
       "What company name, website, email and phone should customers see?",
       "Should address suggestions prioritize Wake County or search nationwide?",
@@ -56,6 +56,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "brand",
+    parentId: "company",
     group: "Business",
     label: "Brand & documents",
     description: "Your logos, workspace identity and customer portal banner.",
@@ -66,20 +67,7 @@ export const settingsEntries: SettingsEntry[] = [
     capabilities: ["branding.manage"],
     businessTab: "brand",
   },
-  {
-    id: "products",
-    group: "Business",
-    label: "Products & services",
-    description:
-      "Manage reusable labor, materials and contractor pricing in your price book.",
-    questions: [
-      "Which items and prices should your team reuse?",
-      "What costs, units and descriptions should each item include?",
-    ],
-    capabilities: ["pricebook.manage"],
-    module: "priceBook",
-    workspace: "Price book",
-  },
+
   {
     id: "modules",
     group: "Business",
@@ -94,6 +82,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "compliance",
+    parentId: "company",
     group: "Business",
     label: "Compliance & region",
     description:
@@ -106,20 +95,10 @@ export const settingsEntries: SettingsEntry[] = [
     capabilities: ["business.manage", "compliance.manage"],
     businessTab: "compliance",
   },
-  {
-    id: "team",
-    group: "Team",
-    label: "Manage team",
-    description: "Invite people and manage existing workspace members.",
-    questions: [
-      "Who needs access to this business?",
-      "What name, contact information and role should each member have?",
-    ],
-    capabilities: ["team.manage"],
-    workspace: "Team",
-  },
+
   {
     id: "access",
+    parentId: "permissions",
     group: "Team",
     label: "Navigation by role",
     description: "Choose and order the workspace tabs each role sees.",
@@ -133,8 +112,8 @@ export const settingsEntries: SettingsEntry[] = [
   {
     id: "permissions",
     group: "Team",
-    label: "Roles & permissions",
-    description: "Control which actions each role can manage.",
+    label: "Roles & access",
+    description: "Choose the workspace tabs and actions each role can access.",
     questions: [
       "Who can manage company settings, money, templates and connections?",
       "Who can see costs, signing tools and audit history?",
@@ -142,17 +121,7 @@ export const settingsEntries: SettingsEntry[] = [
     capabilities: ["permissions.manage"],
     businessTab: "permissions",
   },
-  {
-    id: "schedule",
-    group: "Team",
-    label: "Schedule & availability",
-    description: "Manage scheduled work and connect your own Google Calendar.",
-    questions: [
-      "When is work scheduled, and who is assigned?",
-      "Which personal Google Calendar should receive your assigned tasks?",
-    ],
-    workspace: "Upcoming",
-  },
+
   {
     id: "quotes",
     group: "Work",
@@ -204,64 +173,24 @@ export const settingsEntries: SettingsEntry[] = [
       "What branding and price detail should customers see?",
       "Which quote or project portal link should you share?",
     ],
-    capabilities: ["business.manage", "branding.manage", "quotes.manage"],
+    capabilities: ["business.manage"],
   },
-  {
-    id: "intake",
-    group: "Customers",
-    label: "Requests & booking",
-    description:
-      "Manage leads and schedule consultations using the existing intake tools.",
-    questions: [
-      "What project, contact information and notes has the customer provided?",
-      "When should your team schedule the consultation?",
-    ],
-    workspace: "Leads",
-  },
-  {
-    id: "messages",
-    group: "Customers",
-    label: "Messages & notifications",
-    description:
-      "Configure company communication providers and the workflows that deliver messages.",
-    questions: [
-      "Which company email and phone number should send messages?",
-      "Who should receive each workflow notification, and when should it run?",
-    ],
-    capabilities: [
-      "connections.manage",
-      "workflows.manage",
-      "compliance.manage",
-    ],
-  },
-  {
-    id: "automations",
-    group: "Customers",
-    label: "Automations",
-    description:
-      "Reuse the workflow editor for triggers, branches, recipients and delivery results.",
-    questions: [
-      "What event should trigger the workflow?",
-      "What conditions, recipients and actions should apply?",
-    ],
-    capabilities: ["workflows.manage"],
-    module: "automations",
-    workspace: "Automation",
-  },
+
   {
     id: "connections",
     group: "Connections",
     label: "Connected accounts",
     description:
-      "Open the company or personal connection you want to configure.",
+      "Configure the company email, texting, payments and Google Business Profile accounts.",
     questions: [
       "Which provider needs setup or reconnection?",
-      "Is this a company account or your own calendar?",
+      "Which company account should send messages or process payments?",
     ],
     capabilities: ["connections.manage"],
   },
   {
     id: "email",
+    parentId: "connections",
     group: "Connections",
     label: "Company email",
     description: "Connect the Google account used to send company email.",
@@ -270,6 +199,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "phone",
+    parentId: "connections",
     group: "Connections",
     label: "Phone & texting",
     description:
@@ -281,6 +211,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "reviews",
+    parentId: "connections",
     group: "Connections",
     label: "Google reviews",
     description:
@@ -292,6 +223,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "stripe",
+    parentId: "connections",
     group: "Connections",
     label: "Stripe payments",
     description: "Configure the Stripe connection used by this organization.",
@@ -328,7 +260,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "secrets",
-    group: "Workspace",
+    group: "Advanced",
     label: "Workflow secrets",
     description: "Manage encrypted credentials used by workflows.",
     questions: ["Which credentials do your workflow actions require?"],
@@ -336,7 +268,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "api-keys",
-    group: "Workspace",
+    group: "Advanced",
     label: "Developer API access",
     description:
       "Create and revoke organization API keys using the existing key manager.",
@@ -347,7 +279,7 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "organization",
-    group: "Workspace",
+    group: "Advanced",
     label: "Organization",
     description: "Owner-only organization lifecycle controls.",
     questions: ["Do you need to archive or restore this business?"],
@@ -384,7 +316,8 @@ export const settingsEntries: SettingsEntry[] = [
   },
   {
     id: "working-hours",
-    group: "Team",
+    parentId: "portal",
+    group: "Customers",
     label: "Working hours",
     description:
       "Business hours and holiday information shown in the customer portal.",
@@ -461,16 +394,12 @@ export function canOpenSettings(
     !config.rolePermissions[group].includes("payments.manage")
   )
     return false;
-  if (
-    entry.workspace &&
-    !config.roleNavigation[group].includes(entry.workspace)
-  )
-    return false;
   return true;
 }
 
 const legacySections: Record<string, string> = {
   business: "brand",
+  messages: "message-templates",
   workspace: "appearance",
   account: "security",
   "connection-google-mail": "email",
@@ -484,4 +413,39 @@ const legacySections: Record<string, string> = {
 export function resolveSettingsSection(value: string) {
   const raw = value.replace(/^#/, "");
   return legacySections[raw] || raw;
+}
+
+/** Canonical settings remain addressable for OAuth, search and existing links.
+ * Only roots appear in the sidebar; child editors retain their own permissions. */
+export function settingsRootId(id: string) {
+  return settingsEntries.find((entry) => entry.id === id)?.parentId || id;
+}
+export function settingsNavigationEntries(
+  config: BusinessConfig,
+  group: WorkspaceGroup,
+) {
+  return settingsEntries.filter(
+    (entry) =>
+      !entry.parentId &&
+      (canOpenSettings(entry, config, group) ||
+        settingsEntries.some(
+          (child) =>
+            child.parentId === entry.id &&
+            canOpenSettings(child, config, group),
+        )),
+  );
+}
+export function settingsWorkspaceDestination(
+  value: string,
+): NavigationPage | undefined {
+  const id = value.replace(/^#/, "");
+  return (
+    {
+      products: "Price book",
+      team: "Team",
+      schedule: "Upcoming",
+      intake: "Leads",
+      automations: "Automation",
+    } as Record<string, NavigationPage>
+  )[id];
 }

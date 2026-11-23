@@ -2,6 +2,14 @@
 
 Scope: every destination and control in the modular-settings update, including the existing editors it reorganizes. Verification uses disposable local Supabase organizations, real authentication, PostgreSQL and Storage, plus browser tests at desktop and 390px phone widths. No production settings, customer messages, provider accounts or payments were changed.
 
+## Navigation cleanup
+
+The final Settings screen has 22 primary entries and 30 retained editor panes. Five workspace-launch pages and the Messages hub are removed. Existing links remain valid through provider/subsection selection or authorized workspace redirects. Company, Roles & access and Connected accounts contain real inline editors; working hours live under Customer portal; personal Calendar remains under My account. Advanced controls are grouped and initially collapsed. Completed required setup collapses into a reopenable checklist summary.
+
+`tests/settings-cleanup.spec.ts` covers every retained editor at phone width, search, root/child permissions and legacy shortcuts. `tests/settings-cleanup-api.spec.ts` checks completed onboarding and an authenticated branding-only member: the Company group remains usable without exposing or allowing company-detail edits. Existing settings, branding, connection, role and operating-settings tests use the same grouped navigation helper.
+
+The numbered 36-destination audit below records the original coverage; shortcut entries now resolve to their actual workspace tools and grouped editors retain their canonical links. These are not 36 sidebar pages.
+
 ## Findings corrected in this update
 
 - Legal business name and compliance help contacts were saved but had no customer-facing reader. Customer email footers and portal contact links now consume them. Display identity and sending email remain separate.
@@ -81,3 +89,5 @@ Second-review result: **349 distinct checks verified**, including all database f
 Working hours are portal information, not an automation policy. All hour-based warnings and scheduling rejection paths are removed. Runtime no longer creates communication-window waits, including when older published versions have that flag enabled. The window editor is removed. Explicit Wait nodes, retry handling and scheduled triggers retain their intentional timing. The release migration wakes only automatic communication holds; it preserves explicit waits and matches each wait to its organization's workflow version. Regression tests cover late-night/weekend execution, unrestricted staff/workflow bookings, the actual public portal display at mobile width, the show/hide control and selective wait release.
 
 Display-only correction verification: 70 focused cases verified with no skipped database fixtures. The initial run passed 69/70; the scheduling-action case passed after its fixture was expanded to provide a real project and complete task details. This includes the actual public portal at 390px, legacy blocking flags, overnight/weekend workflow execution and the wait-release migration. The production build, TypeScript and lint passed. No production migration or deployment was performed.
+
+Cleanup validation: the full local sweep passed **356/356** with no skipped database fixtures. After final search, visibility and readability refinements, a rebuilt application passed **38/38** focused checks, including the added dark-mode contrast case: **357 distinct cases verified across the runs**. All 30 retained editor panes and 22 primary destinations were exercised at phone width. The authenticated branding-only case verifies that grouping does not expose company fields or a link-only portal page; the company-edit API still denies that member. Provider delivery limitations remain as documented above.

@@ -2,6 +2,24 @@
 
 This PR organizes existing settings and adds organization-owned working hours, custom fields, reusable project forms, contract invoice defaults, message templates and portal visibility. Each setting below is connected to its supported workflow. Jobber-inspired organization reuses our existing permissions, providers and record editors.
 
+## Final navigation after cleanup
+
+The sidebar has **22 primary entries** with **30 retained configuration panes**. Provider editors, company controls and role controls use inline subsections; those subsections are not additional sidebar pages.
+
+- **Company:** company details, brand/documents, and compliance/region.
+- **Roles & access:** permissions and navigation by role, sharing the existing business draft/save flow.
+- **Connected accounts:** actual company email, phone/texting, Stripe and Google reviews editors. Personal Google Calendar stays in My account. Disabled providers and unauthorized editors stay hidden.
+- **Customer portal:** portal visibility and display-only working hours.
+- **Advanced:** workflow secrets, developer API access and organization lifecycle, collapsed until needed or found through search.
+- **Setup checklist:** expanded while required setup remains incomplete; completed setup becomes a collapsed, reopenable summary. Optional unconnected providers do not block completion.
+- Other real editors remain directly available: modules, custom fields, quotes/payments, agreement templates, quote flows, forms, invoice defaults, message templates, alerts, history, AI tools and personal account/device preferences.
+
+The Products & services, Manage team, Schedule & availability, Requests & booking and Automations shortcut pages are removed. Their tools remain in Price book, Team, Upcoming, Leads and Automation. Existing `#products`, `#team`, `#schedule`, `#intake` and `#automations` links redirect to the authorized workspace rather than show an intermediate page. The Messages hub is removed; `#messages` reaches the user's permitted message/template or connection settings.
+
+Old company, role, provider and working-hours hashes still select the corresponding inline editor. Search matches child settings and opens the matching editor, not merely the group's first page. All group wrappers preserve the editor's own role, capability and module checks. Company and provider drafts survive changing groups and subsections.
+
+The detailed questions below include the retired shortcut destinations as compatibility references; they are not extra Settings pages.
+
 ## Get started
 
 ### Setup checklist
@@ -33,7 +51,7 @@ Your logos, workspace identity and customer portal banner.
 
 Scope: current organization. Deep link: `?view=Settings#brand`.
 
-### Products & services
+### Products & services (workspace shortcut retired)
 
 Manage reusable labor, materials and contractor pricing in your price book.
 
@@ -63,7 +81,7 @@ Scope: current organization. Deep link: `?view=Settings#compliance`.
 
 ## Team
 
-### Manage team
+### Manage team (workspace shortcut retired)
 
 Invite people and manage existing workspace members.
 
@@ -90,7 +108,7 @@ Control which actions each role can manage.
 
 Scope: current organization. Deep link: `?view=Settings#permissions`.
 
-### Schedule & availability
+### Schedule & availability (workspace shortcut retired)
 
 Manage scheduled work and connect your own Google Calendar.
 
@@ -140,7 +158,7 @@ Find the existing controls for customer documents, branding and project access.
 
 Scope: current organization. Deep link: `?view=Settings#portal`.
 
-### Requests & booking
+### Requests & booking (workspace shortcut retired)
 
 Manage leads and schedule consultations using the existing intake tools.
 
@@ -149,7 +167,7 @@ Manage leads and schedule consultations using the existing intake tools.
 
 Scope: current organization. Uses the existing Leads workspace. Deep link: `?view=Settings#intake`.
 
-### Messages & notifications
+### Messages & notifications (hub retired)
 
 Configure company communication providers and the workflows that deliver messages.
 
@@ -158,7 +176,7 @@ Configure company communication providers and the workflows that deliver message
 
 Scope: current organization. Deep link: `?view=Settings#messages`.
 
-### Automations
+### Automations (workspace shortcut retired)
 
 Reuse the workflow editor for triggers, branches, recipients and delivery results.
 

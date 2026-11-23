@@ -251,8 +251,24 @@ export default function BusinessOnboarding({
   ].filter(Boolean);
   const identityReady = identityMissing.length === 0;
 
+  const complete =
+    !!status &&
+    identityReady &&
+    status.mail.connected &&
+    (!config.modules.automations ||
+      (status.websiteLeads.connected &&
+        status.modules?.automations.configured)) &&
+    (!config.modules.agreements || status.modules?.agreements.configured) &&
+    (!config.modules.payments ||
+      status.payments.selectedProvider === "manual" ||
+      (status.payments.stripeReady && status.payments.enabled));
   return (
-    <div className="onboarding-panel">
+    <details open={!complete} className="onboarding-panel">
+      <summary>
+        {complete
+          ? "Setup complete — review checklist"
+          : "Finish setting up your business"}
+      </summary>
       <div className="onboarding-hero">
         <span className="eyebrow">BUSINESS SETUP</span>
         <h2>Get your business ready</h2>
@@ -619,6 +635,6 @@ export default function BusinessOnboarding({
           )}
         </form>
       )}
-    </div>
+    </details>
   );
 }

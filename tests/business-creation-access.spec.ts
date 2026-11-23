@@ -13,9 +13,9 @@ test("non-administrators only see permitted settings", async ({ page }) => {
   });
   for (const name of [
     "Setup checklist",
-    "Company details",
+    "Company",
     "Connected accounts",
-    "Roles & permissions",
+    "Roles & access",
     "Company alerts",
     "Developer API access",
   ]) {

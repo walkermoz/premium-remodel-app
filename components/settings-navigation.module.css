@@ -234,3 +234,37 @@
     transition: none;
   }
 }
+
+.subsections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.subsections button {
+  border: 1px solid var(--theme-border, #d5dfe6);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: var(--theme-text, #202c36);
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.subsections button[aria-current="page"] {
+  color: var(--blue);
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+}
+.paneTitle {
+  margin: 0 0 18px;
+  font-size: 17px;
+}
+.advancedHeading {
+  cursor: pointer;
+  color: var(--theme-text-muted, #718391);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 6px 10px;
+}

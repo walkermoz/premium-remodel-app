@@ -19,7 +19,7 @@ test("Premium Remodel settings are represented as editable organization defaults
     "Wake County, North Carolina",
   );
 
-  await page.getByRole("button", { name: "Roles & permissions" }).click();
+  await page.getByRole("button", { name: "Roles & access" }).click();
   const ownerBusiness = page.getByLabel("Owner: Business settings");
   await expect(ownerBusiness).toBeChecked();
   await expect(ownerBusiness).toBeDisabled();

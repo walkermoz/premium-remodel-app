@@ -71,7 +71,9 @@ test("every settings destination renders on mobile without horizontal overflow",
       label: item.textContent!.trim(),
     })),
   );
-  expect(options).toHaveLength(settingsEntries.length);
+  expect(options).toHaveLength(
+    settingsEntries.filter((entry) => !entry.parentId).length,
+  );
   for (const { id, label } of options) {
     await openSettingsSection(page, label);
     await expect(picker).toHaveValue(id);

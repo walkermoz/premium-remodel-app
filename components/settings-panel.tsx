@@ -11,6 +11,9 @@ import {
   canOpenSettings,
   resolveSettingsSection,
   settingsEntries,
+  settingsRootId,
+  settingsNavigationEntries,
+  settingsWorkspaceDestination,
 } from "@/lib/settings-navigation";
 import OperatingSettingsEditor from "./operating-settings-editor";
 import GenerationSettings from "./generation-settings";
@@ -31,105 +34,8 @@ import QuoteFlowTemplatesSettings from "./quote-flow-templates-settings";
 import StripePaymentSettings from "./stripe-payment-settings";
 import OrganizationLifecycleSettings from "./organization-lifecycle-settings";
 import AccountSecuritySettings from "./account-security-settings";
-import { useOrganizationConnections } from "./use-organization-connections";
+import { canOpenWorkspaceTab } from "@/lib/workspace-tab-access";
 import styles from "./settings-navigation.module.css";
-
-function ConnectionDirectory({
-  demo,
-  available,
-  onSelect,
-}: {
-  demo: boolean;
-  available: string[];
-  onSelect: (id: string) => void;
-}) {
-  const { registry, loading, error, refresh } =
-    useOrganizationConnections(demo);
-  const connections = [
-    {
-      id: "email",
-      capability: "google_mail",
-      label: "Company email",
-      detail: "Company Google account for sending email",
-    },
-    {
-      id: "phone",
-      capability: "twilio_sms",
-      label: "Phone & texting",
-      detail: "Shared Twilio account and phone number",
-    },
-    {
-      id: "stripe",
-      capability: "stripe_payments",
-      label: "Stripe payments",
-      detail: "Company payment processing account",
-    },
-    {
-      id: "calendar",
-      capability: "google_calendar",
-      label: "My Google Calendar",
-      detail: "Your personal calendar connection",
-    },
-    {
-      id: "reviews",
-      capability: null,
-      label: "Google reviews",
-      detail: "Google Business Profile account and location",
-    },
-  ] as const;
-  return (
-    <>
-      {error && (
-        <div className="alert" role="alert">
-          {error}{" "}
-          <button type="button" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
-      )}
-      <div className={styles.links}>
-        {connections
-          .filter((item) => available.includes(item.id))
-          .map((item) => {
-            const status = item.capability
-              ? registry?.capabilities[item.capability]
-              : null;
-            return (
-              <button
-                type="button"
-                className={styles.link}
-                key={item.id}
-                onClick={() => onSelect(item.id)}
-              >
-                <div>
-                  <strong>{item.label}</strong>
-                  <span>{item.detail}</span>
-                  <span>
-                    {item.capability
-                      ? loading
-                        ? "Checking connection..."
-                        : error
-                          ? "Status unavailable"
-                          : status
-                            ? {
-                                ready: "Ready",
-                                missing: "Needs setup",
-                                degraded: "Needs attention",
-                                disabled: "Disabled",
-                              }[status.state]
-                            : "Check setup"
-                      : "Open to check connection"}
-                    {demo && item.capability ? " - sample status" : ""}
-                  </span>
-                </div>
-                <ChevronRight size={17} />
-              </button>
-            );
-          })}
-      </div>
-    </>
-  );
-}
 
 export default function SettingsPanel({
   user,
@@ -152,6 +58,7 @@ export default function SettingsPanel({
   const available = settingsEntries.filter((entry) =>
     canOpenSettings(entry, config, user.group),
   );
+  const roots = settingsNavigationEntries(config, user.group);
   const defaultId = available[0]?.id || "security";
   const [selected, setSelected] = useState(defaultId);
   const [visited, setVisited] = useState<string[]>([defaultId]);
@@ -171,24 +78,77 @@ export default function SettingsPanel({
       ? [...organizationCapabilities]
       : config.rolePermissions[user.group];
   const hasBusiness = available.some((entry) => entry.businessTab);
-  const visible = available.filter((entry) =>
-    [entry.label, entry.group, entry.description, ...entry.questions]
+  const matches = (entry: (typeof settingsEntries)[number]) =>
+    [entry.id, entry.label, entry.group, entry.description, ...entry.questions]
       .join(" ")
       .toLowerCase()
-      .includes(search.trim().toLowerCase()),
+      .includes(search.trim().toLowerCase());
+  const visible = roots.filter((root) =>
+    available.some(
+      (entry) => settingsRootId(entry.id) === root.id && matches(entry),
+    ),
   );
+  const rootId = settingsRootId(activeId);
+  const root = settingsEntries.find((entry) => entry.id === rootId)!;
+  const subsections = available.filter(
+    (entry) =>
+      settingsRootId(entry.id) === rootId && entry.id !== "connections",
+  );
+  const paneId =
+    activeId === "connections" ? subsections[0]?.id || activeId : activeId;
   const groups = [...new Set(visible.map((entry) => entry.group))];
+  const workspaceHref = useCallback(
+    (view: NavigationPage) => {
+      const params = new URLSearchParams({ view });
+      if (demo && user.group === "doorknocker") params.set("as", "doorknocker");
+      return `${demo ? "/demo" : "/"}?${params}`;
+    },
+    [demo, user.group],
+  );
+  const permittedSection = useCallback(
+    (value: string) => {
+      const requested = resolveSettingsSection(value);
+      const candidates =
+        value.replace(/^#/, "") === "messages"
+          ? ["message-templates", "connections", "compliance"]
+          : [requested];
+      for (const id of candidates) {
+        const direct = settingsEntries.find(
+          (entry) =>
+            entry.id === id && canOpenSettings(entry, config, user.group),
+        );
+        if (direct) return direct.id;
+        const child = settingsEntries.find(
+          (entry) =>
+            entry.parentId === id && canOpenSettings(entry, config, user.group),
+        );
+        if (child) return child.id;
+      }
+    },
+    [config, user.group],
+  );
 
   useEffect(() => {
     const applyLocation = () => {
-      const next = resolveSettingsSection(window.location.hash);
-      if (
-        !settingsEntries.some(
-          (entry) =>
-            entry.id === next && canOpenSettings(entry, config, user.group),
-        )
-      )
+      const destination = settingsWorkspaceDestination(window.location.hash);
+      if (destination) {
+        if (canOpenWorkspaceTab(config, user.group, destination))
+          window.location.replace(workspaceHref(destination));
+        else
+          setNavigationNotice(
+            "This workspace is unavailable for your role or an enabled module.",
+          );
         return;
+      }
+      const next = permittedSection(window.location.hash);
+      if (!next) {
+        if (
+          window.location.hash === "#messages" &&
+          canOpenWorkspaceTab(config, user.group, "Automation")
+        )
+          window.location.replace(workspaceHref("Automation"));
+        return;
+      }
       setSelected(next);
       setVisited((current) =>
         current.includes(next) ? current : [...current, next],
@@ -201,7 +161,7 @@ export default function SettingsPanel({
       window.removeEventListener("hashchange", applyLocation);
       window.removeEventListener("popstate", applyLocation);
     };
-  }, [config, user.group]);
+  }, [config, user.group, workspaceHref, permittedSection]);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirtyRef.current) return;
@@ -213,8 +173,18 @@ export default function SettingsPanel({
   }, []);
 
   function selectSection(value: string) {
-    const id = resolveSettingsSection(value);
-    if (!available.some((entry) => entry.id === id)) {
+    const destination = settingsWorkspaceDestination(value);
+    if (destination) {
+      if (canOpenWorkspaceTab(config, user.group, destination))
+        window.location.assign(workspaceHref(destination));
+      else
+        setNavigationNotice(
+          "This workspace is unavailable for your role or an enabled module.",
+        );
+      return;
+    }
+    const id = permittedSection(value);
+    if (!id) {
       setNavigationNotice(
         "This section is unavailable for your role or an enabled module. Ask a workspace owner to review access and module setup.",
       );
@@ -227,14 +197,8 @@ export default function SettingsPanel({
     );
     window.history.pushState(null, "", `#${id}`);
   }
-  function workspaceHref(view: NavigationPage) {
-    const params = new URLSearchParams();
-    params.set("view", view);
-    if (demo && user.group === "doorknocker") params.set("as", "doorknocker");
-    return `${demo ? "/demo" : "/"}?${params}`;
-  }
   function workspaceLink(view: NavigationPage, label: string, detail: string) {
-    if (!config.roleNavigation[user.group].includes(view)) return null;
+    if (!canOpenWorkspaceTab(config, user.group, view)) return null;
     return (
       <a className={styles.link} href={workspaceHref(view)}>
         <div>
@@ -265,27 +229,6 @@ export default function SettingsPanel({
   function renderSection(id: string) {
     const entry = available.find((item) => item.id === id);
     if (!entry) return null;
-    if (entry.workspace)
-      return (
-        <>
-          <p className={styles.notice}>
-            {id === "intake"
-              ? "Open a lead to review its details or schedule a consultation. Customer self-booking rules are not configured on this page."
-              : "Use the existing workspace to manage these records."}
-          </p>
-          {workspaceLink(
-            entry.workspace,
-            `Open ${entry.workspace.toLowerCase()}`,
-            entry.description,
-          )}
-          {id === "schedule" && (
-            <>
-              {settingsLink("working-hours")}
-              {settingsLink("calendar")}
-            </>
-          )}
-        </>
-      );
     const operatingSections = {
       "working-hours": "hours",
       "custom-fields": "customFields",
@@ -372,14 +315,6 @@ export default function SettingsPanel({
             <InstallAppPanel />
           </>
         );
-      case "connections":
-        return (
-          <ConnectionDirectory
-            demo={demo}
-            available={available.map((item) => item.id)}
-            onSelect={selectSection}
-          />
-        );
       case "portal":
         return (
           <>
@@ -410,27 +345,35 @@ export default function SettingsPanel({
             </div>
           </>
         );
-      case "messages":
-        return (
-          <>
-            <p className={styles.notice}>
-              Sending accounts are shared company connections. Message timing,
-              actions and notification recipients are configured in the existing
-              workflow editor.
-            </p>
-            <div className={styles.links}>
-              {settingsLink("message-templates")}
-              {settingsLink("email")}
-              {settingsLink("phone")}
-              {settingsLink("compliance")}
-              {settingsLink("automations")}
-            </div>
-          </>
-        );
       default:
         return null;
     }
   }
+  const navEntries = (group: string) =>
+    visible
+      .filter((entry) => entry.group === group)
+      .map((entry) => (
+        <button
+          className={styles.entry}
+          key={entry.id}
+          type="button"
+          aria-current={rootId === entry.id ? "page" : undefined}
+          onClick={() => {
+            const candidate = search
+              ? available.find(
+                  (child) =>
+                    settingsRootId(child.id) === entry.id &&
+                    child.id !== "connections" &&
+                    matches(child),
+                )
+              : null;
+            selectSection(candidate?.id || entry.id);
+          }}
+        >
+          {entry.label}
+          {rootId === entry.id && <ChevronRight size={13} aria-hidden="true" />}
+        </button>
+      ));
   const searchField = (id: string) => (
     <div className={styles.search}>
       <Search size={15} aria-hidden="true" />
@@ -444,7 +387,17 @@ export default function SettingsPanel({
       />
     </div>
   );
-  const mounted = [...new Set([...visited, activeId])].filter((id) =>
+  const mounted = [
+    ...new Set([
+      ...visited.map((id) =>
+        id === "connections"
+          ? available.find((entry) => entry.parentId === "connections")?.id ||
+            id
+          : id,
+      ),
+      paneId,
+    ]),
+  ].filter((id) =>
     available.some((entry) => entry.id === id && !entry.businessTab),
   );
   return (
@@ -463,13 +416,21 @@ export default function SettingsPanel({
         <label htmlFor="settings-section">Settings section</label>
         <select
           id="settings-section"
-          value={visible.some((entry) => entry.id === activeId) ? activeId : ""}
+          value={visible.some((entry) => entry.id === rootId) ? rootId : ""}
           onChange={(event) => {
-            selectSection(event.target.value);
+            const candidate = search
+              ? available.find(
+                  (entry) =>
+                    settingsRootId(entry.id) === event.target.value &&
+                    entry.id !== "connections" &&
+                    matches(entry),
+                )
+              : null;
+            selectSection(candidate?.id || event.target.value);
             setSearch("");
           }}
         >
-          {!visible.some((entry) => entry.id === activeId) && (
+          {!visible.some((entry) => entry.id === rootId) && (
             <option value="">
               {visible.length
                 ? "Choose a matching section"
@@ -492,27 +453,23 @@ export default function SettingsPanel({
       <div className={styles.layout}>
         <nav className={styles.sidebar} aria-label="Settings categories">
           {searchField("desktop-settings-search")}
-          {groups.map((group) => (
-            <section className={styles.group} key={group}>
-              <h2>{group}</h2>
-              {visible
-                .filter((entry) => entry.group === group)
-                .map((entry) => (
-                  <button
-                    className={styles.entry}
-                    key={entry.id}
-                    type="button"
-                    aria-current={activeId === entry.id ? "page" : undefined}
-                    onClick={() => selectSection(entry.id)}
-                  >
-                    {entry.label}
-                    {activeId === entry.id && (
-                      <ChevronRight size={13} aria-hidden="true" />
-                    )}
-                  </button>
-                ))}
-            </section>
-          ))}
+          {groups.map((group) =>
+            group === "Advanced" ? (
+              <details
+                key={group}
+                className={styles.group}
+                open={!!search || root.group === "Advanced"}
+              >
+                <summary className={styles.advancedHeading}>Advanced</summary>
+                {navEntries(group)}
+              </details>
+            ) : (
+              <section className={styles.group} key={group}>
+                <h2>{group}</h2>
+                {navEntries(group)}
+              </section>
+            ),
+          )}
           {!visible.length && (
             <p className={styles.notice}>
               No matching settings. Try company, phone or calendar.
@@ -529,16 +486,14 @@ export default function SettingsPanel({
             <div className={styles.breadcrumb}>
               <span>Settings</span>
               <ChevronRight size={12} />
-              <span>{active.group}</span>
+              <span>{root.group}</span>
               <span className={styles.scope}>
                 {active.scope === "personal"
                   ? "Your account"
-                  : active.id === "connections" || active.id === "schedule"
-                    ? "Company & personal"
-                    : "Company workspace"}
+                  : "Company workspace"}
               </span>
             </div>
-            <h2>{active.label}</h2>
+            <h2>{root.label}</h2>
             <p>{active.description}</p>
             <details className={styles.guide} key={activeId}>
               <summary>What can I configure here?</summary>
@@ -549,6 +504,32 @@ export default function SettingsPanel({
               </ul>
             </details>
           </header>
+          {subsections.length > 1 && (
+            <nav
+              className={styles.subsections}
+              aria-label="Settings subsections"
+            >
+              {subsections.map((entry) => (
+                <button
+                  type="button"
+                  key={entry.id}
+                  aria-current={paneId === entry.id ? "page" : undefined}
+                  onClick={() => selectSection(entry.id)}
+                >
+                  {entry.id === "company"
+                    ? "Company details"
+                    : entry.id === "permissions"
+                      ? "Permissions"
+                      : entry.id === "portal"
+                        ? "Portal visibility"
+                        : entry.label}
+                </button>
+              ))}
+            </nav>
+          )}
+          {active.parentId && (
+            <h3 className={styles.paneTitle}>{active.label}</h3>
+          )}
           {businessDirty && (
             <div className={styles.draft} role="status">
               Your unsaved business changes are kept while you browse settings.{" "}
@@ -575,7 +556,7 @@ export default function SettingsPanel({
             </div>
           )}
           {mounted.map((id) => (
-            <div hidden={id !== activeId} key={id}>
+            <div hidden={id !== paneId} key={id}>
               {renderSection(id)}
             </div>
           ))}
