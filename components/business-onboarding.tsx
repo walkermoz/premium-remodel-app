@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import type { BusinessConfig } from "@/lib/business-config";
 import type {
   OrganizationConnectionCapability,
@@ -39,56 +40,57 @@ type Status = {
   };
 };
 
-function connectionStepState(
-  connection: OrganizationConnectionCapability | undefined,
-): "connected" | "optional" | "blocked" | "todo" {
-  if (connection?.state === "ready") return "connected";
-  if (connection?.state === "disabled") return "optional";
-  if (connection?.state === "degraded") return "todo";
-  return "blocked";
-}
-
-function Step({
-  number,
-  title,
-  state,
-  detail,
-  action,
-  onAction,
-}: {
-  number: string;
+type SetupStep = {
+  id: string;
   title: string;
-  state: "ready" | "connected" | "todo" | "optional" | "blocked";
+  state: "ready" | "connected" | "todo" | "blocked";
+  required: boolean;
   detail: string;
   action?: string;
   onAction?: () => void;
-}) {
-  const status = {
-    ready: "Ready",
-    connected: "Connected",
-    todo: "To do",
-    optional: "Optional",
-    blocked: "Needs setup",
-  }[state];
+};
+
+function isComplete(step: SetupStep) {
+  return step.state === "ready" || step.state === "connected";
+}
+
+function Step({ step }: { step: SetupStep }) {
+  const done = isComplete(step);
+  const status = done
+    ? step.state === "connected"
+      ? "Connected"
+      : "Ready"
+    : !step.required
+      ? "Optional"
+      : step.state === "blocked"
+        ? "Needs setup"
+        : "To do";
   return (
     <li className="onboarding-step">
-      <span className="onboarding-number" aria-hidden="true">
-        {number}
+      <span
+        className={`onboarding-marker${done ? " complete" : ""}`}
+        aria-hidden="true"
+      >
+        {done && <Check size={13} />}
       </span>
       <div className="onboarding-step-copy">
         <div className="onboarding-step-heading">
-          <h3>{title}</h3>
-          <span className={`onboarding-state ${state}`}>{status}</span>
+          <h3>{step.title}</h3>
+          <span
+            className={`onboarding-state ${done ? step.state : step.required ? step.state : "optional"}`}
+          >
+            {status}
+          </span>
         </div>
-        <p>{detail}</p>
+        <p>{step.detail}</p>
       </div>
-      {action && onAction && (
+      {step.action && step.onAction && (
         <button
           type="button"
           className="button secondary small-button"
-          onClick={onAction}
+          onClick={step.onAction}
         >
-          {action}
+          {step.action}
         </button>
       )}
     </li>
@@ -251,347 +253,313 @@ export default function BusinessOnboarding({
   ].filter(Boolean);
   const identityReady = identityMissing.length === 0;
 
-  const complete =
-    !!status &&
-    identityReady &&
-    status.mail.connected &&
-    (!config.modules.automations ||
-      (status.websiteLeads.connected &&
-        status.modules?.automations.configured)) &&
-    (!config.modules.agreements || status.modules?.agreements.configured) &&
-    (!config.modules.payments ||
-      status.payments.selectedProvider === "manual" ||
-      (status.payments.stripeReady && status.payments.enabled));
+  const openAutomation = () =>
+    window.location.assign(`${demo ? "/demo" : "/"}?view=Automation`);
+  const optionalConnection = (
+    id: OrganizationConnectionId,
+  ): SetupStep["state"] =>
+    status?.connections[id]?.state === "ready" ? "connected" : "todo";
+  const paymentsReady =
+    status?.payments.selectedProvider === "manual" ||
+    (status?.payments.stripeReady && status.payments.enabled);
+  const steps: SetupStep[] = [
+    {
+      id: "business",
+      title: "Create business",
+      required: true,
+      state: "ready",
+      detail: `${config.profile.name} has its own workspace.`,
+    },
+    {
+      id: "identity",
+      title: "Company details & branding",
+      required: true,
+      state: identityReady ? "ready" : "todo",
+      detail: identityReady
+        ? "Logo, website and public contact details are ready."
+        : `Add ${identityMissing.join(", ")}.`,
+      action: "Edit company",
+      onAction: () => onNavigate("business"),
+    },
+    {
+      id: "mail",
+      title: "Company email",
+      required: true,
+      state: status?.mail.connected
+        ? "connected"
+        : status && !status.mail.configured
+          ? "blocked"
+          : "todo",
+      detail: status?.mail.connected
+        ? `Sending from ${status.mail.email || "your connected mailbox"}.`
+        : status && !status.mail.configured
+          ? "Google email needs platform setup before you can connect."
+          : "Connect Gmail to send quotes and portal messages.",
+      action: status?.mail.connected ? "View connection" : "Connect Gmail",
+      onAction: () => openConnection("connections", "connection-google-mail"),
+    },
+    {
+      id: "leads",
+      title: "Website lead form",
+      required: config.modules.automations,
+      state: status?.websiteLeads.connected ? "ready" : "todo",
+      detail: status?.websiteLeads.connected
+        ? "Website lead intake is connected."
+        : config.modules.automations
+          ? "Publish Website lead intake, then connect its private form URL."
+          : "Enable Automations when you want website leads to enter a workflow.",
+      action: config.modules.automations ? "Open Automation" : "Manage modules",
+      onAction: config.modules.automations
+        ? openAutomation
+        : () => onNavigate("business", "modules"),
+    },
+    {
+      id: "automations",
+      title: "Automations",
+      required: config.modules.automations,
+      state:
+        config.modules.automations && status?.modules?.automations.configured
+          ? "ready"
+          : "todo",
+      detail: status?.modules?.automations.configured
+        ? "A workflow is published."
+        : config.modules.automations
+          ? "Review and publish a workflow for this business."
+          : "Enable workflows when your team needs them.",
+      action: config.modules.automations ? "Open Automation" : "Manage modules",
+      onAction: config.modules.automations
+        ? openAutomation
+        : () => onNavigate("business", "modules"),
+    },
+    {
+      id: "agreements",
+      title: "Agreement templates",
+      required: config.modules.agreements,
+      state:
+        config.modules.agreements && status?.modules?.agreements.configured
+          ? "ready"
+          : "todo",
+      detail: status?.modules?.agreements.configured
+        ? "A published agreement template is available."
+        : config.modules.agreements
+          ? "Publish a template for your customer agreements."
+          : "Enable agreements when you need customer signatures.",
+      action: config.modules.agreements
+        ? "Agreement library"
+        : "Manage modules",
+      onAction: () =>
+        onNavigate(
+          "business",
+          config.modules.agreements ? "agreements" : "modules",
+        ),
+    },
+    {
+      id: "payments",
+      title: "Payments",
+      required: config.modules.payments,
+      state: config.modules.payments && paymentsReady ? "ready" : "todo",
+      detail: !config.modules.payments
+        ? "Enable payments when you want to collect them in the portal."
+        : status?.payments.selectedProvider === "manual"
+          ? "Manual payments are selected; Stripe is optional."
+          : paymentsReady
+            ? "Stripe is ready to collect payments."
+            : status?.payments.stripeConnected
+              ? "Finish Stripe verification and enable payment links."
+              : "Connect Stripe, or choose manual payments.",
+      action: config.modules.payments ? "Payment settings" : "Manage modules",
+      onAction: () =>
+        onNavigate("business", config.modules.payments ? "quotes" : "modules"),
+    },
+    {
+      id: "phone",
+      title: "Texting",
+      required: false,
+      state: status?.phone.connected ? "connected" : "todo",
+      detail: status?.phone.connected
+        ? "Your company texting number is connected."
+        : "Connect Twilio when you want to send texts.",
+      action: status?.phone.connected ? "Check phone" : "Connect phone",
+      onAction: () => openConnection("connections", "connection-twilio"),
+    },
+    {
+      id: "reviews",
+      title: "Google reviews",
+      required: false,
+      state: status?.googleReviews.connected ? "connected" : "todo",
+      detail: status?.googleReviews.connected
+        ? `Reviews connected${status.googleReviews.locationTitle ? ` for ${status.googleReviews.locationTitle}` : "; choose a location in Google reviews"}.`
+        : status && !status.googleReviews.configured
+          ? "Available after Google Business Profile platform setup."
+          : "Connect the Google account that manages your business listing.",
+      action: status?.googleReviews.connected
+        ? "View connection"
+        : "Connect reviews",
+      onAction: () =>
+        openConnection("connections", "connection-google-business"),
+    },
+    {
+      id: "calendar",
+      title: "Personal calendar",
+      required: false,
+      state: optionalConnection("google_calendar"),
+      detail:
+        "Copy appointments to Google Calendar. The built-in schedule works without it.",
+      action: "Calendar settings",
+      onAction: () => openConnection("account", "connection-google-calendar"),
+    },
+    {
+      id: "ai",
+      title: "AI tools",
+      required: false,
+      state: optionalConnection("openrouter_generation"),
+      detail: "Connect a provider for renovation image previews.",
+      action: "Generation settings",
+      onAction: () => openConnection("workspace", "connection-openrouter"),
+    },
+    {
+      id: "notifications",
+      title: "Team notifications",
+      required: false,
+      state: optionalConnection("team_notifications"),
+      detail: "Configure a team destination in your notification workflow.",
+      action: "Open Automation",
+      onAction: openAutomation,
+    },
+    {
+      id: "secrets",
+      title: "Workflow secrets",
+      required: false,
+      state: optionalConnection("workflow_secrets"),
+      detail: "Store protected URLs and headers for workflows that need them.",
+      action: "Manage secrets",
+      onAction: () => openConnection("connections", "connection-secrets"),
+    },
+  ];
+  const required = steps.filter((step) => step.required);
+  const remaining = required.filter((step) => !isComplete(step));
+  const completed = required.filter(isComplete);
+  const optional = steps.filter((step) => !step.required);
+  const loaded = Boolean(status || demo);
   return (
-    <details open={!complete} className="onboarding-panel">
-      <summary>
-        {complete
-          ? "Setup complete — review checklist"
-          : "Finish setting up your business"}
-      </summary>
-      <div className="onboarding-hero">
-        <span className="eyebrow">BUSINESS SETUP</span>
-        <h2>Get your business ready</h2>
-        <p>
-          Follow these steps to put your own branding and connections in place.
-          You can come back to this checklist at any time.
-        </p>
-      </div>
+    <section className="onboarding-panel" aria-label="Business setup checklist">
       {loadError && (
         <div className="alert" role="alert">
           {loadError}
         </div>
       )}
-      {!demo && !status && !loadError && (
+      {!loaded && !loadError && (
         <p className="generation-note" role="status">
           Checking connections…
         </p>
       )}
-      {(status || demo) && (
-        <ol className="onboarding-steps">
-          <Step
-            number="01"
-            title="Create business"
-            state="ready"
-            detail={`${config.profile.name} is its own workspace.`}
-          />
-          <Step
-            number="02"
-            title="Set brand and website"
-            state={identityReady ? "ready" : "todo"}
-            detail={
-              identityReady
-                ? "Logo and public contact details are in place."
-                : `Add ${identityMissing.join(", ")} in Business settings.`
-            }
-            action="Edit business"
-            onAction={() => onNavigate("business")}
-          />
-          <Step
-            number="03"
-            title="Connect mailbox"
-            state={
-              status?.mail.connected
-                ? "connected"
-                : status && !status.mail.configured
-                  ? "blocked"
-                  : "todo"
-            }
-            detail={
-              status?.mail.connected
-                ? `Email sends from ${status.mail.email}.`
-                : status && !status.mail.configured
-                  ? "Google connection needs one-time platform setup. Your business does not need Google API keys."
-                  : "Authorize the company Gmail account used for quotes and portal messages."
-            }
-            action={
-              status?.mail.connected ? "View connection" : "Connect Gmail"
-            }
-            onAction={() =>
-              openConnection("connections", "connection-google-mail")
-            }
-          />
-          <Step
-            number="04"
-            title="Connect Google reviews"
-            state={
-              status?.googleReviews.connected
-                ? "connected"
-                : status && !status.googleReviews.configured
-                  ? "blocked"
-                  : "optional"
-            }
-            detail={
-              status?.googleReviews.connected
-                ? `Reviews are connected${status.googleReviews.locationTitle ? ` for ${status.googleReviews.locationTitle}` : "; choose a location in Analytics"}.`
-                : status && !status.googleReviews.configured
-                  ? "Optional. The platform needs one-time Google Business Profile API setup; your business does not need API keys."
-                  : "Optional. Connect the Google account that manages your verified business listing."
-            }
-            action={
-              status?.googleReviews.connected
-                ? "View connection"
-                : "Connect reviews"
-            }
-            onAction={() =>
-              openConnection("connections", "connection-google-business")
-            }
-          />
-          <Step
-            number="05"
-            title="Connect lead form"
-            state={status?.websiteLeads.connected ? "ready" : "blocked"}
-            detail={
-              status?.websiteLeads.connected
-                ? status.websiteLeads.mode === "workflow_webhook"
-                  ? "A private workflow endpoint is ready for this business’s website form."
-                  : "The existing website lead form is connected."
-                : "Review the Website lead intake starter in Automation, publish it, and generate its private webhook URL for your site."
-            }
-            action="Open Automation"
-            onAction={() => window.location.assign("/?view=Automation")}
-          />
-          <Step
-            number="06"
-            title="Connect texting"
-            state={status?.phone.connected ? "connected" : "optional"}
-            detail={
-              status?.phone.connected
-                ? "The company Twilio account is connected. Check its number and verification in Connections."
-                : "Optional. Add your company Twilio account when you want to send texts."
-            }
-            action={status?.phone.connected ? "Check phone" : "Connect phone"}
-            onAction={() => openConnection("connections", "connection-twilio")}
-          />
-          <Step
-            number="07"
-            title="Choose payments"
-            state={
-              !status?.modules?.payments.enabled
-                ? "optional"
-                : status?.payments.selectedProvider === "manual"
-                  ? "ready"
-                  : status?.payments.stripeConnected
-                    ? status.payments.stripeReady && status.payments.enabled
-                      ? "connected"
-                      : "todo"
-                    : "blocked"
-            }
-            detail={
-              !status?.modules?.payments.enabled
-                ? "Optional. Payments are disabled for this business and can be enabled in Business modules."
-                : status?.payments.selectedProvider === "manual"
-                  ? "Manual payments are selected. Stripe can be enabled after the platform connects an account."
-                  : status?.payments.stripeConnected
-                    ? !status.payments.stripeReady
-                      ? "Stripe is connected but needs additional account verification before collecting card payments."
-                      : status.payments.enabled
-                        ? "Stripe is connected for this business."
-                        : "Stripe is connected. Enable payment links in Business settings to use it."
-                    : "Stripe is selected but this business has no Stripe account configured yet."
-            }
-            action={
-              status?.modules?.payments.enabled
-                ? "Payment settings"
-                : "Manage modules"
-            }
-            onAction={() =>
-              status?.modules?.payments.enabled
-                ? openConnection("connections", "connection-stripe")
-                : onNavigate("business", "modules")
-            }
-          />
-          <Step
-            number="08"
-            title="Choose automations"
-            state={
-              !status?.modules?.automations.enabled
-                ? "optional"
-                : status.modules.automations.configured
-                  ? "ready"
-                  : "todo"
-            }
-            detail={
-              !status?.modules?.automations.enabled
-                ? "Optional. Automations are disabled for this business; existing workflow drafts are retained."
-                : status.modules.automations.configured
-                  ? "The module is enabled and at least one optional workflow is published."
-                  : "The module is enabled. Review a starter or build and publish this business’s first workflow."
-            }
-            action={
-              status?.modules?.automations.enabled
-                ? "Open Automation"
-                : "Manage modules"
-            }
-            onAction={() =>
-              status?.modules?.automations.enabled
-                ? window.location.assign("/?view=Automation")
-                : onNavigate("business", "modules")
-            }
-          />
-          <Step
-            number="09"
-            title="Set up agreements"
-            state={
-              !status?.modules?.agreements.enabled
-                ? "optional"
-                : status.modules.agreements.configured
-                  ? "ready"
-                  : "todo"
-            }
-            detail={
-              !status?.modules?.agreements.enabled
-                ? "Optional. Agreements are disabled for this business; saved templates are retained."
-                : status.modules.agreements.configured
-                  ? "The module is enabled and a published agreement template is available."
-                  : "The module is enabled. Upload a PDF or write this business’s first agreement."
-            }
-            action={
-              status?.modules?.agreements.enabled
-                ? "Agreement library"
-                : "Manage modules"
-            }
-            onAction={() =>
-              onNavigate(
-                "business",
-                status?.modules?.agreements.enabled ? "agreements" : "modules",
-              )
-            }
-          />
-          <Step
-            number="10"
-            title="Connect personal calendars"
-            state={connectionStepState(status?.connections.google_calendar)}
-            detail={
-              status?.connections.google_calendar.detail ||
-              "Optional. Each member can connect a private Google Calendar copy; the built-in schedule always remains available."
-            }
-            action="Calendar settings"
-            onAction={() =>
-              openConnection("account", "connection-google-calendar")
-            }
-          />
-          <Step
-            number="11"
-            title="Configure AI tools"
-            state={connectionStepState(
-              status?.connections.openrouter_generation,
-            )}
-            detail={
-              status?.connections.openrouter_generation.detail ||
-              "Optional. Configure an image provider before generating renovation previews."
-            }
-            action="Generation settings"
-            onAction={() =>
-              openConnection("workspace", "connection-openrouter")
-            }
-          />
-          <Step
-            number="12"
-            title="Connect team notifications"
-            state={connectionStepState(status?.connections.team_notifications)}
-            detail={
-              status?.connections.team_notifications.detail ||
-              "Optional. Connect a team destination before publishing required notification steps."
-            }
-            action="Connection settings"
-            onAction={() => onNavigate("connections")}
-          />
-          <Step
-            number="13"
-            title="Add workflow secrets"
-            state={connectionStepState(status?.connections.workflow_secrets)}
-            detail={
-              status?.connections.workflow_secrets.detail ||
-              "Optional. Store protected webhook URLs and headers for workflow HTTPS requests."
-            }
-            action="Manage secrets"
-            onAction={() => openConnection("connections", "connection-secrets")}
-          />
-        </ol>
-      )}
-      <div className="onboarding-test">
-        <div>
-          <h3>Run test sends</h3>
-          <p>
-            Confirm the mailbox with an email to your signed-in address. If
-            texting is connected, send one test to your own mobile number.
+      {loaded && (
+        <>
+          <p className="onboarding-progress" role="status">
+            {remaining.length
+              ? `${completed.length} of ${required.length} required tasks complete`
+              : "Required setup complete"}
           </p>
-        </div>
-        <div className="onboarding-test-actions">
-          <button
-            type="button"
-            className="button secondary"
-            disabled={!admin || !status?.mail.connected || sending || demo}
-            onClick={() => void sendTestEmail()}
-          >
-            {sending ? "Sending…" : "Send test email"}
-          </button>
-          {status?.phone.connected && admin && !demo && (
-            <form onSubmit={(event) => void sendTestSms(event)}>
-              <label>
-                Your mobile number
-                <input
-                  type="tel"
-                  value={smsPhone}
-                  onChange={(event) => setSmsPhone(event.target.value)}
-                  placeholder="(555) 555-0123"
-                  required
-                  maxLength={24}
-                  disabled={smsSending}
-                />
-              </label>
-              <label className="onboarding-own-number">
-                <input
-                  type="checkbox"
-                  checked={ownNumber}
-                  onChange={(event) => setOwnNumber(event.target.checked)}
-                  required
-                  disabled={smsSending}
-                />
-                <span className="onboarding-checkbox" aria-hidden="true" />
-                <span>This is my number</span>
-              </label>
-              <button
-                className="button secondary"
-                disabled={smsSending || !ownNumber}
-              >
-                {smsSending ? "Sending…" : "Send test text"}
-              </button>
-            </form>
+          {remaining.length > 0 && (
+            <section
+              aria-label="Remaining setup"
+              className="onboarding-remaining"
+            >
+              <h3 className="onboarding-group-title">Remaining setup</h3>
+              <ul className="onboarding-steps">
+                {remaining.map((step) => (
+                  <Step key={step.id} step={step} />
+                ))}
+              </ul>
+            </section>
           )}
-        </div>
-      </div>
-      {testResult && (
-        <div className={testError ? "alert" : "success-note"} role="status">
-          {testResult}
-        </div>
+          {completed.length > 0 && (
+            <details className="onboarding-group">
+              <summary>Completed ({completed.length})</summary>
+              <ul className="onboarding-steps">
+                {completed.map((step) => (
+                  <Step key={step.id} step={step} />
+                ))}
+              </ul>
+            </details>
+          )}
+          <details className="onboarding-group">
+            <summary>Optional tools ({optional.length})</summary>
+            <p className="onboarding-group-note">
+              Add these when you need them. They do not block setup completion.
+            </p>
+            <ul className="onboarding-steps">
+              {optional.map((step) => (
+                <Step key={step.id} step={step} />
+              ))}
+            </ul>
+          </details>
+        </>
       )}
-      {smsResult && (
-        <div className={smsError ? "alert" : "success-note"} role="status">
-          {smsResult}
+      <details className="onboarding-group">
+        <summary>Test connections</summary>
+        <div className="onboarding-test">
+          <div>
+            <p>
+              Send a test email to your signed-in address, or a text to your own
+              number once connected.
+            </p>
+          </div>
+          <div className="onboarding-test-actions">
+            <button
+              type="button"
+              className="button secondary"
+              disabled={!admin || !status?.mail.connected || sending || demo}
+              onClick={() => void sendTestEmail()}
+            >
+              {sending ? "Sending…" : "Send test email"}
+            </button>
+            {status?.phone.connected && admin && !demo && (
+              <form onSubmit={(event) => void sendTestSms(event)}>
+                <label>
+                  Your mobile number
+                  <input
+                    type="tel"
+                    value={smsPhone}
+                    onChange={(event) => setSmsPhone(event.target.value)}
+                    placeholder="(555) 555-0123"
+                    required
+                    maxLength={24}
+                    disabled={smsSending}
+                  />
+                </label>
+                <label className="onboarding-own-number">
+                  <input
+                    type="checkbox"
+                    checked={ownNumber}
+                    onChange={(event) => setOwnNumber(event.target.checked)}
+                    required
+                    disabled={smsSending}
+                  />
+                  <span className="onboarding-checkbox" aria-hidden="true" />
+                  <span>This is my number</span>
+                </label>
+                <button
+                  className="button secondary"
+                  disabled={smsSending || !ownNumber}
+                >
+                  {smsSending ? "Sending…" : "Send test text"}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
-      )}
+        {testResult && (
+          <div className={testError ? "alert" : "success-note"} role="status">
+            {testResult}
+          </div>
+        )}
+        {smsResult && (
+          <div className={smsError ? "alert" : "success-note"} role="status">
+            {smsResult}
+          </div>
+        )}
+      </details>
       {status?.canCreateBusiness && !demo && (
         <form
           className="onboarding-create"
@@ -635,6 +603,6 @@ export default function BusinessOnboarding({
           )}
         </form>
       )}
-    </details>
+    </section>
   );
 }

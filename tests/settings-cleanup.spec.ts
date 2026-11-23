@@ -143,10 +143,7 @@ test("grouped controls remain readable in dark mode", async ({ page }) => {
   const button = page
     .getByRole("navigation", { name: "Settings subsections" })
     .getByRole("button", { name: "Phone & texting", exact: true });
-  const colors = await button.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return { foreground: style.color, background: style.backgroundColor };
-  });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const luminance = (color: string) => {
     const rgb = color
       .match(/[\d.]+/g)!
@@ -160,10 +157,18 @@ test("grouped controls remain readable in dark mode", async ({ page }) => {
       });
     return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
   };
-  const foreground = luminance(colors.foreground),
-    background = luminance(colors.background);
-  expect(
-    (Math.max(foreground, background) + 0.05) /
-      (Math.min(foreground, background) + 0.05),
-  ).toBeGreaterThanOrEqual(4.5);
+  await expect
+    .poll(async () => {
+      const colors = await button.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { foreground: style.color, background: style.backgroundColor };
+      });
+      const foreground = luminance(colors.foreground),
+        background = luminance(colors.background);
+      return (
+        (Math.max(foreground, background) + 0.05) /
+        (Math.min(foreground, background) + 0.05)
+      );
+    })
+    .toBeGreaterThanOrEqual(4.5);
 });

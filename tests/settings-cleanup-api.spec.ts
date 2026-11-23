@@ -81,20 +81,39 @@ cloud(
     );
     await page.goto("/?view=Settings#setup");
     await expect(
-      page.getByText("Setup complete — review checklist", { exact: true }),
+      page.getByText("Required setup complete", { exact: true }),
+    ).toBeVisible();
+    const completed = page
+      .locator(".onboarding-group")
+      .filter({ has: page.locator("summary", { hasText: /^Completed/ }) });
+    await expect(completed).not.toHaveAttribute("open", "");
+    await expect(
+      page.getByRole("heading", { name: "Create business", exact: true }),
+    ).not.toBeVisible();
+    await completed.locator("summary").click();
+    await expect(
+      page.getByRole("heading", { name: "Create business", exact: true }),
+    ).toBeVisible();
+    await page.getByText(/^Optional tools \(/).click();
+    const optional = page
+      .locator(".onboarding-group")
+      .filter({ has: page.locator("summary", { hasText: /^Optional tools/ }) });
+    await expect(optional).not.toContainText("Needs setup");
+    await expect(
+      optional.getByRole("heading", { name: "Google reviews", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", {
-        name: "Get your business ready",
-        exact: true,
-      }),
-    ).not.toBeVisible();
+      page.getByRole("region", { name: "Remaining setup", exact: true }),
+    ).toHaveCount(0);
+    await page.route("**/api/onboarding/test-email", (route) =>
+      route.fulfill({ json: { sentTo: "office@example.test" } }),
+    );
+    await page.getByText("Test connections", { exact: true }).click();
     await page
-      .getByText("Setup complete — review checklist", { exact: true })
+      .getByRole("button", { name: "Send test email", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", {
-        name: "Get your business ready",
+      page.getByText("Test email sent to office@example.test.", {
         exact: true,
       }),
     ).toBeVisible();
@@ -189,5 +208,97 @@ cloud(
     } finally {
       await context.close();
     }
+  },
+);
+
+cloud(
+  "enabled modules stay required and optional tools never look like setup blockers",
+  async ({ company, page }) => {
+    expect(
+      (
+        await page.request.post("/api/auth", {
+          headers,
+          data: { action: "login", email: company.email, password },
+        })
+      ).status(),
+    ).toBe(200);
+    const config = await (
+      await page.request.get("/api/business-config")
+    ).json();
+    for (const key of ["automations", "agreements", "payments"])
+      config.modules[key] = true;
+    expect(
+      (
+        await page.request.put("/api/business-config", {
+          headers,
+          data: config,
+        })
+      ).status(),
+    ).toBe(200);
+    await page.route("**/api/onboarding/status", (route) =>
+      route.fulfill({
+        json: {
+          organizationId: company.organizationId,
+          canCreateBusiness: false,
+          connections: {},
+          mail: { configured: false, connected: false, email: null },
+          googleReviews: {
+            configured: false,
+            connected: false,
+            locationTitle: null,
+          },
+          phone: { connected: false },
+          websiteLeads: { connected: false },
+          payments: {
+            stripeConnected: false,
+            selectedProvider: "stripe",
+            enabled: true,
+          },
+          modules: {
+            automations: { enabled: true, configured: false },
+            agreements: { enabled: true, configured: false },
+            payments: { enabled: true, configured: false },
+          },
+        },
+      }),
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/?view=Settings#setup");
+    const required = page.getByRole("region", {
+      name: "Remaining setup",
+      exact: true,
+    });
+    for (const name of [
+      "Company email",
+      "Website lead form",
+      "Automations",
+      "Agreement templates",
+      "Payments",
+    ])
+      await expect(
+        required.getByRole("heading", { name, exact: true }),
+      ).toBeVisible();
+    await expect(
+      page.getByText(/^[12] of 7 required tasks complete$/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Google reviews", exact: true }),
+    ).not.toBeVisible();
+    await page.getByText(/^Optional tools \(/).click();
+    const optional = page
+      .locator(".onboarding-group")
+      .filter({ has: page.locator("summary", { hasText: /^Optional tools/ }) });
+    await expect(optional).not.toContainText("Needs setup");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page
+      .getByRole("button", { name: "Connect reviews", exact: true })
+      .click();
+    await expect(
+      page.getByRole("region", { name: "Google reviews", exact: true }),
+    ).toBeVisible();
   },
 );

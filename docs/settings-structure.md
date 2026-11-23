@@ -11,7 +11,7 @@ The sidebar has **22 primary entries** with **30 retained configuration panes**.
 - **Connected accounts:** actual company email, phone/texting, Stripe and Google reviews editors. Personal Google Calendar stays in My account. Disabled providers and unauthorized editors stay hidden.
 - **Customer portal:** portal visibility and display-only working hours.
 - **Advanced:** workflow secrets, developer API access and organization lifecycle, collapsed until needed or found through search.
-- **Setup checklist:** expanded while required setup remains incomplete; completed setup becomes a collapsed, reopenable summary. Optional unconnected providers do not block completion.
+- **Setup checklist:** one page heading, a required-task progress count and remaining required tasks first. Completed tasks, optional tools and test connections each use a collapsed, reopenable section. Optional unconnected providers do not block completion; only enabled module setup joins the required list.
 - Other real editors remain directly available: modules, custom fields, quotes/payments, agreement templates, quote flows, forms, invoice defaults, message templates, alerts, history, AI tools and personal account/device preferences.
 
 The Products & services, Manage team, Schedule & availability, Requests & booking and Automations shortcut pages are removed. Their tools remain in Price book, Team, Upcoming, Leads and Automation. Existing `#products`, `#team`, `#schedule`, `#intake` and `#automations` links redirect to the authorized workspace rather than show an intermediate page. The Messages hub is removed; `#messages` reaches the user's permitted message/template or connection settings.
