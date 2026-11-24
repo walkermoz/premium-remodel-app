@@ -44,6 +44,7 @@ import QuoteWorkflowStepper, {
   type QuoteWorkflowStep,
 } from "./quote-workflow-stepper";
 import MsaSigningPanel from "./msa-signing-panel";
+import QuoteSigningPanel from "./quote-signing-panel";
 import RoomScansPanel from "./room-scans-panel";
 import QuoteCustomerPreview from "./quote-customer-preview";
 import displayStyles from "./quote-display-control.module.css";
@@ -532,6 +533,10 @@ export function QuoteDetail({
     () =>
       readyForProjects ? "project" : quote.quoteSentAt ? "customer" : "quote",
   );
+  const unifiedDocuments = config.features.agreements;
+  const [workspaceSection, setWorkspaceSection] = useState<
+    "quote" | "documents"
+  >(() => (quote.quoteSentAt || quote.msaAgreement ? "documents" : "quote"));
   const [flowInstance, setFlowInstance] = useState<QuoteFlowInstanceDto | null>(
     null,
   );
@@ -707,22 +712,47 @@ export function QuoteDetail({
     ? legacyStepForStage(activeConfiguredStage)
     : workflowStep;
   const showingCustomStage = Boolean(
-    activeConfiguredStage && !legacyStepForStage(activeConfiguredStage),
+    activeConfiguredStage &&
+    !legacyStepForStage(activeConfiguredStage) &&
+    (!unifiedDocuments ||
+      workspaceSection ===
+        (activeConfiguredStage.type === "quote_builder"
+          ? "quote"
+          : "documents")),
   );
-  const showQuoteStage = !showingCustomStage && activeLegacyStep === "quote";
+  const showDocuments = unifiedDocuments && workspaceSection === "documents";
+  const showQuoteStage =
+    !showingCustomStage &&
+    (unifiedDocuments
+      ? workspaceSection === "quote"
+      : activeLegacyStep === "quote");
   const showAgreementStage =
-    !showingCustomStage && activeLegacyStep === "agreement";
+    !unifiedDocuments &&
+    !showingCustomStage &&
+    activeLegacyStep === "agreement";
   const showCompanyStage =
-    !showingCustomStage && activeLegacyStep === "company";
+    !unifiedDocuments && !showingCustomStage && activeLegacyStep === "company";
   const showCustomerStage =
-    !showingCustomStage && activeLegacyStep === "customer";
+    showDocuments ||
+    (!showingCustomStage &&
+      !unifiedDocuments &&
+      activeLegacyStep === "customer");
   const showDepositStage =
-    !showingCustomStage && activeLegacyStep === "deposit";
+    showDocuments ||
+    (!showingCustomStage &&
+      !unifiedDocuments &&
+      activeLegacyStep === "deposit");
   const showProjectStage =
-    !showingCustomStage && activeLegacyStep === "project";
+    showDocuments ||
+    (!showingCustomStage &&
+      !unifiedDocuments &&
+      activeLegacyStep === "project");
   const activeStageHasBlock = (
     predicate: (block: QuoteFlowStage["blocks"][number]) => boolean,
-  ) => !activeConfiguredStage || activeConfiguredStage.blocks.some(predicate);
+  ) =>
+    unifiedDocuments
+      ? !configuredStages.length || configuredBlocks.some(predicate)
+      : !activeConfiguredStage || activeConfiguredStage.blocks.some(predicate);
   const showQuoteDocument = activeStageHasBlock(
     (block) => block.bindingKey === "quote.customer_signature",
   );
@@ -781,6 +811,10 @@ export function QuoteDetail({
   ) {
     if (!flowInstance) {
       setConfiguredStageId(stage.id);
+      if (unifiedDocuments)
+        setWorkspaceSection(
+          stage.type === "quote_builder" ? "quote" : "documents",
+        );
       const mapped = legacyStepForStage(stage);
       if (mapped) setWorkflowStepState(mapped);
       return;
@@ -814,6 +848,10 @@ export function QuoteDetail({
       }
       setFlowInstance(body as QuoteFlowInstanceDto);
       setConfiguredStageId(stage.id);
+      if (unifiedDocuments)
+        setWorkspaceSection(
+          stage.type === "quote_builder" ? "quote" : "documents",
+        );
       const mapped = legacyStepForStage(stage);
       if (mapped) setWorkflowStepState(mapped);
       setPendingOverride(null);
@@ -826,6 +864,12 @@ export function QuoteDetail({
   }
 
   function setWorkflowStep(step: QuoteWorkflowStep) {
+    if (unifiedDocuments) {
+      // Browsing the two workspace sections does not advance the persisted
+      // flow cursor or override required custom steps.
+      setWorkspaceSection(step === "quote" ? "quote" : "documents");
+      return;
+    }
     setWorkflowStepState(step);
     const configured = configuredStages.find(
       (stage) => legacyStepForStage(stage) === step,
@@ -853,6 +897,27 @@ export function QuoteDetail({
 
   function goToNextActionStage() {
     const targetType = workflowState.nextAction.targetStageType;
+    if (unifiedDocuments) {
+      setWorkspaceSection(
+        targetType === "quote_builder" ? "quote" : "documents",
+      );
+      if (
+        targetType === "deposit_payment" ||
+        targetType === "project_conversion"
+      )
+        window.setTimeout(
+          () =>
+            document
+              .getElementById(
+                targetType === "deposit_payment"
+                  ? "quote-deposit-step"
+                  : "quote-project-step",
+              )
+              ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+          0,
+        );
+      return;
+    }
     const configured = configuredStages.find(
       (stage) =>
         stage.type === targetType ||
@@ -1204,7 +1269,7 @@ export function QuoteDetail({
     }
     if (
       !quote.clientEmail ||
-      quote.msaAgreement?.status !== "prepared" ||
+      !["prepared", "sent"].includes(quote.msaAgreement?.status || "") ||
       sendBusy
     )
       return;
@@ -1370,6 +1435,7 @@ export function QuoteDetail({
         showSigning={false}
         canSendAgreement={false}
         prepareBeforeQuoteSignature
+        onPrepared={onSent}
         onSaveTerms={saveAgreementTerms}
       />
     ) : items.length && config.modules.agreements ? (
@@ -1391,6 +1457,7 @@ export function QuoteDetail({
         showSigning
         canSendAgreement={false}
         prepareBeforeQuoteSignature
+        onPrepared={onSent}
         onSaveTerms={saveAgreementTerms}
       />
     ) : null;
@@ -1643,6 +1710,11 @@ export function QuoteDetail({
           configuredStages={configuredStages}
           completionByStageId={completionByStageId}
           onSelect={selectWorkflowStage}
+          workspace={
+            unifiedDocuments
+              ? { section: workspaceSection, onSelect: setWorkspaceSection }
+              : undefined
+          }
         />
       )}
       {!handoffDemo && (
@@ -1666,6 +1738,19 @@ export function QuoteDetail({
                   document
                     .getElementById("quote-items-section")
                     ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  if (unifiedDocuments && workspaceSection !== "quote") {
+                    setWorkflowStep("quote");
+                    window.setTimeout(
+                      () =>
+                        document
+                          .getElementById("quote-items-section")
+                          ?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          }),
+                      0,
+                    );
+                  }
                 }}
               >
                 {workflowState.nextAction.id === "add_delivery_contact"
@@ -1694,10 +1779,18 @@ export function QuoteDetail({
                 type="button"
                 className="button primary"
                 disabled={onsiteBusy}
-                onClick={() => void startOnsiteSigning()}
+                onClick={() =>
+                  unifiedDocuments
+                    ? setWorkspaceSection("documents")
+                    : void startOnsiteSigning()
+                }
               >
                 <Tablet size={15} aria-hidden="true" />
-                {onsiteBusy ? "Opening…" : "Open signing on this device"}
+                {onsiteBusy
+                  ? "Opening…"
+                  : unifiedDocuments
+                    ? "Open document signatures"
+                    : "Open signing on this device"}
               </button>
             ) : workflowState.nextAction.id === "complete" ? null : (
               <button
@@ -1725,7 +1818,11 @@ export function QuoteDetail({
                 type="button"
                 className="button secondary"
                 disabled={onsiteBusy}
-                onClick={() => void startOnsiteSigning()}
+                onClick={() =>
+                  unifiedDocuments
+                    ? setWorkspaceSection("documents")
+                    : void startOnsiteSigning()
+                }
               >
                 <Tablet size={15} aria-hidden="true" />
                 {onsiteBusy ? "Opening…" : "Sign on this device"}
@@ -1797,6 +1894,32 @@ export function QuoteDetail({
           </div>
         </section>
       )}
+      {unifiedDocuments &&
+        showDocuments &&
+        configuredStages.some((stage) => !legacyStepForStage(stage)) && (
+          <nav
+            className="quote-document-requirements"
+            aria-label="Additional workflow requirements"
+          >
+            <strong>Additional requirements</strong>
+            {configuredStages
+              .filter((stage) => !legacyStepForStage(stage))
+              .map((stage) => (
+                <button
+                  key={stage.id}
+                  type="button"
+                  className="button secondary"
+                  aria-current={
+                    configuredStageId === stage.id ? "step" : undefined
+                  }
+                  onClick={() => void selectConfiguredStage(stage)}
+                >
+                  {stage.title}
+                  {completionByStageId[stage.id] ? " · Complete" : ""}
+                </button>
+              ))}
+          </nav>
+        )}
       {!handoffDemo &&
         showingCustomStage &&
         flowInstance &&
@@ -2391,22 +2514,57 @@ export function QuoteDetail({
       {!handoffDemo && showCustomerStage && (
         <section
           className="workflow-live-step"
-          aria-label="Customer signatures"
+          aria-label={unifiedDocuments ? "Documents" : "Customer signatures"}
         >
           <header>
             <span className="project-handoff-eyebrow">
-              Step {configuredStepNumber("customer", 4)}
+              {unifiedDocuments
+                ? "Documents & signatures"
+                : `Step ${configuredStepNumber("customer", 4)}`}
             </span>
-            <h2>Customer signatures</h2>
+            <h2>{unifiedDocuments ? "Documents" : "Customer signatures"}</h2>
             <p>
-              Share one customer packet and complete every required customer
-              signature.
+              {unifiedDocuments
+                ? "Prepare the agreement, then send one request for both documents. Each document keeps its own signatures and status."
+                : "Share one customer packet and complete every required customer signature."}
             </p>
           </header>
           <SigningPacketSummary
-            packet={signingPacket}
+            packet={
+              unifiedDocuments && !companyApprovalReady
+                ? {
+                    ...signingPacket,
+                    status: "draft",
+                    statusLabel: "Company preparation needed",
+                    statusDetail:
+                      "Prepare and sign the company agreement before requesting customer signatures.",
+                  }
+                : signingPacket
+            }
             actions={
               <div className="workflow-packet-link-action">
+                {unifiedDocuments && signingPacket.status !== "completed" && (
+                  <button
+                    type="button"
+                    className="button primary"
+                    disabled={
+                      !companyApprovalReady ||
+                      !quote.clientEmail ||
+                      sendBusy ||
+                      mailConnectionLoading ||
+                      !mailReady ||
+                      demo ||
+                      (signedScope &&
+                        !["prepared", "sent"].includes(
+                          quote.msaAgreement?.status || "",
+                        ))
+                    }
+                    onClick={() => void sendCustomerPortal()}
+                  >
+                    <Mail size={15} aria-hidden="true" />
+                    {sendBusy ? "Sending…" : "Send for signature"}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="button secondary"
@@ -2424,186 +2582,239 @@ export function QuoteDetail({
             className="workflow-document-stack"
             aria-label="Quote completion workflow"
           >
-            {showQuoteDocument && (
+            {showQuoteDocument &&
+              (unifiedDocuments ? (
+                <QuoteSigningPanel
+                  quote={quote}
+                  document={quoteSigningDocument}
+                  companyReady={companyApprovalReady}
+                  businessName={config.profile.name}
+                  demo={demo}
+                  onSent={onSent}
+                  onEditData={() => onEdit({ kind: "quote", entity: quote })}
+                />
+              ) : (
+                <DocumentSigningPanel
+                  document={quoteSigningDocument}
+                  step={1}
+                  onEditData={() => onEdit({ kind: "quote", entity: quote })}
+                  secondaryActions={
+                    <>
+                      <a
+                        href={
+                          quoteSigningDocument.viewHref ||
+                          `/api/quotes/${encodeURIComponent(quote.id)}/pdf`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Preview document
+                      </a>
+                      <a
+                        href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
+                        download
+                      >
+                        Download PDF
+                      </a>
+                    </>
+                  }
+                />
+              ))}
+            {showAgreementDocument &&
+            unifiedDocuments &&
+            !quote.msaAgreement ? (
               <DocumentSigningPanel
-                document={quoteSigningDocument}
-                step={1}
-                onEditData={() => onEdit({ kind: "quote", entity: quote })}
-                secondaryActions={
-                  <>
-                    <a
-                      href={
-                        quoteSigningDocument.viewHref ||
-                        `/api/quotes/${encodeURIComponent(quote.id)}/pdf`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Preview document
-                    </a>
-                    <a
-                      href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
-                      download
-                    >
-                      Download PDF
-                    </a>
-                  </>
-                }
-              />
-            )}
-            {showAgreementDocument && (
-              <MsaSigningPanel
-                quote={quote}
-                signerName={user.name}
                 document={agreementSigningDocument}
-                onSent={onSent}
+                step={2}
                 onEditData={() => onEdit({ kind: "quote", entity: quote })}
-              />
+              >
+                {companyApprovalPanel || (
+                  <div className="alert">
+                    Add at least one quote item first.
+                  </div>
+                )}
+              </DocumentSigningPanel>
+            ) : (
+              showAgreementDocument && (
+                <MsaSigningPanel
+                  quote={quote}
+                  signerName={user.name}
+                  document={agreementSigningDocument}
+                  onSent={onSent}
+                  onEditData={() => onEdit({ kind: "quote", entity: quote })}
+                  demo={demo}
+                  preparation={
+                    unifiedDocuments ? (
+                      <details>
+                        <summary>Agreement details and preparation</summary>
+                        {companyApprovalPanel}
+                      </details>
+                    ) : undefined
+                  }
+                />
+              )
             )}
           </div>
-          <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() =>
-                setWorkflowStep(
-                  combinedDocumentsStage ? "agreement" : "company",
-                )
-              }
-            >
-              {combinedDocumentsStage
-                ? "Back to Documents"
-                : "Back to company approval"}
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={signingPacket.status !== "completed"}
-              onClick={() => setWorkflowStep("deposit")}
-            >
-              Continue to deposit
-            </button>
-          </footer>
-        </section>
-      )}
-      {!handoffDemo && showDepositStage && (
-        <section className="workflow-live-step" aria-label="Deposit">
-          <header>
-            <span className="project-handoff-eyebrow">
-              Step {configuredStepNumber("deposit", 5)}
-            </span>
-            <h2>Deposit</h2>
-            <p>
-              Collect the configured deposit online or record an offline payment
-              before creating the project.
-            </p>
-          </header>
-          {showDepositObject && (
-            <section
-              id="quote-deposit-step"
-              className={`workflow-completion-panel workflow-document-panel workflow-deposit-step ${readyForProjects ? "is-complete" : "is-waiting"}`}
-              aria-label="Deposit status"
-            >
-              <header>
-                <div className="workflow-document-marker">
-                  <span
-                    className={`workflow-document-step ${readyForProjects ? "is-complete" : ""}`}
-                  >
-                    {readyForProjects ? (
-                      <Check size={14} aria-hidden="true" />
-                    ) : (
-                      configuredStepNumber("deposit", 5)
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <span className="project-handoff-eyebrow">Payment</span>
-                  <h3>
-                    {readyForProjects
-                      ? "Deposit received"
-                      : signedMsa
-                        ? "Deposit ready to collect"
-                        : "Available after the required documents are signed"}
-                  </h3>
-                  <p>
-                    {readyForProjects
-                      ? "The required deposit has been recorded."
-                      : signedMsa
-                        ? `${regional.money(dueCents / 100)} remains due before scheduling.`
-                        : "Complete the required documents before collecting the deposit."}
-                  </p>
-                </div>
-              </header>
-              {signedMsa && dueCents > 0 && user.role === "admin" && !demo && (
-                <form
-                  className="workflow-deposit-form"
-                  onSubmit={(event) => void recordCheck(event)}
-                >
-                  <p>
-                    Record a check after it is received. The customer can also
-                    pay online from the signed agreement.
-                  </p>
-                  <label>
-                    Check amount ($)
-                    <input
-                      name="amount"
-                      type="number"
-                      min="0.01"
-                      max={(dueCents / 100).toFixed(2)}
-                      step="0.01"
-                      placeholder={(dueCents / 100).toFixed(2)}
-                      required
-                      disabled={checkBusy}
-                    />
-                  </label>
-                  <label>
-                    Check number (optional)
-                    <input
-                      name="checkReference"
-                      maxLength={100}
-                      disabled={checkBusy}
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    className="button primary"
-                    disabled={checkBusy}
-                  >
-                    {checkBusy ? "Recording…" : "Record received check"}
-                  </button>
-                  {checkError && (
-                    <p role="alert" className="alert">
-                      {checkError}
-                    </p>
-                  )}
-                </form>
-              )}
-            </section>
+          {!unifiedDocuments && (
+            <footer>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() =>
+                  setWorkflowStep(
+                    combinedDocumentsStage ? "agreement" : "company",
+                  )
+                }
+              >
+                {combinedDocumentsStage
+                  ? "Back to Documents"
+                  : "Back to company approval"}
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                disabled={signingPacket.status !== "completed"}
+                onClick={() => setWorkflowStep("deposit")}
+              >
+                Continue to deposit
+              </button>
+            </footer>
           )}
-          <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setWorkflowStep("customer")}
-            >
-              Back to customer completion
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={!readyForProjects}
-              onClick={() => setWorkflowStep("project")}
-            >
-              Continue to project
-            </button>
-          </footer>
         </section>
       )}
+      {!handoffDemo &&
+        showDepositStage &&
+        (!unifiedDocuments || requiresPayment) && (
+          <section className="workflow-live-step" aria-label="Deposit">
+            <header>
+              <span className="project-handoff-eyebrow">
+                {unifiedDocuments
+                  ? "After signing"
+                  : `Step ${configuredStepNumber("deposit", 5)}`}
+              </span>
+              <h2>Deposit</h2>
+              <p>
+                Collect the configured deposit online or record an offline
+                payment before creating the project.
+              </p>
+            </header>
+            {showDepositObject && (
+              <section
+                id="quote-deposit-step"
+                className={`workflow-completion-panel workflow-document-panel workflow-deposit-step ${readyForProjects ? "is-complete" : "is-waiting"}`}
+                aria-label="Deposit status"
+              >
+                <header>
+                  <div className="workflow-document-marker">
+                    <span
+                      className={`workflow-document-step ${readyForProjects ? "is-complete" : ""}`}
+                    >
+                      {readyForProjects ? (
+                        <Check size={14} aria-hidden="true" />
+                      ) : (
+                        configuredStepNumber("deposit", 5)
+                      )}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="project-handoff-eyebrow">Payment</span>
+                    <h3>
+                      {readyForProjects
+                        ? "Deposit received"
+                        : signedMsa
+                          ? "Deposit ready to collect"
+                          : "Available after the required documents are signed"}
+                    </h3>
+                    <p>
+                      {readyForProjects
+                        ? "The required deposit has been recorded."
+                        : signedMsa
+                          ? `${regional.money(dueCents / 100)} remains due before scheduling.`
+                          : "Complete the required documents before collecting the deposit."}
+                    </p>
+                  </div>
+                </header>
+                {signedMsa &&
+                  dueCents > 0 &&
+                  user.role === "admin" &&
+                  !demo && (
+                    <form
+                      className="workflow-deposit-form"
+                      onSubmit={(event) => void recordCheck(event)}
+                    >
+                      <p>
+                        Record a check after it is received. The customer can
+                        also pay online from the signed agreement.
+                      </p>
+                      <label>
+                        Check amount ($)
+                        <input
+                          name="amount"
+                          type="number"
+                          min="0.01"
+                          max={(dueCents / 100).toFixed(2)}
+                          step="0.01"
+                          placeholder={(dueCents / 100).toFixed(2)}
+                          required
+                          disabled={checkBusy}
+                        />
+                      </label>
+                      <label>
+                        Check number (optional)
+                        <input
+                          name="checkReference"
+                          maxLength={100}
+                          disabled={checkBusy}
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        className="button primary"
+                        disabled={checkBusy}
+                      >
+                        {checkBusy ? "Recording…" : "Record received check"}
+                      </button>
+                      {checkError && (
+                        <p role="alert" className="alert">
+                          {checkError}
+                        </p>
+                      )}
+                    </form>
+                  )}
+              </section>
+            )}
+            {!unifiedDocuments && (
+              <footer>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => setWorkflowStep("customer")}
+                >
+                  Back to customer completion
+                </button>
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={!readyForProjects}
+                  onClick={() => setWorkflowStep("project")}
+                >
+                  Continue to project
+                </button>
+              </footer>
+            )}
+          </section>
+        )}
       {!handoffDemo && showProjectStage && (
-        <section className="workflow-live-step" aria-label="Create project">
+        <section
+          className="workflow-live-step"
+          aria-label="Create project"
+          id="quote-project-step"
+        >
           <header>
             <span className="project-handoff-eyebrow">
-              Step {configuredStepNumber("project", 6)}
+              {unifiedDocuments
+                ? "Project handoff"
+                : `Step ${configuredStepNumber("project", 6)}`}
             </span>
             <h2>Create project</h2>
             <p>
@@ -2643,13 +2854,15 @@ export function QuoteDetail({
             ))}
           </ul>
           <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setWorkflowStep("deposit")}
-            >
-              Back to deposit
-            </button>
+            {!unifiedDocuments && (
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setWorkflowStep("deposit")}
+              >
+                Back to deposit
+              </button>
+            )}
             <button
               type="button"
               className="button primary"

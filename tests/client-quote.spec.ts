@@ -11,9 +11,20 @@ import {
   defaultMsaPaymentSchedule,
 } from "@/lib/msa-draft";
 import { createClientEmailToken } from "@/lib/client-portal-token";
+import type { Locator } from "@playwright/test";
 
 const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const origin = { Origin: "http://localhost:3100" };
+
+async function selectFixtureInspectionDay(calendar: Locator) {
+  await expect(calendar).toBeVisible();
+  const day = calendar.getByRole("button", {
+    name: /Select Tuesday, November 10, 1 scheduled/,
+  });
+  for (let week = 0; week < 6 && !(await day.count()); week += 1)
+    await calendar.getByRole("button", { name: "Previous week" }).click();
+  await day.click();
+}
 
 cloudTest(
   "a customer signs a sent quote and the signature remains on the quote and PDF",
@@ -240,7 +251,7 @@ cloudTest(
       page.getByRole("heading", { name: "Before this becomes a project" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Customer signatures" }),
+      page.getByRole("heading", { name: "Documents", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Accept quote" }),
@@ -277,8 +288,7 @@ cloudTest(
     expect(pdf.headers()["cache-control"]).toContain("no-store");
     expect(pdf.headers()["content-disposition"]).toContain(" - Signed.pdf");
     expect(await pdf.body()).not.toEqual(await unsignedPdf.body());
-    const { getDocument, OPS } =
-      await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
     const unsignedTask = getDocument({
       data: new Uint8Array(await unsignedPdf.body()),
     });
@@ -300,13 +310,16 @@ cloudTest(
         .join(" ");
       expect(text).toContain("Walker Portal Test");
       expect(text).toContain("Date:");
-      const unsignedPaths = (
-        await unsignedPage.getOperatorList()
-      ).fnArray.filter((operator) => operator === OPS.constructPath).length;
-      const signedPaths = (await signedPage.getOperatorList()).fnArray.filter(
-        (operator) => operator === OPS.constructPath,
-      ).length;
-      expect(signedPaths).toBeGreaterThan(unsignedPaths);
+      // Typed signatures are PDF text, not extra vector drawing paths.
+      expect(text.match(/Walker Portal Test/g)?.length).toBeGreaterThanOrEqual(
+        2,
+      );
+      const unsignedText = (await unsignedPage.getTextContent()).items
+        .filter((item): item is typeof item & { str: string } => "str" in item)
+        .map((item) => item.str)
+        .join(" ");
+      expect(unsignedText).toContain("Signature: __________________________");
+      expect(text).not.toContain("Signature: __________________________");
     } finally {
       await unsignedTask.destroy();
       await signedTask.destroy();
@@ -725,6 +738,9 @@ cloudTest(
       name: "Mobile project calendar",
     });
     await expect(mobileCalendar).toBeVisible();
+    // The default week follows the next upcoming event, which changes with
+    // today's date. Navigate back to the fixed November fixture week.
+    await selectFixtureInspectionDay(mobileCalendar);
     await expect(
       customerPage.getByRole("table", {
         name: /November 2026 project calendar/,
@@ -792,6 +808,7 @@ cloudTest(
     const quoteMobileCalendar = customerPage.getByRole("region", {
       name: "Mobile project calendar",
     });
+    await selectFixtureInspectionDay(quoteMobileCalendar);
     await expect(
       quoteMobileCalendar
         .getByText("Pre-drywall inspection", { exact: true })
@@ -838,8 +855,13 @@ cloudTest(
         .getByText("Kitchen cabinet delivery", { exact: true })
         .first(),
     ).toBeVisible();
+    await customerPage
+      .getByText("Kitchen cabinet delivery", { exact: true })
+      .first()
+      .click();
     await expect(
       customerPage
+        .getByRole("region", { name: "Selected day schedule", exact: true })
         .getByText("Kitchen schedule portal test", { exact: true })
         .first(),
     ).toBeVisible();

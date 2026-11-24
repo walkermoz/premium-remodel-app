@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth";
 import { createClientEmailToken } from "@/lib/client-portal";
 import { ensureEmailedQuoteLink } from "@/lib/client-quote-link";
+import { readClientQuoteSource } from "@/lib/client-quote";
 import { cancellationDeadline, easternDate } from "@/lib/msa-contract";
 import { preparedMsaMatchesQuote } from "@/lib/msa-quote-match";
 import { findRecord, getWorkspace, updateRecord } from "@/lib/repository";
@@ -89,6 +90,10 @@ export async function POST(
         quote.updatedAt,
       );
     const token = createClientEmailToken(linkId, quote.clientEmail);
+    // The signing form must use the private document revision's timestamp,
+    // not the live record changed by opening this signing session.
+    const source = await readClientQuoteSource(token, { recordView: false });
+    if (!source) throw new HttpError(409, "Refresh the quote before signing.");
     const onsitePath = quoteAlreadySigned ? "?view=msa&onsite=1" : "?onsite=1";
     const transactionDate = easternDate(new Date());
     return Response.json(
@@ -96,6 +101,7 @@ export async function POST(
         url: `${appOrigin(request)}/client/${token}/quote${onsitePath}`,
         transactionDate,
         cancellationDeadline: cancellationDeadline(transactionDate),
+        quoteUpdatedAt: source.pdfQuote.updatedAt,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

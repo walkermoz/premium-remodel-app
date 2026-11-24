@@ -104,13 +104,13 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
     page.getByRole("heading", { name: "Sign and send" }),
   ).toHaveCount(0);
 
-  await workflow.getByRole("button", { name: /Customer signatures/ }).click();
+  await expect(workflow.getByRole("button")).toHaveCount(2);
   await expect(
     page.getByRole("heading", { name: "Customer signatures" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Customer packet" }),
-  ).toContainText("Ready for customer");
+  ).toContainText("Company preparation needed");
   await expect(
     page.getByRole("button", { name: "Send portal link" }),
   ).toHaveCount(0);
@@ -120,6 +120,21 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
     }),
   ).toContainText("Company signature required");
   await expect(
-    workflow.getByRole("button", { name: /Create project/ }),
+    page.getByRole("button", { name: "Create project", exact: true }),
   ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Sign quote on this device" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Send for signature" }),
+  ).toBeDisabled();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    workflow.getByRole("button", { name: /Documents/ }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
 });

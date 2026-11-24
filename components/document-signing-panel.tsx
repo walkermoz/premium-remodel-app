@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useRegionalFormat } from "./regional-format-context";
 import {
   Check,
   CircleAlert,
@@ -32,6 +35,7 @@ export default function DocumentSigningPanel({
   className?: string;
 }) {
   const complete = document.status === "completed";
+  const regional = useRegionalFormat();
   const waiting = ["draft", "ready"].includes(document.status);
   const Icon =
     document.kind === "quote" ? FileText : waiting ? Hourglass : FileSignature;
@@ -125,40 +129,64 @@ export default function DocumentSigningPanel({
         </details>
       )}
       {document.dataBindings && document.dataBindings.length > 0 && (
-        <details className="workflow-data-bindings">
-          <summary>
-            Document data
-            {document.dataBindings.some((binding) => binding.missing) && (
-              <span>
-                <CircleAlert size={12} aria-hidden="true" /> Missing information
-              </span>
-            )}
-          </summary>
-          <div>
-            {document.dataBindings.map((binding) => (
-              <div
-                key={`${document.id}:${binding.key}`}
-                className={binding.missing ? "is-missing" : ""}
-              >
-                <p>
-                  <strong>{binding.label}</strong>
-                  <small>{binding.source}</small>
-                </p>
-                <span>{binding.value || "Missing"}</span>
+        <>
+          {document.signers.some((signer) => signer.signedAt) && (
+            <details className="workflow-delivery-details">
+              <summary>Signature history</summary>
+              <div>
+                {document.signers
+                  .filter((signer) => signer.signedAt)
+                  .map((signer) => (
+                    <span key={signer.roleId}>
+                      <strong>
+                        {signer.label}: {signer.name}
+                      </strong>
+                      <small>
+                        <time dateTime={signer.signedAt}>
+                          {regional.dateTime(signer.signedAt!)}
+                        </time>
+                      </small>
+                    </span>
+                  ))}
               </div>
-            ))}
-          </div>
-          {onEditData &&
-            document.dataBindings.some((binding) => binding.missing) && (
-              <button
-                type="button"
-                className="button secondary"
-                onClick={onEditData}
-              >
-                Edit source information
-              </button>
-            )}
-        </details>
+            </details>
+          )}
+          <details className="workflow-data-bindings">
+            <summary>
+              Document data
+              {document.dataBindings.some((binding) => binding.missing) && (
+                <span>
+                  <CircleAlert size={12} aria-hidden="true" /> Missing
+                  information
+                </span>
+              )}
+            </summary>
+            <div>
+              {document.dataBindings.map((binding) => (
+                <div
+                  key={`${document.id}:${binding.key}`}
+                  className={binding.missing ? "is-missing" : ""}
+                >
+                  <p>
+                    <strong>{binding.label}</strong>
+                    <small>{binding.source}</small>
+                  </p>
+                  <span>{binding.value || "Missing"}</span>
+                </div>
+              ))}
+            </div>
+            {onEditData &&
+              document.dataBindings.some((binding) => binding.missing) && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={onEditData}
+                >
+                  Edit source information
+                </button>
+              )}
+          </details>
+        </>
       )}
       {children}
     </section>

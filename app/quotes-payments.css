@@ -413,6 +413,24 @@
   padding: 0;
   list-style: none;
 }
+.quote-workflow-stepper.is-workspace ol {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.quote-document-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.quote-document-review {
+  width: 100%;
+  height: min(65vh, 720px);
+  min-height: 300px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
 .quote-workflow-stepper li {
   min-width: 0;
   border-right: 1px solid var(--line);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, Tablet } from "lucide-react";
 import type { SigningDocumentView } from "@/lib/document-signing";
 import type { Quote } from "@/lib/types";
@@ -19,12 +19,16 @@ export default function MsaSigningPanel({
   document,
   onSent,
   onEditData,
+  preparation,
+  demo = false,
 }: {
   quote: Quote;
   signerName: string;
   document: SigningDocumentView;
   onSent: () => Promise<void>;
   onEditData?: () => void;
+  preparation?: ReactNode;
+  demo?: boolean;
 }) {
   const [signerTitle, setSignerTitle] = useState("");
   const [staffSignature, setStaffSignature] = useState<SignatureFieldValue>({
@@ -204,7 +208,7 @@ export default function MsaSigningPanel({
               <button
                 type="button"
                 className="button primary"
-                disabled={customerSigningBusy}
+                disabled={customerSigningBusy || demo}
                 onClick={() => void openCustomerSigning()}
               >
                 <Tablet size={15} aria-hidden="true" />
@@ -234,6 +238,7 @@ export default function MsaSigningPanel({
           </>
         }
       >
+        {preparation}
         <div className="workflow-document-contract-value">
           <span>Contract value</span>
           <strong>{projectMoney(agreement.price)}</strong>

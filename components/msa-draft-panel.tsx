@@ -38,6 +38,7 @@ export default function MsaDraftPanel({
   canSendAgreement = true,
   prepareBeforeQuoteSignature = false,
   demo,
+  onPrepared,
 }: {
   project: Project | Quote;
   items: ScopeItem[];
@@ -51,6 +52,7 @@ export default function MsaDraftPanel({
   canSendAgreement?: boolean;
   prepareBeforeQuoteSignature?: boolean;
   demo: boolean;
+  onPrepared?: () => Promise<void>;
 }) {
   const { capability: mailCapability, loading: mailConnectionLoading } =
     useOrganizationConnection("google_mail", demo);
@@ -345,7 +347,8 @@ export default function MsaDraftPanel({
         const result = await response.json().catch(() => ({}));
         throw new Error(result.error || "Could not send the agreement.");
       }
-      window.location.reload();
+      if (onPrepared) await onPrepared();
+      else window.location.reload();
     } catch (cause) {
       setSendError(
         cause instanceof Error
@@ -367,7 +370,8 @@ export default function MsaDraftPanel({
       const result = await response.json().catch(() => ({}));
       if (!response.ok)
         throw new Error(result.error || "Could not revise the agreement.");
-      window.location.reload();
+      if (onPrepared) await onPrepared();
+      else window.location.reload();
     } catch (cause) {
       setSendError(
         cause instanceof Error
