@@ -14,12 +14,17 @@ export function workspaceRecordEvents(input: {
   after: RecordValue;
 }) {
   const { user, kind, before, after } = input;
-  if (!["contact", "lead", "quote", "project", "task"].includes(kind))
+  if (
+    !["contact", "lead", "quote", "project", "task", "actual_cost"].includes(
+      kind,
+    )
+  )
     return [];
   return workflowRecordEvents({
     organizationId: user.organizationId,
     actor: { type: "user", id: user.id, name: user.name },
-    kind: kind as "contact" | "lead" | "quote" | "project" | "task",
+    kind: kind as
+      "contact" | "lead" | "quote" | "project" | "task" | "actual_cost",
     before,
     after,
     idempotencyPrefix: "workspace",

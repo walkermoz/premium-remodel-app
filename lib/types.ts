@@ -22,6 +22,7 @@ export type EntityKind =
   | "alert"
   | "contact"
   | "lead"
+  | "actual_cost"
   | "door_visit";
 export interface Base {
   id: string;
@@ -136,6 +137,18 @@ export interface Project extends Base {
   category: string;
   cover: string;
   coverAttachmentId?: string;
+  /** Immutable cost basis captured when the quote becomes a project. */
+  jobCostBudgetSnapshot?: {
+    capturedAt: string;
+    source: "accepted_quote";
+    items: Array<{
+      scopeItemId: string;
+      title: string;
+      estimate: number;
+      subCost: number;
+      materialCost: number;
+    }>;
+  };
 }
 export const projectCategories = [
   "Kitchen",
@@ -239,6 +252,27 @@ export interface ScopeItem extends Base {
   customerVisible?: boolean;
   contractorId: string;
   status: TaskStatus;
+}
+export const actualCostCategories = [
+  "Labor",
+  "Materials",
+  "Subcontractor",
+  "Equipment",
+  "Permit",
+  "Other",
+] as const;
+export type ActualCostCategory = (typeof actualCostCategories)[number];
+export interface ActualCost extends Base {
+  projectId: string;
+  scopeItemId?: string;
+  category: ActualCostCategory;
+  description: string;
+  vendor: string;
+  amount: number;
+  incurredAt: string;
+  notes: string;
+  recordedById: string;
+  recordedByName: string;
 }
 export interface Comment extends Base {
   projectId: string;
@@ -456,6 +490,7 @@ export type Entity =
   | WorkspaceAlert
   | Contact
   | Lead
+  | ActualCost
   | DoorVisit;
 export const workspaceGroups = [
   "owner",
@@ -487,6 +522,7 @@ export interface Workspace {
   scope: ScopeItem[];
   comments: Comment[];
   attachments: Attachment[];
+  actualCosts: ActualCost[];
 }
 export const emptyWorkspace: Workspace = {
   alerts: [],
@@ -501,6 +537,7 @@ export const emptyWorkspace: Workspace = {
   scope: [],
   comments: [],
   attachments: [],
+  actualCosts: [],
 };
 export const kindKey: Record<EntityKind, keyof Workspace> = {
   alert: "alerts",
@@ -515,4 +552,5 @@ export const kindKey: Record<EntityKind, keyof Workspace> = {
   scope: "scope",
   comment: "comments",
   attachment: "attachments",
+  actual_cost: "actualCosts",
 };
