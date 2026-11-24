@@ -13,34 +13,86 @@ permissions:
   contents: read
 
 jobs:
-  quality:
-    name: Lint, typecheck, build, sample tests
+  web-static:
+    name: Web lint, types, audit
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-dependencies
+      # Root lint/typecheck also cover the credits site source.
+      - uses: ./.github/actions/setup-dependencies
         with:
-          node-version: "24"
-          cache: npm
-      - run: npm ci
+          directory: credits-site
       - name: Audit production web dependencies
         run: npm audit --omit=dev --audit-level=high
-      - run: npm ci --prefix credits-site
+      - run: npm run lint
+      - run: npm run typecheck
+
+  credits:
+    name: Credits site build and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-dependencies
+        with:
+          directory: credits-site
       - name: Audit credits site dependencies
         run: npm audit --omit=dev --audit-level=high --prefix credits-site
       - run: npm run build --prefix credits-site
-      - run: npm ci --prefix mobile
+
+  mobile:
+    name: Mobile types and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-dependencies
+        with:
+          directory: mobile
       - name: Audit mobile dependencies
         run: node scripts/audit-mobile.mjs
       - run: npm run typecheck --prefix mobile
-      - run: npm run lint
-      - run: npm run typecheck
+
+  web-tests:
+    name: Web build and sample tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-dependencies
+      - name: Restore test build compilation cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-ci-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-ci-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run build
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium
       - run: npm test
         env:
           CI: "1"
+
+  quality:
+    # Preserve the existing gate name and result consumed by approval/reporting.
+    name: Lint, typecheck, build, sample tests
+    if: ${{ always() }}
+    needs: [web-static, credits, mobile, web-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every quality check to succeed
+        env:
+          CHECK_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e 'const checks = JSON.parse(process.env.CHECK_RESULTS); for (const [name, check] of Object.entries(checks)) { console.log(`${name}: ${check.result}`); if (check.result !== "success") process.exitCode = 1; }'
 
   vercel-preview:
     name: Vercel preview
@@ -59,10 +111,6 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
       - name: Check Vercel secrets
         id: secrets
         run: |
@@ -74,9 +122,18 @@ jobs:
           fi
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      - name: Install Vercel CLI
+      - uses: ./.github/actions/setup-dependencies
         if: steps.secrets.outputs.configured == 'true'
-        run: npm install -g vercel@latest
+      - uses: ./.github/actions/setup-vercel
+        if: steps.secrets.outputs.configured == 'true'
+      - name: Restore safe CI compilation cache
+        if: steps.secrets.outputs.configured == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          # Restore only. Builds using deployment secrets must never write to
+          # a cache that pull requests can read. Never cache .vercel or output.
+          path: .next/cache
+          key: next-ci-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
       - name: Pull Vercel env
         if: steps.secrets.outputs.configured == 'true'
         run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
@@ -144,17 +201,18 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-dependencies
+      - uses: ./.github/actions/setup-vercel
+      - name: Restore safe CI compilation cache
+        uses: actions/cache/restore@v4
         with:
-          node-version: "24"
-          cache: npm
-      - run: npm ci
+          # Deployment output and environment files are never shared with PRs.
+          path: .next/cache
+          key: next-ci-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
       - name: Apply database migrations
         run: npm run db:migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - name: Install Vercel CLI
-        run: npm install -g vercel@64.5.0
       - name: Pull Vercel production settings
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
         env:

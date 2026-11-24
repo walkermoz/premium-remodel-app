@@ -1,0 +1,22 @@
+name: Cached Vercel CLI
+description: Use the same pinned CLI for preview and production builds
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache/restore@v4
+      id: cli
+      with:
+        path: ${{ runner.temp }}/vercel-cli
+        key: vercel-cli-v1-${{ runner.os }}-${{ runner.arch }}-node24-64.5.0
+    - name: Install CLI on cache miss
+      if: steps.cli.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm install --prefix "$RUNNER_TEMP/vercel-cli" vercel@64.5.0
+    - uses: actions/cache/save@v4
+      if: steps.cli.outputs.cache-hit != 'true'
+      with:
+        path: ${{ runner.temp }}/vercel-cli
+        key: ${{ steps.cli.outputs.cache-primary-key }}
+    - name: Add CLI to PATH
+      shell: bash
+      run: echo "$RUNNER_TEMP/vercel-cli/node_modules/.bin" >> "$GITHUB_PATH"

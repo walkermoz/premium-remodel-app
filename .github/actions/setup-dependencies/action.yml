@@ -1,0 +1,31 @@
+name: Cached Node dependencies
+description: Restore an exact installed dependency tree, or install from its lockfile
+inputs:
+  directory:
+    description: Package directory relative to the repository root
+    default: .
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      id: node
+      with:
+        node-version: "24"
+    - uses: actions/cache/restore@v4
+      id: dependencies
+      with:
+        path: ${{ inputs.directory }}/node_modules
+        # Exact matches only: native modules and install scripts depend on Node/OS.
+        key: modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}-${{ inputs.directory }}-${{ hashFiles(format('{0}/package-lock.json', inputs.directory)) }}
+    - name: Install locked dependencies on cache miss
+      if: steps.dependencies.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: npm ci
+    # Save before any build or deployment receives credentials. Only the clean
+    # installed tree belongs in the cache; never save a post-build tree.
+    - uses: actions/cache/save@v4
+      if: steps.dependencies.outputs.cache-hit != 'true'
+      with:
+        path: ${{ inputs.directory }}/node_modules
+        key: ${{ steps.dependencies.outputs.cache-primary-key }}
