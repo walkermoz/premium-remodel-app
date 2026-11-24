@@ -16,7 +16,7 @@ runs:
       with:
         path: ${{ inputs.directory }}/node_modules
         # Exact matches only: native modules and install scripts depend on Node/OS.
-        key: modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}-${{ inputs.directory }}-${{ hashFiles(format('{0}/package-lock.json', inputs.directory)) }}
+        key: modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}-${{ inputs.directory }}-${{ hashFiles(format('{0}/package-lock.json', inputs.directory), format('{0}/package.json', inputs.directory), format('{0}/.npmrc', inputs.directory), '.npmrc') }}
     - name: Install locked dependencies on cache miss
       if: steps.dependencies.outputs.cache-hit != 'true'
       shell: bash

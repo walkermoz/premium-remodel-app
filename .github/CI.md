@@ -6,8 +6,9 @@ fails if **any** prerequisite fails, is cancelled, or is skipped. Audits and tes
 coverage are unchanged. Database migrations still run after quality succeeds and
 before production deployment.
 
-Installed dependencies use exact OS/architecture/Node-version/lockfile caches.
-Changing a lockfile or Node version automatically performs a clean `npm ci`.
+Installed dependencies use exact OS/architecture/Node-version/manifest/lockfile
+caches. Changing a manifest, lockfile, project npm configuration, or Node version
+automatically performs a clean `npm ci`, including its lockfile consistency check.
 There are no partial dependency restores. If a future package adds install
 scripts that generate files outside `node_modules`, regenerate those files on
 cache hits too, or bump the cache prefix and update the cached paths.
