@@ -9,6 +9,7 @@ import {
 import { hasSupabaseConfig } from "./supabase/config";
 import type { User } from "./types";
 import { organizationHeader } from "./organization-context";
+import { allowedBrowserOrigin } from "./request-origin-policy";
 export interface WorkspaceUser extends User {
   organizationId: string;
   authUserId: string;
@@ -102,7 +103,7 @@ export function checkOrigin(request: Request) {
   const expected = process.env.APP_URL
     ? new URL(process.env.APP_URL).origin
     : requestOrigin(request);
-  if (!origin || origin !== expected)
+  if (!allowedBrowserOrigin(origin, expected, process.env.APP_ALLOWED_ORIGINS))
     throw new HttpError(403, "This request must come from the app.");
 }
 export function checkOriginOrBearer(request: Request) {

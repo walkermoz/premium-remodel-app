@@ -24,7 +24,9 @@ test("browser mutation origin checks use the configured canonical app origin", (
   const auth = readFileSync("lib/auth.ts", "utf8");
   expect(auth).toContain("const expected = process.env.APP_URL");
   expect(auth).toContain("new URL(process.env.APP_URL).origin");
-  expect(auth).toContain("origin !== expected");
+  expect(auth).toContain(
+    "allowedBrowserOrigin(origin, expected, process.env.APP_ALLOWED_ORIGINS)",
+  );
 });
 
 test("production archive dependency has no vulnerable archiver chain", () => {
