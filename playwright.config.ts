@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: false,
   // Demo/unit tests have isolated browser contexts. Database integration tests
   // share fixtures, so keep those (and local runs) serial.
-  workers: process.env.CI && process.env.RUN_SUPABASE_TESTS !== "1" ? 4 : 1,
+  workers: process.env.CI && process.env.RUN_SUPABASE_TESTS !== "1" ? 2 : 1,
   timeout: 180000,
   expect: { timeout: 15000 },
   use: {

@@ -56,9 +56,13 @@ jobs:
       - run: npm run typecheck --prefix mobile
 
   web-tests:
-    name: Web build and sample tests
+    name: Web build and sample tests (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-dependencies
@@ -76,7 +80,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium
-      - run: npm test
+      - run: npm test -- --shard=${{ matrix.shard }}/4
         env:
           CI: "1"
 

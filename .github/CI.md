@@ -18,7 +18,8 @@ environment files, generated output, and `.vercel` must not enter shared caches.
 Preview and production still build separately with their own environment.
 The Vercel CLI is pinned to the same version for both.
 
-CI demo/unit tests use four workers with file-level parallelism; local and
+CI demo/unit tests run across four shards with two workers per runner and
+file-level parallelism. Every shard must pass the quality gate. Local and
 Supabase integration runs keep one worker for shared database fixtures.
 
 ## Measuring
