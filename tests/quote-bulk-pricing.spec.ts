@@ -35,7 +35,7 @@ test("select all applies cost-based pricing and saves quote prices", async ({
 }) => {
   await page.setViewportSize({ width: 1600, height: 1400 });
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Bulk pricing example");
   await quote.getByLabel("Contact name").fill("Test Customer");
@@ -120,7 +120,7 @@ test("day and hour expense rates feed cost-based quote pricing", async ({
 }) => {
   await page.setViewportSize({ width: 1600, height: 1400 });
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const quote = page.getByRole("dialog", { name: "New quote" });
   await quote.getByLabel("Quote name").fill("Time-based expense example");
   await quote.getByLabel("Contact name").fill("Test Customer");

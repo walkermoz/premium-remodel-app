@@ -1,7 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
-  ArrowLeft,
   Check,
   Copy,
   Download,
@@ -9,7 +8,6 @@ import {
   Mail,
   MapPin,
   Pencil,
-  Phone,
   Plus,
   FileUp,
   RotateCcw,
@@ -52,6 +50,52 @@ import {
   resolveQuotePriceDisplay,
 } from "@/lib/quote-price-display";
 import { useRegionalFormat } from "./regional-format-context";
+import ProjectNotes from "./project-notes";
+import jobStyles from "./job-workspace.module.css";
+function EstimateDetailShell({
+  record,
+  onBack,
+  actions,
+  children,
+}: {
+  record: Quote;
+  onBack: () => void;
+  actions: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={jobStyles.estimateEditor}>
+      <button
+        className="back-link"
+        aria-label="Back to estimates"
+        onClick={onBack}
+      >
+        ← Back to estimates
+      </button>
+      <header className={jobStyles.sectionHeading}>
+        <div>
+          <small>ESTIMATE #{record.quoteNumber}</small>
+          <h1>{record.name}</h1>
+          <p>
+            {record.client} · {record.address}
+          </p>
+        </div>
+        {actions}
+      </header>
+      <div data-testid="job-customer" className={jobStyles.customerStrip}>
+        <strong>{record.client}</strong>
+        <span>{record.address}</span>
+        {record.clientPhone && (
+          <a href={`tel:${record.clientPhone}`}>{record.clientPhone}</a>
+        )}
+        {record.clientEmail && (
+          <a href={`mailto:${record.clientEmail}`}>{record.clientEmail}</a>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
 import AgreementPacketPanel from "./agreement-packet-panel";
 import DocumentSigningPanel from "./document-signing-panel";
 import SigningPacketSummary from "./signing-packet-summary";
@@ -429,11 +473,13 @@ export function QuoteDetail({
   config: import("@/lib/business-config").BusinessConfig;
   demo: boolean;
   onBack: () => void;
+  onOpenRecord?: (kind: "quote" | "project", id: string) => void;
   onEdit: (editor: Editor) => void;
   onSave: (
     kind: EntityKind,
     data: Record<string, unknown>,
     entity?: Entity,
+    requestId?: string,
   ) => Promise<Entity>;
   onReorderScope: (
     quoteId: string,
@@ -491,6 +537,11 @@ export function QuoteDetail({
     .slice(0, 2);
   const signedScope =
     quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
+  const jobClosed = Boolean(
+    quote.jobId &&
+    workspace.projects.find((project) => project.id === quote.jobId)?.status ===
+      "Completed",
+  );
   const signedMsa = quote.msaAgreement?.status === "signed";
   const signingPacket = premiumQuoteSigningPacket(quote, {
     organizationName: config.profile.name,
@@ -1026,6 +1077,10 @@ export function QuoteDetail({
     setFlowValueBusy(blockId);
     setError("");
     try {
+      if (quote.jobId) {
+        await onAccept(quote);
+        return;
+      }
       const response = await fetch(
         `/api/quote-flow-instances/${flowInstance.id}`,
         {
@@ -1396,1311 +1451,1367 @@ export function QuoteDetail({
     ) : null;
   const agreementPanel = agreementDetailsPanel;
   return (
-    <div className="quote-detail">
-      <button className="back-link" onClick={onBack}>
-        <ArrowLeft size={15} />
-        All quotes
-      </button>
-      <div className="project-heading">
-        <div>
-          <h1>{quote.name}</h1>
-          <div className="project-address">
-            <MapPin size={15} />
-            {quote.address || "No address added"}
-          </div>
-          <div className="quote-header-contact">
-            <strong>{quote.client || "No client added"}</strong>
-            {quote.clientEmail && (
-              <a href={`mailto:${quote.clientEmail}`}>
-                <Mail size={14} />
-                {quote.clientEmail}
-              </a>
-            )}
-            {quote.clientPhone && (
-              <a href={`tel:${quote.clientPhone.replace(/[^+\d]/g, "")}`}>
-                <Phone size={14} />
-                {quote.clientPhone}
-              </a>
-            )}
-            {!quote.clientPhone && !quote.clientEmail && (
-              <span>Add client contact details in Edit quote.</span>
-            )}
-          </div>
-        </div>
-        <div className="project-actions quote-header-actions">
-          <div className="quote-header-status">
-            <select
-              aria-label="Quote status"
-              value={quote.status}
-              disabled={busy || signedScope}
-              onChange={(event) =>
-                void change(() =>
-                  onSave(
-                    "quote",
-                    { ...quote, status: event.target.value },
-                    quote,
-                  ),
-                )
-              }
-            >
-              {quoteStatuses
-                .filter((status) => status !== "Accepted" || signedScope)
-                .map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-            </select>
-            {quote.quoteSentAt && (
-              <small>Last shared {regional.date(quote.quoteSentAt)}</small>
-            )}
-          </div>
+    <EstimateDetailShell
+      record={quote}
+      onBack={onBack}
+      actions={
+        <div className={jobStyles.recordActions}>
+          <select
+            aria-label="Quote status"
+            value={quote.status}
+            disabled={busy || signedScope || jobClosed}
+            onChange={(event) =>
+              void change(() =>
+                onSave(
+                  "quote",
+                  { ...quote, status: event.target.value },
+                  quote,
+                ),
+              )
+            }
+          >
+            {quoteStatuses
+              .filter((status) => status !== "Accepted" || signedScope)
+              .map((status) => (
+                <option key={status}>{status}</option>
+              ))}
+          </select>
           <a
-            className="button secondary"
+            className="button secondary small-button"
             href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
             download
           >
             <Download size={15} />
             {signedScope ? "Download signed quote" : "Download PDF"}
           </a>
-          {!signedScope && (handoffDemo || showQuoteStage) && (
+          {!signedScope && !jobClosed && (
             <button
-              className="button secondary"
+              className="button primary small-button"
               disabled={busy}
               onClick={() => onEdit({ kind: "quote", entity: quote })}
             >
-              <Pencil size={15} /> Edit quote
+              <Pencil size={15} /> Edit estimate
             </button>
           )}
         </div>
-      </div>
-      {error && (
-        <div className="alert" role="alert">
-          {error}
-        </div>
-      )}
-      {sendOpen && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !sendBusy)
-              setSendOpen(false);
-          }}
-        >
-          <form
-            className="modal"
-            onSubmit={(event) => void sendEmail(event)}
-            aria-label="Send customer packet"
-          >
-            <header>
-              <div>
-                <h2>Send customer packet</h2>
-                <p>
-                  We’ll attach the quote PDF and include one private link for
-                  {` ${packetDocumentNames}`} and any payment due afterward. The
-                  email will be sent from this organization’s connected Gmail
-                  account.
-                </p>
-              </div>
-            </header>
-            <div className="form-fields">
-              <label>
-                To
-                <input type="email" value={quote.clientEmail} readOnly />
-              </label>
-              <label>
-                Subject
-                <input
-                  name="subject"
-                  defaultValue={`Documents for ${quote.name}`}
-                  required
-                  maxLength={180}
-                />
-              </label>
-              <label>
-                Message
-                <textarea
-                  name="message"
-                  defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. Use the button below to open your private portal and complete the required documents in one guided signing session. Any deposit options will appear after the documents are complete.\n\nIf you have any questions or would like to talk through anything, just reply to this email or give me a call.\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
-                  required
-                  rows={7}
-                  maxLength={5000}
-                />
-              </label>
-              {sendError && (
-                <div className="alert" role="alert">
-                  {sendError}
-                </div>
-              )}
-            </div>
-            <footer className="modal-footer">
-              <button
-                type="button"
-                className="button secondary"
-                onClick={() => setPreviewOpen(true)}
-              >
-                Preview customer PDF
-              </button>
-              <button
-                type="button"
-                className="button secondary"
-                disabled={sendBusy}
-                onClick={() => setSendOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="button primary"
-                disabled={sendBusy || mailConnectionLoading || !mailReady}
-              >
-                {sendBusy ? "Sending…" : "Send customer packet"}
-              </button>
-            </footer>
-          </form>
-        </div>
-      )}
-      {previewOpen && !demo && (
-        <QuoteCustomerPreview
-          quoteId={quote.id}
-          onClose={() => setPreviewOpen(false)}
-        />
-      )}
-      <div className="quote-overview">
-        <div
-          className={`quote-overview-metrics${config.quotePreferences.showInternalCosts ? "" : " quote-overview-metrics-solo"}`}
-        >
-          <div className="quote-overview-metric quote-price">
-            <span>Scope total · quote price</span>
-            <strong>{regional.money(finances.total)}</strong>
-            <small>{items.length} items</small>
-          </div>
-          {config.quotePreferences.showInternalCosts && (
-            <div className="quote-overview-metric">
-              <span>Total costs</span>
-              <strong>{regional.money(finances.costs)}</strong>
-            </div>
-          )}
-          {config.quotePreferences.showInternalCosts && (
-            <div className="quote-overview-metric">
-              <span>Profit</span>
-              <strong
-                className={finances.margin < 0 ? "is-negative" : undefined}
-              >
-                {regional.money(finances.margin)}
-              </strong>
-            </div>
-          )}
-        </div>
-        {overviewPhotos.length > 0 && (
-          <div
-            className="quote-overview-photos"
-            aria-label="Selected quote photos"
-          >
-            {overviewPhotos.map(({ photo, file }) => {
-              const label =
-                photo.kind === "before"
-                  ? "Before"
-                  : photo.kind === "concept"
-                    ? "AI concept"
-                    : "Example";
-              return (
-                <figure key={file.id}>
-                  <img
-                    src={
-                      demo
-                        ? file.path
-                        : `/api/files?id=${encodeURIComponent(file.id)}`
-                    }
-                    alt={photo.caption || `${label} photo`}
-                    title={photo.caption || file.name}
-                  />
-                  <figcaption>{label}</figcaption>
-                </figure>
-              );
-            })}
+      }
+    >
+      <div className="quote-detail">
+        {error && (
+          <div className="alert" role="alert">
+            {error}
           </div>
         )}
-      </div>
-      {handoffDemo && quote.quoteSentAt && (
-        <QuoteProjectHandoffDemo
-          quote={quote}
-          itemCount={items.length}
-          fileCount={files.length}
-          agreementDetails={agreementPanel}
-        />
-      )}
-      {!handoffDemo && (
-        <QuoteWorkflowStepper
-          active={configuredStageId || workflowStep}
-          quoteReady={quoteDetailsReady}
-          agreementReady={!requiresAgreement || agreementDetailsReady}
-          companyReady={companyApprovalReady}
-          customerReady={signingPacket.status === "completed"}
-          depositReady={
-            !requiresPayment || (depositCents > 0 && dueCents === 0)
-          }
-          projectReady={readyForProjects}
-          configuredStages={configuredStages}
-          completionByStageId={completionByStageId}
-          onSelect={selectWorkflowStage}
-        />
-      )}
-      {!handoffDemo && (
-        <QuoteNextAction
-          action={workflowNextAction}
-          primary={
-            ["complete_quote", "add_delivery_contact"].includes(
-              workflowState.nextAction.id,
-            ) ? (
+        {sendOpen && (
+          <div
+            className="modal-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !sendBusy)
+                setSendOpen(false);
+            }}
+          >
+            <form
+              className="modal"
+              onSubmit={(event) => void sendEmail(event)}
+              aria-label="Send customer packet"
+            >
+              <header>
+                <div>
+                  <h2>Send customer packet</h2>
+                  <p>
+                    We’ll attach the quote PDF and include one private link for
+                    {` ${packetDocumentNames}`} and any payment due afterward.
+                    The email will be sent from this organization’s connected
+                    Gmail account.
+                  </p>
+                </div>
+              </header>
+              <div className="form-fields">
+                <label>
+                  To
+                  <input type="email" value={quote.clientEmail} readOnly />
+                </label>
+                <label>
+                  Subject
+                  <input
+                    name="subject"
+                    defaultValue={`Documents for ${quote.name}`}
+                    required
+                    maxLength={180}
+                  />
+                </label>
+                <label>
+                  Message
+                  <textarea
+                    name="message"
+                    defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. Use the button below to open your private portal and complete the required documents in one guided signing session. Any deposit options will appear after the documents are complete.\n\nIf you have any questions or would like to talk through anything, just reply to this email or give me a call.\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
+                    required
+                    rows={7}
+                    maxLength={5000}
+                  />
+                </label>
+                {sendError && (
+                  <div className="alert" role="alert">
+                    {sendError}
+                  </div>
+                )}
+              </div>
+              <footer className="modal-footer">
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => setPreviewOpen(true)}
+                >
+                  Preview customer PDF
+                </button>
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={sendBusy}
+                  onClick={() => setSendOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="button primary"
+                  disabled={sendBusy || mailConnectionLoading || !mailReady}
+                >
+                  {sendBusy ? "Sending…" : "Send customer packet"}
+                </button>
+              </footer>
+            </form>
+          </div>
+        )}
+        {previewOpen && !demo && (
+          <QuoteCustomerPreview
+            quoteId={quote.id}
+            onClose={() => setPreviewOpen(false)}
+          />
+        )}
+        <div className={`quote-overview ${jobStyles.estimatePackage}`}>
+          <div
+            className={`quote-overview-metrics${config.quotePreferences.showInternalCosts ? "" : " quote-overview-metrics-solo"}`}
+          >
+            <div className={jobStyles.estimatePackageTitle}>
+              <h2>
+                Estimate #
+                {quote.quoteNumber || quote.id.slice(0, 8).toUpperCase()}
+              </h2>
+              <span>{quote.status}</span>
+            </div>
+            <div className="quote-overview-metric quote-price">
+              <span>Scope total · quote price</span>
+              <strong>{regional.money(finances.total)}</strong>
+              <small>{items.length} items</small>
+            </div>
+            {config.quotePreferences.showInternalCosts && (
+              <div className="quote-overview-metric">
+                <span>Total costs</span>
+                <strong>{regional.money(finances.costs)}</strong>
+              </div>
+            )}
+            {config.quotePreferences.showInternalCosts && (
+              <div className="quote-overview-metric">
+                <span>Profit</span>
+                <strong
+                  className={finances.margin < 0 ? "is-negative" : undefined}
+                >
+                  {regional.money(finances.margin)}
+                </strong>
+              </div>
+            )}
+          </div>
+          {overviewPhotos.length > 0 && (
+            <div
+              className="quote-overview-photos"
+              aria-label="Selected quote photos"
+            >
+              {overviewPhotos.map(({ photo, file }) => {
+                const label =
+                  photo.kind === "before"
+                    ? "Before"
+                    : photo.kind === "concept"
+                      ? "AI concept"
+                      : "Example";
+                return (
+                  <figure key={file.id}>
+                    <img
+                      src={
+                        demo
+                          ? file.path
+                          : `/api/files?id=${encodeURIComponent(file.id)}`
+                      }
+                      alt={photo.caption || `${label} photo`}
+                      title={photo.caption || file.name}
+                    />
+                    <figcaption>{label}</figcaption>
+                  </figure>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {handoffDemo && quote.quoteSentAt && (
+          <QuoteProjectHandoffDemo
+            quote={quote}
+            itemCount={items.length}
+            fileCount={files.length}
+            agreementDetails={agreementPanel}
+          />
+        )}
+        {!handoffDemo && (
+          <QuoteWorkflowStepper
+            jobEstimate={Boolean(quote.jobId)}
+            active={configuredStageId || workflowStep}
+            quoteReady={quoteDetailsReady}
+            agreementReady={!requiresAgreement || agreementDetailsReady}
+            companyReady={companyApprovalReady}
+            customerReady={signingPacket.status === "completed"}
+            depositReady={
+              !requiresPayment || (depositCents > 0 && dueCents === 0)
+            }
+            projectReady={readyForProjects}
+            configuredStages={configuredStages}
+            completionByStageId={completionByStageId}
+            onSelect={selectWorkflowStage}
+          />
+        )}
+        {!handoffDemo && (
+          <QuoteNextAction
+            action={
+              quote.jobId && workflowNextAction.id === "create_project"
+                ? {
+                    ...workflowNextAction,
+                    title: quote.bookedJobId ? "Work booked" : "Book sold work",
+                    detail:
+                      "Keep the signed estimate and add its accepted scope to the job invoice.",
+                  }
+                : workflowNextAction
+            }
+            primary={
+              ["complete_quote", "add_delivery_contact"].includes(
+                workflowState.nextAction.id,
+              ) ? (
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={() => {
+                    if (
+                      !contactReady ||
+                      workflowState.nextAction.id === "add_delivery_contact"
+                    ) {
+                      onEdit({ kind: "quote", entity: quote });
+                      return;
+                    }
+                    document
+                      .getElementById("quote-items-section")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  {workflowState.nextAction.id === "add_delivery_contact"
+                    ? "Add customer email"
+                    : contactReady
+                      ? "Add the first item"
+                      : "Edit customer details"}
+                </button>
+              ) : workflowState.nextAction.id === "share_packet" ? (
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={
+                    !quote.clientEmail ||
+                    sendBusy ||
+                    mailConnectionLoading ||
+                    !mailReady
+                  }
+                  onClick={() => void sendCustomerPortal()}
+                >
+                  <Mail size={15} aria-hidden="true" />
+                  {sendBusy ? "Sending…" : "Send customer packet"}
+                </button>
+              ) : workflowState.nextAction.id === "collect_signatures" ? (
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={onsiteBusy}
+                  onClick={() => void startOnsiteSigning()}
+                >
+                  <Tablet size={15} aria-hidden="true" />
+                  {onsiteBusy ? "Opening…" : "Open signing on this device"}
+                </button>
+              ) : workflowState.nextAction.id === "complete" ? null : (
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={goToNextActionStage}
+                >
+                  {workflowState.nextAction.id === "create_project"
+                    ? quote.jobId
+                      ? "Review and book work"
+                      : "Review and create project"
+                    : workflowState.nextAction.id === "collect_payment"
+                      ? "Review deposit"
+                      : workflowState.nextAction.id === "company_approval"
+                        ? combinedDocumentsStage
+                          ? "Open Documents"
+                          : "Review and sign agreement"
+                        : combinedDocumentsStage
+                          ? "Open Documents"
+                          : "Open agreement details"}
+                </button>
+              )
+            }
+            secondary={
+              workflowState.nextAction.id === "share_packet" ? (
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={onsiteBusy}
+                  onClick={() => void startOnsiteSigning()}
+                >
+                  <Tablet size={15} aria-hidden="true" />
+                  {onsiteBusy ? "Opening…" : "Sign on this device"}
+                </button>
+              ) : workflowState.nextAction.id === "collect_signatures" &&
+                quote.clientEmail ? (
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={sendBusy || mailConnectionLoading || !mailReady}
+                  onClick={() => void sendCustomerPortal()}
+                >
+                  <Mail size={15} aria-hidden="true" />
+                  {sendBusy ? "Sending…" : "Resend customer packet"}
+                </button>
+              ) : null
+            }
+          />
+        )}
+        {!handoffDemo &&
+          ["share_packet", "collect_signatures"].includes(
+            workflowState.nextAction.id,
+          ) && (
+            <ConnectionRequirement
+              capability={mailCapability}
+              loading={mailConnectionLoading}
+            />
+          )}
+        {pendingOverride && (
+          <section
+            className="workflow-override-panel"
+            aria-label="Override required step"
+          >
+            <div>
+              <strong>Required work is incomplete</strong>
+              <p>{pendingOverride.message}</p>
+            </div>
+            <label>
+              Override reason
+              <input
+                value={overrideReason}
+                onChange={(event) => setOverrideReason(event.target.value)}
+                placeholder="Explain why this quote can continue"
+                minLength={5}
+                maxLength={500}
+              />
+            </label>
+            <div>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => {
+                  setPendingOverride(null);
+                  setOverrideReason("");
+                }}
+              >
+                Keep working
+              </button>
               <button
                 type="button"
                 className="button primary"
-                onClick={() => {
-                  if (
-                    !contactReady ||
-                    workflowState.nextAction.id === "add_delivery_contact"
-                  ) {
-                    onEdit({ kind: "quote", entity: quote });
-                    return;
-                  }
-                  document
-                    .getElementById("quote-items-section")
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
+                disabled={overrideReason.trim().length < 5}
+                onClick={() =>
+                  void selectConfiguredStage(pendingOverride.stage, true)
+                }
               >
-                {workflowState.nextAction.id === "add_delivery_contact"
-                  ? "Add customer email"
-                  : contactReady
-                    ? "Add the first item"
-                    : "Edit customer details"}
+                Override and continue
               </button>
-            ) : workflowState.nextAction.id === "share_packet" ? (
+            </div>
+          </section>
+        )}
+        {!handoffDemo &&
+          showingCustomStage &&
+          flowInstance &&
+          activeConfiguredStage && (
+            <section
+              className="workflow-live-step"
+              aria-label={activeConfiguredStage.title}
+            >
+              <QuoteFlowRenderer
+                definition={flowInstance.definition}
+                audience="both"
+                mode="staff"
+                activeStageId={activeConfiguredStage.id}
+                values={flowValues}
+                resolveCondition={resolveFlowCondition}
+                showNavigation={false}
+                showFooter={false}
+                blockFilter={(block) =>
+                  block.type !== "staff_information" || canViewStaffFlowContent
+                }
+                renderBlock={(block) => {
+                  if (block.type === "contact_fields")
+                    return (
+                      <div className="workflow-configured-object">
+                        <dl>
+                          <div>
+                            <dt>Name</dt>
+                            <dd>{quote.client || "Not selected"}</dd>
+                          </div>
+                          <div>
+                            <dt>Email</dt>
+                            <dd>{quote.clientEmail || "Not provided"}</dd>
+                          </div>
+                          <div>
+                            <dt>Phone</dt>
+                            <dd>{quote.clientPhone || "Not provided"}</dd>
+                          </div>
+                        </dl>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() =>
+                            onEdit({ kind: "quote", entity: quote })
+                          }
+                        >
+                          <Pencil size={15} /> Edit contact
+                        </button>
+                      </div>
+                    );
+                  if (block.type === "project_fields")
+                    return (
+                      <div className="workflow-configured-object">
+                        <dl>
+                          <div>
+                            <dt>Project</dt>
+                            <dd>{quote.name || "Untitled quote"}</dd>
+                          </div>
+                          <div>
+                            <dt>Type</dt>
+                            <dd>{quote.category || "Not selected"}</dd>
+                          </div>
+                          <div>
+                            <dt>Address</dt>
+                            <dd>{quote.address || "Not provided"}</dd>
+                          </div>
+                        </dl>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() =>
+                            onEdit({ kind: "quote", entity: quote })
+                          }
+                        >
+                          <Pencil size={15} /> Edit project
+                        </button>
+                      </div>
+                    );
+                  if (block.type === "quote_items")
+                    return signedScope ? (
+                      <table
+                        className="scope-table"
+                        aria-label="Signed quote scope"
+                      >
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th>Price</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((item) => (
+                            <tr key={item.id}>
+                              <td>
+                                <strong>{item.title}</strong>
+                                {item.details && <small>{item.details}</small>}
+                              </td>
+                              <td>{regional.money(item.estimate)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <ScopeTable
+                        items={items}
+                        workspace={workspace}
+                        pricebookEnabled={
+                          config.features.priceBook &&
+                          config.quotePreferences.showPriceBookPicker
+                        }
+                        demoPricebook={demo}
+                        showInternalCosts={
+                          config.quotePreferences.showInternalCosts
+                        }
+                        inline
+                        compactQuoteRows
+                        showStatus={false}
+                        projectId={quote.id}
+                        defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
+                        onSave={(data, item) => onSave("scope", data, item)}
+                        onReorder={onReorderScope}
+                        onBulkPrice={onPriceScope}
+                        onRefresh={onSent}
+                        onDelete={(item) => onDelete("scope", item)}
+                      />
+                    );
+                  if (block.type === "scope_of_work")
+                    return (
+                      <div className="workflow-configured-copy">
+                        <p>
+                          {quote.description || "No scope summary added yet."}
+                        </p>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() =>
+                            onEdit({ kind: "quote", entity: quote })
+                          }
+                        >
+                          <Pencil size={15} /> Edit scope
+                        </button>
+                      </div>
+                    );
+                  if (block.type === "notes")
+                    return (
+                      <div className="workflow-configured-copy">
+                        <p>{quote.quoteNotes || "No notes added yet."}</p>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() =>
+                            onEdit({ kind: "quote", entity: quote })
+                          }
+                        >
+                          <Pencil size={15} /> Edit notes
+                        </button>
+                      </div>
+                    );
+                  if (block.type === "photos_attachments")
+                    return (
+                      <div className="workflow-configured-files">
+                        <QuotePhotosPanel
+                          quote={quote}
+                          files={files}
+                          demo={demo}
+                          onSave={(photos) =>
+                            onSave(
+                              "quote",
+                              { ...quote, quotePhotos: photos },
+                              quote,
+                            )
+                          }
+                          onUpload={(file) => onUpload(file, quote.id)}
+                          onDelete={(file) => onDelete("attachment", file)}
+                          admin={user.role === "admin"}
+                        />
+                        <FilesPanel
+                          files={files.filter(
+                            (file) => !file.mime.startsWith("image/"),
+                          )}
+                          admin={user.role === "admin"}
+                          demo={demo}
+                          hideEmpty
+                          onUpload={async (file) => {
+                            await onUpload(file, quote.id);
+                          }}
+                          onDelete={(file) => onDelete("attachment", file)}
+                        />
+                      </div>
+                    );
+                  if (block.type === "delivery_controls")
+                    return (
+                      <div className="workflow-configured-delivery">
+                        <div>
+                          <strong>
+                            {quote.quoteSentAt
+                              ? `Customer packet sent to ${quote.clientEmail}`
+                              : "Ready to send"}
+                          </strong>
+                          <span>
+                            {quote.quoteSentAt
+                              ? "The documents are available in the customer portal."
+                              : `${packetDocumentNames} will be shared in one secure customer packet${requiresPayment ? ", with payment available after signing" : ""}.`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="button primary"
+                          disabled={
+                            !quote.clientEmail ||
+                            sendBusy ||
+                            signedScope ||
+                            mailConnectionLoading ||
+                            !mailReady
+                          }
+                          onClick={() => void sendCustomerPortal()}
+                        >
+                          <Mail size={15} />
+                          {quote.quoteSentAt
+                            ? "Resend customer packet"
+                            : "Send customer packet"}
+                        </button>
+                        <ConnectionRequirement
+                          capability={mailCapability}
+                          loading={mailConnectionLoading}
+                          compact
+                        />
+                        <a
+                          className="button secondary"
+                          href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Download size={15} /> Preview PDF
+                        </a>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={portalBusy}
+                          onClick={() => void copyPortalLink()}
+                        >
+                          <Copy size={15} />
+                          {portalBusy ? "Copying…" : "Copy portal link"}
+                        </button>
+                      </div>
+                    );
+                  if (block.type === "custom_file")
+                    return (
+                      <QuoteFlowFileControl
+                        value={flowValues[block.id]}
+                        busy={flowValueBusy === block.id}
+                        onUpload={(file) => uploadFlowFile(block.id, file)}
+                      />
+                    );
+                  const blockTemplateId =
+                    typeof block.config.templateId === "string"
+                      ? block.config.templateId
+                      : null;
+                  if (
+                    ["uploaded_pdf", "generated_document"].includes(
+                      block.type,
+                    ) &&
+                    blockTemplateId
+                  )
+                    return (
+                      <AgreementPacketPanel
+                        quote={quote}
+                        user={user}
+                        businessName={config.profile.name}
+                        demo={demo}
+                        fixedTemplateId={blockTemplateId}
+                        heading={block.label}
+                        flowResponses={flowValues}
+                      />
+                    );
+                  const methods = Array.isArray(block.config.methods)
+                    ? block.config.methods.map(String)
+                    : ["remote", "onsite", "in_person"];
+                  const signatureValue = flowValues[block.id] as
+                    Record<string, unknown> | undefined;
+                  if (block.type === "internal_approval") {
+                    if (signatureValue?.approved)
+                      return (
+                        <div className="success">
+                          <Check size={15} /> Approved by{" "}
+                          {String(
+                            signatureValue.approvedBy || "authorized staff",
+                          )}
+                        </div>
+                      );
+                    return (
+                      <button
+                        type="button"
+                        className="button primary"
+                        disabled={flowValueBusy === block.id}
+                        onClick={() => void saveFlowValue(block.id, true)}
+                      >
+                        {flowValueBusy === block.id
+                          ? "Approving…"
+                          : "Approve step"}
+                      </button>
+                    );
+                  }
+                  if (block.type === "project_conversion")
+                    return (
+                      <button
+                        type="button"
+                        className="button primary"
+                        disabled={flowValueBusy === block.id}
+                        onClick={() =>
+                          void convertConfiguredFlowToProject(block.id)
+                        }
+                      >
+                        {flowValueBusy === block.id
+                          ? quote.jobId
+                            ? "Booking work…"
+                            : "Creating project…"
+                          : quote.jobId
+                            ? "Book work to job"
+                            : "Create project"}
+                      </button>
+                    );
+                  if (block.type === "deposit_collection")
+                    return (
+                      <QuoteFlowPaymentControl
+                        block={block}
+                        value={flowValues[block.id]}
+                        quoteTotal={finances.total}
+                        locale={config.regional.locale}
+                        currency={config.regional.currency}
+                        busy={flowValueBusy === block.id}
+                        staff
+                        onRecord={(input) =>
+                          recordConfiguredFlowPayment(block.id, input)
+                        }
+                      />
+                    );
+                  if (
+                    ["signature", "initials"].includes(block.type) &&
+                    signatureValue?.method === "agreement_packet"
+                  )
+                    return (
+                      <div className="success">
+                        <Check size={15} /> Completed in the signed agreement
+                        packet.
+                      </div>
+                    );
+                  if (
+                    ["signature", "initials"].includes(block.type) &&
+                    ((methods.includes("in_person") && canMarkInPerson) ||
+                      (methods.includes("on_behalf") && canSignOnBehalf))
+                  )
+                    return (
+                      <QuoteFlowInPersonControl
+                        block={block}
+                        value={flowValues[block.id]}
+                        busy={flowValueBusy === block.id}
+                        onComplete={(input) =>
+                          markFlowSignedInPerson(block.id, input)
+                        }
+                        canSignOnBehalf={
+                          methods.includes("on_behalf") && canSignOnBehalf
+                        }
+                        onSignOnBehalf={(input) =>
+                          signFlowOnBehalf(block.id, input)
+                        }
+                      />
+                    );
+                  if (
+                    ["signature", "initials"].includes(block.type) &&
+                    activeAgreementTemplateId
+                  )
+                    return (
+                      <div className="alert">
+                        This field is completed through the private agreement
+                        link created in the document step.
+                      </div>
+                    );
+                  return undefined;
+                }}
+                onValue={(block, value) => {
+                  if (
+                    activeConfiguredStage.audience !== "customer" &&
+                    block.audience !== "customer"
+                  )
+                    void saveFlowValue(block.id, value);
+                }}
+              />
+              {flowValueBusy && (
+                <p className="muted-note" role="status">
+                  Saving response…
+                </p>
+              )}
+              {flowInstance.events?.some(
+                (event) => event.stageId === activeConfiguredStage.id,
+              ) && (
+                <details className="workflow-flow-audit">
+                  <summary>Step history</summary>
+                  {flowInstance.events
+                    .filter(
+                      (event) => event.stageId === activeConfiguredStage.id,
+                    )
+                    .map((event) => (
+                      <div key={event.id}>
+                        <strong>{event.eventType.replaceAll("_", " ")}</strong>
+                        <span>{event.actorName || "System"}</span>
+                        <time dateTime={event.createdAt}>
+                          {regional.dateTime(event.createdAt)}
+                        </time>
+                      </div>
+                    ))}
+                </details>
+              )}
+            </section>
+          )}
+        {(handoffDemo || showQuoteStage) && quote.description && (
+          <section className="content-section">
+            <div className="section-heading">
+              <h2>Scope brief</h2>
+            </div>
+            <p className="scope-description">{quote.description}</p>
+          </section>
+        )}
+        {(handoffDemo || showQuoteStage) && (
+          <section className="content-section" id="quote-items-section">
+            <div className="section-heading">
+              <div>
+                <h2>Items, costs & pricing</h2>
+                <p>
+                  {signedScope
+                    ? "Signed scope is locked."
+                    : "Edit a row, or drag its handle to change the quote order."}
+                </p>
+              </div>
+            </div>
+            <div className={displayStyles.bar}>
+              <label className={displayStyles.field}>
+                <span>Customer pricing display</span>
+                <select
+                  value={resolveQuotePriceDisplay(
+                    quote,
+                    config.quotePreferences.showCustomerLineItemPrices,
+                  )}
+                  disabled={busy || signedScope || jobClosed}
+                  onChange={(event) =>
+                    void change(async () => {
+                      await onSave(
+                        "quote",
+                        { ...quote, priceDisplay: event.target.value },
+                        quote,
+                      );
+                      await onSent();
+                    })
+                  }
+                >
+                  {quotePriceDisplayOptions.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className={displayStyles.description}>
+                {
+                  quotePriceDisplayOptions.find(
+                    (option) =>
+                      option.value ===
+                      resolveQuotePriceDisplay(
+                        quote,
+                        config.quotePreferences.showCustomerLineItemPrices,
+                      ),
+                  )?.description
+                }
+              </span>
+              {!demo && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => setPreviewOpen(true)}
+                >
+                  Preview customer PDF
+                </button>
+              )}
+            </div>
+            {signedScope || jobClosed ? (
+              <table
+                className="scope-table"
+                aria-label={signedScope ? "Signed quote scope" : "Quote scope"}
+              >
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <strong>{item.title}</strong>
+                        {item.details && <small>{item.details}</small>}
+                      </td>
+                      <td>{regional.money(item.estimate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <ScopeTable
+                items={items}
+                workspace={workspace}
+                pricebookEnabled={
+                  config.features.priceBook &&
+                  config.quotePreferences.showPriceBookPicker
+                }
+                demoPricebook={demo}
+                showInternalCosts={config.quotePreferences.showInternalCosts}
+                inline
+                compactQuoteRows
+                showStatus={false}
+                projectId={quote.id}
+                defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
+                onSave={(data, item) => onSave("scope", data, item)}
+                onReorder={onReorderScope}
+                onBulkPrice={onPriceScope}
+                onRefresh={onSent}
+                onDelete={(item) => onDelete("scope", item)}
+              />
+            )}
+          </section>
+        )}
+        {!handoffDemo && showAgreementStage && (
+          <section
+            className="workflow-live-step"
+            aria-label={
+              combinedDocumentsStage ? "Documents" : "Agreement details"
+            }
+          >
+            <header>
+              <span className="project-handoff-eyebrow">Step 2</span>
+              <h2>
+                {combinedDocumentsStage ? "Documents" : "Agreement details"}
+              </h2>
+              <p>
+                {combinedDocumentsStage
+                  ? "Confirm the agreement details and add the company signature before sharing the documents with the customer."
+                  : "Confirm payment milestones, contract terms, dates, and parties before anything is sent for signature."}
+              </p>
+            </header>
+            {(combinedDocumentsStage
+              ? companyApprovalPanel
+              : agreementPanel) || (
+              <div className="alert">Add at least one quote item first.</div>
+            )}
+            <footer>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setWorkflowStep("quote")}
+              >
+                Back to quote
+              </button>
               <button
                 type="button"
                 className="button primary"
                 disabled={
-                  !quote.clientEmail ||
-                  sendBusy ||
-                  mailConnectionLoading ||
-                  !mailReady
+                  combinedDocumentsStage
+                    ? !companyApprovalReady
+                    : requiresAgreement && !agreementDetailsReady
                 }
-                onClick={() => void sendCustomerPortal()}
+                onClick={() =>
+                  setWorkflowStep(
+                    combinedDocumentsStage ? "customer" : "company",
+                  )
+                }
               >
-                <Mail size={15} aria-hidden="true" />
-                {sendBusy ? "Sending…" : "Send customer packet"}
+                {combinedDocumentsStage
+                  ? "Continue to customer signatures"
+                  : "Continue to company signatures"}
               </button>
-            ) : workflowState.nextAction.id === "collect_signatures" ? (
-              <button
-                type="button"
-                className="button primary"
-                disabled={onsiteBusy}
-                onClick={() => void startOnsiteSigning()}
-              >
-                <Tablet size={15} aria-hidden="true" />
-                {onsiteBusy ? "Opening…" : "Open signing on this device"}
-              </button>
-            ) : workflowState.nextAction.id === "complete" ? null : (
-              <button
-                type="button"
-                className="button primary"
-                onClick={goToNextActionStage}
-              >
-                {workflowState.nextAction.id === "create_project"
-                  ? "Review and create project"
-                  : workflowState.nextAction.id === "collect_payment"
-                    ? "Review deposit"
-                    : workflowState.nextAction.id === "company_approval"
-                      ? combinedDocumentsStage
-                        ? "Open Documents"
-                        : "Review and sign agreement"
-                      : combinedDocumentsStage
-                        ? "Open Documents"
-                        : "Open agreement details"}
-              </button>
-            )
-          }
-          secondary={
-            workflowState.nextAction.id === "share_packet" ? (
-              <button
-                type="button"
-                className="button secondary"
-                disabled={onsiteBusy}
-                onClick={() => void startOnsiteSigning()}
-              >
-                <Tablet size={15} aria-hidden="true" />
-                {onsiteBusy ? "Opening…" : "Sign on this device"}
-              </button>
-            ) : workflowState.nextAction.id === "collect_signatures" &&
-              quote.clientEmail ? (
-              <button
-                type="button"
-                className="button secondary"
-                disabled={sendBusy || mailConnectionLoading || !mailReady}
-                onClick={() => void sendCustomerPortal()}
-              >
-                <Mail size={15} aria-hidden="true" />
-                {sendBusy ? "Sending…" : "Resend customer packet"}
-              </button>
-            ) : null
-          }
-        />
-      )}
-      {!handoffDemo &&
-        ["share_packet", "collect_signatures"].includes(
-          workflowState.nextAction.id,
-        ) && (
-          <ConnectionRequirement
-            capability={mailCapability}
-            loading={mailConnectionLoading}
-          />
+            </footer>
+          </section>
         )}
-      {pendingOverride && (
-        <section
-          className="workflow-override-panel"
-          aria-label="Override required step"
-        >
-          <div>
-            <strong>Required work is incomplete</strong>
-            <p>{pendingOverride.message}</p>
-          </div>
-          <label>
-            Override reason
-            <input
-              value={overrideReason}
-              onChange={(event) => setOverrideReason(event.target.value)}
-              placeholder="Explain why this quote can continue"
-              minLength={5}
-              maxLength={500}
-            />
-          </label>
-          <div>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => {
-                setPendingOverride(null);
-                setOverrideReason("");
-              }}
-            >
-              Keep working
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={overrideReason.trim().length < 5}
-              onClick={() =>
-                void selectConfiguredStage(pendingOverride.stage, true)
-              }
-            >
-              Override and continue
-            </button>
-          </div>
-        </section>
-      )}
-      {!handoffDemo &&
-        showingCustomStage &&
-        flowInstance &&
-        activeConfiguredStage && (
+        {!handoffDemo && showCompanyStage && (
           <section
             className="workflow-live-step"
-            aria-label={activeConfiguredStage.title}
+            aria-label="Company signatures"
           >
-            <QuoteFlowRenderer
-              definition={flowInstance.definition}
-              audience="both"
-              mode="staff"
-              activeStageId={activeConfiguredStage.id}
-              values={flowValues}
-              resolveCondition={resolveFlowCondition}
-              showNavigation={false}
-              showFooter={false}
-              blockFilter={(block) =>
-                block.type !== "staff_information" || canViewStaffFlowContent
+            <header>
+              <span className="project-handoff-eyebrow">Step 3</span>
+              <h2>Company signatures</h2>
+              <p>
+                Review the agreement snapshot and sign as the company
+                representative before sharing anything with the customer.
+              </p>
+            </header>
+            {companyApprovalPanel || (
+              <div className="alert">Complete agreement details first.</div>
+            )}
+            <footer>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setWorkflowStep("agreement")}
+              >
+                Back to agreement details
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                disabled={!companyApprovalReady}
+                onClick={() => setWorkflowStep("customer")}
+              >
+                Continue to customer signatures
+              </button>
+            </footer>
+          </section>
+        )}
+        {!handoffDemo && showCustomerStage && (
+          <section
+            className="workflow-live-step"
+            aria-label="Customer signatures"
+          >
+            <header>
+              <span className="project-handoff-eyebrow">
+                Step {configuredStepNumber("customer", 4)}
+              </span>
+              <h2>Customer signatures</h2>
+              <p>
+                Share one customer packet and complete every required customer
+                signature.
+              </p>
+            </header>
+            <SigningPacketSummary
+              packet={signingPacket}
+              actions={
+                <div className="workflow-packet-link-action">
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={portalBusy}
+                    onClick={() => void copyPortalLink()}
+                  >
+                    <Copy size={15} aria-hidden="true" />
+                    {portalBusy ? "Copying…" : "Copy portal link"}
+                  </button>
+                  {portalMessage && <span role="status">{portalMessage}</span>}
+                </div>
               }
-              renderBlock={(block) => {
-                if (block.type === "contact_fields")
-                  return (
-                    <div className="workflow-configured-object">
-                      <dl>
-                        <div>
-                          <dt>Name</dt>
-                          <dd>{quote.client || "Not selected"}</dd>
-                        </div>
-                        <div>
-                          <dt>Email</dt>
-                          <dd>{quote.clientEmail || "Not provided"}</dd>
-                        </div>
-                        <div>
-                          <dt>Phone</dt>
-                          <dd>{quote.clientPhone || "Not provided"}</dd>
-                        </div>
-                      </dl>
-                      <button
-                        type="button"
-                        className="button secondary"
-                        onClick={() => onEdit({ kind: "quote", entity: quote })}
-                      >
-                        <Pencil size={15} /> Edit contact
-                      </button>
-                    </div>
-                  );
-                if (block.type === "project_fields")
-                  return (
-                    <div className="workflow-configured-object">
-                      <dl>
-                        <div>
-                          <dt>Project</dt>
-                          <dd>{quote.name || "Untitled quote"}</dd>
-                        </div>
-                        <div>
-                          <dt>Type</dt>
-                          <dd>{quote.category || "Not selected"}</dd>
-                        </div>
-                        <div>
-                          <dt>Address</dt>
-                          <dd>{quote.address || "Not provided"}</dd>
-                        </div>
-                      </dl>
-                      <button
-                        type="button"
-                        className="button secondary"
-                        onClick={() => onEdit({ kind: "quote", entity: quote })}
-                      >
-                        <Pencil size={15} /> Edit project
-                      </button>
-                    </div>
-                  );
-                if (block.type === "quote_items")
-                  return signedScope ? (
-                    <table
-                      className="scope-table"
-                      aria-label="Signed quote scope"
-                    >
-                      <thead>
-                        <tr>
-                          <th>Item</th>
-                          <th>Price</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((item) => (
-                          <tr key={item.id}>
-                            <td>
-                              <strong>{item.title}</strong>
-                              {item.details && <small>{item.details}</small>}
-                            </td>
-                            <td>{regional.money(item.estimate)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <ScopeTable
-                      items={items}
-                      workspace={workspace}
-                      pricebookEnabled={
-                        config.features.priceBook &&
-                        config.quotePreferences.showPriceBookPicker
-                      }
-                      demoPricebook={demo}
-                      showInternalCosts={
-                        config.quotePreferences.showInternalCosts
-                      }
-                      inline
-                      compactQuoteRows
-                      showStatus={false}
-                      projectId={quote.id}
-                      defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
-                      onSave={(data, item) => onSave("scope", data, item)}
-                      onReorder={onReorderScope}
-                      onBulkPrice={onPriceScope}
-                      onRefresh={onSent}
-                      onDelete={(item) => onDelete("scope", item)}
-                    />
-                  );
-                if (block.type === "scope_of_work")
-                  return (
-                    <div className="workflow-configured-copy">
-                      <p>
-                        {quote.description || "No scope summary added yet."}
-                      </p>
-                      <button
-                        type="button"
-                        className="button secondary"
-                        onClick={() => onEdit({ kind: "quote", entity: quote })}
-                      >
-                        <Pencil size={15} /> Edit scope
-                      </button>
-                    </div>
-                  );
-                if (block.type === "notes")
-                  return (
-                    <div className="workflow-configured-copy">
-                      <p>{quote.quoteNotes || "No notes added yet."}</p>
-                      <button
-                        type="button"
-                        className="button secondary"
-                        onClick={() => onEdit({ kind: "quote", entity: quote })}
-                      >
-                        <Pencil size={15} /> Edit notes
-                      </button>
-                    </div>
-                  );
-                if (block.type === "photos_attachments")
-                  return (
-                    <div className="workflow-configured-files">
-                      <QuotePhotosPanel
-                        quote={quote}
-                        files={files}
-                        demo={demo}
-                        onSave={(photos) =>
-                          onSave(
-                            "quote",
-                            { ...quote, quotePhotos: photos },
-                            quote,
-                          )
-                        }
-                        onUpload={(file) => onUpload(file, quote.id)}
-                        onDelete={(file) => onDelete("attachment", file)}
-                        admin={user.role === "admin"}
-                      />
-                      <FilesPanel
-                        files={files.filter(
-                          (file) => !file.mime.startsWith("image/"),
-                        )}
-                        admin={user.role === "admin"}
-                        demo={demo}
-                        hideEmpty
-                        onUpload={async (file) => {
-                          await onUpload(file, quote.id);
-                        }}
-                        onDelete={(file) => onDelete("attachment", file)}
-                      />
-                    </div>
-                  );
-                if (block.type === "delivery_controls")
-                  return (
-                    <div className="workflow-configured-delivery">
-                      <div>
-                        <strong>
-                          {quote.quoteSentAt
-                            ? `Customer packet sent to ${quote.clientEmail}`
-                            : "Ready to send"}
-                        </strong>
-                        <span>
-                          {quote.quoteSentAt
-                            ? "The documents are available in the customer portal."
-                            : `${packetDocumentNames} will be shared in one secure customer packet${requiresPayment ? ", with payment available after signing" : ""}.`}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="button primary"
-                        disabled={
-                          !quote.clientEmail ||
-                          sendBusy ||
-                          signedScope ||
-                          mailConnectionLoading ||
-                          !mailReady
-                        }
-                        onClick={() => void sendCustomerPortal()}
-                      >
-                        <Mail size={15} />
-                        {quote.quoteSentAt
-                          ? "Resend customer packet"
-                          : "Send customer packet"}
-                      </button>
-                      <ConnectionRequirement
-                        capability={mailCapability}
-                        loading={mailConnectionLoading}
-                        compact
-                      />
+            />
+            <div
+              className="workflow-document-stack"
+              aria-label="Quote completion workflow"
+            >
+              {showQuoteDocument && (
+                <DocumentSigningPanel
+                  document={quoteSigningDocument}
+                  step={1}
+                  onEditData={() => onEdit({ kind: "quote", entity: quote })}
+                  secondaryActions={
+                    <>
                       <a
-                        className="button secondary"
-                        href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
+                        href={
+                          quoteSigningDocument.viewHref ||
+                          `/api/quotes/${encodeURIComponent(quote.id)}/pdf`
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <Download size={15} /> Preview PDF
+                        Preview document
                       </a>
-                      <button
-                        type="button"
-                        className="button secondary"
-                        disabled={portalBusy}
-                        onClick={() => void copyPortalLink()}
+                      <a
+                        href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
+                        download
                       >
-                        <Copy size={15} />
-                        {portalBusy ? "Copying…" : "Copy portal link"}
-                      </button>
-                    </div>
-                  );
-                if (block.type === "custom_file")
-                  return (
-                    <QuoteFlowFileControl
-                      value={flowValues[block.id]}
-                      busy={flowValueBusy === block.id}
-                      onUpload={(file) => uploadFlowFile(block.id, file)}
-                    />
-                  );
-                const blockTemplateId =
-                  typeof block.config.templateId === "string"
-                    ? block.config.templateId
-                    : null;
-                if (
-                  ["uploaded_pdf", "generated_document"].includes(block.type) &&
-                  blockTemplateId
-                )
-                  return (
-                    <AgreementPacketPanel
-                      quote={quote}
-                      user={user}
-                      businessName={config.profile.name}
-                      demo={demo}
-                      fixedTemplateId={blockTemplateId}
-                      heading={block.label}
-                      flowResponses={flowValues}
-                    />
-                  );
-                const methods = Array.isArray(block.config.methods)
-                  ? block.config.methods.map(String)
-                  : ["remote", "onsite", "in_person"];
-                const signatureValue = flowValues[block.id] as
-                  Record<string, unknown> | undefined;
-                if (block.type === "internal_approval") {
-                  if (signatureValue?.approved)
-                    return (
-                      <div className="success">
-                        <Check size={15} /> Approved by{" "}
-                        {String(
-                          signatureValue.approvedBy || "authorized staff",
-                        )}
-                      </div>
-                    );
-                  return (
-                    <button
-                      type="button"
-                      className="button primary"
-                      disabled={flowValueBusy === block.id}
-                      onClick={() => void saveFlowValue(block.id, true)}
-                    >
-                      {flowValueBusy === block.id
-                        ? "Approving…"
-                        : "Approve step"}
-                    </button>
-                  );
-                }
-                if (block.type === "project_conversion")
-                  return (
-                    <button
-                      type="button"
-                      className="button primary"
-                      disabled={flowValueBusy === block.id}
-                      onClick={() =>
-                        void convertConfiguredFlowToProject(block.id)
-                      }
-                    >
-                      {flowValueBusy === block.id
-                        ? "Creating project…"
-                        : "Create project"}
-                    </button>
-                  );
-                if (block.type === "deposit_collection")
-                  return (
-                    <QuoteFlowPaymentControl
-                      block={block}
-                      value={flowValues[block.id]}
-                      quoteTotal={finances.total}
-                      locale={config.regional.locale}
-                      currency={config.regional.currency}
-                      busy={flowValueBusy === block.id}
-                      staff
-                      onRecord={(input) =>
-                        recordConfiguredFlowPayment(block.id, input)
-                      }
-                    />
-                  );
-                if (
-                  ["signature", "initials"].includes(block.type) &&
-                  signatureValue?.method === "agreement_packet"
-                )
-                  return (
-                    <div className="success">
-                      <Check size={15} /> Completed in the signed agreement
-                      packet.
-                    </div>
-                  );
-                if (
-                  ["signature", "initials"].includes(block.type) &&
-                  ((methods.includes("in_person") && canMarkInPerson) ||
-                    (methods.includes("on_behalf") && canSignOnBehalf))
-                )
-                  return (
-                    <QuoteFlowInPersonControl
-                      block={block}
-                      value={flowValues[block.id]}
-                      busy={flowValueBusy === block.id}
-                      onComplete={(input) =>
-                        markFlowSignedInPerson(block.id, input)
-                      }
-                      canSignOnBehalf={
-                        methods.includes("on_behalf") && canSignOnBehalf
-                      }
-                      onSignOnBehalf={(input) =>
-                        signFlowOnBehalf(block.id, input)
-                      }
-                    />
-                  );
-                if (
-                  ["signature", "initials"].includes(block.type) &&
-                  activeAgreementTemplateId
-                )
-                  return (
-                    <div className="alert">
-                      This field is completed through the private agreement link
-                      created in the document step.
-                    </div>
-                  );
-                return undefined;
-              }}
-              onValue={(block, value) => {
-                if (
-                  activeConfiguredStage.audience !== "customer" &&
-                  block.audience !== "customer"
-                )
-                  void saveFlowValue(block.id, value);
-              }}
-            />
-            {flowValueBusy && (
-              <p className="muted-note" role="status">
-                Saving response…
-              </p>
-            )}
-            {flowInstance.events?.some(
-              (event) => event.stageId === activeConfiguredStage.id,
-            ) && (
-              <details className="workflow-flow-audit">
-                <summary>Step history</summary>
-                {flowInstance.events
-                  .filter((event) => event.stageId === activeConfiguredStage.id)
-                  .map((event) => (
-                    <div key={event.id}>
-                      <strong>{event.eventType.replaceAll("_", " ")}</strong>
-                      <span>{event.actorName || "System"}</span>
-                      <time dateTime={event.createdAt}>
-                        {regional.dateTime(event.createdAt)}
-                      </time>
-                    </div>
-                  ))}
-              </details>
-            )}
-          </section>
-        )}
-      {(handoffDemo || showQuoteStage) && quote.description && (
-        <section className="content-section">
-          <div className="section-heading">
-            <h2>Scope brief</h2>
-          </div>
-          <p className="scope-description">{quote.description}</p>
-        </section>
-      )}
-      {(handoffDemo || showQuoteStage) && (
-        <section className="content-section" id="quote-items-section">
-          <div className="section-heading">
-            <div>
-              <h2>Items, costs & pricing</h2>
-              <p>
-                {signedScope
-                  ? "Signed scope is locked."
-                  : "Edit a row, or drag its handle to change the quote order."}
-              </p>
+                        Download PDF
+                      </a>
+                    </>
+                  }
+                />
+              )}
+              {showAgreementDocument && (
+                <MsaSigningPanel
+                  quote={quote}
+                  signerName={user.name}
+                  document={agreementSigningDocument}
+                  onSent={onSent}
+                  onEditData={() => onEdit({ kind: "quote", entity: quote })}
+                />
+              )}
             </div>
-          </div>
-          <div className={displayStyles.bar}>
-            <label className={displayStyles.field}>
-              <span>Customer pricing display</span>
-              <select
-                value={resolveQuotePriceDisplay(
-                  quote,
-                  config.quotePreferences.showCustomerLineItemPrices,
-                )}
-                disabled={busy || signedScope}
-                onChange={(event) =>
-                  void change(async () => {
-                    await onSave(
-                      "quote",
-                      { ...quote, priceDisplay: event.target.value },
-                      quote,
-                    );
-                    await onSent();
-                  })
-                }
-              >
-                {quotePriceDisplayOptions.map((option) => (
-                  <option value={option.value} key={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span className={displayStyles.description}>
-              {
-                quotePriceDisplayOptions.find(
-                  (option) =>
-                    option.value ===
-                    resolveQuotePriceDisplay(
-                      quote,
-                      config.quotePreferences.showCustomerLineItemPrices,
-                    ),
-                )?.description
-              }
-            </span>
-            {!demo && (
+            <footer>
               <button
                 type="button"
                 className="button secondary"
-                onClick={() => setPreviewOpen(true)}
-              >
-                Preview customer PDF
-              </button>
-            )}
-          </div>
-          {signedScope ? (
-            <table className="scope-table" aria-label="Signed quote scope">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <strong>{item.title}</strong>
-                      {item.details && <small>{item.details}</small>}
-                    </td>
-                    <td>{regional.money(item.estimate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <ScopeTable
-              items={items}
-              workspace={workspace}
-              pricebookEnabled={
-                config.features.priceBook &&
-                config.quotePreferences.showPriceBookPicker
-              }
-              demoPricebook={demo}
-              showInternalCosts={config.quotePreferences.showInternalCosts}
-              inline
-              compactQuoteRows
-              showStatus={false}
-              projectId={quote.id}
-              defaultSectionName={DEFAULT_QUOTE_PROJECT_NAME}
-              onSave={(data, item) => onSave("scope", data, item)}
-              onReorder={onReorderScope}
-              onBulkPrice={onPriceScope}
-              onRefresh={onSent}
-              onDelete={(item) => onDelete("scope", item)}
-            />
-          )}
-        </section>
-      )}
-      {!handoffDemo && showAgreementStage && (
-        <section
-          className="workflow-live-step"
-          aria-label={
-            combinedDocumentsStage ? "Documents" : "Agreement details"
-          }
-        >
-          <header>
-            <span className="project-handoff-eyebrow">Step 2</span>
-            <h2>
-              {combinedDocumentsStage ? "Documents" : "Agreement details"}
-            </h2>
-            <p>
-              {combinedDocumentsStage
-                ? "Confirm the agreement details and add the company signature before sharing the documents with the customer."
-                : "Confirm payment milestones, contract terms, dates, and parties before anything is sent for signature."}
-            </p>
-          </header>
-          {(combinedDocumentsStage ? companyApprovalPanel : agreementPanel) || (
-            <div className="alert">Add at least one quote item first.</div>
-          )}
-          <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setWorkflowStep("quote")}
-            >
-              Back to quote
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={
-                combinedDocumentsStage
-                  ? !companyApprovalReady
-                  : requiresAgreement && !agreementDetailsReady
-              }
-              onClick={() =>
-                setWorkflowStep(combinedDocumentsStage ? "customer" : "company")
-              }
-            >
-              {combinedDocumentsStage
-                ? "Continue to customer signatures"
-                : "Continue to company signatures"}
-            </button>
-          </footer>
-        </section>
-      )}
-      {!handoffDemo && showCompanyStage && (
-        <section className="workflow-live-step" aria-label="Company signatures">
-          <header>
-            <span className="project-handoff-eyebrow">Step 3</span>
-            <h2>Company signatures</h2>
-            <p>
-              Review the agreement snapshot and sign as the company
-              representative before sharing anything with the customer.
-            </p>
-          </header>
-          {companyApprovalPanel || (
-            <div className="alert">Complete agreement details first.</div>
-          )}
-          <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setWorkflowStep("agreement")}
-            >
-              Back to agreement details
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={!companyApprovalReady}
-              onClick={() => setWorkflowStep("customer")}
-            >
-              Continue to customer signatures
-            </button>
-          </footer>
-        </section>
-      )}
-      {!handoffDemo && showCustomerStage && (
-        <section
-          className="workflow-live-step"
-          aria-label="Customer signatures"
-        >
-          <header>
-            <span className="project-handoff-eyebrow">
-              Step {configuredStepNumber("customer", 4)}
-            </span>
-            <h2>Customer signatures</h2>
-            <p>
-              Share one customer packet and complete every required customer
-              signature.
-            </p>
-          </header>
-          <SigningPacketSummary
-            packet={signingPacket}
-            actions={
-              <div className="workflow-packet-link-action">
-                <button
-                  type="button"
-                  className="button secondary"
-                  disabled={portalBusy}
-                  onClick={() => void copyPortalLink()}
-                >
-                  <Copy size={15} aria-hidden="true" />
-                  {portalBusy ? "Copying…" : "Copy portal link"}
-                </button>
-                {portalMessage && <span role="status">{portalMessage}</span>}
-              </div>
-            }
-          />
-          <div
-            className="workflow-document-stack"
-            aria-label="Quote completion workflow"
-          >
-            {showQuoteDocument && (
-              <DocumentSigningPanel
-                document={quoteSigningDocument}
-                step={1}
-                onEditData={() => onEdit({ kind: "quote", entity: quote })}
-                secondaryActions={
-                  <>
-                    <a
-                      href={
-                        quoteSigningDocument.viewHref ||
-                        `/api/quotes/${encodeURIComponent(quote.id)}/pdf`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Preview document
-                    </a>
-                    <a
-                      href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`}
-                      download
-                    >
-                      Download PDF
-                    </a>
-                  </>
+                onClick={() =>
+                  setWorkflowStep(
+                    combinedDocumentsStage ? "agreement" : "company",
+                  )
                 }
-              />
-            )}
-            {showAgreementDocument && (
-              <MsaSigningPanel
-                quote={quote}
-                signerName={user.name}
-                document={agreementSigningDocument}
-                onSent={onSent}
-                onEditData={() => onEdit({ kind: "quote", entity: quote })}
-              />
-            )}
-          </div>
-          <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() =>
-                setWorkflowStep(
-                  combinedDocumentsStage ? "agreement" : "company",
-                )
-              }
-            >
-              {combinedDocumentsStage
-                ? "Back to Documents"
-                : "Back to company approval"}
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={signingPacket.status !== "completed"}
-              onClick={() => setWorkflowStep("deposit")}
-            >
-              Continue to deposit
-            </button>
-          </footer>
-        </section>
-      )}
-      {!handoffDemo && showDepositStage && (
-        <section className="workflow-live-step" aria-label="Deposit">
-          <header>
-            <span className="project-handoff-eyebrow">
-              Step {configuredStepNumber("deposit", 5)}
-            </span>
-            <h2>Deposit</h2>
-            <p>
-              Collect the configured deposit online or record an offline payment
-              before creating the project.
-            </p>
-          </header>
-          {showDepositObject && (
-            <section
-              id="quote-deposit-step"
-              className={`workflow-completion-panel workflow-document-panel workflow-deposit-step ${readyForProjects ? "is-complete" : "is-waiting"}`}
-              aria-label="Deposit status"
-            >
-              <header>
-                <div className="workflow-document-marker">
-                  <span
-                    className={`workflow-document-step ${readyForProjects ? "is-complete" : ""}`}
-                  >
-                    {readyForProjects ? (
-                      <Check size={14} aria-hidden="true" />
-                    ) : (
-                      configuredStepNumber("deposit", 5)
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <span className="project-handoff-eyebrow">Payment</span>
-                  <h3>
-                    {readyForProjects
-                      ? "Deposit received"
-                      : signedMsa
-                        ? "Deposit ready to collect"
-                        : "Available after the required documents are signed"}
-                  </h3>
-                  <p>
-                    {readyForProjects
-                      ? "The required deposit has been recorded."
-                      : signedMsa
-                        ? `${regional.money(dueCents / 100)} remains due before scheduling.`
-                        : "Complete the required documents before collecting the deposit."}
-                  </p>
-                </div>
-              </header>
-              {signedMsa && dueCents > 0 && user.role === "admin" && !demo && (
-                <form
-                  className="workflow-deposit-form"
-                  onSubmit={(event) => void recordCheck(event)}
-                >
-                  <p>
-                    Record a check after it is received. The customer can also
-                    pay online from the signed agreement.
-                  </p>
-                  <label>
-                    Check amount ($)
-                    <input
-                      name="amount"
-                      type="number"
-                      min="0.01"
-                      max={(dueCents / 100).toFixed(2)}
-                      step="0.01"
-                      placeholder={(dueCents / 100).toFixed(2)}
-                      required
-                      disabled={checkBusy}
-                    />
-                  </label>
-                  <label>
-                    Check number (optional)
-                    <input
-                      name="checkReference"
-                      maxLength={100}
-                      disabled={checkBusy}
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    className="button primary"
-                    disabled={checkBusy}
-                  >
-                    {checkBusy ? "Recording…" : "Record received check"}
-                  </button>
-                  {checkError && (
-                    <p role="alert" className="alert">
-                      {checkError}
-                    </p>
-                  )}
-                </form>
-              )}
-            </section>
-          )}
-          <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setWorkflowStep("customer")}
-            >
-              Back to customer completion
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={!readyForProjects}
-              onClick={() => setWorkflowStep("project")}
-            >
-              Continue to project
-            </button>
-          </footer>
-        </section>
-      )}
-      {!handoffDemo && showProjectStage && (
-        <section className="workflow-live-step" aria-label="Create project">
-          <header>
-            <span className="project-handoff-eyebrow">
-              Step {configuredStepNumber("project", 6)}
-            </span>
-            <h2>Create project</h2>
-            <p>
-              The completed quote, required documents, payments, customer,
-              files, and items will move together into Projects.
-            </p>
-          </header>
-          <div className="workflow-project-review">
-            <div>
-              <span>Project</span>
-              <strong>{quote.name}</strong>
-              <small>{quote.address}</small>
-            </div>
-            <div>
-              <span>Customer</span>
-              <strong>{quote.client}</strong>
-              <small>{quote.clientEmail}</small>
-            </div>
-            <div>
-              <span>Contract</span>
-              <strong>
-                {regional.money(quote.contractPrice || finances.total)}
-              </strong>
-              <small>{items.length} items ready for Planning</small>
-            </div>
-          </div>
-          <ul className="workflow-project-items" aria-label="Project items">
-            {items.map((item, index) => (
-              <li key={item.id}>
-                <span>{index + 1}</span>
-                <div>
-                  <strong>{item.title}</strong>
-                  <small>{item.sectionName || quote.category}</small>
-                </div>
-                <Check size={15} aria-label="Ready" />
-              </li>
-            ))}
-          </ul>
-          <footer>
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setWorkflowStep("deposit")}
-            >
-              Back to deposit
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={busy || !readyForProjects}
-              onClick={() => void change(() => onAccept(quote))}
-            >
-              <Check size={16} /> {busy ? "Creating…" : "Create project"}
-            </button>
-          </footer>
-        </section>
-      )}
-      {(handoffDemo || showQuoteStage) && (
-        <section className="content-section">
-          <div className="section-heading">
-            <div>
-              <h2>Quote photos</h2>
+              >
+                {combinedDocumentsStage
+                  ? "Back to Documents"
+                  : "Back to company approval"}
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                disabled={signingPacket.status !== "completed"}
+                onClick={() => setWorkflowStep("deposit")}
+              >
+                Continue to deposit
+              </button>
+            </footer>
+          </section>
+        )}
+        {!handoffDemo && showDepositStage && (
+          <section className="workflow-live-step" aria-label="Deposit">
+            <header>
+              <span className="project-handoff-eyebrow">
+                Step {configuredStepNumber("deposit", 5)}
+              </span>
+              <h2>Deposit</h2>
               <p>
-                Choose before and example photos to show your customer, or
-                create a finished concept.
+                Collect the configured deposit online or record an offline
+                payment before creating the project.
               </p>
-              {quote.quoteSentAt && (
-                <p>Resend the quote to update photos in the customer copy.</p>
-              )}
+            </header>
+            {showDepositObject && (
+              <section
+                id="quote-deposit-step"
+                className={`workflow-completion-panel workflow-document-panel workflow-deposit-step ${readyForProjects ? "is-complete" : "is-waiting"}`}
+                aria-label="Deposit status"
+              >
+                <header>
+                  <div className="workflow-document-marker">
+                    <span
+                      className={`workflow-document-step ${readyForProjects ? "is-complete" : ""}`}
+                    >
+                      {readyForProjects ? (
+                        <Check size={14} aria-hidden="true" />
+                      ) : (
+                        configuredStepNumber("deposit", 5)
+                      )}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="project-handoff-eyebrow">Payment</span>
+                    <h3>
+                      {readyForProjects
+                        ? "Deposit received"
+                        : signedMsa
+                          ? "Deposit ready to collect"
+                          : "Available after the required documents are signed"}
+                    </h3>
+                    <p>
+                      {readyForProjects
+                        ? "The required deposit has been recorded."
+                        : signedMsa
+                          ? `${regional.money(dueCents / 100)} remains due before scheduling.`
+                          : "Complete the required documents before collecting the deposit."}
+                    </p>
+                  </div>
+                </header>
+                {signedMsa &&
+                  dueCents > 0 &&
+                  user.role === "admin" &&
+                  !demo && (
+                    <form
+                      className="workflow-deposit-form"
+                      onSubmit={(event) => void recordCheck(event)}
+                    >
+                      <p>
+                        Record a check after it is received. The customer can
+                        also pay online from the signed agreement.
+                      </p>
+                      <label>
+                        Check amount ($)
+                        <input
+                          name="amount"
+                          type="number"
+                          min="0.01"
+                          max={(dueCents / 100).toFixed(2)}
+                          step="0.01"
+                          placeholder={(dueCents / 100).toFixed(2)}
+                          required
+                          disabled={checkBusy}
+                        />
+                      </label>
+                      <label>
+                        Check number (optional)
+                        <input
+                          name="checkReference"
+                          maxLength={100}
+                          disabled={checkBusy}
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        className="button primary"
+                        disabled={checkBusy}
+                      >
+                        {checkBusy ? "Recording…" : "Record received check"}
+                      </button>
+                      {checkError && (
+                        <p role="alert" className="alert">
+                          {checkError}
+                        </p>
+                      )}
+                    </form>
+                  )}
+              </section>
+            )}
+            <footer>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setWorkflowStep("customer")}
+              >
+                Back to customer completion
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                disabled={!readyForProjects}
+                onClick={() => setWorkflowStep("project")}
+              >
+                Continue to project
+              </button>
+            </footer>
+          </section>
+        )}
+        {!handoffDemo && showProjectStage && (
+          <section className="workflow-live-step" aria-label="Create project">
+            <header>
+              <span className="project-handoff-eyebrow">
+                Step {configuredStepNumber("project", 6)}
+              </span>
+              <h2>{quote.jobId ? "Book sold work" : "Create project"}</h2>
+              <p>
+                {quote.jobId
+                  ? "Copy the signed scope onto this job's invoice and credit its deposit. The estimate and signature links remain intact."
+                  : "The completed quote, required documents, payments, customer, files, and items will move together into Projects."}
+              </p>
+            </header>
+            <div className="workflow-project-review">
+              <div>
+                <span>Project</span>
+                <strong>{quote.name}</strong>
+                <small>{quote.address}</small>
+              </div>
+              <div>
+                <span>Customer</span>
+                <strong>{quote.client}</strong>
+                <small>{quote.clientEmail}</small>
+              </div>
+              <div>
+                <span>Contract</span>
+                <strong>
+                  {regional.money(quote.contractPrice || finances.total)}
+                </strong>
+                <small>{items.length} items ready for Planning</small>
+              </div>
             </div>
-          </div>
-          <QuotePhotosPanel
-            quote={quote}
-            files={files}
-            demo={demo}
-            onSave={(photos) =>
-              onSave("quote", { ...quote, quotePhotos: photos }, quote)
-            }
-            onUpload={(file) => onUpload(file, quote.id)}
-            onDelete={(file) => onDelete("attachment", file)}
-            admin={user.role === "admin"}
-          />
-          <FilesPanel
-            files={files.filter((file) => !file.mime.startsWith("image/"))}
-            admin={user.role === "admin"}
-            demo={demo}
-            hideEmpty
-            onUpload={async (file) => {
-              await onUpload(file, quote.id);
-            }}
-            onDelete={(file) => onDelete("attachment", file)}
-          />
-        </section>
-      )}
-      {!demo && showQuoteStage && (
-        <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
-      )}
-    </div>
+            <ul className="workflow-project-items" aria-label="Project items">
+              {items.map((item, index) => (
+                <li key={item.id}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{item.sectionName || quote.category}</small>
+                  </div>
+                  <Check size={15} aria-label="Ready" />
+                </li>
+              ))}
+            </ul>
+            <footer>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setWorkflowStep("deposit")}
+              >
+                Back to deposit
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                disabled={busy || !readyForProjects}
+                onClick={() =>
+                  quote.bookedJobId
+                    ? onProjectReady(quote.bookedJobId)
+                    : void change(() => onAccept(quote))
+                }
+              >
+                <Check size={16} />{" "}
+                {busy
+                  ? "Saving…"
+                  : quote.bookedJobId
+                    ? "Open job invoice"
+                    : quote.jobId
+                      ? "Book to job invoice"
+                      : "Create project"}
+              </button>
+            </footer>
+          </section>
+        )}
+        {(handoffDemo || showQuoteStage) && (
+          <section className="content-section">
+            <div className="section-heading">
+              <div>
+                <h2>Quote photos</h2>
+                <p>
+                  Choose before and example photos to show your customer, or
+                  create a finished concept.
+                </p>
+                {quote.quoteSentAt && (
+                  <p>Resend the quote to update photos in the customer copy.</p>
+                )}
+              </div>
+            </div>
+            <QuotePhotosPanel
+              quote={quote}
+              files={files}
+              demo={demo}
+              onSave={(photos) =>
+                onSave("quote", { ...quote, quotePhotos: photos }, quote)
+              }
+              onUpload={(file) => onUpload(file, quote.id)}
+              onDelete={(file) => onDelete("attachment", file)}
+              admin={user.role === "admin"}
+            />
+            <FilesPanel
+              files={files.filter((file) => !file.mime.startsWith("image/"))}
+              admin={user.role === "admin"}
+              demo={demo}
+              hideEmpty
+              onUpload={async (file) => {
+                await onUpload(file, quote.id);
+              }}
+              onDelete={(file) => onDelete("attachment", file)}
+            />
+          </section>
+        )}
+        {!demo && showQuoteStage && (
+          <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
+        )}
+      </div>
+      <details>
+        <summary>Estimate notes</summary>
+        <ProjectNotes
+          comments={workspace.comments.filter(
+            (note) => note.projectId === quote.id,
+          )}
+          files={files}
+          user={user}
+          demo={demo}
+          onUpload={(file) => onUpload(file, quote.id)}
+          onPost={async (body, attachmentIds, requestId) => {
+            await onSave(
+              "comment",
+              {
+                projectId: quote.id,
+                body,
+                attachmentIds,
+              },
+              undefined,
+              requestId,
+            );
+          }}
+          onDelete={(note) => onDelete("comment", note)}
+        />
+      </details>
+    </EstimateDetailShell>
   );
 }

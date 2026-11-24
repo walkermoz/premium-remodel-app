@@ -196,6 +196,8 @@ export const schemas = {
   quote: z
     .object({
       ...projectFields,
+      jobId: short.min(1).optional(),
+      recommended: z.boolean().optional(),
       status: z.enum(quoteStatuses),
       junkedAt: z.iso.datetime().nullable().optional(),
       importedFrom: short.optional(),
@@ -280,6 +282,8 @@ export const schemas = {
   project: z
     .object({
       ...projectFields,
+      recordType: z.enum(["job", "project"]).optional(),
+      parentProjectId: z.uuid().optional(),
       smsScheduleEnabled: z.boolean().default(false),
       smsScheduleTime: time.default("09:00"),
       contactId: z.uuid().optional(),
@@ -388,6 +392,7 @@ export const schemas = {
     notes: text,
   }),
   scope: z.object({
+    sourceEstimateId: short.optional(),
     projectId: short.min(1),
     sectionId: short.optional(),
     sectionName: short.optional(),

@@ -39,7 +39,50 @@ export async function readClientProjectSchedule(
     .eq("kind", "task")
     .limit(500);
   if (result.error) throw result.error;
-  return result.data
+  const jobResult = await supabaseAdmin()
+    .from("remodel_records")
+    .select("data")
+    .eq("organization_id", organizationId)
+    .eq("id", projectId)
+    .eq("kind", "project")
+    .maybeSingle();
+  if (jobResult.error) throw jobResult.error;
+  const appointments = z
+    .array(
+      z.object({
+        id: z.uuid(),
+        title: z.string().min(1),
+        date: z.string(),
+        start: z.string(),
+        end: z.string(),
+        status: z.enum([
+          "Scheduled",
+          "Dispatched",
+          "Arrived",
+          "Paused",
+          "Done",
+          "Canceled",
+        ]),
+      }),
+    )
+    .safeParse(jobResult.data?.data?.job?.appointments || []);
+  const visits = appointments.success
+    ? appointments.data
+        .filter((appointment) => appointment.status !== "Canceled")
+        .map((appointment) => ({
+          data: {
+            id: appointment.id,
+            title: appointment.title,
+            description: "",
+            dueDate: appointment.date,
+            startTime: appointment.start,
+            endTime: appointment.end,
+            workType: "Contractor visit",
+            status: appointment.status === "Done" ? "Done" : "To do",
+          },
+        }))
+    : [];
+  return [...result.data, ...visits]
     .map((row) => clientScheduleItemSchema.safeParse(row.data))
     .filter((item) => item.success)
     .map((item) => item.data)

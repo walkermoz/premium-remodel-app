@@ -14,6 +14,7 @@ export default function TaskList({
   onAdd,
   onProject,
   compact = false,
+  readOnly = false,
 }: {
   tasks: Task[];
   workspace: Workspace;
@@ -23,6 +24,7 @@ export default function TaskList({
   onAdd: () => void;
   onProject?: (id: string) => void;
   compact?: boolean;
+  readOnly?: boolean;
 }) {
   const { date } = useRegionalFormat();
   if (!tasks.length)
@@ -31,7 +33,11 @@ export default function TaskList({
         title="Your upcoming work is clear"
         text="Add the next items and assign them to your contractors."
         action={
-          <button className="button secondary" onClick={onAdd}>
+          <button
+            className="button secondary"
+            onClick={onAdd}
+            disabled={readOnly}
+          >
             <Plus size={16} />
             Add item
           </button>
@@ -45,6 +51,7 @@ export default function TaskList({
           (c) => c.id === task.contractorId,
         );
         const project = workspace.projects.find((p) => p.id === task.projectId);
+        const locked = readOnly || project?.status === "Completed";
         return (
           <div
             className={`task-row ${task.status === "Done" ? "task-done" : ""}`}
@@ -52,6 +59,7 @@ export default function TaskList({
           >
             <button
               className={`task-check ${task.status === "Done" ? "checked" : ""}`}
+              disabled={locked}
               onClick={() => onToggle(task)}
               aria-label={`${task.status === "Done" ? "Reopen" : "Complete"} ${task.title}`}
             >
@@ -60,6 +68,7 @@ export default function TaskList({
             <div className="task-main">
               <button
                 className="text-button task-name"
+                disabled={locked}
                 onClick={() => onEdit(task)}
               >
                 {task.title}
@@ -109,6 +118,7 @@ export default function TaskList({
               <button
                 className="icon-button"
                 aria-label={`Edit ${task.title}`}
+                disabled={locked}
                 onClick={() => onEdit(task)}
               >
                 <Pencil size={14} />
@@ -116,6 +126,7 @@ export default function TaskList({
               <button
                 className="icon-button delete-action"
                 aria-label={`Delete ${task.title}`}
+                disabled={locked}
                 onClick={() => onDelete(task)}
               >
                 <Trash2 size={14} />

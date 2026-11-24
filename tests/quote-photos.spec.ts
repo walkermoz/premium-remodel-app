@@ -5,7 +5,7 @@ test("quote photos can be selected, labeled, and removed without losing the uplo
   page,
 }) => {
   await page.goto("/demo?view=Quotes");
-  await page.getByRole("button", { name: "New quote" }).first().click();
+  await page.getByRole("button", { name: "New estimate" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Quote name").fill("Photo proposal");
   await dialog.getByLabel("Contact name").fill("Test Homeowner");

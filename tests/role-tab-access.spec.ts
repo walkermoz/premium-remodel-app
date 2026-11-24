@@ -16,7 +16,7 @@ test("door knocker sees field tabs but cannot open an office tab", async ({
   page,
 }) => {
   await page.goto("/demo?as=doorknocker&view=Quotes");
-  await expect(page.getByRole("button", { name: "Quotes" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Jobs" })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Door knocking." }),
   ).toBeVisible();

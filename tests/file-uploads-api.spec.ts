@@ -153,7 +153,10 @@ cloudTest(
     await expect(
       notes.getByRole("link", { name: "measurements.pdf" }),
     ).toBeVisible();
-    await page.getByRole("tab", { name: /Photos & files/ }).click();
+    await page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Photos \& files$/i })
+      .click();
     await expect(page.locator(".file-item")).toHaveCount(2);
     expect(
       (

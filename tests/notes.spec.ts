@@ -5,7 +5,10 @@ test("job notes keep drafts, save across reloads, appear in activity and stay wi
   page,
 }) => {
   await page.goto("/demo?view=Projects&project=p1");
-  await page.getByRole("tab", { name: /^Notes/ }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Notes$/i })
+    .click();
   const notes = page.getByRole("region", { name: "Job notes", exact: true });
   const input = notes.getByRole("textbox", { name: "New job note" });
   const save = notes.getByRole("button", { name: "Add note", exact: true });
@@ -15,8 +18,14 @@ test("job notes keep drafts, save across reloads, appear in activity and stay wi
   const body =
     "Client prefers brushed nickel fixtures.\nConfirm tile selection before ordering.";
   await input.fill(body);
-  await page.getByRole("tab", { name: /Scope & costs/ }).click();
-  await page.getByRole("tab", { name: /^Notes/ }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Invoice$/i })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Notes$/i })
+    .click();
   await expect(input).toHaveValue(body);
   // A failed save must leave the draft available to retry.
   await page.evaluate(() => {
@@ -45,14 +54,25 @@ test("job notes keep drafts, save across reloads, appear in activity and stay wi
   await expect(note.locator("p")).toHaveText(body);
   await expect(input).toHaveValue("");
   await page.reload();
-  await expect(page.getByRole("tab", { name: /^Notes/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(note).toHaveCount(1);
-  await page.getByRole("tab", { name: /^Activity/ }).click();
   await expect(
-    page.locator(".job-activity-entry").filter({ hasText: body }),
+    page
+      .getByRole("navigation", { name: "Job navigation" })
+      .getByRole("button", { name: /^Notes$/i }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(note).toHaveCount(1);
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^History$/i })
+    .click();
+  await page
+    .getByRole("group", { name: "History category" })
+    .getByRole("button", { name: "Job activity", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("region", { name: "Current job audit trail" })
+      .getByRole("article")
+      .filter({ hasText: body }),
   ).toHaveCount(1);
   await page.goto("/demo?view=Projects&project=p2&tab=Notes");
   await expect(notes).toBeVisible();
@@ -60,7 +80,10 @@ test("job notes keep drafts, save across reloads, appear in activity and stay wi
     "Client prefers brushed nickel fixtures.",
   );
   await page.goBack();
-  await page.getByRole("tab", { name: /^Notes/ }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Notes$/i })
+    .click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
   await input.scrollIntoViewIfNeeded();
@@ -151,7 +174,10 @@ test("note photos and documents share project files and a failed note save reuse
   ).toHaveLength(1);
   await page.reload();
   await expect(saved).toHaveCount(1);
-  await page.getByRole("tab", { name: /Photos & files/ }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Photos \& files$/i })
+    .click();
   await expect(page.locator(".file-item")).toHaveCount(2);
   await expect(page.locator(".files-panel")).toContainText("measurements.txt");
   await page
@@ -161,7 +187,10 @@ test("note photos and documents share project files and a failed note save reuse
     .getByRole("dialog")
     .getByRole("button", { name: "Delete", exact: true })
     .click();
-  await page.getByRole("tab", { name: /^Notes/ }).click();
+  await page
+    .getByRole("navigation", { name: "Job navigation" })
+    .getByRole("button", { name: /^Notes$/i })
+    .click();
   await expect(saved).toContainText("Attachment removed");
   await expect(
     saved.getByRole("link", { name: "measurements.txt" }),

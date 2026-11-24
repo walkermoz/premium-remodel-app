@@ -4136,6 +4136,25 @@ small {
   max-width: 1640px;
   margin: auto;
 }
+.job-workspace-active .main-shell {
+  margin-left: 0;
+}
+.job-workspace-active .sidebar:not(.is-open) {
+  display: none;
+}
+.job-workspace-active .topbar {
+  height: 64px;
+}
+.job-workspace-active .mobile-menu {
+  display: flex;
+}
+.job-workspace-active .main-content {
+  padding: 0;
+  max-width: none;
+}
+.job-workspace-active .quote-detail[hidden] {
+  display: none;
+}
 .page-heading {
   display: flex;
   align-items: center;

@@ -93,7 +93,7 @@ test("project editor enables texts without a setting on each item", async ({
       );
   }, sample);
   await page.goto("/demo?view=Projects&project=p1&tab=Upcoming");
-  await page.getByRole("button", { name: "Edit project", exact: true }).click();
+  await page.getByRole("button", { name: "Edit job", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog
     .getByRole("combobox", { name: "Text homeowner" })
@@ -106,7 +106,9 @@ test("project editor enables texts without a setting on each item", async ({
     .getByRole("button", { name: "Save changes", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByText("Homeowner texts · 9:00 AM")).toBeVisible();
+  await expect(
+    page.getByText("Homeowner texts for scheduled work items · 9:00 AM"),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await dialog.getByLabel("Item title").fill("Morning shower prep");
