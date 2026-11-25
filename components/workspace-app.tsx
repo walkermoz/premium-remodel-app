@@ -105,6 +105,7 @@ import TeamMapPanel from "./team-map-panel";
 import { useLocationSharing } from "./use-location-sharing";
 import { checkUploadFile, FILE_VALIDATION_VERSION } from "@/lib/file-policy";
 import OverviewAlerts from "./overview-alerts";
+import AssignedPaperwork from "./assigned-paperwork";
 import LeadsPanel from "./leads-panel";
 import CustomerContactsPanel from "./customer-contacts-panel";
 import DoorKnockingPanel, { type DoorVisitDraft } from "./door-knocking-panel";
@@ -958,10 +959,49 @@ export default function WorkspaceApp({
     pending.current.add(quote.id);
     syncVersion.current++;
     try {
-      if (demo)
-        throw new Error(
-          "The signed agreement and deposit are required to move this quote to Projects.",
+      const current = workspaceRef.current;
+      if (demo) {
+        if (quote.linkedProjectId) {
+          navigate("Projects", quote.linkedProjectId);
+          return;
+        }
+        const now = new Date().toISOString();
+        const project: Project = {
+          ...quote,
+          id: crypto.randomUUID(),
+          sourceQuoteId: quote.id,
+          status: "Planning",
+          createdAt: now,
+          updatedAt: now,
+        };
+        commit(
+          {
+            ...current,
+            quotes: (current.quotes || []).map((item) =>
+              item.id === quote.id
+                ? { ...item, linkedProjectId: project.id }
+                : item,
+            ),
+            projects: [project, ...current.projects],
+            scope: [
+              ...current.scope,
+              ...current.scope
+                .filter((item) => item.projectId === quote.id)
+                .map((item) => ({
+                  ...item,
+                  id: crypto.randomUUID(),
+                  projectId: project.id,
+                  createdAt: now,
+                  updatedAt: now,
+                })),
+            ],
+          },
+          true,
         );
+        navigate("Projects", project.id);
+        notify("Project created · original quote retained");
+        return;
+      }
       const response = await fetch("/api/quotes/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -970,33 +1010,27 @@ export default function WorkspaceApp({
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       const project = result as Project;
-      const current = workspaceRef.current;
-      commit(
-        {
-          ...current,
-          quotes: (current.quotes || []).filter((item) => item.id !== quote.id),
-          projects: [
-            project,
-            ...current.projects.filter((item) => item.id !== project.id),
-          ],
-          leads: quote.leadId
-            ? current.leads.map((lead) =>
-                lead.id === quote.leadId
-                  ? {
-                      ...lead,
-                      status: "Won" as const,
-                      updatedAt: new Date().toISOString(),
-                    }
-                  : lead,
-              )
-            : current.leads,
-        },
-        true,
-      );
-      if (!demo)
-        window.dispatchEvent(new Event("premium-remodel-audit-updated"));
+      const refreshed = await fetch("/api/workspace", { cache: "no-store" });
+      if (refreshed.ok) commit(await refreshed.json(), true);
+      else
+        commit(
+          {
+            ...current,
+            quotes: (current.quotes || []).map((item) =>
+              item.id === quote.id
+                ? { ...item, linkedProjectId: project.id }
+                : item,
+            ),
+            projects: [
+              project,
+              ...current.projects.filter((item) => item.id !== project.id),
+            ],
+          },
+          true,
+        );
+      window.dispatchEvent(new Event("premium-remodel-audit-updated"));
       navigate("Projects", project.id);
-      notify("Quote accepted · project ready to plan");
+      notify("Project created · original quote retained");
     } finally {
       pending.current.delete(quote.id);
       syncVersion.current++;
@@ -1845,6 +1879,9 @@ export default function WorkspaceApp({
               )}
               {(page === "Overview" || page === "Projects") && (
                 <>
+                  {(page === "Overview" || !canOpenPage("Overview")) && (
+                    <AssignedPaperwork demo={demo} />
+                  )}
                   {page === "Overview" && (
                     <OverviewAlerts
                       alerts={workspace.alerts || []}

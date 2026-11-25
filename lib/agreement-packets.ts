@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { z } from "zod";
 import type { WorkspaceUser } from "./auth";
@@ -10,6 +10,7 @@ import {
   type AgreementField,
 } from "./agreement-template-schema";
 import { getBusinessConfigForOrganization } from "./business-config";
+import { formatPaperworkCurrency } from "./paperwork-schema";
 import {
   signatureMethodSchema,
   signatureStrokesSchema,
@@ -43,6 +44,7 @@ export const signAgreementPacketSchema = z.object({
 
 type TemplateVersionRow = {
   organization_id: string;
+  paperwork?: unknown;
   template_id: string;
   version: number;
   name: string;
@@ -57,8 +59,9 @@ type TemplateVersionRow = {
   page_count: number | null;
 };
 
-type PacketRow = {
+export type PacketRow = {
   id: string;
+  revision?: number;
   organization_id: string;
   template_id: string;
   template_version: number;
@@ -72,7 +75,7 @@ type PacketRow = {
   completed_at: string | null;
 };
 
-type SignerRow = {
+export type SignerRow = {
   id: string;
   organization_id: string;
   packet_id: string;
@@ -100,13 +103,19 @@ function signingSecret() {
   return value;
 }
 
-function tokenHash(token: string) {
+export function paperworkAccessToken(packetId: string, signerId: string) {
+  return createHmac("sha256", signingSecret())
+    .update(`paperwork-v1:${packetId}:${signerId}`)
+    .digest("base64url");
+}
+
+export function tokenHash(token: string) {
   return createHash("sha256")
     .update(`servicebuddy-agreement-v1:${signingSecret()}:${token}`)
     .digest("hex");
 }
 
-function newSignerToken() {
+export function newSignerToken() {
   const token = randomBytes(32).toString("base64url");
   return {
     token,
@@ -128,18 +137,31 @@ function resolveBinding(source: unknown, path: string | null) {
 function templateDefinition(row: TemplateVersionRow) {
   return agreementTemplateDefinitionSchema.parse({
     content: row.content,
+    paperwork: row.paperwork,
     fields: row.fields,
     signerRoles: row.signer_roles,
   });
 }
 
-function fieldValue(field: AgreementField, value: unknown) {
+export function fieldValue(field: AgreementField, value: unknown) {
+  if (
+    !field.required &&
+    (value === undefined || value === null || value === "")
+  )
+    return field.type === "checkbox" ? false : "";
   if (field.type === "checkbox") {
     if (typeof value !== "boolean")
       throw new Error(`${field.label} is required.`);
+    if (field.required && !value)
+      throw new Error(`${field.label} must be checked.`);
     return value;
   }
   if (field.type === "number" || field.type === "currency") {
+    if (
+      field.required &&
+      (value === "" || value === undefined || value === null)
+    )
+      throw new Error(`${field.label} is required.`);
     const numeric = typeof value === "number" ? value : Number(value);
     if (!Number.isFinite(numeric))
       throw new Error(`${field.label} must be a number.`);
@@ -147,7 +169,11 @@ function fieldValue(field: AgreementField, value: unknown) {
   }
   if (field.type === "date") {
     const text = String(value || "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(text))
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(text) ||
+      !Number.isFinite(Date.parse(`${text}T00:00:00Z`)) ||
+      new Date(`${text}T00:00:00Z`).toISOString().slice(0, 10) !== text
+    )
       throw new Error(`${field.label} must be a date.`);
     return text;
   }
@@ -157,7 +183,10 @@ function fieldValue(field: AgreementField, value: unknown) {
   return text;
 }
 
-async function publishedTemplate(organizationId: string, templateId: string) {
+export async function publishedTemplate(
+  organizationId: string,
+  templateId: string,
+) {
   const template = await supabaseAdmin()
     .from("remodel_agreement_templates")
     .select("published_version,status,source_type")
@@ -178,7 +207,7 @@ async function publishedTemplate(organizationId: string, templateId: string) {
   const version = await supabaseAdmin()
     .from("remodel_agreement_template_versions")
     .select(
-      "organization_id,template_id,version,name,description,source_type,content,fields,signer_roles,storage_path,original_filename,file_sha256,page_count",
+      "organization_id,template_id,version,name,description,source_type,paperwork,content,fields,signer_roles,storage_path,original_filename,file_sha256,page_count",
     )
     .eq("organization_id", organizationId)
     .eq("template_id", templateId)
@@ -354,7 +383,7 @@ async function signerSession(token: string) {
     .eq("id", row.packet_id)
     .maybeSingle();
   if (packet.error) throw packet.error;
-  if (!packet.data || packet.data.status === "void")
+  if (!packet.data || ["void", "draft"].includes(packet.data.status))
     throw new HttpError(410, "This agreement is no longer available.");
   const signers = await admin
     .from("remodel_agreement_signers")
@@ -393,6 +422,7 @@ export async function readAgreementSigningSession(token: string) {
   );
   return {
     packetId: session.packet.id,
+    quoteId: (session.packet as PacketRow & { quote_id?: string }).quote_id,
     status: session.packet.status,
     blocked,
     signer: {
@@ -408,12 +438,26 @@ export async function readAgreementSigningSession(token: string) {
       status: signer.status,
     })),
     template: session.packet.template_snapshot,
+    requiresSignature:
+      !session.packet.template_snapshot.paperwork ||
+      (session.packet.template_snapshot.paperwork as { completion?: string })
+        .completion === "signature",
     deliveryMode:
       session.packet.template_snapshot.deliveryMode === "onsite"
         ? ("onsite" as const)
         : ("email" as const),
     values: Object.fromEntries(
-      (values.data || []).map((value) => [value.field_id, value.value]),
+      (values.data || []).map((value) => [
+        value.field_id,
+        Array.isArray(session.packet.template_snapshot.fields) &&
+        session.packet.template_snapshot.fields.some(
+          (field: AgreementField) =>
+            field.id === value.field_id && field.type === "currency",
+        ) &&
+        typeof value.value === "number"
+          ? formatPaperworkCurrency(value.value, session.packet.data_snapshot)
+          : value.value,
+      ]),
     ),
     business: {
       name: business.profile.name,
@@ -429,6 +473,14 @@ export async function readAgreementSigningSession(token: string) {
 
 export async function agreementSigningDocument(token: string) {
   const session = await signerSession(token);
+  return renderAgreementPacketDocument(session);
+}
+
+export async function renderAgreementPacketDocument(session: {
+  packet: PacketRow;
+  signer: SignerRow;
+  signers: SignerRow[];
+}) {
   const snapshot = session.packet.template_snapshot;
   const definition = agreementTemplateDefinitionSchema.parse({
     content: snapshot.content,
@@ -507,6 +559,74 @@ export async function agreementSigningDocument(token: string) {
   const values = new Map(
     (fieldRows.data || []).map((row) => [String(row.field_id), row.value]),
   );
+  if (
+    snapshot.sourceType !== "uploaded_pdf" &&
+    definition.fields.some((field) => values.has(field.id))
+  ) {
+    const details = pdf.addPage([612, 792]);
+    const regular = await pdf.embedFont(StandardFonts.Helvetica);
+    const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    let page = details;
+    let y = 735;
+    page.drawText("Document details", { x: 54, y, size: 17, font: bold });
+    y -= 32;
+    for (const field of definition.fields) {
+      if (!values.has(field.id)) continue;
+      const value = values.get(field.id);
+      const text =
+        typeof value === "object" && value !== null
+          ? String((value as Record<string, unknown>).signedName || "")
+          : typeof value === "boolean"
+            ? value
+              ? "Yes"
+              : "No"
+            : field.type === "currency" && typeof value === "number"
+              ? formatPaperworkCurrency(value, session.packet.data_snapshot)
+              : String(value ?? "");
+      const lines = `${field.label}: ${text}`
+        .split(/\n/)
+        .flatMap((line) => line.match(/.{1,86}(?:\s|$)|\S{1,86}/g) || [""]);
+      for (const line of lines) {
+        if (y < 55) {
+          page = pdf.addPage([612, 792]);
+          y = 735;
+        }
+        page.drawText(line.trim(), { x: 54, y, size: 10, font: regular });
+        y -= 17;
+      }
+      if (
+        field.type === "signature" &&
+        value &&
+        typeof value === "object" &&
+        (value as Record<string, unknown>).signatureMethod !== "typed" &&
+        Array.isArray((value as Record<string, unknown>).signatureStrokes)
+      ) {
+        if (y < 115) {
+          page = pdf.addPage([612, 792]);
+          y = 735;
+        }
+        const strokes = signatureStrokesSchema.parse(
+          (value as Record<string, unknown>).signatureStrokes,
+        );
+        for (const stroke of strokes)
+          for (let index = 1; index < stroke.length; index++)
+            page.drawLine({
+              start: {
+                x: 54 + stroke[index - 1][0] * 220,
+                y: y - stroke[index - 1][1] * 44,
+              },
+              end: {
+                x: 54 + stroke[index][0] * 220,
+                y: y - stroke[index][1] * 44,
+              },
+              thickness: 1.2,
+              color: rgb(0.05, 0.13, 0.2),
+            });
+        y -= 54;
+      }
+      y -= 10;
+    }
+  }
   const fieldFont = await pdf.embedFont(StandardFonts.Helvetica);
   for (const field of definition.fields) {
     if (
@@ -559,7 +679,9 @@ export async function agreementSigningDocument(token: string) {
           : ""
         : typeof value === "object" && value
           ? String((value as Record<string, unknown>).signedName || "")
-          : String(value ?? "");
+          : field.type === "currency" && typeof value === "number"
+            ? formatPaperworkCurrency(value, session.packet.data_snapshot)
+            : String(value ?? "");
     if (text)
       page.drawText(text.slice(0, 500), {
         x: left + 2,
@@ -575,13 +697,20 @@ export async function agreementSigningDocument(token: string) {
     const audit = pdf.addPage([612, 792]);
     const regular = await pdf.embedFont(StandardFonts.Helvetica);
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-    audit.drawText("Electronic signature audit", {
-      x: 54,
-      y: 730,
-      size: 18,
-      font: bold,
-      color: rgb(0.08, 0.18, 0.25),
-    });
+    audit.drawText(
+      (snapshot.paperwork as { completion?: string } | undefined)?.completion &&
+        (snapshot.paperwork as { completion: string }).completion !==
+          "signature"
+        ? "Document completion audit"
+        : "Electronic signature audit",
+      {
+        x: 54,
+        y: 730,
+        size: 18,
+        font: bold,
+        color: rgb(0.08, 0.18, 0.25),
+      },
+    );
     audit.drawText(`Agreement packet: ${session.packet.id}`, {
       x: 54,
       y: 704,
@@ -597,7 +726,7 @@ export async function agreementSigningDocument(token: string) {
         font: bold,
       });
       audit.drawText(
-        `${signer.email} | Signed ${signer.signed_at || "Pending"}`,
+        `${signer.email} | ${(snapshot.paperwork as { completion?: string } | undefined)?.completion && (snapshot.paperwork as { completion: string }).completion !== "signature" ? "Completed" : "Signed"} ${signer.signed_at || "Pending"}`,
         {
           x: 54,
           y: auditY - 18,
@@ -620,7 +749,7 @@ export async function agreementSigningDocument(token: string) {
       : String(snapshot.name || "agreement");
   return {
     bytes: await pdf.save(),
-    filename: `${filenameBase}${session.packet.status === "completed" ? "-signed" : ""}.pdf`,
+    filename: `${filenameBase}${session.packet.status === "completed" ? ((snapshot.paperwork as { completion?: string } | undefined)?.completion && (snapshot.paperwork as { completion: string }).completion !== "signature" ? "-completed" : "-signed") : ""}.pdf`,
     completed: session.packet.status === "completed",
   };
 }
@@ -630,8 +759,24 @@ export async function signAgreementPacket(
   raw: unknown,
   evidence: { ipHash?: string; userAgent?: string },
 ) {
-  const input = signAgreementPacketSchema.parse(raw);
   const session = await signerSession(token);
+  const paperwork = session.packet.template_snapshot.paperwork as
+    { completion?: string } | undefined;
+  const requiresSignature = !paperwork || paperwork.completion === "signature";
+  const input = requiresSignature
+    ? signAgreementPacketSchema.parse(raw)
+    : z
+        .object({
+          signedName: z.string().min(1),
+          accepted: z.literal(true),
+          values: z.record(z.string(), z.unknown()).default({}),
+        })
+        .transform((v) => ({
+          ...v,
+          signatureMethod: "typed" as const,
+          signatureStrokes: [],
+        }))
+        .parse(raw);
   if (
     session.packet.status === "completed" ||
     session.signer.status === "signed"
@@ -689,8 +834,26 @@ export async function signAgreementPacket(
       value: row.value,
     })),
     p_signature_evidence: {
+      ...(snapshot.paperworkManaged
+        ? {
+            documentRevision: session.packet.revision,
+            templateVersion: session.packet.template_version,
+            contentSha256: createHash("sha256")
+              .update(
+                JSON.stringify({
+                  content: snapshot.content,
+                  fileSha256: snapshot.fileSha256,
+                  fields: snapshot.fields,
+                  data: session.packet.data_snapshot,
+                }),
+              )
+              .digest("hex"),
+          }
+        : {}),
       signedName: input.signedName,
-      signatureMethod: input.signatureMethod,
+      ...(requiresSignature
+        ? { signatureMethod: input.signatureMethod }
+        : { completionMode: paperwork?.completion || "form" }),
       accepted: true,
       signedAt: now,
       ...evidence,
@@ -709,7 +872,13 @@ export async function signAgreementPacket(
       signer.status !== "signed",
   );
   if (next) {
-    const access = newSignerToken();
+    const access = snapshot.paperworkManaged
+      ? {
+          token: paperworkAccessToken(session.packet.id, next.id),
+          hash: tokenHash(paperworkAccessToken(session.packet.id, next.id)),
+          expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
+        }
+      : newSignerToken();
     const activated = await supabaseAdmin()
       .from("remodel_agreement_signers")
       .update({
@@ -736,6 +905,7 @@ export async function signAgreementPacket(
       agreementName: String(
         session.packet.template_snapshot.name || "Agreement",
       ),
+      notifyNext: !snapshot.paperworkManaged || Boolean(snapshot.notifyEmail),
       nextSigner: {
         id: next.id,
         name: next.name,
@@ -749,7 +919,8 @@ export async function signAgreementPacket(
     .from("remodel_agreement_packets")
     .update({ status: "completed", completed_at: now })
     .eq("organization_id", session.signer.organization_id)
-    .eq("id", session.signer.packet_id);
+    .eq("id", session.signer.packet_id)
+    .neq("status", "void");
   if (completed.error) throw completed.error;
   return { completed: true as const, alreadySigned: false as const };
 }

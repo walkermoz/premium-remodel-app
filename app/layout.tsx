@@ -3,6 +3,7 @@ import { PwaProvider } from "@/components/pwa-install";
 import "./globals.css";
 import "./theme.css";
 import "./quotes-payments.css";
+import "./paperwork.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./team-map.css";
 import { ThemeController } from "@/components/theme-controls";

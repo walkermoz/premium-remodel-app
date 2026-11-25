@@ -22,6 +22,12 @@ export function preserveProjectHistory(
 ) {
   const result = { ...data };
   for (const key of [
+    "linkedProjectId",
+    "sourceQuoteId",
+    "paperworkPortalEnabled",
+    "acceptanceMethod",
+    "acceptedByStaffId",
+    "manualAcceptanceHistory",
     "contractPrice",
     "acceptedQuoteScope",
     "msaAgreement",

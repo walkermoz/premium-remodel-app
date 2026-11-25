@@ -14,11 +14,13 @@ export default function AgreementSigningForm({
   signerName,
   fields,
   onsite = false,
+  requiresSignature = true,
 }: {
   token: string;
   signerName: string;
   fields: AgreementField[];
   onsite?: boolean;
+  requiresSignature?: boolean;
 }) {
   const router = useRouter();
   const [signature, setSignature] = useState<SignatureFieldValue>({
@@ -35,7 +37,7 @@ export default function AgreementSigningForm({
       className={styles.signingForm}
       onSubmit={async (event) => {
         event.preventDefault();
-        if (!signatureFieldComplete(signature)) {
+        if (requiresSignature && !signatureFieldComplete(signature)) {
           setError("Add your signature before signing this agreement.");
           return;
         }
@@ -60,8 +62,12 @@ export default function AgreementSigningForm({
               body: JSON.stringify({
                 signedName: signature.signedName,
                 accepted,
-                signatureMethod: signature.signatureMethod,
-                signatureStrokes: signature.signatureStrokes,
+                ...(requiresSignature
+                  ? {
+                      signatureMethod: signature.signatureMethod,
+                      signatureStrokes: signature.signatureStrokes,
+                    }
+                  : {}),
                 values,
               }),
             },
@@ -135,14 +141,16 @@ export default function AgreementSigningForm({
             />
           </label>
         ))}
-      <SignatureField
-        value={signature}
-        onChange={(value) => {
-          setSignature(value);
-          setError("");
-        }}
-        disabled={busy}
-      />
+      {requiresSignature && (
+        <SignatureField
+          value={signature}
+          onChange={(value) => {
+            setSignature(value);
+            setError("");
+          }}
+          disabled={busy}
+        />
+      )}
       <label className={styles.consent}>
         <input
           type="checkbox"
@@ -152,8 +160,9 @@ export default function AgreementSigningForm({
           disabled={busy}
         />
         <span>
-          I have reviewed this agreement and intend my electronic signature to
-          be legally binding.
+          {requiresSignature
+            ? "I have reviewed this document and intend my electronic signature to be legally binding."
+            : "I have reviewed this document and confirm my answers are complete."}
         </span>
       </label>
       {error && (
@@ -163,9 +172,17 @@ export default function AgreementSigningForm({
       )}
       <button
         type="submit"
-        disabled={busy || !accepted || !signatureFieldComplete(signature)}
+        disabled={
+          busy ||
+          !accepted ||
+          (requiresSignature && !signatureFieldComplete(signature))
+        }
       >
-        {busy ? "Saving signature…" : "Sign agreement"}
+        {busy
+          ? "Saving…"
+          : requiresSignature
+            ? "Sign document"
+            : "Submit document"}
       </button>
     </form>
   );

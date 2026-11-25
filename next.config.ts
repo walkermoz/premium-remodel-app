@@ -55,6 +55,22 @@ const config: NextConfig = {
         headers: inlinePdfHeaders,
       },
       {
+        source: "/api/paperwork/:id/document",
+        headers: inlinePdfHeaders,
+      },
+      {
+        source: "/api/agreement-sign/:token/document",
+        headers: inlinePdfHeaders,
+      },
+      {
+        source: "/agreement/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
         source: "/client/:path*",
         headers: [
           { key: "Cache-Control", value: "private, no-store" },

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { apiError, checkOrigin, HttpError, requireUser } from "@/lib/auth";
 import { msaPaymentRows } from "@/lib/msa-contract";
-import { promotePaidQuote } from "@/lib/quote-promotion";
 import { dollarsToCents } from "@/lib/stripe-payment-utils";
 import {
   organizationStripeEnabled,
@@ -60,7 +59,7 @@ export async function POST(
           409,
           "This payment request ID was used for another record.",
         );
-      const promoted = await promotePaidQuote(user.organizationId, id);
+
       try {
         await enqueueWorkflowEvent({
           organizationId: user.organizationId,
@@ -76,9 +75,11 @@ export async function POST(
           },
         });
       } catch {
-        console.error("Could not enqueue the existing check deposit workflow event.");
+        console.error(
+          "Could not enqueue the existing check deposit workflow event.",
+        );
       }
-      return Response.json({ recorded: true, projectReady: Boolean(promoted) });
+      return Response.json({ recorded: true, projectReady: false });
     }
     const { data: row, error } = await admin
       .from("remodel_records")
@@ -181,7 +182,7 @@ export async function POST(
         // A completed or previously expired checkout cannot be expired again.
       }
     }
-    const promoted = await promotePaidQuote(user.organizationId, id);
+
     try {
       await enqueueWorkflowEvent({
         organizationId: user.organizationId,
@@ -196,13 +197,13 @@ export async function POST(
           quoteId: id,
           amount: amountCents / 100,
           paymentMethod: "Check",
-          projectReady: Boolean(promoted),
+          projectReady: false,
         },
       });
     } catch {
       console.error("Could not enqueue the check deposit workflow event.");
     }
-    return Response.json({ recorded: true, projectReady: Boolean(promoted) });
+    return Response.json({ recorded: true, projectReady: false });
   } catch (error) {
     return apiError(error);
   }

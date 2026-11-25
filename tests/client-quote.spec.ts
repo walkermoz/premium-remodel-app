@@ -251,16 +251,14 @@ cloudTest(
       page.getByRole("heading", { name: "Before this becomes a project" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Documents", exact: true }),
+      page.getByRole("heading", { name: "Paperwork", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Accept quote" }),
     ).toHaveCount(0);
-    const premature = await api.post("/api/quotes/accept", {
-      headers: origin,
-      data: { id: quote.id, updatedAt: record.data?.data.updatedAt },
-    });
-    expect(premature.status()).toBe(409);
+    await expect(
+      page.getByRole("button", { name: "Create project", exact: true }),
+    ).toBeEnabled();
     const scopeChange = await api.patch("/api/workspace", {
       headers: origin,
       data: {
@@ -413,14 +411,6 @@ cloudTest(
     await expect(invoice).toContainText("$1,850.00");
     await expect(invoice).toContainText("Deposit currently due");
     await expect(invoice).toContainText("$925.00");
-    expect(
-      (
-        await api.post("/api/quotes/accept", {
-          headers: origin,
-          data: { id: quote.id, updatedAt: seededAt },
-        })
-      ).status(),
-    ).toBe(409);
     const firstCheck = await api.post(`/api/quotes/${quote.id}/check-deposit`, {
       headers: origin,
       data: {
@@ -448,15 +438,16 @@ cloudTest(
       },
     });
     expect(finalCheck.status()).toBe(200);
-    expect((await finalCheck.json()).projectReady).toBe(true);
+    expect((await finalCheck.json()).projectReady).toBe(false);
     const promoted = await company.admin
       .from("remodel_records")
       .select("kind,data")
       .eq("organization_id", company.organizationId)
       .eq("id", quote.id)
       .single();
-    expect(promoted.data?.kind).toBe("project");
-    expect(promoted.data?.data.status).toBe("Planning");
+    expect(promoted.data?.kind).toBe("quote");
+    expect(promoted.data?.data.status).toBe("Accepted");
+    expect(promoted.data?.data.linkedProjectId).toBeUndefined();
     expect(promoted.data?.data.quoteAcceptedAt).toBe(
       acceptedQuote.quoteAcceptedAt,
     );
@@ -1068,11 +1059,6 @@ cloudTest(
     );
     expect(projectPage.status()).toBe(200);
 
-    const accepted = await api.post("/api/quotes/accept", {
-      headers: origin,
-      data: { id: quote.id, updatedAt: quote.updatedAt },
-    });
-    expect(accepted.status()).toBe(409);
     await clientPage.reload();
     await expect(clientPage.getByText("$4,100.00").first()).toBeVisible();
     const projectLink = await api.post("/api/client-links", {

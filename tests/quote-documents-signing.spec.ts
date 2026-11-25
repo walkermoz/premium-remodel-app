@@ -1,11 +1,15 @@
 import { test, expect, password } from "./supabase-fixture";
+import {
+  defaultMsaContractTerms,
+  defaultMsaPaymentSchedule,
+} from "@/lib/msa-draft";
 
 const cloud = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const headers = { Origin: "http://localhost:3100" };
 test.use({ channel: "chromium" });
 
 cloud(
-  "both documents can be signed in Documents without leaving the staff quote",
+  "existing prepared quote and MSA stay signable with their original private document links",
   async ({ company, page }) => {
     const api = page.request;
     const frameErrors: string[] = [];
@@ -68,15 +72,44 @@ cloud(
     });
     expect(scopeResponse.status()).toBe(201);
     const scope = await scopeResponse.json();
+    const terms = await api.post(`/api/msa/${quote.id}/terms`, {
+      headers,
+      data: {
+        updatedAt: quote.updatedAt,
+        msaPaymentSchedule: defaultMsaPaymentSchedule(quote),
+        msaPermitResponsibility: "No permit required",
+        msaContractTerms: {
+          ...defaultMsaContractTerms(quote, []),
+          exclusions: "Outside work is excluded.",
+          allowances: "No allowances.",
+        },
+      },
+    });
+    expect(terms.status()).toBe(200);
+    const prepared = await api.post(`/api/msa/${quote.id}/prepare`, {
+      headers,
+      data: {
+        owner: quote.client,
+        ownerEmail: quote.clientEmail,
+        signedName: "Workspace Owner",
+        signatureMethod: "typed",
+        signatureStrokes: [
+          [
+            [0.1, 0.1],
+            [0.5, 0.8],
+            [0.9, 0.2],
+          ],
+        ],
+      },
+    });
+    expect(prepared.status()).toBe(200);
     await page.goto(`/?view=Quotes&project=${quote.id}`);
     const workflow = page.getByRole("navigation", { name: "Quote workflow" });
-    await expect(workflow.getByRole("button")).toHaveCount(2);
-    await workflow.getByRole("button", { name: /Documents/ }).click();
-    const documents = page.getByRole("region", {
-      name: "Documents",
-      exact: true,
-    });
-    await expect(documents).toBeVisible();
+    await workflow.getByRole("button", { name: /Paperwork/ }).click();
+    await page
+      .getByText("Previously prepared documents", { exact: true })
+      .click();
+    const documents = page.locator(".paperwork-legacy");
     const quoteCard = documents.getByRole("region", {
       name: /^Quote.* signing status$/,
     });
@@ -85,66 +118,7 @@ cloud(
     });
     await expect(
       quoteCard.getByRole("button", { name: "Sign quote on this device" }),
-    ).toHaveCount(0);
-    await expect(
-      documents.getByRole("button", { name: "Send for signature" }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: "Create project", exact: true }),
-    ).toHaveCount(0);
-
-    await expect(
-      page.getByRole("region", { name: "MSA preparation" }),
-    ).toHaveCount(0);
-    await documents
-      .getByRole("button", { name: "Prepare agreement", exact: true })
-      .click();
-    const preparation = page.getByRole("dialog", {
-      name: "Prepare service agreement",
-      exact: true,
-    });
-    await expect(
-      preparation.getByRole("button", { name: "Type name", exact: true }),
-    ).toBeDisabled();
-    await preparation
-      .getByLabel("Excluded work")
-      .fill("Work outside the listed scope is excluded.");
-    await preparation
-      .getByLabel("Material allowances")
-      .fill("No material allowances.");
-    const termsSaved = page.waitForResponse(
-      (r) =>
-        r.url().endsWith(`/api/msa/${quote.id}/terms`) &&
-        r.request().method() === "POST",
-    );
-    await preparation
-      .getByRole("button", { name: "Save agreement details", exact: true })
-      .click();
-    expect((await termsSaved).status()).toBe(200);
-    await expect(
-      preparation.getByRole("button", { name: "Type name", exact: true }),
     ).toBeEnabled();
-    await preparation
-      .getByRole("button", { name: "Type name", exact: true })
-      .click();
-    const preparedResponse = page.waitForResponse(
-      (r) =>
-        r.url().endsWith(`/api/msa/${quote.id}/prepare`) &&
-        r.request().method() === "POST",
-    );
-    await preparation
-      .getByRole("button", { name: "Sign and prepare agreement" })
-      .click();
-    expect((await preparedResponse).status()).toBe(200);
-    await expect(preparation).toHaveCount(0);
-    await expect(
-      quoteCard.getByRole("button", { name: "Sign quote on this device" }),
-    ).toBeEnabled();
-    await expect(msaCard).toContainText("Workspace Owner");
-    await expect(
-      msaCard.getByRole("button", { name: "Sign agreement on this device" }),
-    ).toHaveCount(0);
-
     const opened = page.waitForResponse((r) =>
       r.url().endsWith(`/api/quotes/${quote.id}/onsite-signing`),
     );
@@ -181,39 +155,11 @@ cloud(
     await expect(page).toHaveURL(new RegExp(`view=Quotes&project=${quote.id}`));
     await expect(
       page.getByRole("button", { name: "Create project", exact: true }),
-    ).toHaveCount(0);
+    ).toBeEnabled();
 
-    // A signed quote alone must not unlock payment or project creation.
-    const signedQuoteRecord = await company.admin
-      .from("remodel_records")
-      .select("data")
-      .eq("id", quote.id)
-      .single();
-    expect(signedQuoteRecord.error).toBeNull();
-    expect(signedQuoteRecord.data?.data.msaAgreement.status).toBe("sent");
-    expect(
-      (
-        await api.post("/api/quotes/accept", {
-          headers,
-          data: {
-            id: quote.id,
-            updatedAt: signedQuoteRecord.data?.data.updatedAt,
-          },
-        })
-      ).status(),
-    ).toBe(409);
-    expect(
-      (
-        await api.post(`/api/quotes/${quote.id}/check-deposit`, {
-          headers,
-          data: {
-            requestId: crypto.randomUUID(),
-            amount: "5000",
-            checkReference: "QA",
-          },
-        })
-      ).status(),
-    ).toBe(409);
+    await expect(
+      page.getByRole("button", { name: "Create project", exact: true }),
+    ).toBeEnabled();
     const openedMsa = page.waitForResponse((r) =>
       r.url().endsWith(`/api/quotes/${quote.id}/onsite-signing`),
     );
@@ -250,12 +196,8 @@ cloud(
     ).toContainText("Workspace Owner");
     await expect(msaCard.locator("time")).toHaveCount(2);
     await expect(
-      page.getByRole("region", { name: "Deposit status" }),
-    ).toContainText("Deposit ready to collect");
-    await expect(
       page.getByRole("button", { name: "Create project", exact: true }),
-    ).toHaveCount(0);
-
+    ).toBeEnabled();
     const record = await company.admin
       .from("remodel_records")
       .select("data")
@@ -290,14 +232,17 @@ cloud(
     expect(publicPdf.headers()["cache-control"]).toContain("no-store");
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: "Documents", exact: true }),
+      page.getByRole("heading", { name: "Paperwork", exact: true }),
     ).toBeVisible();
+    await page
+      .getByText("Previously prepared documents", { exact: true })
+      .click();
     await expect(quoteCard).toContainText("Signed");
     await expect(msaCard).toContainText("Signed");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: "Documents", exact: true }),
+      page.getByRole("heading", { name: "Paperwork", exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(

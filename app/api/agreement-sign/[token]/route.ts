@@ -4,7 +4,7 @@ import {
   readAgreementSigningSession,
   signAgreementPacket,
 } from "@/lib/agreement-packets";
-import { apiError, limitAttempts } from "@/lib/auth";
+import { apiError, limitAttempts, requireUser } from "@/lib/auth";
 import { sendWorkflowEmail } from "@/lib/workflows/workflow-email";
 
 export const runtime = "nodejs";
@@ -42,8 +42,10 @@ export async function POST(
       const origin = new URL(request.url).origin;
       const signingUrl = `${origin}/agreement/${encodeURIComponent(result.nextSigner.token)}`;
       if (result.deliveryMode === "onsite") {
-        nextSigningUrl = signingUrl;
-      } else {
+        const operator = await requireUser().catch(() => null);
+        if (operator?.organizationId === result.organizationId)
+          nextSigningUrl = signingUrl;
+      } else if (result.notifyNext) {
         try {
           await sendWorkflowEmail({
             organizationId: result.organizationId,

@@ -40,13 +40,12 @@ import QuoteImportDialog from "./quote-import-dialog";
 import MsaDraftPanel from "./msa-draft-panel";
 import type { ImportedQuote } from "@/lib/quote-import";
 import QuoteProjectHandoffDemo from "./quote-project-handoff-demo";
-import { QUOTE_HANDOFF_DEMO_ID } from "@/lib/demo-quote-handoff";
 import QuoteWorkflowStepper, {
   type QuoteWorkflowStep,
 } from "./quote-workflow-stepper";
 import MsaSigningPanel from "./msa-signing-panel";
 import DocumentPreparationDialog from "./document-preparation-dialog";
-import QuoteDocumentsOverview from "./quote-documents-overview";
+import QuotePaperworkPanel from "./quote-paperwork-panel";
 import QuoteSigningPanel from "./quote-signing-panel";
 import RoomScansPanel from "./room-scans-panel";
 import QuoteCustomerPreview from "./quote-customer-preview";
@@ -211,8 +210,9 @@ export default function QuotesPanel({
     Boolean(quote.quoteSentAt),
   ).length;
   const wonCount =
-    workspace.projects.filter((project) => Boolean(project.quoteAcceptedAt))
-      .length +
+    workspace.projects.filter(
+      (project) => Boolean(project.quoteAcceptedAt) && !project.sourceQuoteId,
+    ).length +
     activeQuotes.filter((quote) => quote.status === "Accepted").length;
   const closeRate =
     sentCount > 0 ? Math.round((wonCount / sentCount) * 1000) / 10 : 0;
@@ -495,6 +495,7 @@ export function QuoteDetail({
     .slice(0, 2);
   const signedScope =
     quote.status === "Accepted" && Boolean(quote.quoteAcceptance);
+  const scopeLocked = quote.status === "Accepted";
   const signedMsa = quote.msaAgreement?.status === "signed";
   const signingPacket = premiumQuoteSigningPacket(quote, {
     organizationName: config.profile.name,
@@ -502,9 +503,6 @@ export function QuoteDetail({
   });
   const quoteSigningDocument = signingPacket.documents[0];
   const agreementSigningDocument = signingPacket.documents[1];
-  const packetDocumentNames = signingPacket.documents
-    .map((document) => document.title)
-    .join(" and ");
   const depositCents = signedMsa
     ? Math.round(msaPaymentRows(quote.msaAgreement!)[0]?.amount * 100)
     : 0;
@@ -517,7 +515,7 @@ export function QuoteDetail({
   const dueCents = Math.max(0, depositCents - paidCents);
   const readyForProjects =
     signedScope && signedMsa && depositCents > 0 && dueCents === 0;
-  const handoffDemo = quote.id === QUOTE_HANDOFF_DEMO_ID;
+  const handoffDemo = false;
   const canMarkInPerson =
     user.group === "owner" ||
     config.rolePermissions[user.group].includes("agreements.mark_in_person");
@@ -536,11 +534,23 @@ export function QuoteDetail({
     () =>
       readyForProjects ? "project" : quote.quoteSentAt ? "customer" : "quote",
   );
-  const unifiedDocuments = config.features.agreements;
+  const unifiedDocuments = true;
+  const [creatingProject, setCreatingProject] = useState(false);
   const [workspaceSection, setWorkspaceSection] = useState<
     "quote" | "documents"
   >(() => (quote.quoteSentAt || quote.msaAgreement ? "documents" : "quote"));
   const [preparingAgreement, setPreparingAgreement] = useState(false);
+  useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get("tab") === "paperwork"
+    ) {
+      const timer = window.setTimeout(
+        () => setWorkspaceSection("documents"),
+        0,
+      );
+      return () => window.clearTimeout(timer);
+    }
+  }, [quote.id]);
   const [flowInstance, setFlowInstance] = useState<QuoteFlowInstanceDto | null>(
     null,
   );
@@ -715,15 +725,17 @@ export function QuoteDetail({
   const activeLegacyStep = activeConfiguredStage
     ? legacyStepForStage(activeConfiguredStage)
     : workflowStep;
-  const showingCustomStage = Boolean(
-    activeConfiguredStage &&
-    !legacyStepForStage(activeConfiguredStage) &&
-    (!unifiedDocuments ||
-      workspaceSection ===
-        (activeConfiguredStage.type === "quote_builder"
-          ? "quote"
-          : "documents")),
-  );
+  const showingCustomStage =
+    !unifiedDocuments &&
+    Boolean(
+      activeConfiguredStage &&
+      !legacyStepForStage(activeConfiguredStage) &&
+      (!unifiedDocuments ||
+        workspaceSection ===
+          (activeConfiguredStage.type === "quote_builder"
+            ? "quote"
+            : "documents")),
+    );
   const showDocuments = unifiedDocuments && workspaceSection === "documents";
   const showQuoteStage =
     !showingCustomStage &&
@@ -742,12 +754,12 @@ export function QuoteDetail({
       !unifiedDocuments &&
       activeLegacyStep === "customer");
   const showDepositStage =
-    (showDocuments && signedScope && signedMsa) ||
+    (!unifiedDocuments && showDocuments && signedScope && signedMsa) ||
     (!showingCustomStage &&
       !unifiedDocuments &&
       activeLegacyStep === "deposit");
   const showProjectStage =
-    (showDocuments && readyForProjects) ||
+    (!unifiedDocuments && showDocuments && readyForProjects) ||
     (!showingCustomStage &&
       !unifiedDocuments &&
       activeLegacyStep === "project");
@@ -770,7 +782,7 @@ export function QuoteDetail({
   );
 
   useEffect(() => {
-    if (demo || handoffDemo) return;
+    if (unifiedDocuments || demo || handoffDemo) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
@@ -807,7 +819,7 @@ export function QuoteDetail({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [demo, handoffDemo, quote.id]);
+  }, [demo, handoffDemo, quote.id, unifiedDocuments]);
 
   async function selectConfiguredStage(
     stage: QuoteFlowStage,
@@ -1229,16 +1241,6 @@ export function QuoteDetail({
       );
       return;
     }
-    if (
-      config.features.agreements &&
-      quote.msaAgreement?.status !== "prepared"
-    ) {
-      setError(
-        "Sign and prepare the MSA in Agreement details before emailing this quote.",
-      );
-      setWorkflowStep("agreement");
-      return;
-    }
     try {
       const response = await fetch("/api/google-mail", { cache: "no-store" });
       const data = await response.json();
@@ -1517,25 +1519,70 @@ export function QuoteDetail({
               value={quote.status}
               disabled={busy || signedScope}
               onChange={(event) =>
-                void change(() =>
-                  onSave(
-                    "quote",
-                    { ...quote, status: event.target.value },
-                    quote,
-                  ),
-                )
+                void change(async () => {
+                  if (demo) {
+                    await onSave(
+                      "quote",
+                      { ...quote, status: event.target.value },
+                      quote,
+                    );
+                    return;
+                  }
+                  const response = await fetch(
+                    `/api/quotes/${quote.id}/status`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        status: event.target.value,
+                        updatedAt: quote.updatedAt,
+                      }),
+                    },
+                  );
+                  const body = await response.json();
+                  if (!response.ok)
+                    throw Error(body.error || "Could not change quote status.");
+                  await onSent();
+                  if (body.warnings?.length) setError(body.warnings.join(" "));
+                })
               }
             >
-              {quoteStatuses
-                .filter((status) => status !== "Accepted" || signedScope)
-                .map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
+              {quoteStatuses.map((status) => (
+                <option key={status}>{status}</option>
+              ))}
             </select>
             {quote.quoteSentAt && (
               <small>Last shared {regional.date(quote.quoteSentAt)}</small>
             )}
           </div>
+          {showQuoteStage && quote.status !== "Accepted" && (
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy || demo || !items.length || !quote.clientEmail}
+              title={
+                !quote.clientEmail
+                  ? "Add a customer email to send the quote"
+                  : undefined
+              }
+              onClick={() => void openEmail()}
+            >
+              <Mail size={15} />
+              Send quote
+            </button>
+          )}
+          <button
+            type="button"
+            className="button primary"
+            disabled={busy || (!quote.linkedProjectId && items.length === 0)}
+            onClick={() =>
+              quote.linkedProjectId
+                ? onProjectReady(quote.linkedProjectId)
+                : setCreatingProject(true)
+            }
+          >
+            {quote.linkedProjectId ? "Open project" : "Create project"}
+          </button>
           {(!unifiedDocuments || !showDocuments) && (
             <a
               className="button secondary"
@@ -1546,7 +1593,7 @@ export function QuoteDetail({
               {signedScope ? "Download signed quote" : "Download PDF"}
             </a>
           )}
-          {!signedScope && (handoffDemo || showQuoteStage) && (
+          {quote.status !== "Accepted" && (handoffDemo || showQuoteStage) && (
             <button
               className="button secondary"
               disabled={busy}
@@ -1557,6 +1604,51 @@ export function QuoteDetail({
           )}
         </div>
       </div>
+      {creatingProject && (
+        <div className="modal-backdrop">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Create project"
+          >
+            <header>
+              <h2>Create project</h2>
+            </header>
+            <p>
+              Create a Planning project from {quote.name}? The quote and its
+              paperwork will stay linked.
+            </p>
+            <p>
+              Quote status: {quote.status}. Outstanding paperwork and payments
+              can be completed later.
+            </p>
+            <footer>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={busy}
+                onClick={() => setCreatingProject(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                disabled={busy}
+                onClick={() =>
+                  void change(async () => {
+                    await onAccept(quote);
+                    setCreatingProject(false);
+                  })
+                }
+              >
+                {busy ? "Creating…" : "Create project"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
       {error && (
         <div className="alert" role="alert">
           {error}
@@ -1574,23 +1666,12 @@ export function QuoteDetail({
           <form
             className="modal"
             onSubmit={(event) => void sendEmail(event)}
-            aria-label={
-              unifiedDocuments ? "Send for signature" : "Send customer packet"
-            }
+            aria-label="Send quote"
           >
             <header>
               <div>
-                <h2>
-                  {unifiedDocuments
-                    ? "Send for signature"
-                    : "Send customer packet"}
-                </h2>
-                <p>
-                  We’ll attach the quote PDF and include one private link for
-                  {` ${packetDocumentNames}`} and any payment due afterward. The
-                  email will be sent from this organization’s connected Gmail
-                  account.
-                </p>
+                <h2>Send quote</h2>
+                <p>Email the quote PDF and a private customer portal link.</p>
               </div>
             </header>
             <div className="form-fields">
@@ -1602,7 +1683,7 @@ export function QuoteDetail({
                 Subject
                 <input
                   name="subject"
-                  defaultValue={`Documents for ${quote.name}`}
+                  defaultValue={`Quote for ${quote.name}`}
                   required
                   maxLength={180}
                 />
@@ -1611,7 +1692,7 @@ export function QuoteDetail({
                 Message
                 <textarea
                   name="message"
-                  defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. Use the button below to open your private portal and complete the required documents in one guided signing session. Any deposit options will appear after the documents are complete.\n\nIf you have any questions or would like to talk through anything, just reply to this email or give me a call.\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
+                  defaultValue={`Hi ${clientFirstName},\n\nI’ve attached your quote for ${quote.name}. You can review it using the private portal link below.\n\nPlease reply with any questions.\n\nThanks,\n${senderFirstName} from ${config.profile.name}`}
                   required
                   rows={7}
                   maxLength={5000}
@@ -1644,11 +1725,7 @@ export function QuoteDetail({
                 className="button primary"
                 disabled={sendBusy || mailConnectionLoading || !mailReady}
               >
-                {sendBusy
-                  ? "Sending…"
-                  : unifiedDocuments
-                    ? "Send signature request"
-                    : "Send customer packet"}
+                {sendBusy ? "Sending…" : "Send quote"}
               </button>
             </footer>
           </form>
@@ -1742,12 +1819,16 @@ export function QuoteDetail({
           onSelect={selectWorkflowStage}
           workspace={
             unifiedDocuments
-              ? { section: workspaceSection, onSelect: setWorkspaceSection }
+              ? {
+                  section: workspaceSection,
+                  onSelect: setWorkspaceSection,
+                  paperworkEnabled: config.features.agreements,
+                }
               : undefined
           }
         />
       )}
-      {!handoffDemo && !showDocuments && (
+      {!handoffDemo && !unifiedDocuments && !showDocuments && (
         <QuoteNextAction
           action={workflowNextAction}
           primary={
@@ -2144,7 +2225,7 @@ export function QuoteDetail({
                         <span>
                           {quote.quoteSentAt
                             ? "The documents are available in the customer portal."
-                            : `${packetDocumentNames} will be shared in one secure customer packet${requiresPayment ? ", with payment available after signing" : ""}.`}
+                            : "The quote PDF and a secure customer portal link will be shared."}
                         </span>
                       </div>
                       <button
@@ -2363,8 +2444,10 @@ export function QuoteDetail({
             <div>
               <h2>Items, costs & pricing</h2>
               <p>
-                {signedScope
-                  ? "Signed scope is locked."
+                {scopeLocked
+                  ? signedScope
+                    ? "Signed scope is locked."
+                    : "Accepted scope is saved. Change status to Draft to revise the quote."
                   : "Edit a row, or drag its handle to change the quote order."}
               </p>
             </div>
@@ -2377,7 +2460,7 @@ export function QuoteDetail({
                   quote,
                   config.quotePreferences.showCustomerLineItemPrices,
                 )}
-                disabled={busy || signedScope}
+                disabled={busy || scopeLocked}
                 onChange={(event) =>
                   void change(async () => {
                     await onSave(
@@ -2418,8 +2501,13 @@ export function QuoteDetail({
               </button>
             )}
           </div>
-          {signedScope ? (
-            <table className="scope-table" aria-label="Signed quote scope">
+          {scopeLocked ? (
+            <table
+              className="scope-table"
+              aria-label={
+                signedScope ? "Signed quote scope" : "Accepted quote scope"
+              }
+            >
               <thead>
                 <tr>
                   <th>Item</th>
@@ -2543,42 +2631,32 @@ export function QuoteDetail({
         </section>
       )}
       {!handoffDemo && showDocuments && (
-        <section className="quote-documents-workspace" aria-label="Documents">
-          <QuoteDocumentsOverview
-            quote={quote}
-            itemCount={items.length}
-            complete={signingPacket.status === "completed"}
-            sendDisabled={
-              !companyApprovalReady ||
-              !quote.clientEmail ||
-              sendBusy ||
-              mailConnectionLoading ||
-              !mailReady ||
-              demo ||
-              (signedScope &&
-                !["prepared", "sent"].includes(
-                  quote.msaAgreement?.status || "",
-                ))
-            }
-            sendBusy={sendBusy}
-            copyBusy={portalBusy}
-            copyMessage={portalMessage}
-            onEditCustomer={() => onEdit({ kind: "quote", entity: quote })}
-            onEditQuote={() => setWorkflowStep("quote")}
-            onPrepare={() => setPreparingAgreement(true)}
-            onSend={() => void sendCustomerPortal()}
-            onCopy={() => void copyPortalLink()}
-          >
-            <div
-              className="quote-documents-list"
-              aria-label="Quote completion workflow"
-            >
-              {showQuoteDocument && (
+        <>
+          {config.features.agreements && (
+            <QuotePaperworkPanel
+              quote={quote}
+              user={user}
+              demo={demo}
+              canManage={
+                user.group === "owner" ||
+                config.rolePermissions[user.group].includes("agreements.manage")
+              }
+              canSignInPerson={canMarkInPerson}
+              onRefresh={onSent}
+            />
+          )}
+          {(quote.quoteAcceptance || quote.msaAgreement) && (
+            <details className="paperwork-legacy">
+              <summary>Previously prepared documents</summary>
+              <p>
+                Existing signed copies and agreements remain available here.
+              </p>
+              {(quote.quoteAcceptance || quote.msaAgreement) && (
                 <QuoteSigningPanel
                   compact
                   quote={quote}
                   document={quoteSigningDocument}
-                  companyReady={companyApprovalReady}
+                  companyReady
                   businessName={config.profile.name}
                   demo={demo}
                   onSent={onSent}
@@ -2586,63 +2664,35 @@ export function QuoteDetail({
                   onEditData={() => onEdit({ kind: "quote", entity: quote })}
                 />
               )}
-              {showAgreementDocument &&
-                (!quote.msaAgreement ? (
-                  <DocumentSigningPanel
-                    compact
-                    document={agreementSigningDocument}
-                    step={2}
-                    secondaryActions={
-                      quote.status === "Sent" && !signedScope ? undefined : (
-                        <button
-                          type="button"
-                          className="button secondary"
-                          disabled={!items.length}
-                          onClick={() => setPreparingAgreement(true)}
-                        >
-                          Review & prepare
-                        </button>
-                      )
-                    }
-                  >
-                    {quote.status === "Sent" && !signedScope && (
-                      <p className="muted-note">
-                        Prepare the agreement after the customer signs the
-                        shared quote.
-                      </p>
-                    )}
-                  </DocumentSigningPanel>
-                ) : (
+              {quote.msaAgreement && (
+                <>
                   <MsaSigningPanel
                     compact
                     quote={quote}
                     signerName={user.name}
                     document={agreementSigningDocument}
                     onSent={onSent}
-                    onEditData={() => onEdit({ kind: "quote", entity: quote })}
                     demo={demo}
                   />
-                ))}
-            </div>
-          </QuoteDocumentsOverview>
-          {companyApprovalReady && signingPacket.status !== "completed" && (
-            <ConnectionRequirement
-              capability={mailCapability}
-              loading={mailConnectionLoading}
-              compact
-            />
+                  <button
+                    className="button secondary"
+                    onClick={() => setPreparingAgreement(true)}
+                  >
+                    Agreement details
+                  </button>
+                </>
+              )}
+            </details>
           )}
           {preparingAgreement && (
             <DocumentPreparationDialog
               prepared={Boolean(quote.msaAgreement)}
               onClose={() => setPreparingAgreement(false)}
             >
-              {companyApprovalPanel || (
-                <p>Add at least one quote item first.</p>
-              )}
+              {companyApprovalPanel}
             </DocumentPreparationDialog>
           )}
-        </section>
+        </>
       )}
       {!handoffDemo && !unifiedDocuments && showCustomerStage && (
         <section
@@ -2975,7 +3025,7 @@ export function QuoteDetail({
         </section>
       )}
       {!demo && showQuoteStage && (
-        <RoomScansPanel quoteId={quote.id} readOnly={signedScope} />
+        <RoomScansPanel quoteId={quote.id} readOnly={scopeLocked} />
       )}
     </div>
   );

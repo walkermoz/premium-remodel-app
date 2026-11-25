@@ -113,6 +113,21 @@ test("scope is the price; cents, credits, zero totals, and unrelated payments ar
   });
 });
 
+test("a linked project includes deposits recorded on its retained quote once", () => {
+  const result = projectFinances(
+    { ...project, sourceQuoteId: "q1" },
+    [scope],
+    [
+      payment,
+      { ...payment, id: "quote-deposit", projectId: "q1", amount: 200 },
+      { ...payment, id: "unrelated", projectId: "q2", amount: 900 },
+    ],
+  );
+  expect(result.collected).toBe(350);
+  expect(result.remaining).toBe(250);
+  expect(result.payments).toHaveLength(2);
+});
+
 test("material costs reduce margin without changing customer pricing or collections", () => {
   const items = [
     { ...scope, estimate: 600.35, subCost: 200.1, materialCost: 150.25 },

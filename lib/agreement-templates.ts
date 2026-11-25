@@ -17,14 +17,12 @@ const maxAgreementPdfBytes = 20 * 1024 * 1024;
 
 type AgreementTemplateRow = {
   id: string;
+  paperwork: unknown;
   organization_id: string;
   template_key: string | null;
   name: string;
   description: string;
-  source_type:
-    | "uploaded_pdf"
-    | "servicebuddy_document"
-    | "legacy_premium_msa";
+  source_type: "uploaded_pdf" | "servicebuddy_document" | "legacy_premium_msa";
   status: "draft" | "published" | "archived";
   revision: number;
   current_version: number;
@@ -54,6 +52,7 @@ const templateColumns = [
   "current_version",
   "published_version",
   "content",
+  "paperwork",
   "fields",
   "signer_roles",
   "storage_path",
@@ -78,6 +77,7 @@ function templateDto(row: AgreementTemplateRow) {
     currentVersion: row.current_version,
     publishedVersion: row.published_version,
     content: row.content,
+    paperwork: row.paperwork,
     fields: row.fields as AgreementField[],
     signerRoles: row.signer_roles as AgreementSignerRole[],
     originalFilename: row.original_filename,
@@ -170,6 +170,7 @@ export async function createAuthoredAgreementTemplate(
       source_type: "servicebuddy_document",
       status: "draft",
       content: definition.content,
+      paperwork: definition.paperwork,
       fields: definition.fields,
       signer_roles: definition.signerRoles,
       created_by: user.id,
@@ -280,13 +281,17 @@ export async function updateAgreementTemplate(
   if (current.source_type === "servicebuddy_document" && !definition.content)
     throw new HttpError(400, "An authored agreement needs document content.");
   if (current.source_type === "uploaded_pdf" && definition.content)
-    throw new HttpError(400, "Uploaded PDF templates do not use authored content.");
+    throw new HttpError(
+      400,
+      "Uploaded PDF templates do not use authored content.",
+    );
   const result = await supabaseAdmin()
     .from("remodel_agreement_templates")
     .update({
       name: input.name,
       description: input.description,
       content: definition.content,
+      paperwork: definition.paperwork,
       fields: definition.fields,
       signer_roles: definition.signerRoles,
       revision: input.revision + 1,
@@ -321,6 +326,7 @@ export async function publishAgreementTemplate(
     );
   const definition = agreementTemplateDefinitionSchema.parse({
     content: current.content,
+    paperwork: current.paperwork,
     fields: current.fields,
     signerRoles: current.signer_roles,
   });
@@ -392,7 +398,9 @@ export async function agreementTemplateSource(
     throw new HttpError(404, "This template does not have an uploaded PDF.");
   if (!row.storage_path.startsWith(`${organizationId}/agreements/`))
     throw new HttpError(404, "Agreement source file not found.");
-  const result = await supabaseAdmin().storage.from(bucket).download(row.storage_path);
+  const result = await supabaseAdmin()
+    .storage.from(bucket)
+    .download(row.storage_path);
   if (result.error || !result.data)
     throw new HttpError(404, "Agreement source file is unavailable.");
   return {

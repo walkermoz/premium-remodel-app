@@ -20,7 +20,6 @@ import BusinessOnboarding from "./business-onboarding";
 import OrganizationSecretsSettings from "./organization-secrets-settings";
 import type { OrganizationCapability } from "@/lib/business-config-schema";
 import AgreementTemplatesSettings from "./agreement-templates-settings";
-import QuoteFlowTemplatesSettings from "./quote-flow-templates-settings";
 import StripePaymentSettings from "./stripe-payment-settings";
 import OrganizationLifecycleSettings from "./organization-lifecycle-settings";
 export default function SettingsPanel({
@@ -56,8 +55,6 @@ export default function SettingsPanel({
   const canManageGeneration = hasCapability("generation.manage");
   const canManageApiKeys = hasCapability("api_keys.manage");
   const canManageAgreements = hasCapability("agreements.manage");
-  const canManageQuoteFlows = hasCapability("quote_flows.manage");
-  const canPublishQuoteFlows = hasCapability("quote_flows.publish");
   const canViewSetup = canManageConnections;
   const canViewBusiness = [
     "business.manage",
@@ -168,12 +165,6 @@ export default function SettingsPanel({
           />
           {canManageAgreements && config.modules.agreements && (
             <AgreementTemplatesSettings demo={demo} />
-          )}
-          {canManageQuoteFlows && config.modules.agreements && (
-            <QuoteFlowTemplatesSettings
-              demo={demo}
-              canPublish={canPublishQuoteFlows}
-            />
           )}
           {user.group === "owner" && (
             <OrganizationLifecycleSettings
