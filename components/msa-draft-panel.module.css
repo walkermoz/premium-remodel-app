@@ -340,3 +340,52 @@
     grid-row: 1;
   }
 }
+.panel.compact {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.compact > .heading {
+  display: none;
+}
+.customerSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.customerSummary > div {
+  display: grid;
+  gap: 5px;
+}
+.customerSummary span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.customerSummary strong {
+  font-size: 16px;
+}
+.compact .preview > summary {
+  padding: 12px 0;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.compact .contractTerms {
+  margin-top: 16px;
+}
+@media (max-width: 640px) {
+  .customerSummary {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .compact .contractTerms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

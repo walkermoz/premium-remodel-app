@@ -16,6 +16,8 @@ export default function QuoteSigningPanel({
   onSent,
   onEditData,
   businessName,
+  compact = false,
+  onPreview,
 }: {
   quote: Quote;
   document: SigningDocumentView;
@@ -24,6 +26,8 @@ export default function QuoteSigningPanel({
   onSent: () => Promise<void>;
   onEditData: () => void;
   businessName: string;
+  compact?: boolean;
+  onPreview?: () => void;
 }) {
   const regional = useRegionalFormat();
   const [session, setSession] = useState<{
@@ -81,12 +85,13 @@ export default function QuoteSigningPanel({
     <DocumentSigningPanel
       document={document}
       step={1}
+      compact={compact}
       onEditData={onEditData}
       actions={
-        !complete ? (
+        !complete && (!compact || companyReady) ? (
           <button
             type="button"
-            className="button primary"
+            className={compact ? "button secondary" : "button primary"}
             disabled={busy || !companyReady || demo}
             onClick={() => void openSigning()}
           >
@@ -101,16 +106,27 @@ export default function QuoteSigningPanel({
       }
       secondaryActions={
         <>
-          <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
-            Preview document
-          </a>
+          {onPreview ? (
+            <button
+              type="button"
+              className="button secondary"
+              disabled={demo}
+              onClick={onPreview}
+            >
+              Preview quote
+            </button>
+          ) : (
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
+              Preview document
+            </a>
+          )}
           <a href={`/api/quotes/${encodeURIComponent(quote.id)}/pdf`} download>
             {complete ? "Download signed PDF" : "Download PDF"}
           </a>
         </>
       }
     >
-      {!complete && !companyReady && (
+      {!compact && !complete && !companyReady && (
         <p className="muted-note">
           Prepare and sign the company agreement below before requesting
           customer signatures.

@@ -58,83 +58,132 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Documents", exact: true }),
   ).toBeVisible();
-  await expect(
-    workflow.getByRole("button", { name: /Company signatures/ }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Agreement preview" }),
-  ).toBeVisible();
-  await expect(page.getByText("This is preparation for the MSA")).toHaveCount(
-    0,
-  );
-  await expect(page.getByText("Scope for Exhibit B")).toHaveCount(0);
-  const signaturePad = page.getByRole("img", { name: "Draw your signature" });
-  await signaturePad.scrollIntoViewIfNeeded();
-  const signatureBounds = await signaturePad.boundingBox();
-  expect(signatureBounds).not.toBeNull();
-  await page.mouse.move(signatureBounds!.x + 20, signatureBounds!.y + 60);
-  await page.mouse.down();
-  await page.mouse.move(signatureBounds!.x + 150, signatureBounds!.y + 65);
-  await page.mouse.up();
-  await expect(signaturePad.locator("polyline")).toHaveCount(1);
-  const clearSignature = page.getByRole("button", { name: "Clear signature" });
-  const prepareMsa = page.getByRole("button", {
-    name: "Sign and prepare MSA",
-  });
-  const clearBounds = await clearSignature.boundingBox();
-  const prepareBounds = await prepareMsa.boundingBox();
-  expect(clearBounds && prepareBounds).toBeTruthy();
-  expect(
-    prepareBounds!.y - (clearBounds!.y + clearBounds!.height),
-  ).toBeGreaterThanOrEqual(12);
-  await clearSignature.click();
-  await expect(signaturePad.locator("polyline")).toHaveCount(0);
-  await page.getByRole("button", { name: "Type name" }).click();
-  const typedPreview = page.getByRole("img", {
-    name: "Typed signature preview",
-  });
-  await expect(typedPreview).toBeVisible();
-  const typedBounds = await typedPreview.boundingBox();
-  const typedPrepareBounds = await prepareMsa.boundingBox();
-  expect(typedBounds && typedPrepareBounds).toBeTruthy();
-  expect(
-    typedPrepareBounds!.y - (typedBounds!.y + typedBounds!.height),
-  ).toBeGreaterThanOrEqual(12);
-  await expect(
-    page.getByRole("heading", { name: "Sign and send" }),
-  ).toHaveCount(0);
-
   await expect(workflow.getByRole("button")).toHaveCount(2);
   await expect(
-    page.getByRole("heading", { name: "Customer signatures" }),
+    page.getByRole("region", { name: "Next required action" }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Customer packet" }),
-  ).toContainText("Company preparation needed");
-  await expect(
-    page.getByRole("button", { name: "Send portal link" }),
   ).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "MSA preparation" }),
+  ).toHaveCount(0);
+  await expect(page.locator(".quote-document-row")).toHaveCount(2);
+  await expect(
+    page.getByRole("region", { name: "Deposit", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Create project", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Document next step" }),
+  ).toContainText("Prepare your service agreement");
+  await expect(page.getByText("Total costs", { exact: true })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Prepare agreement", exact: true })
+    .click();
+  const editor = page.getByRole("dialog", {
+    name: "Prepare service agreement",
+    exact: true,
+  });
+  await expect(editor).toBeVisible();
+  await expect(
+    editor.getByRole("button", { name: "Type name", exact: true }),
+  ).toBeDisabled();
+  await editor
+    .getByLabel("Excluded work")
+    .fill("Work outside the listed scope is excluded.");
+  await editor
+    .getByLabel("Material allowances")
+    .fill("No material allowances.");
+  await editor
+    .getByRole("button", { name: "Save agreement details", exact: true })
+    .click();
+  await expect(
+    editor.getByRole("button", { name: "Type name", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    editor.getByLabel("Company representative print name"),
+  ).toBeVisible();
+  await expect(
+    editor.getByLabel("Signing staff member", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    editor.getByRole("heading", { name: "Agreement preview" }),
+  ).toBeHidden();
+  await editor.getByText("Preview full agreement", { exact: true }).click();
+  await expect(
+    editor.getByRole("heading", { name: "Agreement preview" }),
+  ).toBeVisible();
+  const signaturePad = editor.getByRole("img", { name: "Draw your signature" });
+  await signaturePad.scrollIntoViewIfNeeded();
+  const bounds = await signaturePad.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(bounds!.x + 20, bounds!.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(bounds!.x + 150, bounds!.y + 65);
+  await page.mouse.up();
+  await expect(signaturePad.locator("polyline")).toHaveCount(1);
+  await editor.getByRole("button", { name: "Clear signature" }).click();
+  await expect(signaturePad.locator("polyline")).toHaveCount(0);
+  await editor.getByRole("button", { name: "Type name", exact: true }).click();
+  await expect(
+    editor.getByRole("img", { name: "Typed signature preview" }),
+  ).toBeVisible();
+  // Sample signatures cannot accidentally submit to the company's backend.
+  await expect(
+    editor.getByRole("button", { name: "Sign and prepare agreement" }),
+  ).toBeDisabled();
+  await editor
+    .getByRole("button", { name: "Close agreement preparation" })
+    .click();
+  await expect(editor).toHaveCount(0);
   await expect(
     page.getByRole("region", {
       name: "Master Services Agreement signing status",
     }),
-  ).toContainText("Company signature required");
-  await expect(
-    page.getByRole("button", { name: "Create project", exact: true }),
-  ).toBeDisabled();
+  ).toContainText("Needs preparation");
   await expect(
     page.getByRole("button", { name: "Sign quote on this device" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Send for signature" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("button", { name: "Prepare agreement", exact: true })
+    .click();
+  await expect(editor).toBeVisible();
+  expect(
+    await editor.evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBeTruthy();
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
   await expect(
-    workflow.getByRole("button", { name: /Documents/ }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Prepare agreement", exact: true }),
+  ).toBeFocused();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBeTruthy();
+  // Missing contact data should explain the next action, rather than show
+  // several disabled signature buttons without a clear way forward.
+  await page.evaluate((id) => {
+    const key = "premium-remodel-sample-v1";
+    const workspace = JSON.parse(localStorage.getItem(key) || "{}");
+    workspace.quotes.find(
+      (item: { id: string }) => item.id === id,
+    ).clientEmail = "";
+    localStorage.setItem(key, JSON.stringify(workspace));
+  }, quoteId);
+  await page.reload();
+  await workflow.getByRole("button", { name: /Documents/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Add customer email", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("region", { name: "Document next step" }),
+  ).toContainText("An email is needed");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
