@@ -37,6 +37,6 @@ test("Premium Remodel settings are represented as editable organization defaults
   await page.getByRole("button", { name: "Modules" }).click();
   await expect(page.getByLabel(/Price book/)).toBeChecked();
   await expect(page.getByLabel(/Automations/)).toBeChecked();
-  await expect(page.getByLabel(/Agreements/)).toBeChecked();
+  await expect(page.getByLabel(/Paperwork/)).toBeChecked();
   await expect(page.getByLabel(/Payments/)).toBeChecked();
 });
