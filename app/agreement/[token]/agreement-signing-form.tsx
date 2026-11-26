@@ -74,7 +74,12 @@ export default function AgreementSigningForm({
           );
           const body = await response.json().catch(() => ({}));
           if (!response.ok)
-            throw new Error(body.error || "Could not sign this agreement.");
+            throw new Error(
+              body.error ||
+                (requiresSignature
+                  ? "Could not sign this document."
+                  : "Could not submit this form."),
+            );
           if (onsite && body.nextSigningUrl) {
             window.location.assign(body.nextSigningUrl);
             return;
@@ -84,7 +89,9 @@ export default function AgreementSigningForm({
           setError(
             cause instanceof Error
               ? cause.message
-              : "Could not sign this agreement.",
+              : requiresSignature
+                ? "Could not sign this document."
+                : "Could not submit this form.",
           );
           setBusy(false);
         }
@@ -178,11 +185,7 @@ export default function AgreementSigningForm({
           (requiresSignature && !signatureFieldComplete(signature))
         }
       >
-        {busy
-          ? "Saving…"
-          : requiresSignature
-            ? "Sign document"
-            : "Submit document"}
+        {busy ? "Saving…" : requiresSignature ? "Sign document" : "Submit form"}
       </button>
     </form>
   );

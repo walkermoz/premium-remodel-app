@@ -2452,18 +2452,6 @@
   cursor: pointer;
 }
 
-.signConsent input[type="checkbox"] {
-  display: block;
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  min-height: 16px;
-  margin: 1px 0 0;
-  padding: 0;
-  flex: 0 0 16px;
-  accent-color: var(--blue);
-}
-
 .signConsent span {
   flex: 1;
   color: inherit;

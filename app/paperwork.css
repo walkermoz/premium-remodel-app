@@ -185,11 +185,6 @@
   margin: 12px 0;
   font-size: 13px;
 }
-.paperwork-checkbox input {
-  flex: none;
-  width: 17px !important;
-  height: 17px !important;
-}
 .paperwork-template-options {
   border: 1px solid var(--border, #dce4e8);
   border-radius: 6px;

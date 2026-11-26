@@ -5,6 +5,7 @@ import {
   interpolatePaperwork,
 } from "@/lib/paperwork-schema";
 import type { APIRequestContext } from "@playwright/test";
+import { expectCheckboxRows } from "./checkbox-layout-assertions";
 const cloud = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const headers = { Origin: "http://localhost:3100" };
 test.use({ channel: "chromium" });
@@ -283,6 +284,13 @@ async function template(
                   signerRoleId: "customer",
                   required: true,
                 },
+                {
+                  id: "selection_confirmed",
+                  label: "Selections confirmed with the customer",
+                  type: "checkbox",
+                  signerRoleId: "customer",
+                  required: false,
+                },
               ]),
         ],
       },
@@ -489,6 +497,12 @@ cloud(
     await expect(page.getByRole("button", { name: "Type name" })).toHaveCount(
       0,
     );
+    await expectCheckboxRows(page.getByRole("checkbox"));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectCheckboxRows(page.getByRole("checkbox"));
+    await page
+      .getByLabel("Selections confirmed with the customer", { exact: true })
+      .check();
     await page.getByLabel("Cabinet color").fill("Warm ivory");
     await page
       .getByText(
@@ -496,9 +510,9 @@ cloud(
         { exact: true },
       )
       .click();
-    await page.getByRole("button", { name: "Submit document" }).click();
+    await page.getByRole("button", { name: "Submit form" }).click();
     await expect(
-      page.getByRole("heading", { name: "Document submitted" }),
+      page.getByRole("heading", { name: "Form submitted" }),
     ).toBeVisible();
     const signer = await company.admin
       .from("remodel_agreement_signers")

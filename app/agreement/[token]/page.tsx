@@ -55,7 +55,7 @@ export default async function AgreementSigningPage({
     <>
       <section className={styles.complete}>
         <h2>
-          {session.requiresSignature ? "Signature saved" : "Document submitted"}
+          {session.requiresSignature ? "Signature saved" : "Form submitted"}
         </h2>
         <p>
           {session.status === "completed"
@@ -92,9 +92,15 @@ export default async function AgreementSigningPage({
     </>
   ) : session.blocked ? (
     <section className={styles.complete}>
-      <h2>Waiting for an earlier signer</h2>
+      <h2>
+        {session.requiresSignature
+          ? "Waiting for an earlier signer"
+          : "Waiting for another recipient"}
+      </h2>
       <p>
-        This signing link will become active after the prior signer finishes.
+        {session.requiresSignature
+          ? "This signing link will become active after the prior signer finishes."
+          : "This form will become available after the previous recipient finishes."}
       </p>
     </section>
   ) : (
@@ -121,10 +127,12 @@ export default async function AgreementSigningPage({
           )}
           {onsite && (
             <span className={styles.onsiteTitle}>
-              <strong>On-device signing</strong>
-              <small>
-                {session.business.name} · Protected customer handoff
-              </small>
+              <strong>
+                {session.requiresSignature
+                  ? "On-device signing"
+                  : "Complete form"}
+              </strong>
+              <small>{session.business.name} · Protected handoff</small>
             </span>
           )}
         </div>
@@ -140,11 +148,16 @@ export default async function AgreementSigningPage({
                   : "/?view=Quotes"
               }
             >
-              <X size={16} /> Exit customer signing
+              <X size={16} />{" "}
+              {session.requiresSignature
+                ? "Exit customer signing"
+                : "Exit form"}
             </Link>
           </div>
         ) : (
-          <span>Secure agreement</span>
+          <span>
+            {session.requiresSignature ? "Secure agreement" : "Secure form"}
+          </span>
         )}
       </header>
       {!onsite && portalReturn && (
@@ -185,7 +198,11 @@ export default async function AgreementSigningPage({
           ) : null}
           {boundFields.length > 0 && (
             <section className={styles.boundFields}>
-              <h2>Agreement details</h2>
+              <h2>
+                {session.requiresSignature
+                  ? "Agreement details"
+                  : "Form details"}
+              </h2>
               <dl>
                 {boundFields.map((field) => (
                   <div key={field.id}>
@@ -202,7 +219,12 @@ export default async function AgreementSigningPage({
               </dl>
             </section>
           )}
-          <ol className={styles.progress} aria-label="Signing order">
+          <ol
+            className={styles.progress}
+            aria-label={
+              session.requiresSignature ? "Signing order" : "Completion order"
+            }
+          >
             {session.signers.map((signer) => (
               <li key={`${signer.signingOrder}-${signer.roleLabel}`}>
                 <span>{signer.signingOrder}</span>
@@ -221,14 +243,25 @@ export default async function AgreementSigningPage({
             <section
               id="required-signing"
               className={styles.requiredSigning}
-              aria-label="Required signing section"
+              aria-label={
+                session.requiresSignature
+                  ? "Required signing section"
+                  : "Required form section"
+              }
             >
               {signingState}
             </section>
           )}
         </article>
         {onsite && (
-          <aside className={styles.onsiteControls} aria-label="Signing panel">
+          <aside
+            className={styles.onsiteControls}
+            aria-label={
+              session.requiresSignature
+                ? "Signing panel"
+                : "Form completion panel"
+            }
+          >
             <header>
               <span>
                 {session.requiresSignature ? "SIGNER" : "RECIPIENT"}{" "}

@@ -6,6 +6,7 @@ import "./quotes-payments.css";
 import "./paperwork.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./team-map.css";
+import "./checkboxes.css";
 import { ThemeController } from "@/components/theme-controls";
 import { themeInitScript } from "@/lib/theme";
 export const metadata: Metadata = {

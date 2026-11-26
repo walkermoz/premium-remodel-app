@@ -51,12 +51,15 @@ function PaperworkDialog({
   title,
   onClose,
   children,
+  dismissOnBackdrop = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  dismissOnBackdrop?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const pointerStartedOutside = useRef(false);
   useEffect(() => {
     const dialog = ref.current;
     dialog?.showModal();
@@ -66,11 +69,38 @@ function PaperworkDialog({
     ref.current?.close();
     onClose();
   }
+  function isBackdrop(event: {
+    target: EventTarget;
+    currentTarget: HTMLDialogElement;
+    clientX: number;
+    clientY: number;
+  }) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return (
+      event.target === event.currentTarget &&
+      (event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom)
+    );
+  }
   return (
     <dialog
       ref={ref}
       className="paperwork-dialog"
       aria-label={title}
+      onPointerDown={(event) => {
+        pointerStartedOutside.current = dismissOnBackdrop && isBackdrop(event);
+      }}
+      onClick={(event) => {
+        if (
+          dismissOnBackdrop &&
+          pointerStartedOutside.current &&
+          isBackdrop(event)
+        )
+          close();
+        pointerStartedOutside.current = false;
+      }}
       onCancel={(event) => {
         event.preventDefault();
         close();
@@ -404,7 +434,9 @@ export default function QuotePaperworkPanel({
                         <Tablet size={15} />
                         {document.configuration.completion === "signature"
                           ? "Sign in person"
-                          : "Complete in person"}
+                          : document.configuration.completion === "form"
+                            ? "Complete form"
+                            : "Review document"}
                       </button>
                     )}
                     {document.configuration.portal &&
@@ -680,7 +712,11 @@ export default function QuotePaperworkPanel({
         </PaperworkDialog>
       )}
       {preview && (
-        <PaperworkDialog title={preview.title} onClose={() => setPreview(null)}>
+        <PaperworkDialog
+          title={preview.title}
+          onClose={() => setPreview(null)}
+          dismissOnBackdrop
+        >
           <iframe
             title={`${preview.title} preview`}
             src={`/api/paperwork/${preview.id}/document`}

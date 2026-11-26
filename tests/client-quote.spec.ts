@@ -1,4 +1,5 @@
 import { test, expect, password } from "./supabase-fixture";
+import { expectCheckboxRows } from "./checkbox-layout-assertions";
 import { createHmac } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import {
@@ -210,6 +211,7 @@ cloudTest(
     await expect(
       customerPage.getByLabel("Typed signature preview"),
     ).toContainText("Walker Portal Test");
+    await expectCheckboxRows(customerPage.getByRole("checkbox"));
     await customerPage
       .getByRole("checkbox", { name: /I agree to this quote/ })
       .check();
@@ -1014,6 +1016,7 @@ cloudTest(
     await clientPage
       .getByRole("textbox", { name: "Email address" })
       .fill("new@example.com");
+    await expectCheckboxRows(clientPage.getByRole("checkbox"));
     await clientPage
       .getByRole("checkbox", {
         name: /I agree to receive texts from Premium Remodel about appointments/,
