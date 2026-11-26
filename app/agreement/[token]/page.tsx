@@ -6,6 +6,7 @@ import type {
   AgreementField,
 } from "@/lib/agreement-template-schema";
 import { readAgreementSigningSession } from "@/lib/agreement-packets";
+import { ThemeToggle } from "@/components/theme-controls";
 import AgreementSigningForm from "./agreement-signing-form";
 import styles from "./page.module.css";
 
@@ -64,7 +65,7 @@ export default async function AgreementSigningPage({
         </p>
         {session.status === "completed" && (
           <a
-            className={styles.download}
+            className={`button primary ${styles.download}`}
             href={`/api/agreement-sign/${encodeURIComponent(token)}/document?download=1`}
           >
             Download completed document
@@ -128,11 +129,9 @@ export default async function AgreementSigningPage({
           {onsite && (
             <span className={styles.onsiteTitle}>
               <strong>
-                {session.requiresSignature
-                  ? "On-device signing"
-                  : "Complete form"}
+                {session.requiresSignature ? "Review & sign" : "Complete form"}
               </strong>
-              <small>{session.business.name} · Protected handoff</small>
+              <small>{template.name}</small>
             </span>
           )}
         </div>
@@ -141,17 +140,26 @@ export default async function AgreementSigningPage({
             <span className={styles.handoffBadge}>
               <ShieldCheck size={15} /> Staff workspace hidden
             </span>
+            <ThemeToggle />
             <Link
+              className="button secondary"
+              aria-label={
+                session.requiresSignature
+                  ? "Exit customer signing"
+                  : "Exit form"
+              }
               href={
                 session.quoteId
                   ? `/?view=Quotes&project=${session.quoteId}&tab=paperwork`
                   : "/?view=Quotes"
               }
             >
-              <X size={16} />{" "}
-              {session.requiresSignature
-                ? "Exit customer signing"
-                : "Exit form"}
+              <X size={16} />
+              <span className={styles.exitLabel}>
+                {session.requiresSignature
+                  ? "Exit customer signing"
+                  : "Exit form"}
+              </span>
             </Link>
           </div>
         ) : (
@@ -172,7 +180,10 @@ export default async function AgreementSigningPage({
             <h1>{template.name}</h1>
             {template.description && <p>{template.description}</p>}
             {!onsite && !complete && !session.blocked && (
-              <a className={styles.nextRequired} href="#required-signing">
+              <a
+                className={`button primary ${styles.nextRequired}`}
+                href="#required-signing"
+              >
                 Complete this document
               </a>
             )}

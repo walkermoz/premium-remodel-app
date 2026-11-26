@@ -179,6 +179,7 @@ export default function AgreementSigningForm({
       )}
       <button
         type="submit"
+        className="button primary"
         disabled={
           busy ||
           !accepted ||
