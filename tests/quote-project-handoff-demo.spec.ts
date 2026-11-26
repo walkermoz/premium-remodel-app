@@ -1,123 +1,59 @@
-import { expect, test } from "@playwright/test";
-
-test("quote to project demo shows the full handoff flow", async ({ page }) => {
+import { test, expect } from "@playwright/test";
+test("a saved quote creates a linked project without a signature or deposit wizard", async ({
+  page,
+}) => {
   await page.goto(
     "/demo?scenario=quote-project-handoff&view=Quotes&project=quote-project-handoff-demo",
   );
-
   await expect(
-    page.getByRole("heading", { name: "Willowbrook kitchen remodel" }),
+    page.getByRole("heading", {
+      name: "Willowbrook kitchen remodel",
+      exact: true,
+    }),
   ).toBeVisible();
+  const navigation = page.getByRole("navigation", { name: "Quote workflow" });
+  await expect(navigation.getByRole("button")).toHaveCount(2);
   await expect(
-    page.getByRole("heading", { name: "Customer signatures" }),
-  ).toBeVisible();
-  await expect(page.getByText("Sent to taylor@example.com")).toBeVisible();
-  await expect(page.getByText("Customer packet available")).toBeVisible();
-  await expect(page.getByText("1 of 4 complete")).toBeVisible();
-
-  const workflow = page.getByRole("navigation", { name: "Quote workflow" });
-  await expect(
-    workflow.getByRole("button", { name: /Create project/ }),
-  ).toBeDisabled();
-  await expect(
-    workflow.getByRole("button", { name: /Deposit/ }),
-  ).toBeDisabled();
-  const quoteStep = workflow.getByRole("button", { name: /Quote & pricing/ });
-  await quoteStep.click();
-  await expect(quoteStep).toHaveAttribute("aria-current", "step");
-  await expect(
-    page.getByRole("heading", { name: "Items, costs & pricing" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Master services agreement" }),
-  ).toHaveCount(0);
-  await workflow.getByRole("button", { name: /Documents/ }).click();
-  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Master services agreement" }),
-  ).toBeVisible();
-  await expect(
-    workflow.getByRole("button", { name: /Company signatures/ }),
+    navigation.getByRole("button", {
+      name: /Deposit|Create project|Customer signatures/,
+    }),
   ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Continue to customer signatures" })
+    .getByRole("button", { name: "Create project", exact: true })
     .click();
-  await expect(
-    page.getByRole("heading", { name: "Customer signatures" }),
-  ).toBeVisible();
-
-  await page.getByRole("button", { name: "Signature options" }).click();
-  const quoteSignature = page.getByRole("form", {
-    name: "Complete quote signature",
+  const dialog = page.getByRole("dialog", {
+    name: "Create project",
+    exact: true,
   });
-  await expect(
-    quoteSignature.getByRole("button", { name: /Sign on service tablet/ }),
-  ).toBeVisible();
-  await expect(
-    quoteSignature.getByRole("button", { name: /Mark signed in person/ }),
-  ).toBeVisible();
-  await quoteSignature
-    .getByRole("button", { name: /Sign on service tablet/ })
-    .click();
-  await quoteSignature.getByRole("checkbox").check();
-  await quoteSignature.getByRole("button", { name: "Save signature" }).click();
-
-  await expect(page.getByText("2 of 4 complete")).toBeVisible();
-  await page.getByRole("button", { name: "Signature options" }).click();
-  const agreementSignature = page.getByRole("form", {
-    name: "Complete service agreement signature",
-  });
-  await agreementSignature
-    .getByRole("button", { name: /Mark signed in person/ })
-    .click();
-  await agreementSignature
-    .getByRole("button", { name: "Save signature" })
-    .click();
-
-  await expect(page.getByText("3 of 4 complete")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Record deposit" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Deposit options" }).click();
-  const deposit = page.getByRole("form", { name: "Record customer deposit" });
-  await expect(
-    deposit.getByRole("button", { name: /Record check/ }),
-  ).toBeVisible();
-  await deposit.getByRole("button", { name: /Record check/ }).click();
-  await deposit.getByLabel("Check number").fill("1842");
-  await deposit.getByRole("button", { name: "Record deposit" }).click();
-
-  await expect(page.getByText("4 of 4 complete")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Project setup" }),
-  ).toBeVisible();
-  await expect(
-    workflow.getByRole("button", { name: /Create project/ }),
-  ).toHaveAttribute("aria-current", "step");
-  await page.getByRole("button", { name: "Review project setup" }).click();
-  const review = page.getByRole("form", {
-    name: "Create project from quote",
-  });
-  await expect(review.getByLabel("Project name")).toHaveValue(
-    "Willowbrook kitchen remodel",
+  await expect(dialog).toContainText(
+    "Outstanding paperwork and payments can be completed later",
   );
-  await expect(review).toContainText("Taylor Reed");
-  await expect(review).toContainText("$42,000");
-
-  await review.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByText("PROJECT CREATED")).toBeVisible();
-  const carriedItems = page.getByRole("region", {
-    name: "Items carried from quote",
-  });
+  await dialog
+    .getByRole("button", { name: "Create project", exact: true })
+    .click();
+  await expect(page).toHaveURL(/view=Projects&project=/);
   await expect(
-    carriedItems.getByText("Cabinetry and installation"),
+    page.getByRole("heading", {
+      name: "Willowbrook kitchen remodel",
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(carriedItems.getByText("Quartz countertops")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Review items" }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add tasks" })).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Set schedule" }),
-  ).toBeVisible();
+  const state = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("premium-remodel-sample-v1") || "{}"),
+  );
+  const original = state.quotes.find(
+    (quote: { id: string }) => quote.id === "quote-project-handoff-demo",
+  );
+  expect(original.linkedProjectId).toBeTruthy();
+  expect(
+    state.projects.find(
+      (project: { id: string }) => project.id === original.linkedProjectId,
+    ).sourceQuoteId,
+  ).toBe(original.id);
+  expect(
+    state.scope.filter(
+      (item: { projectId: string }) =>
+        item.projectId === original.linkedProjectId,
+    ).length,
+  ).toBeGreaterThan(0);
 });

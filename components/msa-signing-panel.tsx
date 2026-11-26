@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, Tablet } from "lucide-react";
 import type { SigningDocumentView } from "@/lib/document-signing";
 import type { Quote } from "@/lib/types";
@@ -19,12 +19,18 @@ export default function MsaSigningPanel({
   document,
   onSent,
   onEditData,
+  preparation,
+  demo = false,
+  compact = false,
 }: {
   quote: Quote;
   signerName: string;
   document: SigningDocumentView;
   onSent: () => Promise<void>;
   onEditData?: () => void;
+  preparation?: ReactNode;
+  demo?: boolean;
+  compact?: boolean;
 }) {
   const [signerTitle, setSignerTitle] = useState("");
   const [staffSignature, setStaffSignature] = useState<SignatureFieldValue>({
@@ -197,14 +203,15 @@ export default function MsaSigningPanel({
       <DocumentSigningPanel
         document={document}
         step={2}
+        compact={compact}
         onEditData={onEditData}
         actions={
           !signed && accepted ? (
             <>
               <button
                 type="button"
-                className="button primary"
-                disabled={customerSigningBusy}
+                className={compact ? "button secondary" : "button primary"}
+                disabled={customerSigningBusy || demo}
                 onClick={() => void openCustomerSigning()}
               >
                 <Tablet size={15} aria-hidden="true" />
@@ -212,7 +219,9 @@ export default function MsaSigningPanel({
                   ? "Opening…"
                   : customerSigningOpen
                     ? "Close signing"
-                    : "Sign MSA on this device"}
+                    : compact
+                      ? "Sign agreement on this device"
+                      : "Sign MSA on this device"}
               </button>
             </>
           ) : null
@@ -224,7 +233,7 @@ export default function MsaSigningPanel({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Preview document
+              {compact ? "Preview agreement" : "Preview document"}
             </a>
             {signed && (
               <a href={`/api/msa/${encodeURIComponent(quote.id)}/pdf`} download>
@@ -234,10 +243,13 @@ export default function MsaSigningPanel({
           </>
         }
       >
-        <div className="workflow-document-contract-value">
-          <span>Contract value</span>
-          <strong>{projectMoney(agreement.price)}</strong>
-        </div>
+        {preparation}
+        {!compact && (
+          <div className="workflow-document-contract-value">
+            <span>Contract value</span>
+            <strong>{projectMoney(agreement.price)}</strong>
+          </div>
+        )}
         {customerSigningOpen && transactionDate && (
           <section
             className="workflow-inline-msa-signing"
@@ -248,7 +260,11 @@ export default function MsaSigningPanel({
                 <span className="project-handoff-eyebrow">
                   Customer signature
                 </span>
-                <h4>Review and sign the MSA here</h4>
+                <h4>
+                  {compact
+                    ? "Review and sign the service agreement"
+                    : "Review and sign the MSA here"}
+                </h4>
                 <p>
                   The customer can review and sign on this device. The portal
                   link remains active if it was already emailed.
@@ -328,7 +344,11 @@ export default function MsaSigningPanel({
                 }
                 onClick={() => void signCustomerAgreement()}
               >
-                {customerSigningBusy ? "Saving signature…" : "Sign MSA"}
+                {customerSigningBusy
+                  ? "Saving signature…"
+                  : compact
+                    ? "Sign service agreement"
+                    : "Sign MSA"}
               </button>
             </div>
           </section>

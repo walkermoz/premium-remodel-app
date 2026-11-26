@@ -38,6 +38,9 @@ export default function MsaDraftPanel({
   canSendAgreement = true,
   prepareBeforeQuoteSignature = false,
   demo,
+  onPrepared,
+  compact = false,
+  onEditCustomer,
 }: {
   project: Project | Quote;
   items: ScopeItem[];
@@ -51,6 +54,9 @@ export default function MsaDraftPanel({
   canSendAgreement?: boolean;
   prepareBeforeQuoteSignature?: boolean;
   demo: boolean;
+  onPrepared?: () => Promise<void>;
+  compact?: boolean;
+  onEditCustomer?: () => void;
 }) {
   const { capability: mailCapability, loading: mailConnectionLoading } =
     useOrganizationConnection("google_mail", demo);
@@ -163,6 +169,15 @@ export default function MsaDraftPanel({
     JSON.stringify(steps) !== JSON.stringify(draft.paymentSchedule) ||
     permit !== draft.permitResponsibility ||
     JSON.stringify(contractTerms) !== JSON.stringify(savedContractTerms);
+  const needsSavedDetails = demo
+    ? !saved
+    : hasUnsavedTerms ||
+      (prepareBeforeQuoteSignature &&
+        !(
+          project.msaPaymentSchedule?.length &&
+          project.msaPermitResponsibility &&
+          project.msaContractTerms
+        ));
   const validContractTerms = Object.values(contractTerms).every(
     (value) => value.trim().length > 0 && value.length <= 15000,
   );
@@ -173,6 +188,7 @@ export default function MsaDraftPanel({
     /^Review (?:exclusions|the allowance amounts)/i.test(
       contractTerms.allowances,
     );
+  const [contractTermsOpen, setContractTermsOpen] = useState(compact);
   const previewAgreement =
     draft.contractPrice && draft.scope.length && steps.length
       ? makeMsaPreview({
@@ -284,14 +300,15 @@ export default function MsaDraftPanel({
         siteAccess: contractTerms.siteAccess.trim(),
         plans: contractTerms.plans.trim(),
       };
-      await onSaveTerms({
-        msaPaymentSchedule: steps.map((step) => ({
-          ...step,
-          milestone: step.milestone.trim(),
-        })),
-        msaPermitResponsibility: permit,
-        msaContractTerms,
-      });
+      if (!demo)
+        await onSaveTerms({
+          msaPaymentSchedule: steps.map((step) => ({
+            ...step,
+            milestone: step.milestone.trim(),
+          })),
+          msaPermitResponsibility: permit,
+          msaContractTerms,
+        });
       setSaved(true);
     } catch (error) {
       setSaveError(
@@ -345,7 +362,8 @@ export default function MsaDraftPanel({
         const result = await response.json().catch(() => ({}));
         throw new Error(result.error || "Could not send the agreement.");
       }
-      window.location.reload();
+      if (onPrepared) await onPrepared();
+      else window.location.reload();
     } catch (cause) {
       setSendError(
         cause instanceof Error
@@ -367,7 +385,8 @@ export default function MsaDraftPanel({
       const result = await response.json().catch(() => ({}));
       if (!response.ok)
         throw new Error(result.error || "Could not revise the agreement.");
-      window.location.reload();
+      if (onPrepared) await onPrepared();
+      else window.location.reload();
     } catch (cause) {
       setSendError(
         cause instanceof Error
@@ -382,7 +401,10 @@ export default function MsaDraftPanel({
     const agreement = project.msaAgreement;
     const rows = msaPaymentAmounts(agreement.price, agreement.paymentSchedule);
     return (
-      <section className={styles.panel} aria-label="Master services agreement">
+      <section
+        className={`${styles.panel}${compact ? ` ${styles.compact}` : ""}`}
+        aria-label="Master services agreement"
+      >
         <div className={styles.heading}>
           <div className={styles.title}>
             <FileSignature size={21} aria-hidden="true" />
@@ -466,7 +488,11 @@ export default function MsaDraftPanel({
                 disabled={sending}
                 onClick={() => void revisePreparedAgreement()}
               >
-                {sending ? "Opening…" : "Revise prepared MSA"}
+                {sending
+                  ? "Opening…"
+                  : compact
+                    ? "Revise and re-sign"
+                    : "Revise prepared MSA"}
               </button>
             )}
             {sendError && (
@@ -495,25 +521,53 @@ export default function MsaDraftPanel({
   }
 
   return (
-    <section className={styles.panel} aria-label="MSA preparation">
-      <div className={styles.heading}>
-        <div className={styles.title}>
-          <FileSignature size={21} aria-hidden="true" />
-          <div>
-            <h2>Master services agreement</h2>
-            <p>Draft information pulled from this quote.</p>
+    <section
+      className={`${styles.panel}${compact ? ` ${styles.compact}` : ""}`}
+      aria-label="MSA preparation"
+    >
+      {!compact && (
+        <div className={styles.heading}>
+          <div className={styles.title}>
+            <FileSignature size={21} aria-hidden="true" />
+            <div>
+              <h2>Master services agreement</h2>
+              <p>Draft information pulled from this quote.</p>
+            </div>
           </div>
         </div>
-      </div>
-      <dl className={styles.fields}>
-        {fields.map(([label, value, source]) => (
-          <div key={label}>
-            <dt>
-              {label} <span>{source}</span>
-            </dt>
-            <dd>{value}</dd>
+      )}
+      {compact && (
+        <div className={styles.customerSummary}>
+          <div>
+            <span>Customer signing these documents</span>
+            <strong>{project.client || "Name needed"}</strong>
+            <span>{project.clientEmail || "Email needed before signing"}</span>
           </div>
-        ))}
+          {onEditCustomer && (
+            <button
+              type="button"
+              className="button secondary small-button"
+              onClick={onEditCustomer}
+            >
+              Edit customer
+            </button>
+          )}
+        </div>
+      )}
+      <dl className={styles.fields}>
+        {fields
+          .filter(
+            ([label]) =>
+              !compact || ["Project address", "Contract price"].includes(label),
+          )
+          .map(([label, value, source]) => (
+            <div key={label}>
+              <dt>
+                {label} {!compact && <span>{source}</span>}
+              </dt>
+              <dd>{compact && label === "Contract price" ? price : value}</dd>
+            </div>
+          ))}
       </dl>
       <div className={styles.terms}>
         <div className={styles.termsHeading}>
@@ -649,8 +703,19 @@ export default function MsaDraftPanel({
             <option>Premium Remodel obtains and pays</option>
           </select>
         </label>
-        <details className={styles.details}>
-          <summary>Other contract terms</summary>
+        <details
+          className={styles.details}
+          open={compact ? contractTermsOpen : undefined}
+          onToggle={
+            compact
+              ? (event) => setContractTermsOpen(event.currentTarget.open)
+              : undefined
+          }
+        >
+          <summary>
+            {compact ? "Contract terms" : "Other contract terms"}
+            {compact && needsQuotedTerms && <span>Review needed</span>}
+          </summary>
           <p>
             These start with your standard defaults. Review and adjust them for
             this project before sending the MSA.
@@ -688,7 +753,11 @@ export default function MsaDraftPanel({
             disabled={saving || !validSchedule || !validContractTerms}
             onClick={() => void saveTerms()}
           >
-            {saving ? "Saving…" : "Save MSA terms"}
+            {saving
+              ? "Saving…"
+              : compact
+                ? "Save agreement details"
+                : "Save MSA terms"}
           </button>
           <button
             type="button"
@@ -701,7 +770,11 @@ export default function MsaDraftPanel({
           >
             Reset payment defaults
           </button>
-          {saved && <span role="status">Saved</span>}
+          {saved && (
+            <span role="status">
+              {demo ? "Saved for this preview" : "Saved"}
+            </span>
+          )}
         </div>
         {saveError && (
           <p role="alert" className={styles.error}>
@@ -732,7 +805,11 @@ export default function MsaDraftPanel({
       {showSigning && (
         <div className={styles.terms}>
           <h3>
-            {prepareBeforeQuoteSignature ? "Sign and prepare" : "Sign and send"}
+            {compact
+              ? "Company signature"
+              : prepareBeforeQuoteSignature
+                ? "Sign and prepare"
+                : "Sign and send"}
           </h3>
           <>
             {needsHistorical && historical && (
@@ -774,13 +851,14 @@ export default function MsaDraftPanel({
             </p>
             {needsQuotedTerms && (
               <p role="alert" className={styles.error}>
-                Open Other contract terms and replace the quoted exclusion or
-                allowance review prompts with the actual accepted terms before
-                sending.
+                {compact
+                  ? "Review the excluded work and material allowances above before signing."
+                  : "Open Other contract terms and replace the quoted exclusion or allowance review prompts with the actual accepted terms before sending."}
               </p>
             )}
             {previewAgreement && (
-              <div className={styles.preview}>
+              <details className={styles.preview} open={!compact}>
+                <summary hidden={!compact}>Preview full agreement</summary>
                 <div className={styles.previewHeading}>
                   <h4>Agreement preview</h4>
                   <p>
@@ -795,66 +873,95 @@ export default function MsaDraftPanel({
                 >
                   <MsaDocument agreement={previewAgreement} preview />
                 </div>
-              </div>
+              </details>
             )}
             <div className={styles.contractTerms}>
-              <label>
-                Legal owner name
-                <input
-                  value={owner}
-                  maxLength={150}
-                  onChange={(event) => setOwner(event.target.value)}
-                />
-              </label>
-              <label>
-                Owner email
-                <input
-                  type="email"
-                  value={ownerEmail}
-                  maxLength={320}
-                  onChange={(event) => setOwnerEmail(event.target.value)}
-                />
-              </label>
-              <label>
-                Signing staff member
-                <input
-                  value={staffSignature.signedName}
-                  minLength={2}
-                  maxLength={200}
-                  disabled={sending}
-                  onChange={(event) => {
-                    setStaffSignature({
-                      ...staffSignature,
-                      signedName: event.target.value,
-                    });
-                    setSendError("");
-                  }}
-                />
-              </label>
+              {!compact && (
+                <label>
+                  Legal owner name
+                  <input
+                    value={owner}
+                    maxLength={150}
+                    onChange={(event) => setOwner(event.target.value)}
+                  />
+                </label>
+              )}
+              {!compact && (
+                <label>
+                  Owner email
+                  <input
+                    type="email"
+                    value={ownerEmail}
+                    maxLength={320}
+                    onChange={(event) => setOwnerEmail(event.target.value)}
+                  />
+                </label>
+              )}
+              {!compact && (
+                <label>
+                  Signing staff member
+                  <input
+                    value={staffSignature.signedName}
+                    minLength={2}
+                    maxLength={200}
+                    disabled={sending}
+                    onChange={(event) => {
+                      setStaffSignature({
+                        ...staffSignature,
+                        signedName: event.target.value,
+                      });
+                      setSendError("");
+                    }}
+                  />
+                </label>
+              )}
               <label>
                 Staff title (optional)
                 <input
                   value={signerTitle}
+                  disabled={compact && needsSavedDetails}
                   maxLength={100}
                   placeholder="e.g. CEO & Owner"
                   onChange={(event) => setSignerTitle(event.target.value)}
                 />
               </label>
             </div>
+            {compact && needsSavedDetails && (
+              <p role="status">
+                Save the agreement details above before signing.
+              </p>
+            )}
             <SignatureField
               value={staffSignature}
               onChange={(value) => {
                 setStaffSignature(value);
                 setSendError("");
               }}
-              disabled={sending}
+              disabled={
+                sending ||
+                (compact &&
+                  (needsSavedDetails || needsQuotedTerms || !ownerEmail.trim()))
+              }
               nameLabel="Company representative print name"
             />
+            {compact && !ownerEmail.trim() && (
+              <p role="status">
+                Add the customer email using Edit customer before signing.
+              </p>
+            )}
+            {compact && demo && (
+              <p className="muted-note">
+                Sample documents can be reviewed here. Use a saved company quote
+                to sign and send.
+              </p>
+            )}
             <button
               type="button"
               className={`button primary small-button ${styles.signAction}`}
               disabled={
                 sending ||
+                (compact && demo) ||
+                (compact && needsSavedDetails) ||
                 !validSchedule ||
                 !validContractTerms ||
                 needsQuotedTerms ||
@@ -871,7 +978,9 @@ export default function MsaDraftPanel({
               {sending
                 ? "Saving…"
                 : prepareBeforeQuoteSignature
-                  ? "Sign and prepare MSA"
+                  ? compact
+                    ? "Sign and prepare agreement"
+                    : "Sign and prepare MSA"
                   : "Sign and email MSA"}
             </button>
             {!prepareBeforeQuoteSignature && (

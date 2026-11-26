@@ -25,6 +25,7 @@ import {
 } from "@/lib/client-quote";
 import {
   createClientWalletFormToken,
+  createClientEmailTokenExpiringAt,
   isExpiredClientPortalToken,
   parseClientPortalAccess,
 } from "@/lib/client-portal";
@@ -62,6 +63,7 @@ import MsaAcceptance from "./msa-acceptance";
 import ClientQuoteFlow from "./client-quote-flow";
 import { getPublicQuoteFlowInstance } from "@/lib/quote-flow-instances";
 import styles from "./quote.module.css";
+import { portalPaperwork } from "@/lib/paperwork";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -95,11 +97,25 @@ function date(value: string | undefined, business: BusinessConfig) {
 }
 
 async function receivedPaymentCents(organizationId: string, projectId: string) {
+  const parent = await supabaseAdmin()
+    .from("remodel_records")
+    .select("data")
+    .eq("organization_id", organizationId)
+    .eq("id", projectId)
+    .eq("kind", "project")
+    .maybeSingle();
+  if (parent.error) throw parent.error;
+  const ids = [
+    projectId,
+    ...(parent.data?.data.sourceQuoteId
+      ? [String(parent.data.data.sourceQuoteId)]
+      : []),
+  ];
   const { data: payments, error } = await supabaseAdmin()
     .from("remodel_records")
     .select("data")
     .eq("organization_id", organizationId)
-    .eq("project_id", projectId)
+    .in("project_id", ids)
     .eq("kind", "activity")
     .limit(1000);
   if (error) throw error;
@@ -120,7 +136,8 @@ type PortalView =
   | "invoices"
   | "wallet"
   | "contact"
-  | "msa";
+  | "msa"
+  | "paperwork";
 
 function ClientProjectSwitcher({
   projects,
@@ -179,6 +196,7 @@ function ClientNavigation({
   view,
   className,
   hasMsa,
+  hasPaperwork,
   hasWallet,
   hasSchedule,
 }: {
@@ -186,6 +204,7 @@ function ClientNavigation({
   view: PortalView;
   className: string;
   hasMsa: boolean;
+  hasPaperwork: boolean;
   hasWallet: boolean;
   hasSchedule: boolean;
 }) {
@@ -195,6 +214,9 @@ function ClientNavigation({
       : []),
     { id: "requests", label: "Requests", icon: Inbox },
     { id: "quotes", label: "Quotes", icon: FileText },
+    ...(hasPaperwork
+      ? [{ id: "paperwork" as const, label: "Paperwork", icon: FileText }]
+      : []),
     ...(hasMsa
       ? [{ id: "msa" as const, label: "Agreement", icon: FileText }]
       : []),
@@ -258,6 +280,69 @@ async function ClientSectionView({
 }) {
   const { quote, total } = quoteView;
   const requestUrl = `${quoteUrl}?view=new-request`;
+  if (section === "paperwork") {
+    const paperwork = await portalPaperwork(token);
+    const pending = paperwork.filter(
+      (d) => !d.recipientComplete && d.status !== "completed",
+    );
+    const complete = paperwork.filter(
+      (d) => d.recipientComplete || d.status === "completed",
+    );
+    return (
+      <section className={styles.portalPaperwork}>
+        <h1>Your paperwork</h1>
+        <p>Review, complete and download the documents shared with you.</p>
+        {pending.length > 0 && (
+          <section>
+            <h2>Needs your attention</h2>
+            {pending.map((d) => (
+              <article key={d.id}>
+                <div>
+                  <h3>{d.title}</h3>
+                  <p>
+                    {d.canOpen ? "Ready for you" : "Waiting for another signer"}
+                  </p>
+                </div>
+                {d.url && (
+                  <a
+                    className={styles.outlineAction}
+                    href={`${d.url}?returnTo=${encodeURIComponent(`${quoteUrl}?view=paperwork`)}`}
+                  >
+                    Review & complete
+                  </a>
+                )}
+              </article>
+            ))}
+          </section>
+        )}
+        {complete.length > 0 && (
+          <section>
+            <h2>Completed by you</h2>
+            {complete.map((d) => (
+              <article key={d.id}>
+                <div>
+                  <h3>{d.title}</h3>
+                  <p>
+                    {d.status === "completed"
+                      ? "Completed"
+                      : "Your part is complete; another signer is pending"}
+                  </p>
+                </div>
+                {d.url && (
+                  <a
+                    className={styles.outlineAction}
+                    href={`${d.url}?returnTo=${encodeURIComponent(`${quoteUrl}?view=paperwork`)}`}
+                  >
+                    View document
+                  </a>
+                )}
+              </article>
+            ))}
+          </section>
+        )}
+      </section>
+    );
+  }
 
   if (section === "msa") {
     const agreement = quoteView.msa;
@@ -716,7 +801,28 @@ export default async function ClientQuotePage({
       redirect("/client/sign-in?expired=1");
     notFound();
   }
+  // Keep old quote URLs valid while opening the separately created project.
+  if (source.currentQuote.linkedProjectId && query.view !== "paperwork") {
+    const access = parseClientPortalAccess(token);
+    const email = source.currentQuote.clientEmail;
+    if (access && email) {
+      const link = await supabaseAdmin()
+        .from("remodel_client_links")
+        .select("id")
+        .eq("organization_id", source.organizationId)
+        .eq("project_id", source.currentQuote.linkedProjectId)
+        .eq("kind", "project")
+        .is("revoked_at", null)
+        .maybeSingle();
+      if (link.error) throw link.error;
+      if (link.data)
+        redirect(
+          `/client/${createClientEmailTokenExpiringAt(link.data.id, email, access.expiresAt)}/quote${typeof query.view === "string" ? `?view=${encodeURIComponent(query.view)}` : ""}`,
+        );
+    }
+  }
   const view = source.view;
+  const paperwork = await portalPaperwork(token);
   const [business, quoteFlow] = await Promise.all([
     getBusinessConfigForOrganization(source.organizationId),
     getPublicQuoteFlowInstance(source.organizationId, source.view.quote.id),
@@ -752,6 +858,7 @@ export default async function ClientQuotePage({
     "wallet",
     "contact",
     "msa",
+    "paperwork",
   ].includes(rawSection)
     ? (rawSection as PortalView)
     : source.projectPortal
@@ -859,6 +966,7 @@ export default async function ClientQuotePage({
           view={section}
           className={styles.sidebarNav}
           hasMsa={business.features.agreements && Boolean(view.msa)}
+          hasPaperwork={paperwork.length > 0}
           hasWallet={walletEnabled}
           hasSchedule={approved}
         />
@@ -901,6 +1009,7 @@ export default async function ClientQuotePage({
               view={section}
               className={styles.mobileNav}
               hasMsa={business.features.agreements && Boolean(view.msa)}
+              hasPaperwork={paperwork.length > 0}
               hasWallet={walletEnabled}
               hasSchedule={approved}
             />

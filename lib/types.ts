@@ -107,6 +107,17 @@ export interface MsaAgreement {
   depositCheckout?: { sessionId: string; url: string; expiresAt: string };
 }
 export interface Project extends Base {
+  sourceQuoteId?: string;
+  paperworkPortalEnabled?: boolean;
+  linkedProjectId?: string;
+  acceptanceMethod?: "staff_marked" | "customer_signed";
+  acceptedByStaffId?: string;
+  manualAcceptanceHistory?: Array<{
+    at: string;
+    by: string;
+    total: number;
+    scope: AcceptedScopeItem[];
+  }>;
   name: string;
   address: string;
   client: string;

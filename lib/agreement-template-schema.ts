@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  paperworkConfigurationSchema,
+  paperworkVariables,
+} from "./paperwork-schema";
 
 export const agreementSourceTypes = [
   "uploaded_pdf",
@@ -55,7 +59,13 @@ export const agreementFieldSchema = z
     placeholder: z.string().max(240).nullable().default(null),
   })
   .superRefine((field, context) => {
-    const coordinates = [field.page, field.x, field.y, field.width, field.height];
+    const coordinates = [
+      field.page,
+      field.x,
+      field.y,
+      field.width,
+      field.height,
+    ];
     const present = coordinates.filter((value) => value !== null).length;
     if (present !== 0 && present !== coordinates.length)
       context.addIssue({
@@ -101,8 +111,59 @@ export const agreementTemplateDefinitionSchema = z
     content: agreementDocumentContentSchema.nullable(),
     fields: z.array(agreementFieldSchema).max(500).default([]),
     signerRoles: z.array(agreementSignerRoleSchema).min(1).max(50),
+    paperwork: paperworkConfigurationSchema.default(() =>
+      paperworkConfigurationSchema.parse({}),
+    ),
   })
   .superRefine((definition, context) => {
+    if (definition.paperwork.enabled) {
+      if (!definition.signerRoles.some((role) => role.required))
+        context.addIssue({
+          code: "custom",
+          message:
+            "Configure at least one required recipient for this paperwork.",
+        });
+      const configuration = definition.paperwork;
+      if (
+        !configuration.inPerson &&
+        !(configuration.portal && configuration.audience === "customer")
+      )
+        context.addIssue({
+          code: "custom",
+          message: "Enable at least one way to complete this paperwork.",
+        });
+      if (
+        configuration.audience === "staff" &&
+        definition.signerRoles.some((role) => role.partyType !== "staff")
+      )
+        context.addIssue({
+          code: "custom",
+          message: "Staff-only paperwork needs staff recipient roles.",
+        });
+      for (const field of definition.fields) {
+        if (
+          field.bindingKey &&
+          !paperworkVariables.some(([key]) => key === field.bindingKey)
+        )
+          context.addIssue({
+            code: "custom",
+            message: `Choose a supported data source for ${field.label}.`,
+          });
+        if (field.bindingKey && field.signerRoleId)
+          context.addIssue({
+            code: "custom",
+            message: `${field.label} must use either a data source or a recipient.`,
+          });
+        if (
+          configuration.completion !== "signature" &&
+          field.type === "signature"
+        )
+          context.addIssue({
+            code: "custom",
+            message: "Remove signature fields or choose Signature required.",
+          });
+      }
+    }
     if (!uniqueIds(definition.fields))
       context.addIssue({
         code: "custom",
@@ -123,10 +184,7 @@ export const agreementTemplateDefinitionSchema = z
           path: ["fields", index, "signerRoleId"],
           message: "The selected signer role does not exist.",
         });
-      if (
-        ["signature", "initials"].includes(field.type) &&
-        !field.signerRoleId
-      )
+      if (["signature", "initials"].includes(field.type) && !field.signerRoleId)
         context.addIssue({
           code: "custom",
           path: ["fields", index, "signerRoleId"],

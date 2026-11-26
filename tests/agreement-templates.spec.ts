@@ -149,11 +149,11 @@ test("generic agreement signing has an organization-branded public UI", () => {
   expect(page).toContain("session.business.logoUrl");
   expect(page).toContain("Signing order");
   expect(page).toContain("/document");
-  expect(page).toContain("Download signed agreement");
+  expect(page).toContain("Download completed document");
   expect(page).toContain("Staff workspace hidden");
   expect(form).toContain("SignatureField");
   expect(form).toContain("signatureMethod");
-  expect(form).toContain("I have reviewed this agreement");
+  expect(form).toContain("I have reviewed this document");
   expect(packetPanel).toContain("Create & send agreement");
   expect(packetPanel).toContain("Sign on this device");
   expect(packetPanel).toContain("Copy link");

@@ -307,7 +307,8 @@ export async function readClientQuoteSource(
     (record.kind === "project" ||
       (record.kind === "quote" &&
         (record.data as { status?: string }).status === "Accepted" &&
-        parsedAcceptance.success));
+        (parsedAcceptance.success ||
+          (record.data as Quote).acceptanceMethod === "staff_marked")));
   const approved = projectPortal || quoteApproved;
   const acceptance =
     quoteApproved && parsedAcceptance.success
@@ -318,7 +319,8 @@ export async function readClientQuoteSource(
     const liveStatus = z
       .object({ status: z.literal("Sent") })
       .safeParse(record.data);
-    if (!liveStatus.success) return null;
+    if (!liveStatus.success && !(record.data as Quote).paperworkPortalEnabled)
+      return null;
   }
 
   const items = snapshot.data.items

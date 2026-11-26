@@ -6,7 +6,8 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { findRecord } from "@/lib/repository";
-import { promotePaidQuote } from "@/lib/quote-promotion";
+import { createProjectFromQuote } from "@/lib/quote-project";
+import { attachConfiguredPaperwork } from "@/lib/paperwork";
 import type { Project } from "@/lib/types";
 import { syncOrganizationGoogleCalendars } from "@/lib/google-calendar";
 import { after } from "next/server";
@@ -30,24 +31,13 @@ export async function POST(request: Request) {
       if (project?.quoteAcceptedAt) return Response.json(project);
       throw new HttpError(404, "Quote not found.");
     }
-    if (quote.updatedAt !== body.updatedAt)
-      throw new HttpError(
-        409,
-        "Quote changed. Refresh before moving it to Projects.",
-      );
-    let project: Project;
-    try {
-      const ready = await promotePaidQuote(user.organizationId, id);
-      if (!ready) throw new Error("The deposit has not been fully received.");
-      project = ready;
-    } catch (cause) {
-      throw new HttpError(
-        409,
-        cause instanceof Error
-          ? cause.message
-          : "Quote is not ready for Projects.",
-      );
-    }
+    await requireWorkspaceTabs(user, "Projects");
+    const project = await createProjectFromQuote(
+      user,
+      id,
+      String(body.updatedAt || ""),
+    );
+    await attachConfiguredPaperwork(user, id, "project_created");
     const origin = appOrigin(request);
     after(() =>
       syncOrganizationGoogleCalendars(user.organizationId, origin).catch(

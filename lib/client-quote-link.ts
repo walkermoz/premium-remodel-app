@@ -84,6 +84,19 @@ export async function ensureEmailedQuoteLink(
       .maybeSingle();
     if (lookupError) throw lookupError;
 
+    // Acceptance locks the customer revision. Completing the second document
+    // must not rotate the emailed quote link or replace its signed snapshot.
+    if (
+      existing &&
+      !existing.revoked_at &&
+      quote.status === "Accepted" &&
+      quote.quoteAcceptance &&
+      isValidClientQuoteSnapshot(existing.quote_snapshot) &&
+      existing.quote_snapshot.quote.id === quote.id &&
+      existing.quote_snapshot.quote.clientEmail === quote.clientEmail
+    )
+      return existing.id as string;
+
     if (
       existing &&
       !existing.revoked_at &&

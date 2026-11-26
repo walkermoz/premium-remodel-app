@@ -19,12 +19,6 @@
   font-size: 12px;
 }
 
-.accept input {
-  width: 16px !important;
-  min-height: 16px !important;
-  flex: 0 0 auto;
-}
-
 .control button {
   min-height: 42px;
   justify-self: start;

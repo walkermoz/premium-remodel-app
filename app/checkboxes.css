@@ -1,0 +1,93 @@
+/* Shared control defaults deliberately outrank text-field and page-module rules.
+   Keep custom switches and their visually hidden native inputs intact. */
+:root
+  body
+  input[type="checkbox"]:not(
+    :where(
+      .automation-toggle input,
+      .onboarding-own-number input,
+      .workflow-inline-msa-consent input
+    )
+  ) {
+  appearance: auto;
+  box-sizing: border-box;
+  width: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+  flex: 0 0 18px;
+  padding: 0;
+  margin: 1px 0 0;
+  border: revert;
+  border-radius: revert;
+  background: revert;
+  box-shadow: none;
+  accent-color: var(--blue, #2f7cc7);
+  cursor: pointer;
+}
+
+:root input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--blue, #2f7cc7);
+  outline-offset: 3px;
+}
+
+:root input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+/* A checkbox and its description form one row, including future forms that
+   do not have a page-specific checkbox class. Text-field labels stay stacked. */
+:root
+  label:has(> input[type="checkbox"]):not(
+    :where(
+      .automation-toggle,
+      .onboarding-own-number,
+      .workflow-inline-msa-consent,
+      .scope-row-selection,
+      .scope-select-all,
+      .workflow-weekdays label
+    )
+  ) {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  flex-direction: row;
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+:root label:has(> input[type="checkbox"]) > input[type="checkbox"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+:root
+  label:has(> input[type="checkbox"])
+  > span:not(
+    :where(
+      .onboarding-checkbox,
+      .workflow-inline-msa-consent-box,
+      .automation-toggle > span
+    )
+  ) {
+  grid-column: 2;
+  min-width: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+:root label:has(> input[type="checkbox"]:disabled) {
+  cursor: not-allowed;
+}

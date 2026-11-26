@@ -290,7 +290,11 @@ async function save(request: Request, editing: boolean) {
         data.disposition = nextDisposition;
       }
     }
-    if (kind === "project" && data.coverAttachmentId) {
+    if (
+      kind === "project" &&
+      data.coverAttachmentId &&
+      data.coverAttachmentId !== (current as Project | null)?.coverAttachmentId
+    ) {
       const cover = (await findRecord(
         user,
         String(data.coverAttachmentId),

@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("real quote screen uses the staged workflow", async ({ page }) => {
+test("quote separates pricing, configured paperwork, acceptance and project creation", async ({
+  page,
+}) => {
   await page.goto("/demo?view=Quotes");
   await page.evaluate(() =>
     localStorage.removeItem("premium-remodel-sample-v1"),
@@ -46,80 +48,43 @@ test("real quote screen uses the staged workflow", async ({ page }) => {
   await page.reload();
 
   const workflow = page.getByRole("navigation", { name: "Quote workflow" });
-  await expect(workflow).toBeVisible();
+  await expect(workflow.getByRole("button")).toHaveCount(2);
   await expect(
-    page.getByRole("heading", { name: "Items, costs & pricing" }),
+    page.getByRole("button", { name: "Create project", exact: true }),
+  ).toBeEnabled();
+  await workflow.getByRole("button", { name: /Paperwork/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Paperwork", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add paperwork", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Paperwork hasn’t been configured", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "MSA preparation" }),
   ).toHaveCount(0);
-
-  await workflow.getByRole("button", { name: /Documents/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Documents", exact: true }),
-  ).toBeVisible();
-  await expect(
-    workflow.getByRole("button", { name: /Company signatures/ }),
+    page.getByRole("heading", { name: "Deposit", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "Agreement preview" }),
-  ).toBeVisible();
-  await expect(page.getByText("This is preparation for the MSA")).toHaveCount(
-    0,
-  );
-  await expect(page.getByText("Scope for Exhibit B")).toHaveCount(0);
-  const signaturePad = page.getByRole("img", { name: "Draw your signature" });
-  await signaturePad.scrollIntoViewIfNeeded();
-  const signatureBounds = await signaturePad.boundingBox();
-  expect(signatureBounds).not.toBeNull();
-  await page.mouse.move(signatureBounds!.x + 20, signatureBounds!.y + 60);
-  await page.mouse.down();
-  await page.mouse.move(signatureBounds!.x + 150, signatureBounds!.y + 65);
-  await page.mouse.up();
-  await expect(signaturePad.locator("polyline")).toHaveCount(1);
-  const clearSignature = page.getByRole("button", { name: "Clear signature" });
-  const prepareMsa = page.getByRole("button", {
-    name: "Sign and prepare MSA",
-  });
-  const clearBounds = await clearSignature.boundingBox();
-  const prepareBounds = await prepareMsa.boundingBox();
-  expect(clearBounds && prepareBounds).toBeTruthy();
-  expect(
-    prepareBounds!.y - (clearBounds!.y + clearBounds!.height),
-  ).toBeGreaterThanOrEqual(12);
-  await clearSignature.click();
-  await expect(signaturePad.locator("polyline")).toHaveCount(0);
-  await page.getByRole("button", { name: "Type name" }).click();
-  const typedPreview = page.getByRole("img", {
-    name: "Typed signature preview",
-  });
-  await expect(typedPreview).toBeVisible();
-  const typedBounds = await typedPreview.boundingBox();
-  const typedPrepareBounds = await prepareMsa.boundingBox();
-  expect(typedBounds && typedPrepareBounds).toBeTruthy();
-  expect(
-    typedPrepareBounds!.y - (typedBounds!.y + typedBounds!.height),
-  ).toBeGreaterThanOrEqual(12);
-  await expect(
-    page.getByRole("heading", { name: "Sign and send" }),
+    page.getByRole("region", { name: "Document next step" }),
   ).toHaveCount(0);
-
-  await workflow.getByRole("button", { name: /Customer signatures/ }).click();
+  await page.getByLabel("Quote status").selectOption("Accepted");
+  await expect(page.getByLabel("Quote status")).toHaveValue("Accepted");
   await expect(
-    page.getByRole("heading", { name: "Customer signatures" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Customer packet" }),
-  ).toContainText("Ready for customer");
-  await expect(
-    page.getByRole("button", { name: "Send portal link" }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("region", {
-      name: "Master Services Agreement signing status",
-    }),
-  ).toContainText("Company signature required");
-  await expect(
-    workflow.getByRole("button", { name: /Create project/ }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: "Create project", exact: true }),
+  ).toBeEnabled();
+  await page.reload();
+  await expect(page.getByLabel("Quote status")).toHaveValue("Accepted");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await workflow.getByRole("button", { name: /Paperwork/ }).click();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
 });

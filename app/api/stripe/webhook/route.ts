@@ -8,7 +8,6 @@ import {
 } from "@/lib/stripe-payments";
 import { stripePaymentId } from "@/lib/stripe-payment-utils";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { promotePaidQuote } from "@/lib/quote-promotion";
 import { enqueueWorkflowEvent } from "@/lib/workflows/events";
 import { getBusinessConfigForOrganization } from "@/lib/business-config";
 import {
@@ -307,20 +306,7 @@ export async function POST(request: Request) {
         : "WorkflowEventError",
     );
   }
-  if (project.kind === "quote" && !flowPayment) {
-    try {
-      await promotePaidQuote(meta.organizationId, meta.projectId);
-    } catch (cause) {
-      console.error(
-        "Paid quote could not be moved to Projects",
-        cause instanceof Error ? cause.message : "PromotionError",
-      );
-      return Response.json(
-        { error: "Payment recorded; project creation is pending." },
-        { status: 500 },
-      );
-    }
-  }
+  // Payment receipt never creates a project; staff use Create project.
   return Response.json({ received: true });
 }
 

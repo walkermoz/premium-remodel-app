@@ -40,6 +40,7 @@ import UpcomingPanel from "./upcoming-panel";
 import { timeLabel, workType, type UpcomingView } from "@/lib/work";
 import { contractClock } from "@/lib/project-timing";
 import ClientLinkDialog from "./client-link-dialog";
+import Link from "next/link";
 import MsaDraftPanel from "./msa-draft-panel";
 import { useRegionalFormat } from "./regional-format-context";
 
@@ -583,7 +584,21 @@ export default function ProjectDetail({
           </>
         )}
         {tab === "Contracts" &&
-          (project.quoteAcceptedAt ? (
+          (project.sourceQuoteId ? (
+            <section className="content-section">
+              <h2>Project paperwork</h2>
+              <p>
+                Forms, signatures and completed copies stay linked to the
+                original quote.
+              </p>
+              <Link
+                className="button secondary"
+                href={`/?view=Quotes&project=${project.sourceQuoteId}&tab=paperwork`}
+              >
+                Open paperwork
+              </Link>
+            </section>
+          ) : project.quoteAcceptedAt ? (
             <MsaDraftPanel
               key={`${project.id}:${JSON.stringify(project.msaPaymentSchedule)}:${project.msaPermitResponsibility || ""}:${JSON.stringify(project.msaContractTerms)}`}
               project={project}

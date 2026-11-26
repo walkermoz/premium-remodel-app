@@ -2452,18 +2452,6 @@
   cursor: pointer;
 }
 
-.signConsent input[type="checkbox"] {
-  display: block;
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  min-height: 16px;
-  margin: 1px 0 0;
-  padding: 0;
-  flex: 0 0 16px;
-  accent-color: var(--blue);
-}
-
 .signConsent span {
   flex: 1;
   color: inherit;
@@ -3165,4 +3153,43 @@
   margin: 14px 0 0;
   font-size: 11px;
   line-height: 1.5;
+}
+.portalPaperwork {
+  max-width: 960px;
+  margin: 0 auto;
+}
+.portalPaperwork > h1 {
+  margin-bottom: 12px;
+}
+.portalPaperwork > p {
+  margin-bottom: 30px;
+}
+.portalPaperwork > section {
+  margin: 25px 0;
+}
+.portalPaperwork article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 0;
+  border-top: 1px solid #d8e2e9;
+}
+.portalPaperwork article h3 {
+  margin: 0 0 7px;
+}
+.portalPaperwork article p {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .portalPaperwork article {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .portalPaperwork article a {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
 }

@@ -51,7 +51,7 @@ const moduleOptions: Array<{
   },
   {
     id: "agreements",
-    label: "Agreements",
+    label: "Paperwork",
     description: "Organization-owned document templates and signing setup.",
   },
 ];

@@ -17,7 +17,7 @@
 .description {
   max-width: 540px;
   margin: -5px 0 0;
-  color: #607582;
+  color: var(--signature-muted, #607582);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -35,10 +35,10 @@
   width: 100%;
   min-height: 42px;
   padding: 9px 11px;
-  border: 1px solid #7894a8;
+  border: 1px solid var(--signature-border, #7894a8);
   border-radius: 7px;
-  background: #fff;
-  color: #102633;
+  background: var(--signature-surface, #fff);
+  color: var(--signature-ink, #102633);
   font: inherit;
   font-size: 14px;
 }
@@ -52,9 +52,9 @@
   display: inline-flex;
   width: fit-content;
   padding: 3px;
-  border: 1px solid #7894a8;
+  border: 1px solid var(--signature-border, #7894a8);
   border-radius: 8px;
-  background: #e8f0f5;
+  background: var(--signature-subtle, #e8f0f5);
 }
 
 .method button {
@@ -63,7 +63,7 @@
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: #365466;
+  color: var(--signature-muted, #365466);
   font: inherit;
   font-size: 12px;
   font-weight: 800;
@@ -71,8 +71,8 @@
 }
 
 .method button.active {
-  background: #fff;
-  color: #102633;
+  background: var(--signature-surface, #fff);
+  color: var(--signature-ink, #102633);
   box-shadow: 0 1px 3px rgb(16 38 51 / 14%);
 }
 
@@ -83,7 +83,7 @@
   min-height: 144px;
   padding: 20px 24px 14px;
   overflow: hidden;
-  border: 1px solid #7894a8;
+  border: 1px solid var(--signature-border, #7894a8);
   border-radius: 8px;
   background: #fff;
   color: #142c3e;
@@ -111,26 +111,4 @@
 
 .field:disabled button {
   cursor: not-allowed;
-}
-
-@media (prefers-color-scheme: dark) {
-  .nameField input,
-  .typedPreview {
-    border-color: #3d586b;
-    background: #f8fbfd;
-  }
-
-  .method {
-    border-color: #3d586b;
-    background: #122634;
-  }
-
-  .method button {
-    color: #a9c3d3;
-  }
-
-  .method button.active {
-    background: #29475a;
-    color: #fff;
-  }
 }

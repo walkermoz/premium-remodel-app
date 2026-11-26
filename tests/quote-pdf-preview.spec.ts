@@ -29,4 +29,13 @@ test("only inline quote PDFs allow same-origin framing and still require authent
   expect(files.headers()["content-security-policy"]).toBe(
     "default-src 'none'; sandbox",
   );
+  const privatePdf = "/api/client-quote/invalid-token/pdf";
+  const missing = await request.get(`${privatePdf}?view=1`);
+  expect(missing.status()).toBe(404);
+  expect(missing.headers()["x-frame-options"]).toBe("SAMEORIGIN");
+  for (const path of [privatePdf, `${privatePdf}?view=11`]) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(404);
+    expect(response.headers()["x-frame-options"]).toBe("DENY");
+  }
 });

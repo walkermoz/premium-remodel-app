@@ -5,7 +5,7 @@ const cloudTest = process.env.RUN_SUPABASE_TESTS === "1" ? test : test.skip;
 const headers = { Origin: "http://localhost:3100" };
 
 cloudTest(
-  "staff cannot move an unsigned or unpaid quote into Projects",
+  "explicit project creation preserves the quote and enforces tenant, origin and version checks",
   async ({ company, page, request }) => {
     const api = page.request;
     expect(
@@ -232,10 +232,10 @@ cloudTest(
       headers,
       data: acceptBody,
     });
-    expect(premature.status()).toBe(409);
-    expect((await premature.json()).error).toMatch(
-      /signed quote scope and MSA/i,
-    );
+    expect(premature.status()).toBe(200);
+    const project = await premature.json();
+    expect(project.id).not.toBe(quote.id);
+    expect(project.sourceQuoteId).toBe(quote.id);
     expect(
       (
         await api.patch("/api/workspace", {
@@ -251,8 +251,10 @@ cloudTest(
     ).toBe(409);
     const workspace = await (await api.get("/api/workspace")).json();
     expect(workspace.quotes).toHaveLength(1);
-    expect(workspace.projects).toHaveLength(0);
-    expect(workspace.scope[0]).toMatchObject({
+    expect(workspace.projects).toHaveLength(1);
+    expect(
+      workspace.scope.find((item: { id: string }) => item.id === scope.id),
+    ).toMatchObject({
       id: scope.id,
       projectId: quote.id,
       estimate: 5000.15,

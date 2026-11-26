@@ -99,7 +99,7 @@ export function preserveScopeCosts(
 }
 
 export function projectFinances(
-  project: Pick<Project, "id" | "contractPrice">,
+  project: Pick<Project, "id" | "contractPrice" | "sourceQuoteId">,
   scope: ScopeItem[],
   activities: Activity[] = [],
 ) {
@@ -109,7 +109,8 @@ export function projectFinances(
   const payments = activities
     .filter(
       (item) =>
-        item.projectId === project.id &&
+        (item.projectId === project.id ||
+          item.projectId === project.sourceQuoteId) &&
         item.activityType === "Payment received",
     )
     .sort(

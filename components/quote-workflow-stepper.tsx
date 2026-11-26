@@ -17,6 +17,7 @@ export default function QuoteWorkflowStepper({
   configuredStages,
   completionByStageId,
   onSelect,
+  workspace,
 }: {
   active: string;
   quoteReady: boolean;
@@ -28,6 +29,11 @@ export default function QuoteWorkflowStepper({
   configuredStages?: QuoteFlowStage[];
   completionByStageId?: Record<string, boolean>;
   onSelect: (step: string) => void;
+  workspace?: {
+    section: "quote" | "documents";
+    paperworkEnabled?: boolean;
+    onSelect: (section: "quote" | "documents") => void;
+  };
 }) {
   const legacySteps: Array<{
     id: string;
@@ -82,54 +88,88 @@ export default function QuoteWorkflowStepper({
     if (stage.type === "project_conversion") return projectReady;
     return false;
   };
-  const steps = configuredStages?.length
-    ? configuredStages.map((stage) => {
-        const premiumCompletion =
-          stage.type === "delivery" &&
-          stage.blocks.some(
-            (block) => block.config.renderer === "legacy_quote_portal_v1",
-          );
-        return {
-          id: stage.id,
-          title:
-            stage.type === "signature_collection"
-              ? "Company signatures"
-              : premiumCompletion
-                ? "Customer signatures"
-                : stage.title,
-          detail: premiumCompletion
-            ? "Share the packet and collect customer signatures"
-            : stage.type === "signature_collection"
-              ? "Review and add required company signatures"
-              : stage.description,
-          complete: completionByStageId?.[stage.id] ?? completeForStage(stage),
-          disabled: stage.type === "project_conversion" && !projectReady,
-        };
-      })
-    : legacySteps;
+  const steps = (
+    workspace
+      ? [
+          {
+            id: "quote",
+            title: "Quote & pricing",
+            detail: "Scope, items, costs, and customer pricing",
+            complete: quoteReady,
+          },
+          {
+            id: "documents",
+            title: "Paperwork",
+            detail: "Forms, documents, and signatures",
+            complete: customerReady,
+          },
+        ]
+      : configuredStages?.length
+        ? configuredStages.map((stage) => {
+            const premiumCompletion =
+              stage.type === "delivery" &&
+              stage.blocks.some(
+                (block) => block.config.renderer === "legacy_quote_portal_v1",
+              );
+            return {
+              id: stage.id,
+              title:
+                stage.type === "signature_collection"
+                  ? "Company signatures"
+                  : premiumCompletion
+                    ? "Customer signatures"
+                    : stage.title,
+              detail: premiumCompletion
+                ? "Share the packet and collect customer signatures"
+                : stage.type === "signature_collection"
+                  ? "Review and add required company signatures"
+                  : stage.description,
+              complete:
+                completionByStageId?.[stage.id] ?? completeForStage(stage),
+              disabled: stage.type === "project_conversion" && !projectReady,
+            };
+          })
+        : legacySteps
+  ).filter(
+    (step) =>
+      !(workspace?.paperworkEnabled === false && step.id === "documents"),
+  );
 
   return (
-    <nav className="quote-workflow-stepper" aria-label="Quote workflow">
-      <header>
-        <span>Quote workflow</span>
-        <strong>One record from estimate to project</strong>
-      </header>
+    <nav
+      className={`quote-workflow-stepper${workspace ? " is-workspace" : ""}`}
+      aria-label="Quote workflow"
+    >
+      {!workspace && (
+        <header>
+          <span>Quote workflow</span>
+          <strong>One record from estimate to project</strong>
+        </header>
+      )}
       <ol>
         {steps.map((step, index) => (
           <li
             key={step.id}
-            className={`${active === step.id ? "is-active" : ""}${step.complete ? " is-complete" : ""}`}
+            className={`${(workspace?.section || active) === step.id ? "is-active" : ""}${step.complete ? " is-complete" : ""}`}
           >
             <button
               type="button"
-              disabled={step.disabled}
-              aria-current={active === step.id ? "step" : undefined}
-              aria-expanded={active === step.id}
-              onClick={() => onSelect(step.id)}
+              disabled={"disabled" in step ? step.disabled : false}
+              aria-current={
+                (workspace?.section || active) === step.id ? "step" : undefined
+              }
+              aria-expanded={(workspace?.section || active) === step.id}
+              onClick={() =>
+                workspace
+                  ? workspace.onSelect(step.id as "quote" | "documents")
+                  : onSelect(step.id)
+              }
             >
-              <span aria-hidden="true">
-                {step.complete ? <Check size={13} /> : index + 1}
-              </span>
+              {!workspace && (
+                <span aria-hidden="true">
+                  {step.complete ? <Check size={13} /> : index + 1}
+                </span>
+              )}
               <div>
                 <strong>{step.title}</strong>
                 <small>{step.detail}</small>

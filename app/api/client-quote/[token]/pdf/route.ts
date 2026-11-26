@@ -7,7 +7,7 @@ import { loadQuotePhotos } from "@/lib/quote-photos";
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
@@ -40,7 +40,7 @@ export async function GET(
   return new Response(Buffer.from(pdf), {
     headers: {
       "Cache-Control": "private, no-store",
-      "Content-Disposition": `attachment; filename="${fileName}"`,
+      "Content-Disposition": `${new URL(request.url).searchParams.get("view") === "1" ? "inline" : "attachment"}; filename="${fileName}"`,
       "Content-Type": "application/pdf",
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",

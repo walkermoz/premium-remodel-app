@@ -12,6 +12,11 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  paperworkConfigurationSchema,
+  paperworkVariables,
+  type PaperworkConfiguration,
+} from "@/lib/paperwork-schema";
+import {
   agreementFieldTypes,
   type AgreementField,
   type AgreementSignerRole,
@@ -23,14 +28,12 @@ type DocumentContent = {
 };
 
 type AgreementTemplate = {
+  paperwork?: PaperworkConfiguration;
   id: string;
   templateKey: string | null;
   name: string;
   description: string;
-  sourceType:
-    | "uploaded_pdf"
-    | "servicebuddy_document"
-    | "legacy_premium_msa";
+  sourceType: "uploaded_pdf" | "servicebuddy_document" | "legacy_premium_msa";
   status: "draft" | "published" | "archived";
   revision: number;
   currentVersion: number;
@@ -66,7 +69,11 @@ function sourceLabel(source: AgreementTemplate["sourceType"]) {
   return "ServiceBuddy document";
 }
 
-export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) {
+export default function AgreementTemplatesSettings({
+  demo,
+}: {
+  demo: boolean;
+}) {
   const [templates, setTemplates] = useState<AgreementTemplate[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -84,7 +91,7 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
     );
     const body = await response.json();
     if (!response.ok)
-      throw new Error(body.error || "Could not load agreement templates.");
+      throw new Error(body.error || "Could not load paperwork templates.");
     setTemplates(body.templates || []);
     const nextTemplate = (body.templates || []).find(
       (template: AgreementTemplate) =>
@@ -97,14 +104,17 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
   useEffect(() => {
     let active = true;
     if (!demo)
-      void fetch(`/api/agreement-templates?includeArchived=${includeArchived}`, {
-        cache: "no-store",
-      })
+      void fetch(
+        `/api/agreement-templates?includeArchived=${includeArchived}`,
+        {
+          cache: "no-store",
+        },
+      )
         .then(async (response) => {
           const body = await response.json();
           if (!response.ok)
             throw new Error(
-              body.error || "Could not load agreement templates.",
+              body.error || "Could not load paperwork templates.",
             );
           if (active) setTemplates(body.templates || []);
         })
@@ -113,7 +123,7 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
             setError(
               cause instanceof Error
                 ? cause.message
-                : "Could not load agreement templates.",
+                : "Could not load paperwork templates.",
             );
         });
     return () => {
@@ -123,7 +133,7 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
 
   async function createDocument(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (demo) return setError("Agreement templates require a real workspace.");
+    if (demo) return setError("Paperwork templates require a real workspace.");
     setBusy(true);
     setError("");
     try {
@@ -155,7 +165,7 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
 
   async function uploadPdf(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (demo) return setError("Agreement templates require a real workspace.");
+    if (demo) return setError("Paperwork templates require a real workspace.");
     setBusy(true);
     setError("");
     try {
@@ -169,7 +179,9 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
         throw new Error(body.error || "Could not upload agreement template.");
       await load(body.id);
       setCreating(null);
-      setMessage("PDF uploaded. Add fields and signer roles before publishing.");
+      setMessage(
+        "PDF uploaded. Add fields and signer roles before publishing.",
+      );
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not upload the PDF.",
@@ -206,6 +218,9 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
             template.sourceType === "servicebuddy_document"
               ? template.content
               : null,
+          paperwork: paperworkConfigurationSchema.parse(
+            template.paperwork || {},
+          ),
           fields: template.fields,
           signerRoles: template.signerRoles,
         },
@@ -245,7 +260,9 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
       const latest = await persistDraft(draft);
       const note = window.prompt(
         "What changed in this version?",
-        latest.publishedVersion ? "Updated agreement template" : "Initial version",
+        latest.publishedVersion
+          ? "Updated agreement template"
+          : "Initial version",
       );
       if (note === null) {
         await load(latest.id);
@@ -362,7 +379,9 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
           >
             <div className="settings-inline-heading">
               <strong>
-                {creating === "upload" ? "Upload agreement PDF" : "New agreement"}
+                {creating === "upload"
+                  ? "Upload agreement PDF"
+                  : "New agreement"}
               </strong>
               <button
                 type="button"
@@ -429,7 +448,7 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
             ))}
             {!templates.length && (
               <p className="generation-note">
-                No agreement templates yet. Write one or upload a PDF to begin.
+                No paperwork templates yet. Write one or upload a PDF to begin.
               </p>
             )}
           </div>
@@ -476,11 +495,11 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
 
               {draft.locked ? (
                 <div className="agreement-locked-note">
-                  <strong>Premium Remodel’s live agreement</strong>
+                  <strong>Existing agreement template</strong>
                   <p>
-                    This registered template preserves the current quote-to-MSA
-                    workflow. Its legal terms and signing behavior remain unchanged
-                    while the reusable agreement engine is introduced.
+                    This protected template keeps previously prepared agreements
+                    readable. Create a new document or upload a PDF above to
+                    configure future paperwork.
                   </p>
                 </div>
               ) : (
@@ -502,12 +521,197 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                         value={draft.description}
                         maxLength={2_000}
                         onChange={(event) =>
-                          setDraft({ ...draft, description: event.target.value })
+                          setDraft({
+                            ...draft,
+                            description: event.target.value,
+                          })
                         }
                       />
                     </label>
                   </div>
 
+                  <fieldset className="paperwork-template-options">
+                    <legend>Use in Paperwork</legend>
+                    <label className="paperwork-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(draft.paperwork?.enabled)}
+                        onChange={(event) =>
+                          setDraft({
+                            ...draft,
+                            paperwork: {
+                              ...paperworkConfigurationSchema.parse(
+                                draft.paperwork || {},
+                              ),
+                              enabled: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                      Make this template available in quotes after publishing
+                    </label>
+                    {draft.paperwork?.enabled && (
+                      <>
+                        <div className="form-grid">
+                          <label>
+                            Completed by
+                            <select
+                              value={draft.paperwork.audience}
+                              onChange={(event) => {
+                                const audience = event.target.value as
+                                  "customer" | "staff";
+                                setDraft({
+                                  ...draft,
+                                  paperwork: {
+                                    ...paperworkConfigurationSchema.parse(
+                                      draft.paperwork,
+                                    ),
+                                    audience,
+                                    portal: audience === "customer",
+                                    email:
+                                      audience === "customer" &&
+                                      Boolean(draft.paperwork?.email),
+                                  },
+                                  signerRoles: draft.signerRoles.map(
+                                    (role) => ({
+                                      ...role,
+                                      partyType:
+                                        audience === "staff"
+                                          ? "staff"
+                                          : role.partyType,
+                                    }),
+                                  ),
+                                });
+                              }}
+                            >
+                              <option value="customer">
+                                Customer / company signers
+                              </option>
+                              <option value="staff">Staff only</option>
+                            </select>
+                          </label>
+                          <label>
+                            Completion
+                            <select
+                              value={draft.paperwork.completion}
+                              onChange={(event) =>
+                                setDraft({
+                                  ...draft,
+                                  paperwork: {
+                                    ...paperworkConfigurationSchema.parse(
+                                      draft.paperwork,
+                                    ),
+                                    completion: event.target
+                                      .value as PaperworkConfiguration["completion"],
+                                  },
+                                })
+                              }
+                            >
+                              <option value="signature">
+                                Signature required
+                              </option>
+                              <option value="form">Submit answers</option>
+                              <option value="view">
+                                Review and acknowledge
+                              </option>
+                            </select>
+                          </label>
+                          <label>
+                            Automatically add a draft
+                            <select
+                              value={draft.paperwork.autoAttach}
+                              onChange={(event) =>
+                                setDraft({
+                                  ...draft,
+                                  paperwork: {
+                                    ...paperworkConfigurationSchema.parse(
+                                      draft.paperwork,
+                                    ),
+                                    autoAttach: event.target
+                                      .value as PaperworkConfiguration["autoAttach"],
+                                  },
+                                })
+                              }
+                            >
+                              <option value="never">
+                                Only when staff adds it
+                              </option>
+                              <option value="quote_accepted">
+                                When quote is marked Accepted
+                              </option>
+                              <option value="project_created">
+                                When project is created
+                              </option>
+                            </select>
+                          </label>
+                        </div>
+                        <label className="paperwork-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={draft.paperwork.inPerson}
+                            onChange={(event) =>
+                              setDraft({
+                                ...draft,
+                                paperwork: {
+                                  ...paperworkConfigurationSchema.parse(
+                                    draft.paperwork,
+                                  ),
+                                  inPerson: event.target.checked,
+                                },
+                              })
+                            }
+                          />
+                          Allow completion on a staff device
+                        </label>
+                        {draft.paperwork.audience === "customer" && (
+                          <>
+                            <label className="paperwork-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={draft.paperwork.portal}
+                                onChange={(event) =>
+                                  setDraft({
+                                    ...draft,
+                                    paperwork: {
+                                      ...paperworkConfigurationSchema.parse(
+                                        draft.paperwork,
+                                      ),
+                                      portal: event.target.checked,
+                                    },
+                                  })
+                                }
+                              />
+                              Allow sending to customer portal
+                            </label>
+                            {draft.paperwork.portal && (
+                              <label className="paperwork-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={draft.paperwork.email}
+                                  onChange={(event) =>
+                                    setDraft({
+                                      ...draft,
+                                      paperwork: {
+                                        ...paperworkConfigurationSchema.parse(
+                                          draft.paperwork,
+                                        ),
+                                        email: event.target.checked,
+                                      },
+                                    })
+                                  }
+                                />
+                                Allow email notifications
+                              </label>
+                            )}
+                          </>
+                        )}
+                        <p className="muted-note">
+                          These options control this template only. They do not
+                          block quote acceptance or project creation.
+                        </p>
+                      </>
+                    )}
+                  </fieldset>
                   {draft.sourceType === "servicebuddy_document" &&
                     draft.content &&
                     "title" in draft.content && (
@@ -524,7 +728,7 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                               setDraft({
                                 ...draft,
                                 content: {
-                                  ...draft.content as DocumentContent,
+                                  ...(draft.content as DocumentContent),
                                   title: event.target.value,
                                 },
                               })
@@ -541,14 +745,18 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                               setDraft({
                                 ...draft,
                                 content: {
-                                  title: draft.content && "title" in draft.content
-                                    ? draft.content.title
-                                    : draft.name,
+                                  title:
+                                    draft.content && "title" in draft.content
+                                      ? draft.content.title
+                                      : draft.name,
                                   blocks: [
                                     {
-                                      id: draft.content && "blocks" in draft.content && draft.content.blocks[0]?.id
-                                        ? draft.content.blocks[0].id
-                                        : createId("block"),
+                                      id:
+                                        draft.content &&
+                                        "blocks" in draft.content &&
+                                        draft.content.blocks[0]?.id
+                                          ? draft.content.blocks[0].id
+                                          : createId("block"),
                                       type: "paragraph",
                                       text: event.target.value,
                                     },
@@ -604,7 +812,8 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                           value={signer.partyType}
                           onChange={(event) =>
                             updateSigner(index, {
-                              partyType: event.target.value as AgreementSignerRole["partyType"],
+                              partyType: event.target
+                                .value as AgreementSignerRole["partyType"],
                             })
                           }
                         >
@@ -619,7 +828,9 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                           max={50}
                           value={signer.order}
                           onChange={(event) =>
-                            updateSigner(index, { order: Number(event.target.value) })
+                            updateSigner(index, {
+                              order: Number(event.target.value),
+                            })
                           }
                         />
                         <button
@@ -662,11 +873,26 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                                 required: false,
                                 bindingKey: null,
                                 signerRoleId: null,
-                                page: draft.sourceType === "uploaded_pdf" ? 1 : null,
-                                x: draft.sourceType === "uploaded_pdf" ? 0.1 : null,
-                                y: draft.sourceType === "uploaded_pdf" ? 0.1 : null,
-                                width: draft.sourceType === "uploaded_pdf" ? 0.3 : null,
-                                height: draft.sourceType === "uploaded_pdf" ? 0.05 : null,
+                                page:
+                                  draft.sourceType === "uploaded_pdf"
+                                    ? 1
+                                    : null,
+                                x:
+                                  draft.sourceType === "uploaded_pdf"
+                                    ? 0.1
+                                    : null,
+                                y:
+                                  draft.sourceType === "uploaded_pdf"
+                                    ? 0.1
+                                    : null,
+                                width:
+                                  draft.sourceType === "uploaded_pdf"
+                                    ? 0.3
+                                    : null,
+                                height:
+                                  draft.sourceType === "uploaded_pdf"
+                                    ? 0.05
+                                    : null,
                                 placeholder: null,
                               },
                             ],
@@ -690,11 +916,14 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                           value={field.type}
                           onChange={(event) =>
                             updateField(index, {
-                              type: event.target.value as AgreementField["type"],
+                              type: event.target
+                                .value as AgreementField["type"],
                               signerRoleId: ["signature", "initials"].includes(
                                 event.target.value,
                               )
-                                ? field.signerRoleId || draft.signerRoles[0]?.id || null
+                                ? field.signerRoleId ||
+                                  draft.signerRoles[0]?.id ||
+                                  null
                                 : field.signerRoleId,
                             })
                           }
@@ -721,16 +950,33 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                             </option>
                           ))}
                         </select>
-                        <input
-                          aria-label={`${field.label} data binding`}
+                        <select
+                          aria-label={`${field.label} data source`}
                           value={field.bindingKey || ""}
-                          placeholder="contact.name"
                           onChange={(event) =>
                             updateField(index, {
                               bindingKey: event.target.value || null,
+                              signerRoleId: event.target.value
+                                ? null
+                                : field.signerRoleId,
                             })
                           }
-                        />
+                        >
+                          <option value="">Entered on this document</option>
+                          {paperworkVariables.map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label}
+                            </option>
+                          ))}
+                          {field.bindingKey &&
+                            !paperworkVariables.some(
+                              ([key]) => key === field.bindingKey,
+                            ) && (
+                              <option value={field.bindingKey}>
+                                {field.bindingKey} (existing binding)
+                              </option>
+                            )}
+                        </select>
                         {draft.sourceType === "uploaded_pdf" && (
                           <div className="agreement-position-inputs">
                             <input
@@ -741,26 +987,32 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                               max={draft.pageCount || 500}
                               value={field.page || 1}
                               onChange={(event) =>
-                                updateField(index, { page: Number(event.target.value) })
+                                updateField(index, {
+                                  page: Number(event.target.value),
+                                })
                               }
                             />
-                            {(["x", "y", "width", "height"] as const).map((key) => (
-                              <input
-                                key={key}
-                                aria-label={`${field.label} ${key} percent`}
-                                title={`${key} %`}
-                                type="number"
-                                min={0}
-                                max={100}
-                                step={0.1}
-                                value={Math.round((field[key] || 0) * 1000) / 10}
-                                onChange={(event) =>
-                                  updateField(index, {
-                                    [key]: Number(event.target.value) / 100,
-                                  })
-                                }
-                              />
-                            ))}
+                            {(["x", "y", "width", "height"] as const).map(
+                              (key) => (
+                                <input
+                                  key={key}
+                                  aria-label={`${field.label} ${key} percent`}
+                                  title={`${key} %`}
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step={0.1}
+                                  value={
+                                    Math.round((field[key] || 0) * 1000) / 10
+                                  }
+                                  onChange={(event) =>
+                                    updateField(index, {
+                                      [key]: Number(event.target.value) / 100,
+                                    })
+                                  }
+                                />
+                              ),
+                            )}
                           </div>
                         )}
                         <button
@@ -786,13 +1038,15 @@ export default function AgreementTemplatesSettings({ demo }: { demo: boolean }) 
                         bindings such as contact.name can fill automatically.
                       </p>
                     )}
-                    {draft.sourceType === "uploaded_pdf" && draft.fields.length > 0 && (
-                      <p className="generation-note">
-                        PDF positions use page number and X, Y, width, and height as
-                        percentages of the page. A visual drag editor can use these
-                        same coordinates without changing the template format.
-                      </p>
-                    )}
+                    {draft.sourceType === "uploaded_pdf" &&
+                      draft.fields.length > 0 && (
+                        <p className="generation-note">
+                          PDF positions use page number and X, Y, width, and
+                          height as percentages of the page. A visual drag
+                          editor can use these same coordinates without changing
+                          the template format.
+                        </p>
+                      )}
                   </div>
 
                   <div className="agreement-editor-actions">

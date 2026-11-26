@@ -37,6 +37,7 @@ export default function CustomerAcceptance({
   locale,
   timeZone,
   onsite = false,
+  onSigned,
 }: {
   token: string;
   clientName: string;
@@ -48,6 +49,7 @@ export default function CustomerAcceptance({
   locale: string;
   timeZone: string;
   onsite?: boolean;
+  onSigned?: () => Promise<void>;
 }) {
   const router = useRouter();
   const [signature, setSignature] = useState<SignatureFieldValue>({
@@ -89,7 +91,8 @@ export default function CustomerAcceptance({
           result.error || "Could not save your signature. Please try again.",
         );
       }
-      if (result.nextStep === "msa")
+      if (onSigned) await onSigned();
+      else if (result.nextStep === "msa")
         router.replace(
           `/client/${encodeURIComponent(token)}/quote?view=msa${onsite ? "&onsite=1" : ""}`,
         );

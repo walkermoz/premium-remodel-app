@@ -6,6 +6,7 @@ import type {
   AgreementField,
 } from "@/lib/agreement-template-schema";
 import { readAgreementSigningSession } from "@/lib/agreement-packets";
+import { ThemeToggle } from "@/components/theme-controls";
 import AgreementSigningForm from "./agreement-signing-form";
 import styles from "./page.module.css";
 
@@ -13,13 +14,21 @@ export const dynamic = "force-dynamic";
 
 export default async function AgreementSigningPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }) {
   const { token } = await params;
   const session = await readAgreementSigningSession(token).catch(() => null);
   if (!session) notFound();
   const onsite = session.deliveryMode === "onsite";
+  const returnTo = (await searchParams).returnTo;
+  const portalReturn =
+    returnTo &&
+    /^\/client\/[a-zA-Z0-9._-]+\/quote\?view=paperwork$/.test(returnTo)
+      ? returnTo
+      : null;
   const template = session.template as {
     name: string;
     description: string;
@@ -46,22 +55,25 @@ export default async function AgreementSigningPage({
   const signingState = complete ? (
     <>
       <section className={styles.complete}>
-        <h2>Signature saved</h2>
+        <h2>
+          {session.requiresSignature ? "Signature saved" : "Form submitted"}
+        </h2>
         <p>
           {session.status === "completed"
-            ? "All required signers have completed this agreement."
-            : "Your signature is complete. The agreement is waiting for the next signer."}
+            ? "This document is complete."
+            : "Your part is complete. Waiting for another recipient."}
         </p>
         {session.status === "completed" && (
           <a
-            className={styles.download}
+            className={`button primary ${styles.download}`}
             href={`/api/agreement-sign/${encodeURIComponent(token)}/document?download=1`}
           >
-            Download signed agreement
+            Download completed document
           </a>
         )}
       </section>
       {session.status === "completed" &&
+        !session.template.paperworkManaged &&
         session.business.paymentInstructions.checkPayee && (
           <section className={styles.paymentInstructions}>
             <h2>Pay by check</h2>
@@ -81,9 +93,15 @@ export default async function AgreementSigningPage({
     </>
   ) : session.blocked ? (
     <section className={styles.complete}>
-      <h2>Waiting for an earlier signer</h2>
+      <h2>
+        {session.requiresSignature
+          ? "Waiting for an earlier signer"
+          : "Waiting for another recipient"}
+      </h2>
       <p>
-        This signing link will become active after the prior signer finishes.
+        {session.requiresSignature
+          ? "This signing link will become active after the prior signer finishes."
+          : "This form will become available after the previous recipient finishes."}
       </p>
     </section>
   ) : (
@@ -92,6 +110,7 @@ export default async function AgreementSigningPage({
       signerName={session.signer.name}
       fields={assignedFields}
       onsite={onsite}
+      requiresSignature={session.requiresSignature}
     />
   );
 
@@ -109,10 +128,10 @@ export default async function AgreementSigningPage({
           )}
           {onsite && (
             <span className={styles.onsiteTitle}>
-              <strong>On-device signing</strong>
-              <small>
-                {session.business.name} · Protected customer handoff
-              </small>
+              <strong>
+                {session.requiresSignature ? "Review & sign" : "Complete form"}
+              </strong>
+              <small>{template.name}</small>
             </span>
           )}
         </div>
@@ -121,14 +140,39 @@ export default async function AgreementSigningPage({
             <span className={styles.handoffBadge}>
               <ShieldCheck size={15} /> Staff workspace hidden
             </span>
-            <Link href="/?view=Quotes">
-              <X size={16} /> Exit customer signing
+            <ThemeToggle />
+            <Link
+              className="button secondary"
+              aria-label={
+                session.requiresSignature
+                  ? "Exit customer signing"
+                  : "Exit form"
+              }
+              href={
+                session.quoteId
+                  ? `/?view=Quotes&project=${session.quoteId}&tab=paperwork`
+                  : "/?view=Quotes"
+              }
+            >
+              <X size={16} />
+              <span className={styles.exitLabel}>
+                {session.requiresSignature
+                  ? "Exit customer signing"
+                  : "Exit form"}
+              </span>
             </Link>
           </div>
         ) : (
-          <span>Secure agreement</span>
+          <span>
+            {session.requiresSignature ? "Secure agreement" : "Secure form"}
+          </span>
         )}
       </header>
+      {!onsite && portalReturn && (
+        <Link className={styles.download} href={portalReturn}>
+          Back to your paperwork
+        </Link>
+      )}
       <div className={onsite ? styles.onsiteBody : undefined}>
         <article className={styles.document}>
           <div className={styles.heading}>
@@ -136,8 +180,11 @@ export default async function AgreementSigningPage({
             <h1>{template.name}</h1>
             {template.description && <p>{template.description}</p>}
             {!onsite && !complete && !session.blocked && (
-              <a className={styles.nextRequired} href="#required-signing">
-                Next required step
+              <a
+                className={`button primary ${styles.nextRequired}`}
+                href="#required-signing"
+              >
+                Complete this document
               </a>
             )}
           </div>
@@ -162,7 +209,11 @@ export default async function AgreementSigningPage({
           ) : null}
           {boundFields.length > 0 && (
             <section className={styles.boundFields}>
-              <h2>Agreement details</h2>
+              <h2>
+                {session.requiresSignature
+                  ? "Agreement details"
+                  : "Form details"}
+              </h2>
               <dl>
                 {boundFields.map((field) => (
                   <div key={field.id}>
@@ -179,12 +230,23 @@ export default async function AgreementSigningPage({
               </dl>
             </section>
           )}
-          <ol className={styles.progress} aria-label="Signing order">
+          <ol
+            className={styles.progress}
+            aria-label={
+              session.requiresSignature ? "Signing order" : "Completion order"
+            }
+          >
             {session.signers.map((signer) => (
               <li key={`${signer.signingOrder}-${signer.roleLabel}`}>
                 <span>{signer.signingOrder}</span>
                 <strong>{signer.roleLabel}</strong>
-                <small>{signer.status}</small>
+                <small>
+                  {signer.status === "signed"
+                    ? session.requiresSignature
+                      ? "Signed"
+                      : "Completed"
+                    : signer.status}
+                </small>
               </li>
             ))}
           </ol>
@@ -192,23 +254,37 @@ export default async function AgreementSigningPage({
             <section
               id="required-signing"
               className={styles.requiredSigning}
-              aria-label="Required signing section"
+              aria-label={
+                session.requiresSignature
+                  ? "Required signing section"
+                  : "Required form section"
+              }
             >
               {signingState}
             </section>
           )}
         </article>
         {onsite && (
-          <aside className={styles.onsiteControls} aria-label="Signing panel">
+          <aside
+            className={styles.onsiteControls}
+            aria-label={
+              session.requiresSignature
+                ? "Signing panel"
+                : "Form completion panel"
+            }
+          >
             <header>
               <span>
-                SIGNER {signerIndex + 1} OF {session.signers.length}
+                {session.requiresSignature ? "SIGNER" : "RECIPIENT"}{" "}
+                {signerIndex + 1} OF {session.signers.length}
               </span>
               <h2>{session.signer.roleLabel}</h2>
               <p>
                 {complete
-                  ? "Signing complete"
-                  : "Review and sign this agreement"}
+                  ? "Your part is complete"
+                  : session.requiresSignature
+                    ? "Review and sign this document"
+                    : "Review and complete this form"}
               </p>
             </header>
             <div className={styles.onsiteProgress}>
@@ -225,8 +301,8 @@ export default async function AgreementSigningPage({
             </div>
             {signingState}
             <footer>
-              <ShieldCheck size={15} /> Signature evidence and this template
-              version are recorded with the agreement.
+              <ShieldCheck size={15} /> Your completion and this document
+              version are saved together.
             </footer>
           </aside>
         )}

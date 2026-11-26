@@ -9,7 +9,6 @@ import { getBusinessConfig } from "./business-config";
 import { getBusinessLogoBytes } from "./business-logo";
 import type { BusinessConfig } from "./business-config-schema";
 import { renderQuoteEmail } from "./email-template";
-import { preparedMsaMatchesQuote } from "./msa-quote-match";
 import { createClientEmailToken } from "./client-portal";
 import { ensureEmailedQuoteLink } from "./client-quote-link";
 import {
@@ -164,14 +163,6 @@ export async function sendQuoteEmail(
     getWorkspace(user),
     getBusinessConfig(user),
   ]);
-  if (
-    business.features.agreements &&
-    !preparedMsaMatchesQuote(quote, workspace.scope)
-  )
-    throw new HttpError(
-      409,
-      "Sign and prepare an MSA matching this quote before emailing it.",
-    );
   // Check the connection before reserving a send ID so a missing connection
   // never leaves an ambiguous pending delivery record.
   const accessToken = await gmailAccessToken(user, fetcher);
